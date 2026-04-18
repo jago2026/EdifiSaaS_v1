@@ -544,7 +544,6 @@ export async function POST(request: Request) {
     const syncMessage = `Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}, Alicuotas: ${allAlicuotas.length}, Pagos: ${pagosDetectados.length}`;
     const { data: syncData, error: syncError } = await supabase.from("sincronizaciones").insert({
       edificio_id: building.id,
-      tipo: "sync",
       estado: "completado",
       movimientos_nuevos: allRecibos.length + allEgresos.length + allGastos.length,
       error: syncMessage
