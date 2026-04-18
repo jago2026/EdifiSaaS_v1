@@ -1,0 +1,320 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
+
+const SMTP_HOST = "smtp.gmail.com";
+const SMTP_PORT = 587;
+const SMTP_USER = "controlfinancierosaas@gmail.com";
+const SMTP_PASS = "bjedepzgbococwsl";
+
+const BASE_URL = "https://edifi-saa-s-v1.vercel.app";
+
+const transporter = nodemailer.createTransport({
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: false,
+  auth: { user: SMTP_USER, pass: SMTP_PASS },
+});
+
+function formatNumber(num: number, decimals: number = 2): string {
+  return num.toLocaleString("es-VE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function formatBs(amount: number): string {
+  return formatNumber(amount) + " Bs";
+}
+
+function formatUsd(amount: number): string {
+  return formatNumber(amount) + " USD";
+}
+
+function getDiaSemana(fecha: string): string {
+  const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  return dias[new Date(fecha).getDay()];
+}
+
+async function getTasaBCV(): Promise<number> {
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  try {
+    const { data } = await supabase
+      .from("tasas_cambio")
+      .select("tasa_dolar")
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .single();
+    return data?.tasa_dolar || 45.50;
+  } catch { return 45.50; }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { edificioId, testMode } = body;
+    const tasa = await getTasaBCV();
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: edificio } = await supabase.from("edificios").select("id, nombre").eq("id", edificioId).single();
+    if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
+
+    const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
+    const toEmails = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    if (toEmails.length === 0) return NextResponse.json({ error: "No hay emails en la junta" }, { status: 400 });
+
+    const today = new Date().toISOString().split("T")[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const todayDate = new Date();
+
+    // Get balance
+    const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1);
+    const bal = balance?.[0];
+
+    // Historical balances
+    const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(4);
+
+    // Recibos with debt
+    const { data: recibos } = await supabase.from("recibos").select("unidad, propietario, num_recibos, deuda").eq("edificio_id", edificioId).gt("deuda", 0);
+    const totalDeuda = (recibos || []).reduce((sum, r) => sum + r.deuda, 0);
+    const unidadesConDeuda = recibos?.length || 0;
+
+    // Today's movements
+    const { data: movimientosDia } = await supabase.from("movimientos_dia").select("tipo, descripcion, monto, fuente").eq("edificio_id", edificioId).eq("detectado_en", today);
+    const pagosHoy = movimientosDia?.filter(m => m.tipo === "recibo") || [];
+    const cobrosHoy = pagosHoy.length;
+    const montoCobradoHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
+
+    // Egresos
+    const { data: newestEgresos } = await supabase.from("egresos").select("fecha, beneficiario, descripcion, monto").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(10);
+
+    // 7-day history
+    const { data: movs7days } = await supabase.from("movimientos_dia").select("detectado_en, tipo, monto").eq("edificio_id", edificioId).gte("detectado_en", yesterday).order("detectado_en", { ascending: false });
+
+    const fechaStr = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const fechaCompleta = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+    const horaEnvio = todayDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" });
+
+    const resultadoMes = Number(bal?.cobranza_mes || 0) - Number(bal?.gastos_facturados || 0);
+    const resultadoMesUSD = resultadoMes / tasa;
+    const disponibilidadTotal = Number(bal?.saldo_disponible || 0) + Number(bal?.fondo_reserva || 0);
+    const disponibilidadTotalUSD = disponibilidadTotal / tasa;
+    const saldoAnterior = Number(bal?.saldo_anterior || 0);
+    const saldoDisponible = Number(bal?.saldo_disponible || 0);
+
+    const ajustesDelDia = 0;
+    const resultadoDelDia = Number(bal?.cobranza_mes || 0) - Number(bal?.gastos_facturados || 0) + ajustesDelDia;
+    const resultadoDelDiaUSD = resultadoDelDia / tasa;
+
+    // Calculate 7-day movements
+    let saldoCalculado = saldoAnterior;
+    const movs7daysList = movs7days || [];
+    const ultimos7dias: any[] = [];
+    for (let i = movs7daysList.length - 1; i >= 0; i--) {
+      const m = movs7daysList[i];
+      const movTipo = m.tipo === "recibo" ? m.monto : -m.monto;
+      saldoCalculado += movTipo;
+      ultimos7dias.unshift({
+        fecha: m.detectado_en,
+        dia: getDiaSemana(m.detectado_en),
+        ing: m.tipo === "recibo" ? m.monto : 0,
+        eg: m.tipo === "recibo" ? 0 : m.monto,
+        saldo: saldoCalculado,
+        saldoUsd: saldoCalculado / tasa
+      });
+    }
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; line-height: 1.4; margin: 0; padding: 0; background: #f5f5f5; }
+    .container { max-width: 800px; margin: 0 auto; background: white; }
+    .header { background: #1a73e8; color: white; padding: 20px; text-align: center; }
+    .header h1 { margin: 0; font-size: 22px; }
+    .header p { margin: 5px 0 0; opacity: 0.9; font-size: 13px; }
+    .content { padding: 15px; }
+    .section-title { font-weight: bold; font-size: 14px; text-align: center; padding: 10px; margin: 15px 0 10px; border-radius: 4px; color: white; }
+    .estado { background: #34a853; }
+    .cobrar { background: #ea4335; }
+    .fondos { background: #4285f4; }
+    .movimientos { background: #f9ab00; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+    th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #eee; font-size: 11px; }
+    th { background: #f8f9fa; }
+    .metric-table td { padding: 4px 8px; }
+    .metric-label { font-size: 11px; color: #5f6368; text-align: left; }
+    .metric-value { font-size: 11px; font-weight: bold; text-align: right; }
+    .highlight-box { background: #e8f0fe; border-left: 4px solid #1a73e8; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .highlight-value { font-size: 16px; font-weight: bold; color: #1a73e8; text-align: center; }
+    .highlight-subvalue { font-size: 12px; color: #5f6368; text-align: center; }
+    .positive { color: #34a853; }
+    .negative { color: #ea4335; }
+    .footer { text-align: center; padding: 15px; font-size: 11px; color: #666; background: #f8f9fa; border-top: 1px solid #eee; }
+    .two-col { width: 100%; border-collapse: collapse; }
+    .two-col td { width: 50%; vertical-align: top; padding: 0 5px; }
+    .btn { display: inline-block; padding: 10px 20px; background: #1a73e8; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px; }
+    .resaltado { background: #fff3cd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🏡 CONTROL FINANCIERO CONDOMINIO ${edificio.nombre.toUpperCase()}</h1>
+      <p>Actualizado: ${fechaCompleta} | Tasa: ${formatNumber(tasa)} Bs/USD</p>
+    </div>
+    
+    <div class="content">
+      <!-- ESTADO FINANCIERO -->
+      <div class="section-title estado">💰 ESTADO FINANCIERO ACTUAL</div>
+      <table class="two-col">
+        <tr>
+          <td>
+            <table class="metric-table">
+              <tr><td class="metric-label">Saldo Anterior:</td><td class="metric-value">${formatBs(saldoAnterior)}</td></tr>
+            </table>
+            <div class="highlight-box">
+              <div class="highlight-value">${formatBs(saldoDisponible)}</div>
+              <div class="highlight-subvalue">${formatUsd(saldoDisponible / tasa)} USD</div>
+            </div>
+            <div style="text-align: center; font-size: 12px; font-weight: bold; background: #e8f0fe; color: #1a73e8; padding: 8px; border-radius: 4px; margin-bottom: 8px;">Saldo Disponible Operativo del Día</div>
+            <table class="metric-table">
+              <tr><td class="metric-label">Ingresos:</td><td class="metric-value positive">${formatBs(bal?.cobranza_mes || 0)}</td></tr>
+              <tr><td class="metric-label">Egresos:</td><td class="metric-value negative">${formatBs(bal?.gastos_facturados || 0)}</td></tr>
+              <tr><td class="metric-label">Ajustes:</td><td class="metric-value">${formatBs(ajustesDelDia)}</td></tr>
+              <tr><td class="metric-label">Resultado:</td><td class="metric-value ${resultadoDelDia >= 0 ? 'positive' : 'negative'}">${formatBs(resultadoDelDia)} (${formatUsd(resultadoDelDiaUSD)})</td></tr>
+            </table>
+          </td>
+          <td>
+            <table class="metric-table">
+              <tr><td class="metric-label">Fondo Reserva:</td><td class="metric-value">${formatBs(bal?.fondo_reserva || 0)}</td></tr>
+              <tr><td class="metric-label">Fondo Dif. Camb.:</td><td class="metric-value">${formatBs(bal?.fondo_diferencial_cambiario || 0)}</td></tr>
+              <tr><td class="metric-label">Fondo Int. Moratorios:</td><td class="metric-value">${formatBs(bal?.fondo_intereses || 0)}</td></tr>
+              <tr><td class="metric-label" style="font-weight: bold;">Total Fondos:</td><td class="metric-value" style="color: #1a73e8; font-weight: bold;">${formatBs(bal?.fondo_reserva || 0)}</td></tr>
+            </table>
+            <div class="highlight-box" style="background: #d9ead3; border-left-color: #0b5394;">
+              <div class="highlight-value" style="color: #0b5394;">${formatBs(disponibilidadTotal)}</div>
+              <div class="highlight-subvalue">${formatUsd(disponibilidadTotalUSD)} USD</div>
+            </div>
+            <div style="text-align: center; font-size: 11px; color: #5f6368;">Disponibilidad Total General</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- RESUMEN MENSUAL -->
+      <div class="section-title estado">** RESUMEN MENSUAL (Ingresos / Egresos / Gastos) **</div>
+      <table>
+        <thead>
+          <tr style="background: #8e44ad;"><th>Mes</th><th style="text-align:right;">Ingresos</th><th style="text-align:right;">Egresos</th><th style="text-align:right;">Gastos</th><th style="text-align:right;">Neto</th></tr>
+        </thead>
+        <tbody>
+          ${(balancesHist || []).map((b: any, i: number) => {
+            const neto = Number(b.cobranza_mes) - Number(b.gastos_facturados);
+            return `<tr style="${i === 0 ? 'background:#eef7ff;font-weight:bold;': ''}">
+              <td>${b.mes || ''}</td>
+              <td style="text-align:right;">${formatBs(Number(b.cobranza_mes))}</td>
+              <td style="text-align:right;">${formatBs(Number(b.gastos_facturados))}</td>
+              <td style="text-align:right;">-</td>
+              <td style="text-align:right; color:${neto >= 0 ? '#34a853':'#ea4335'}">${formatBs(neto)}</td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
+
+      <!-- CUENTAS POR COBRAR -->
+      <div class="section-title cobrar">🟡 CUENTAS POR COBRAR</div>
+      <table class="two-col">
+        <tr>
+          <td>
+            <table class="metric-table">
+              <tr><td class="metric-label">Recibos Pendientes:</td><td class="metric-value ${unidadesConDeuda > 25 ? 'negative' : 'positive'}">${unidadesConDeuda} unidades</td></tr>
+            </table>
+            <div style="text-align: center; font-size: 10px; color: #5f6368;">(${(unidadesConDeuda/43*100).toFixed(1)}% de 43 unidades totales)</div>
+          </td>
+          <td>
+            <table class="metric-table">
+              <tr><td class="metric-label">Monto Por Cobrar:</td><td class="metric-value negative">${formatBs(totalDeuda)}</td></tr>
+            </table>
+            <div style="text-align: center; font-size: 10px; color: #5f6368;">${formatUsd(totalDeuda/tasa)} USD</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- RESUMEN DE COBROS DEL DÍA -->
+      <div class="section-title fondos">📊 RESUMEN DE COBROS DEL DÍA</div>
+      <table class="two-col">
+        <tr>
+          <td>
+            <table class="metric-table">
+              <tr><td class="metric-label">Apartamentos Pagaron:</td><td class="metric-value positive">${cobrosHoy} unidades</td></tr>
+            </table>
+            <div style="text-align: center; font-size: 10px; color: #5f6368;">hoy</div>
+          </td>
+          <td>
+            <table class="metric-table">
+              <tr><td class="metric-label">Monto Cobrado Hoy:</td><td class="metric-value positive">${formatBs(montoCobradoHoy)}</td></tr>
+            </table>
+            <div style="text-align: center; font-size: 10px; color: #5f6368;">${formatUsd(montoCobradoHoy/tasa)} USD</div>
+          </td>
+        </tr>
+      </table>
+
+      <!-- ÚLTIMOS MOVIMIENTOS 7 DÍAS -->
+      <div class="section-title movimientos">📈 ÚLTIMOS MOVIMIENTOS OPERATIVOS (7 DÍAS)</div>
+      <table>
+        <thead>
+          <tr style="background:#f9ab00;"><th>Fecha</th><th>DÍA</th><th style="text-align:right;">SALDO ANT.</th><th style="text-align:right;">INGRESOS</th><th style="text-align:right;">EGRESOS</th><th style="text-align:right;">SALDO ACT.</th><th style="text-align:right;">USD</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>${today}</td><td>${getDiaSemana(today)}</td><td style="text-align:right;">${formatBs(saldoAnterior)}</td><td style="text-align:right;">${formatBs(Number(bal?.cobranza_mes))}</td><td style="text-align:right;">${formatBs(Number(bal?.gastos_facturados))}</td><td style="text-align:right;">${formatBs(saldoDisponible)}</td><td style="text-align:right;">${formatUsd(saldoDisponible/tasa)}</td></tr>
+          ${ultimos7dias.slice(0, 6).map((d) => `
+            <tr><td>${d.fecha}</td><td>${d.dia}</td><td style="text-align:right;">-</td><td style="text-align:right;">${formatBs(d.ing)}</td><td style="text-align:right;">${formatBs(d.eg)}</td><td style="text-align:right;">${formatBs(d.saldo)}</td><td style="text-align:right;">${formatUsd(d.saldoUsd)}</td></tr>
+          `).join("")}
+        </tbody>
+      </table>
+
+      <!-- LINK AL DASHBOARD -->
+      <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #1a73e8; text-align: center;">
+        <div style="font-size: 11px; color: #5f6368; margin-bottom: 10px;">
+          <strong>📊 Para consultar en detalles los movimientos obtenidos de la página web de la administradora:</strong>
+        </div>
+        <a href="${BASE_URL}/login" style="display:inline-block;padding:12px 24px;background:#1a73e8;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">Ver Control Financiero</a>
+      </div>
+
+    </div>
+    <div class="footer">
+      <p>📧 <strong>Resumen Generado Automáticamente</strong> - Sistema de Control Financiero Condominio</p>
+      <p>🕐 Enviado el ${fechaCompleta} a las ${horaEnvio}</p>
+      
+      <!-- DETALLES DEL DÍA -->
+      <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
+        <h3 style="color: #333; font-size: 14px; margin-bottom: 10px;">📋 Detalles de Transacciones del Día</h3>
+        
+        <h4 style="color:#34a853; font-size: 12px; margin: 15px 0 8px;">💰 Recibos de Condominio Pagados (Ingresos)</h4>
+        ${cobrosHoy > 0 ? `<table><thead><tr style="background:#e8f5e8;"><th>Apartamento</th><th>Descripción</th><th style="text-align:right;">Monto (USD)</th><th style="text-align:right;">Monto (Bs.)</th></tr></thead><tbody>${pagosHoy.map((p: any) => `<tr><td>${p.descripcion}</td><td>Recibo</td><td style="text-align:right;">${formatNumber(p.monto/tasa)}</td><td style="text-align:right;">${formatBs(p.monto)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No se registraron pagos hoy.</p>'}
+
+        <h4 style="color:#ea4335; font-size: 12px; margin: 15px 0 8px;">💸 Egresos Procesados Hoy</h4>
+        ${newestEgresos?.length ? `<table><thead><tr style="background:#ffe8e8;"><th>Beneficiario</th><th>Operación</th><th style="text-align:right;">Monto (Bs)</th><th style="text-align:right;">Monto (USD)</th></tr></thead><tbody>${newestEgresos.map((e: any) => `<tr><td>${e.beneficiario}</td><td>Egreso: ${e.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(e.monto)}</td><td style="text-align:right;">${formatUsd(e.monto/tasa)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay egresos hoy.</p>'}
+
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    const subject = `${testMode ? "[TEST] " : ""}Resumen Financiero Condominio - ${fechaStr}`;
+
+    await transporter.sendMail({
+      from: `"Sistema Junta de Condominio" <${SMTP_USER}>`,
+      to: toEmails.join(", "),
+      subject,
+      html,
+    });
+
+    return NextResponse.json({ success: true, message: testMode ? "Email de prueba enviado" : "Informe enviado a la junta", recipient: toEmails.join(", ") });
+  } catch (error: any) {
+    console.error("Email error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

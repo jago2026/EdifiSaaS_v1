@@ -1,87 +1,37 @@
-# Active Context: Next.js Starter Template
+# Active Context: CondominioSaaS - Condominium Finance Management
 
 ## Current State
 
-**Template Status**: ✅ Ready for development
+**Project Status**: In Development
 
-The template is a clean Next.js 16 starter with TypeScript and Tailwind CSS 4. It's ready for AI-assisted expansion to build any type of application.
+CondominioSaaS is a web application for managing condominium finances. Users can register buildings with admin credentials from RAScacielo-type systems, scrape financial data (receipts, expenses), and view synced data in a dashboard.
 
 ## Recently Completed
 
-- [x] Base Next.js 16 setup with App Router
-- [x] TypeScript configuration with strict mode
-- [x] Tailwind CSS 4 integration
-- [x] ESLint configuration
-- [x] Memory bank documentation
-- [x] Recipe system for common features
+- [x] Fix KPIs charts chronological order - added normalizeMonth() function to handle various month formats (1-2024, 01-2024, 2024-1)
+- [x] Sort balances chronologically using normalized date (YYYY-MM format)
+- [x] Format labels as 'Ene 2024', 'Feb 2024', etc.
+- [x] Add new financial KPIs: total debt, units count, average alicuota
+- [x] Updated charts with better formatting (Y-axis with M/K suffixes)
+- [x] Added Egresos por Mes chart
+- [x] Improved Fondo de Reserva chart
+- [x] Added indicator cards: Deuda Total, Total Unidades, Alicuota Promedio
 
-## Current Structure
+## Currently Working On
 
-| File/Directory | Purpose | Status |
-|----------------|---------|--------|
-| `src/app/page.tsx` | Home page | ✅ Ready |
-| `src/app/layout.tsx` | Root layout | ✅ Ready |
-| `src/app/globals.css` | Global styles | ✅ Ready |
-| `.kilocode/` | AI context & recipes | ✅ Ready |
+KPIs tab shows financial charts for the condominium. Fixed the chronological sorting issue where months were out of order.
 
-## Current Focus
+## Next Steps (for next session)
 
-The template is ready. Next steps depend on user requirements:
-
-1. What type of application to build
-2. What features are needed
-3. Design/branding preferences
-
-## Quick Start Guide
-
-### To add a new page:
-
-Create a file at `src/app/[route]/page.tsx`:
-```tsx
-export default function NewPage() {
-  return <div>New page content</div>;
-}
-```
-
-### To add components:
-
-Create `src/components/` directory and add components:
-```tsx
-// src/components/ui/Button.tsx
-export function Button({ children }: { children: React.ReactNode }) {
-  return <button className="px-4 py-2 bg-blue-600 text-white rounded">{children}</button>;
-}
-```
-
-### To add a database:
-
-Follow `.kilocode/recipes/add-database.md`
-
-### To add API routes:
-
-Create `src/app/api/[route]/route.ts`:
-```tsx
-import { NextResponse } from "next/server";
-
-export async function GET() {
-  return NextResponse.json({ message: "Hello" });
-}
-```
-
-## Available Recipes
-
-| Recipe | File | Use Case |
-|--------|------|----------|
-| Add Database | `.kilocode/recipes/add-database.md` | Data persistence with Drizzle + SQLite |
-
-## Pending Improvements
-
-- [ ] Add more recipes (auth, email, etc.)
-- [ ] Add example components
-- [ ] Add testing setup recipe
+1. Add more chart options (pie chart for expense categories)
+2. Export to Excel/PDF functionality
+3. Add email notifications for alerts
 
 ## Session History
 
 | Date | Changes |
 |------|---------|
-| Initial | Template created with base setup |
+| 2026-04-13 | Fixed KPIs charts - normalizeMonth() for chronological sorting, added new financial charts |
+| 2026-04-13 | Fixed build error - undefined totalInserted replaced with nuevosMovimientos in sync/route.ts |
+| 2026-04-13 | Debug balance sync - added r=2 HTML logging, force save even if zeros to debug parsing |
+| 2026-04-13 | Added more balance parsing debug (table counts), added UNIQUE constraint on balances(edificio_id, mes) |

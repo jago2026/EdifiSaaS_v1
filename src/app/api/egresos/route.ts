@@ -1,0 +1,76 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
+
+async function getTasaForFecha(fecha: string): Promise<number> {
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  
+  try {
+    const { data } = await supabase
+      .from("tasas_cambio")
+      .select("tasa_dolar")
+      .lte("fecha", fecha)
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .single();
+    
+    return data?.tasa_dolar || 45.50;
+  } catch {
+    return 45.50;
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const edificioId = searchParams.get("edificioId");
+    const mes = searchParams.get("mes");
+
+    if (!edificioId) {
+      return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let query = supabase
+      .from("egresos")
+      .select("id, fecha, beneficiario, descripcion, monto, hash")
+      .eq("edificio_id", edificioId)
+      .order("fecha", { ascending: false });
+
+    if (mes) {
+      query = query.like("fecha", `${mes}%`);
+    } else {
+      // Exclude total rows from default query - get real data only
+      query = query.not("hash", "eq", "TOTAL-EGRESOS").neq("fecha", "2099-12-31").limit(200);
+    }
+
+    const { data: egresos, error } = await query;
+
+    if (error) {
+      throw error;
+    }
+
+    const egresosConUSD = await Promise.all(
+      (egresos || []).map(async (egreso: any) => {
+        const tasa = await getTasaForFecha(egreso.fecha);
+        // Mark totals by checking for special hash or date
+        const isTotal = egreso.hash === "TOTAL-EGRESOS" || egreso.fecha === "2099-12-31";
+        return {
+          ...egreso,
+          monto_bs: egreso.monto,
+          monto_usd: Number(egreso.monto) / tasa,
+          tasa_bcv: tasa,
+          isTotal,
+        };
+      })
+    );
+
+    return NextResponse.json({ egresos: egresosConUSD });
+  } catch (error: any) {
+    console.error("Egresos error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
