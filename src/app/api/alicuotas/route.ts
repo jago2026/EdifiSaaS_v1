@@ -15,6 +15,13 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get building info to know expected number of units
+    const { data: building } = await supabase
+      .from("edificios")
+      .select("unidades")
+      .eq("id", edificioId)
+      .single();
+
     const { data: alicuotas, error } = await supabase
       .from("alicuotas")
       .select("id, unidad, propietario, alicuota, email1, email2, telefono1, telefono2, observaciones")
@@ -26,7 +33,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ alicuotas: [], count: 0, error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ alicuotas: alicuotas || [], count: alicuotas?.length || 0 });
+    // Calculate sum of alicuotas for validation
+    const alicuotaSum = (alicuotas || []).reduce((sum, a) => sum + (parseFloat(a.alicuota) || 0), 0);
+    const count = alicuotas?.length || 0;
+    
+    // Check validation (should be between 99.5% and 100%)
+    let validationWarning = null;
+    if (count > 0) {
+      if (alicuotaSum < 99.5 || alicuotaSum > 100) {
+        const expectedUnits = building?.unidades || count;
+        validationWarning = {
+          message: `La suma de alícuotas (${alicuotaSum.toFixed(2)}%) no está en el rango esperado (99.5%-100%). Verifica que la cantidad de inmuebles (${expectedUnits}) sea correcta.`,
+          sum: alicuotaSum,
+          expected: expectedUnits,
+          actual: count
+        };
+      }
+    }
+
+    return NextResponse.json({ 
+      alicuotas: alicuotas || [], 
+      count, 
+      alicuotaSum,
+      validationWarning
+    });
   } catch (error: any) {
     console.error("Alicuotas API error:", error);
     return NextResponse.json({ alicuotas: [], count: 0, error: error.message }, { status: 500 });

@@ -390,7 +390,7 @@ export async function POST(request: Request) {
       await supabase.from("recibos").insert(allRecibos.map(r => ({ edificio_id: building.id, unidad: r.unidad, propietario: r.propietario, num_recibos: r.num_recibos, deuda: r.deuda, deuda_usd: r.deuda_usd, sincronizado: true, actualizado_en: today })));
     }
     
-    // Guardar pagos detectados como movimientos tipo "pago"
+    // Guardar pagos detectados como movimientos tipo "pago" y en tabla pagos_recibos
     for (const pago of pagosDetectados) {
       const hash = await generateHash(`PAGO|${pago.unidad}|${pago.monto_pagado}|${today}`);
       await supabase.from("movimientos").upsert({
@@ -402,6 +402,17 @@ export async function POST(request: Request) {
         hash,
         sincronizado: true
       }, { onConflict: 'edificio_id,hash' });
+      
+      // Guardar en tabla pagos_recibos
+      await supabase.from("pagos_recibos").insert({
+        edificio_id: building.id,
+        unidad: pago.unidad,
+        propietario: pago.propietario,
+        mes: mesEstandar,
+        monto: pago.monto_pagado,
+        fecha_pago: today,
+        source: "web"
+      });
       
       if (mesEstandar === today.substring(0, 7)) {
         await supabase.from("movimientos_dia").insert({
@@ -489,6 +500,16 @@ export async function POST(request: Request) {
         console.log("[DEBUG] Balance guardado OK");
       }
     }
+
+    // Guardar registro de sincronización
+    const syncMessage = `Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}, Alicuotas: ${allAlicuotas.length}, Pagos: ${pagosDetectados.length}`;
+    await supabase.from("sincronizaciones").insert({
+      edificio_id: building.id,
+      tipo: "sync",
+      estado: "completado",
+      movimientos_nuevos: allRecibos.length + allEgresos.length + allGastos.length,
+      error: syncMessage
+    });
 
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } });
   } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }

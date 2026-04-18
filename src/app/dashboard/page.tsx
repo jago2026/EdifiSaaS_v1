@@ -165,6 +165,8 @@ export default function DashboardPage() {
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
   const [loadingAlicuotas, setLoadingAlicuotas] = useState(false);
   const [alicuotasCount, setAlicuotasCount] = useState(0);
+  const [alicuotaSum, setAlicuotaSum] = useState(0);
+  const [alicuotaWarning, setAlicuotaWarning] = useState<any>(null);
   const [kpisData, setKpisData] = useState<any>({ egresos: [], gastos: [], balances: [], movimientos: [] });
   const [loadingKpis, setLoadingKpis] = useState(false);
   const [junta, setJunta] = useState<any[]>([]);
@@ -516,6 +518,8 @@ export default function DashboardPage() {
       if (res.ok && data.alicuotas) {
         setAlicuotas(data.alicuotas);
         setAlicuotasCount(data.count);
+        setAlicuotaSum(data.alicuotaSum || 0);
+        setAlicuotaWarning(data.validationWarning || null);
       }
     } catch (error) {
       console.error("Error loading alicuotas:", error);
@@ -1672,6 +1676,19 @@ export default function DashboardPage() {
                       <td className="py-2 px-2" colSpan={2}>TOTAL UNIDADES</td>
                       <td className="py-2 px-2 text-right">{alicuotasCount}</td>
                       <td className="py-2 px-2" colSpan={5}></td>
+                    </tr>
+                    <tr className="bg-gray-50">
+                      <td className="py-2 px-2" colSpan={2}>SUMA ALÍCUOTAS</td>
+                      <td className={`py-2 px-2 text-right font-bold ${alicuotaSum >= 99.5 && alicuotaSum <= 100 ? "text-green-600" : "text-red-600"}`}>
+                        {alicuotaSum.toFixed(2)}%
+                      </td>
+                      <td className="py-2 px-2" colSpan={5}>
+                        {alicuotaWarning && (
+                          <span className="text-xs text-orange-600 ml-2">
+                            ⚠️ {alicuotaWarning.message}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   </tfoot>
                 </table>

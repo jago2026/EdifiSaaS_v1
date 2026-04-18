@@ -15,7 +15,6 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const edificioId = searchParams.get("edificioId");
-    const tipo = searchParams.get("tipo"); // optional filter
     const mes = searchParams.get("mes"); // optional month filter format: YYYY-MM
     const fecha = searchParams.get("fecha"); // optional specific date filter (YYYY-MM-DD)
 
@@ -24,96 +23,82 @@ export async function GET(request: Request) {
     }
 
     const currentMes = mes || getCurrentMonth();
-    const mesFilter = `-${currentMes.split("-")[1]}-20`; // Format: -04-2026
-
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Build query for movimientos_dia
+    let query = supabase
+      .from("movimientos_dia")
+      .select("id, tipo, descripcion, monto, fecha, unidad_apartamento, propietario, fuente, detectado_en")
+      .eq("edificio_id", edificioId);
+
+    // Filter by month or specific date
+    if (fecha) {
+      query = query.eq("fecha", fecha);
+    } else if (mes) {
+      query = query.like("fecha", `${mes}%`);
+    }
+
+    const { data: movimientosDia, error: mdError } = await query
+      .order("fecha", { ascending: false })
+      .limit(100);
+
+    if (mdError) {
+      console.error("Error fetching movimientos_dia:", mdError);
+    }
+
+    // Also get pagos from pagos_recibos for current month
+    const { data: pagos } = await supabase
+      .from("pagos_recibos")
+      .select("id, unidad, propietario, monto, fecha_pago, mes")
+      .eq("edificio_id", edificioId)
+      .eq("mes", currentMes)
+      .order("fecha_pago", { ascending: false })
+      .limit(50);
+
     const allMovements: any[] = [];
 
-    // If filtering by specific date, use that; otherwise use current month
-    const dateFilter = fecha || new Date().toISOString().split('T')[0];
-
-    // Fetch recibos as "ingreso" type
-    const { data: recibos } = await supabase
-      .from("recibos")
-      .select("id, fecha, unidad, propietario, deuda, num_recibos")
-      .eq("edificio_id", edificioId)
-      .order("id", { ascending: false })
-      .limit(100);
-
-    if (recibos) {
-      for (const r of recibos) {
+    // Add pagos as "pago" type
+    if (pagos) {
+      for (const p of pagos) {
         allMovements.push({
-          id: r.id,
-          fecha: new Date().toISOString().split("T")[0], // Use current date as proxy
-          tipo: "recibo",
-          descripcion: `Recibo(s): ${r.num_recibos} - Deuda: Bs. ${Number(r.deuda || 0).toLocaleString("es-VE")}`,
-          monto: r.deuda || 0,
-          unidad: r.unidad,
-          propietario: r.propietario,
-          fuente: "recibos",
+          id: p.id,
+          fecha: p.fecha_pago,
+          tipo: "pago",
+          descripcion: `Pago - ${p.unidad} - ${p.propietario || ""}`,
+          monto: p.monto,
+          unidad: p.unidad,
+          propietario: p.propietario,
+          fuente: "pagos_recibos",
         });
       }
     }
 
-    // Fetch egresos - filter by date if provided
-    const { data: egresos } = await supabase
-      .from("egresos")
-      .select("id, fecha, beneficiario, descripcion, monto")
-      .eq("edificio_id", edificioId)
-      .eq("fecha", dateFilter)
-      .order("fecha", { ascending: false })
-      .limit(100);
-
-    if (egresos) {
-      for (const e of egresos) {
+    // Add movimientos_dia entries (egresos, gastos, etc.)
+    if (movimientosDia) {
+      for (const m of movimientosDia) {
         allMovements.push({
-          id: e.id,
-          fecha: e.fecha,
-          tipo: "egreso",
-          descripcion: `${e.beneficiario} - ${e.descripcion || ""}`,
-          monto: e.monto,
-          fuente: "egresos",
-        });
-      }
-    }
-
-    // Fetch gastos - filter by date if provided
-    const { data: gastos } = await supabase
-      .from("gastos")
-      .select("id, fecha, codigo, descripcion, monto")
-      .eq("edificio_id", edificioId)
-      .eq("fecha", dateFilter)
-      .order("fecha", { ascending: false })
-      .limit(100);
-
-    if (gastos) {
-      for (const g of gastos) {
-        allMovements.push({
-          id: g.id,
-          fecha: g.fecha,
-          tipo: "gasto",
-          descripcion: `${g.codigo} - ${g.descripcion}`,
-          monto: g.monto,
-          fuente: "gastos",
+          id: m.id,
+          fecha: m.fecha,
+          tipo: m.tipo,
+          descripcion: m.descripcion,
+          monto: m.monto,
+          unidad: m.unidad_apartamento,
+          propietario: m.propietario,
+          fuente: m.fuente,
         });
       }
     }
 
     // Sort by fecha descending
     allMovements.sort((a, b) => {
-      const dateA = new Date(a.fecha).getTime();
-      const dateB = new Date(b.fecha).getTime();
+      const dateA = new Date(a.fecha || "1970-01-01").getTime();
+      const dateB = new Date(b.fecha || "1970-01-01").getTime();
       return dateB - dateA;
     });
 
-    // Filter by tipo if provided
-    const filtered = tipo 
-      ? allMovements.filter(m => m.tipo === tipo)
-      : allMovements;
-
     return NextResponse.json({ 
-      movimientos: filtered.slice(0, 100),
-      total: filtered.length 
+      movimientos: allMovements.slice(0, 100),
+      total: allMovements.length 
     });
   } catch (error: any) {
     console.error("Movimientos error:", error);
