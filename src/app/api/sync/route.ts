@@ -94,11 +94,17 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 function parseRecibosTableAll(html: string): any[] {
   const results: any[] = [];
+  console.log("[DEBUG RECIBOS] HTML length:", html.length);
   // Localizar tabla según doc
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i) || 
                      html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
-  if (!tableMatch) return results;
+  if (!tableMatch) {
+    console.log("[DEBUG RECIBOS] No se encontró tabla");
+    return results;
+  }
+  console.log("[DEBUG RECIBOS] Tabla encontrada");
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  console.log("[DEBUG RECIBOS] Filas encontradas:", rows.length);
   let tUSD = 0, tBS = 0, tCount = 0;
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -107,9 +113,16 @@ function parseRecibosTableAll(html: string): any[] {
     const propietario = cleanHtml(cells[1]);
     const numRecibosCell = cleanHtml(cells[2]);
     const deudaCell = cleanHtml(cells[3]);
+    console.log(`[DEBUG RECIBOS] Fila: unidad="${unidad}", prop="${propietario}", recibos="${numRecibosCell}", deuda="${deudaCell}"`);
     // Skip total row - we'll create our own
-    if (propietario.includes("TOTALES")) continue;
-    if (!unidad || unidad.length > 15) continue;
+    if (propietario.includes("TOTALES")) {
+      console.log("[DEBUG RECIBOS] Saltando fila TOTALES");
+      continue;
+    }
+    if (!unidad || unidad.length > 15) {
+      console.log("[DEBUG RECIBOS] Saltando unidad inválida");
+      continue;
+    }
     
     // Extraer valor entre paréntesis para USD según doc
     const matchUSD = deudaCell.match(/\(([^\)]+)\)/);
@@ -119,7 +132,10 @@ function parseRecibosTableAll(html: string): any[] {
     const bsMatch = deudaCell.match(/\)\s*[&nbsp;]*\s*([\d.,]+)$/) || [null, deudaCell.split(" ").pop()];
     const mBS = parseMonto(bsMatch[1] || "");
     
-    if (mUSD === 0 && mBS === 0) continue;
+    if (mUSD === 0 && mBS === 0) {
+      console.log("[DEBUG RECIBOS] Saltando - montos en cero");
+      continue;
+    }
     
     tUSD += mUSD;
     tBS += mBS;
@@ -127,9 +143,11 @@ function parseRecibosTableAll(html: string): any[] {
     tCount += nRec;
     
     results.push({ unidad, propietario, num_recibos: nRec, deuda_usd: mUSD, deuda: mBS });
+    console.log(`[DEBUG RECIBOS] Agregado: ${unidad} - ${nRec} recibos - USD: ${mUSD} - BS: ${mBS}`);
   }
   // FILA TOTAL ÚNICA AL FINAL
   results.push({ unidad: "TOTAL", propietario: "TOTAL GENERAL", num_recibos: tCount, deuda_usd: tUSD, deuda: tBS, isTotal: true });
+  console.log("[DEBUG RECIBOS] Total final:", tCount, "recibos, USD:", tUSD, "BS:", tBS);
   return results;
 }
 
@@ -271,10 +289,14 @@ function parseAlicuotasTable(html: string): any[] {
 
 function parseBalanceFull(html: string): any {
   const balance: any = {};
+  console.log("[DEBUG BALANCE] HTML length:", html.length);
   const allTables = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/g) || [];
+  console.log("[DEBUG BALANCE] Tablas encontradas:", allTables.length);
   for (const t of allTables) {
     if (!t.includes("SALDO DE CAJA") && !t.includes("FONDO DE RESERVA")) continue;
+    console.log("[DEBUG BALANCE] Procesando tabla de balance");
     const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+    console.log("[DEBUG BALANCE] Filas en tabla:", rows.length);
     for (const row of rows) {
       const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
       if (!cells || cells.length < 2) continue;
@@ -284,6 +306,8 @@ function parseBalanceFull(html: string): any {
       const val = parseMonto(valCell1);
       const saldo = cells.length >= 3 ? parseMonto(cleanHtml(cells[2])) : 0;
       const hasSaldoValue = saldo !== 0 && (cells.length >= 3 && cleanHtml(cells[2]).replace(/[\s,.-]/g, '') !== '');
+      
+      console.log(`[DEBUG BALANCE] ${desc}: ${val}, saldo: ${saldo}`);
       
       if (desc.includes("SALDO DE CAJA MES ANTERIOR")) balance.saldo_anterior = val;
       else if (desc.includes("COBRANZA DEL MES")) balance.cobranza_mes = val;
@@ -327,11 +351,15 @@ export async function POST(request: Request) {
     ]);
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
+    console.log("[DEBUG] Recibos extraídos:", allRecibos.length);
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
+    console.log("[DEBUG] Egresos extraídos:", allEgresos.length);
     const allGastos = hGas ? parseGastosTable(hGas) : [];
-    console.log("[DEBUG SYNC] Gastos extraídos:", allGastos.length);
+    console.log("[DEBUG] Gastos extraídos:", allGastos.length);
     const balance = hBal ? parseBalanceFull(hBal) : null;
+    console.log("[DEBUG] Balance extraído:", balance);
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
+    console.log("[DEBUG] Alicuotas extraídas:", allAlicuotas.length);
 
     // --- GUARDADO ---
     if (allRecibos.length > 0) {
