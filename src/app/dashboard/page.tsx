@@ -2164,7 +2164,7 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución del Saldo Disponible (USD)</h2>
               {loadingKpis ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : kpisData.balances?.length > 0 ? (
+              ) : kpisData.balances?.length > 0 && kpisData.balances.some((b: any) => b.saldo_disponible_usd > 0 && b.saldo_disponible_usd < 1000000) ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -2176,7 +2176,7 @@ export default function DashboardPage() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-gray-500 text-center py-8">No hay datos suficientes. Sincroniza datos desde la pestaña Configuración.</p>
+                <p className="text-gray-500 text-center py-8">No hay datos de saldo disponible. Sincroniza el balance desde la pestaña Configuración.</p>
               )}
             </div>
 
@@ -2184,7 +2184,7 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobranza vs Gastos (USD)</h2>
               {loadingKpis ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : kpisData.balances?.length > 0 ? (
+              ) : kpisData.balances?.length > 0 && kpisData.balances.some((b: any) => (b.cobranza_mes_usd > 0 || b.gastos_facturados_usd > 0) && b.cobranza_mes_usd < 1000000) ? (
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -2197,7 +2197,7 @@ export default function DashboardPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-gray-500 text-center py-8">No hay datos suficientes</p>
+                <p className="text-gray-500 text-center py-8">No hay datos de cobranza/gastos</p>
               )}
             </div>
 
@@ -2206,7 +2206,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución de Gastos (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
-                ) : kpisData.gastos?.length > 0 ? (
+                ) : kpisData.gastos?.length > 0 && kpisData.gastos.some((g: any) => g.monto_usd > 0 && g.monto_usd < 1000000) ? (
                   <ResponsiveContainer width="100%" height={250}>
                     <AreaChart data={kpisData.gastos} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -2225,7 +2225,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Egresos por Mes (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
-                ) : kpisData.egresos?.length > 0 ? (
+                ) : kpisData.egresos?.length > 0 && kpisData.egresos.some((e: any) => e.monto_usd > 0 && e.monto_usd < 1000000) ? (
                   <ResponsiveContainer width="100%" height={250}>
                     <AreaChart data={kpisData.egresos} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
@@ -2246,7 +2246,7 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Fondo de Reserva (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
-                ) : kpisData.balances?.length > 0 ? (
+                ) : kpisData.balances?.length > 0 && kpisData.balances.some((b: any) => b.fondo_reserva_usd > 0 && b.fondo_reserva_usd < 1000000) ? (
                   <ResponsiveContainer width="100%" height={250}>
                     <LineChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
