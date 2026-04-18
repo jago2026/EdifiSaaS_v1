@@ -158,19 +158,35 @@ function parseEgresosTableAll(html: string): any[] {
 
 function parseGastosTable(html: string): any[] {
   const results: any[] = [];
+  console.log("[DEBUG GASTOS] HTML length:", html.length);
+  
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
-  if (!tableMatch) return results;
+  if (!tableMatch) {
+    console.log("[DEBUG GASTOS] No se encontró tabla table-bordered");
+    return results;
+  }
+  console.log("[DEBUG GASTOS] Tabla encontrada, contenido length:", tableMatch[1].length);
+  
   const tableContent = tableMatch[1];
   const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  console.log("[DEBUG GASTOS] Filas encontradas:", rows.length);
+  
   let totalGastos = 0;
   let totalFondos = 0;
   let totalGastosFinal = 0;
-  for (const row of rows) {
+  
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-    if (!cells || cells.length < 3) continue;
+    if (!cells || cells.length < 3) {
+      console.log(`[DEBUG GASTOS] Fila ${i} saltada: no tiene 3 celdas`);
+      continue;
+    }
     const code = cleanHtml(cells[0]);
     const desc = cleanHtml(cells[1]);
     const montoCell = cleanHtml(cells[2]);
+    
+    console.log(`[DEBUG GASTOS] Fila ${i}: code="${code}", desc="${desc}", monto="${montoCell}"`);
     
     // Skip empty rows - check code first
     const codeTrimmed = code.trim();
@@ -178,34 +194,49 @@ function parseGastosTable(html: string): any[] {
       // This might be a TOTAL row - check description
       if (desc.includes("TOTAL GASTOS COMUNES:")) {
         totalGastos = parseMonto(montoCell);
+        console.log(`[DEBUG GASTOS] Found TOTAL GASTOS COMUNES: ${totalGastos}`);
         continue;
       }
       if (desc.includes("TOTAL FONDOS:")) {
         totalFondos = parseMonto(montoCell);
+        console.log(`[DEBUG GASTOS] Found TOTAL FONDOS: ${totalFondos}`);
         continue;
       }
       if (desc.includes("TOTAL FONDOS Y GASTOS")) {
+        console.log(`[DEBUG GASTOS] Found TOTAL FONDOS Y GASTOS`);
         continue;
       }
       if (desc.includes("TOTAL GASTOS:")) {
         totalGastosFinal = parseMonto(montoCell);
+        console.log(`[DEBUG GASTOS] Found TOTAL GASTOS (final): ${totalGastosFinal}`);
         continue;
       }
+      console.log(`[DEBUG GASTOS] Fila ${i} vacía saltada`);
       continue;
     }
-    if (!desc || desc.trim() === '') continue;
+    if (!desc || desc.trim() === '') {
+      console.log(`[DEBUG GASTOS] Fila ${i} sin descripción`);
+      continue;
+    }
     
     // Skip FONDO DE RESERVA row (it's a sub-item, not a main expense)
     if (codeTrimmed === "00001" && desc.includes("FONDO DE RESERVA")) {
+      console.log(`[DEBUG GASTOS] Fila ${i} saltada: FONDO DE RESERVA`);
       continue;
     }
     
     // Only process rows with valid numeric codes (5 digits)
     if (codeTrimmed.match(/^\d{5}$/)) {
       const m = parseMonto(montoCell);
+      console.log(`[DEBUG GASTOS] Fila ${i} AGREGADA: ${codeTrimmed} - ${desc} - ${m}`);
       results.push({ codigo: codeTrimmed, descripcion: desc, monto: m });
+    } else {
+      console.log(`[DEBUG GASTOS] Fila ${i} NO coincide con regex código: ${codeTrimmed}`);
     }
   }
+  
+  console.log("[DEBUG GASTOS] Resultados finales:", results.length, "gastos");
+  console.log("[DEBUG GASTOS] Totales: gastos=", totalGastos, "fondos=", totalFondos, "final=", totalGastosFinal);
   
   // Add total row at the end
   if (totalGastosFinal > 0) {
@@ -298,6 +329,7 @@ export async function POST(request: Request) {
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
+    console.log("[DEBUG SYNC] Gastos extraídos:", allGastos.length);
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
 
