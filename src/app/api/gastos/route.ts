@@ -36,13 +36,13 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("gastos")
-      .select("id, fecha, codigo, descripcion, monto")
+      .select("id, fecha, mes, codigo, descripcion, monto")
       .eq("edificio_id", edificioId)
       .neq("codigo", "TOTAL")
       .order("fecha", { ascending: false });
 
     if (mes) {
-      query = query.like("fecha", `${mes}%`);
+      query = query.eq("mes", mes);
     } else {
       query = query.limit(100);
     }
@@ -52,6 +52,13 @@ export async function GET(request: Request) {
     if (error) {
       throw error;
     }
+
+    // Obtener meses disponibles
+    const { data: mesesData } = await supabase.from("gastos")
+      .select("mes")
+      .eq("edificio_id", edificioId)
+      .order("mes", { ascending: false });
+    const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
 
     const gastosConUSD = await Promise.all(
       (gastos || []).map(async (gasto) => {
@@ -65,7 +72,7 @@ export async function GET(request: Request) {
       })
     );
 
-    return NextResponse.json({ gastos: gastosConUSD });
+    return NextResponse.json({ gastos: gastosConUSD, mesesDisponibles });
   } catch (error: any) {
     console.error("Gastos error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

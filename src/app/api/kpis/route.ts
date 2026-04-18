@@ -215,7 +215,12 @@ export async function GET(request: Request) {
         saldo_anterior_usd: tasa > 0 ? (b.saldo_anterior || 0) / tasa : 0,
         total_por_cobrar: b.total_por_cobrar || 0,
         total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
-        tasa_bcv: tasa
+        recibos_mes: b.recibos_mes || 0,
+        recibos_mes_usd: tasa > 0 ? (b.recibos_mes || 0) / tasa : 0,
+        tasa_bcv: tasa,
+        efectividad_recaudacion: b.recibos_mes ? ((b.cobranza_mes || 0) / b.recibos_mes) * 100 : 0,
+        indice_morosidad: b.total_por_cobrar && b.recibos_mes ? ((b.total_por_cobrar || 0) / ((b.recibos_mes || 0)*2)) * 100 : 0, // Estimación basada en recibos promedio
+        cobertura_gastos: b.gastos_facturados ? ((b.cobranza_mes || 0) / Math.abs(b.gastos_facturados)) * 100 : 0,
       };
     }).sort((a, b) => (a.mes_normalizado || "").localeCompare(b.mes_normalizado || ""));
 

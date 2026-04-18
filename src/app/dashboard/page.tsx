@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "instrucciones" | "junta";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -177,6 +177,12 @@ export default function DashboardPage() {
   const [loadingIngresos, setLoadingIngresos] = useState(false);
   const [balance, setBalance] = useState<Balance | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [mesesBalance, setMesesBalance] = useState<string[]>([]);
+  const [selectedMesBalance, setSelectedMesBalance] = useState<string>("");
+  const [mesesEgresos, setMesesEgresos] = useState<string[]>([]);
+  const [selectedMesEgresos, setSelectedMesEgresos] = useState<string>("");
+  const [mesesGastos, setMesesGastos] = useState<string[]>([]);
+  const [selectedMesGastos, setSelectedMesGastos] = useState<string>("");
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
   const [loadingManual, setLoadingManual] = useState(false);
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
@@ -202,6 +208,44 @@ export default function DashboardPage() {
   const [loadingRecibo, setLoadingRecibo] = useState(false);
   const [syncMes, setSyncMes] = useState("");
   const [syncingMes, setSyncingMes] = useState(false);
+  const [informeFecha, setInformeFecha] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [informeData, setInformeData] = useState<any>(null);
+  const [loadingInforme, setLoadingInforme] = useState(false);
+  const [gastosRecurrentes, setGastosRecurrentes] = useState<any[]>([]);
+  const [loadingGastosRecurrentes, setLoadingGastosRecurrentes] = useState(false);
+
+  const loadInforme = async () => {
+    if (!building?.id || !informeFecha) return;
+    setLoadingInforme(true);
+    setInformeData(null);
+    try {
+      const res = await fetch(`/api/informes?action=resumen_fecha&edificioId=${building.id}&fecha=${informeFecha}`);
+      const data = await res.json();
+      if (res.ok) {
+        setInformeData(data.data || "not_found");
+      }
+    } catch (error) {
+      console.error("Error loading informe:", error);
+    } finally {
+      setLoadingInforme(false);
+    }
+  };
+
+  const loadGastosRecurrentes = async () => {
+    if (!building?.id) return;
+    setLoadingGastosRecurrentes(true);
+    try {
+      const res = await fetch(`/api/informes?action=gastos_recurrentes&edificioId=${building.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setGastosRecurrentes(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error loading gastos recurrentes:", error);
+    } finally {
+      setLoadingGastosRecurrentes(false);
+    }
+  };
   const [editConfig, setEditConfig] = useState({
     admin_id: "",
     admin_secret: "",
@@ -350,6 +394,10 @@ export default function DashboardPage() {
     if (activeTab === "kpis" && building?.id) {
       loadKpis();
     }
+    if (activeTab === "informes" && building?.id) {
+      loadInforme();
+      loadGastosRecurrentes();
+    }
     if (activeTab === "junta" && building?.id) {
       loadJunta();
     }
@@ -449,10 +497,17 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingBalance(true);
     try {
-      const res = await fetch(`/api/balance?edificioId=${building.id}`);
+      const url = new URL(`/api/balance`, window.location.origin);
+      url.searchParams.append("edificioId", building.id);
+      if (selectedMesBalance) url.searchParams.append("mes", selectedMesBalance);
+
+      const res = await fetch(url.toString());
       const data = await res.json();
-      if (res.ok && data.balance) {
-        setBalance(data.balance);
+      if (res.ok) {
+        setBalance(data.balance || null);
+        if (data.mesesDisponibles) {
+          setMesesBalance(data.mesesDisponibles);
+        }
       }
     } catch (error) {
       console.error("Error loading balance:", error);
@@ -725,10 +780,17 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingEgresos(true);
     try {
-      const res = await fetch(`/api/egresos?edificioId=${building.id}`);
+      const url = new URL(`/api/egresos`, window.location.origin);
+      url.searchParams.append("edificioId", building.id);
+      if (selectedMesEgresos) url.searchParams.append("mes", selectedMesEgresos);
+
+      const res = await fetch(url.toString());
       const data = await res.json();
-      if (res.ok && data.egresos) {
-        setEgresos(data.egresos);
+      if (res.ok) {
+        setEgresos(data.egresos || []);
+        if (data.mesesDisponibles) {
+          setMesesEgresos(data.mesesDisponibles);
+        }
       }
     } catch (error) {
       console.error("Error loading egresos:", error);
@@ -741,10 +803,17 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingGastos(true);
     try {
-      const res = await fetch(`/api/gastos?edificioId=${building.id}`);
+      const url = new URL(`/api/gastos`, window.location.origin);
+      url.searchParams.append("edificioId", building.id);
+      if (selectedMesGastos) url.searchParams.append("mes", selectedMesGastos);
+
+      const res = await fetch(url.toString());
       const data = await res.json();
-      if (res.ok && data.gastos) {
-        setGastos(data.gastos);
+      if (res.ok) {
+        setGastos(data.gastos || []);
+        if (data.mesesDisponibles) {
+          setMesesGastos(data.mesesDisponibles);
+        }
       }
     } catch (error) {
       console.error("Error loading gastos:", error);
@@ -945,6 +1014,7 @@ export default function DashboardPage() {
           <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
           <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
           <button onClick={() => setActiveTab("kpis")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>KPIs</button>
+          <button onClick={() => setActiveTab("informes")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Informes</button>
           <button onClick={() => setActiveTab("manual")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"}`}>Ing/Egr Manual</button>
           <button onClick={() => setActiveTab("junta")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Junta</button>
           <button onClick={() => setActiveTab("configuracion")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Configuración</button>
@@ -1326,7 +1396,24 @@ export default function DashboardPage() {
 
         {activeTab === "egresos" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Egresos Generales</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Egresos Generales</h2>
+              {mesesEgresos.length > 0 && (
+                <select
+                  value={selectedMesEgresos}
+                  onChange={(e) => {
+                    setSelectedMesEgresos(e.target.value);
+                    setTimeout(() => loadEgresos(), 0);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Mes Actual</option>
+                  {mesesEgresos.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             {loadingEgresos ? (
               <p className="text-gray-500 text-center py-8">Cargando...</p>
             ) : egresos.length === 0 ? (
@@ -1382,7 +1469,24 @@ export default function DashboardPage() {
 
         {activeTab === "gastos" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Gastos del Edificio</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Gastos del Edificio</h2>
+              {mesesGastos.length > 0 && (
+                <select
+                  value={selectedMesGastos}
+                  onChange={(e) => {
+                    setSelectedMesGastos(e.target.value);
+                    setTimeout(() => loadGastos(), 0);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Mes Actual</option>
+                  {mesesGastos.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             {loadingGastos ? (
               <p className="text-gray-500 text-center py-8">Cargando...</p>
             ) : gastos.length === 0 ? (
@@ -1439,7 +1543,24 @@ export default function DashboardPage() {
 
         {activeTab === "balance" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Estado de Cuenta del Edificio (Balance General)</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Estado de Cuenta del Edificio (Balance General)</h2>
+              {mesesBalance.length > 0 && (
+                <select
+                  value={selectedMesBalance}
+                  onChange={(e) => {
+                    setSelectedMesBalance(e.target.value);
+                    setTimeout(() => loadBalance(), 0);
+                  }}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Mes Actual</option>
+                  {mesesBalance.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
             {loadingBalance ? (
               <p className="text-gray-500 text-center py-8">Cargando...</p>
             ) : !balance ? (
@@ -1856,6 +1977,58 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Monto Total del Recibo de Condominio (USD)</h2>
+              {loadingKpis ? (
+                <p className="text-gray-500 text-center py-8">Cargando...</p>
+              ) : kpisData.balances?.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                    <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: number) => `$${v.toFixed(0)}`} />
+                    <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Recibos del Mes"]} />
+                    <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibos Emitidos ($)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No hay datos</p>
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Mensual de Gesti&oacute;n</h2>
+              {loadingKpis ? (
+                <p className="text-gray-500 text-center py-8">Cargando...</p>
+              ) : kpisData.balances?.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="py-3 px-4 font-bold text-gray-600">Mes de Cierre</th>
+                        <th className="py-3 px-4 font-bold text-gray-600 text-right">Efectividad Recaudaci&oacute;n</th>
+                        <th className="py-3 px-4 font-bold text-gray-600 text-right">Índice Morosidad</th>
+                        <th className="py-3 px-4 font-bold text-gray-600 text-right">Cobertura de Gastos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {kpisData.balances.map((b: any, idx: number) => (
+                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-3 px-4 text-gray-800 font-medium">{b.mes_normalizado}</td>
+                          <td className="py-3 px-4 text-right text-blue-600 font-bold">{formatCurrency(b.efectividad_recaudacion, 2)}%</td>
+                          <td className="py-3 px-4 text-right text-red-500 font-bold">{formatCurrency(b.indice_morosidad, 2)}%</td>
+                          <td className="py-3 px-4 text-right text-emerald-600 font-bold">{formatCurrency(b.cobertura_gastos, 2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No hay datos suficientes para calcular la evoluci&oacute;n de gesti&oacute;n.</p>
+              )}
+            </div>
+
           </div>
         )}
 
@@ -1934,6 +2107,129 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "informes" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen por Fecha</h2>
+              <div className="flex gap-4 items-end mb-6">
+                <div className="flex-1 max-w-xs">
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Seleccionar Fecha</label>
+                  <input 
+                    type="date" 
+                    value={informeFecha} 
+                    onChange={(e) => setInformeFecha(e.target.value)} 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  />
+                </div>
+                <button 
+                  onClick={loadInforme} 
+                  disabled={loadingInforme || !informeFecha}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 text-sm"
+                >
+                  {loadingInforme ? "Cargando..." : "Consultar"}
+                </button>
+              </div>
+
+              {loadingInforme ? (
+                <p className="text-gray-500 text-center py-8">Cargando datos...</p>
+              ) : informeData === "not_found" ? (
+                <p className="text-gray-500 text-center py-8 border border-dashed rounded-lg">No hay datos registrados de sincronización para esta fecha.</p>
+              ) : informeData ? (
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                  <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">Resumen Financiero al: {informeFecha.split('-').reverse().join('/')}</h3>
+                  <div className="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Saldo Inicial Bs:</span>
+                      <span className="font-medium">{formatBs(informeData.saldo_inicial_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Fondo Reserva Bs:</span>
+                      <span className="font-medium text-purple-700">{formatBs(informeData.fondo_reserva_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Ingresos Bs:</span>
+                      <span className="font-medium text-green-600">+{formatBs(informeData.ingresos_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Fondo Dif. Camb. Bs:</span>
+                      <span className="font-medium text-blue-600">{formatBs(informeData.fondo_dif_camb_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Egresos Bs:</span>
+                      <span className="font-medium text-red-600">-{formatBs(informeData.egresos_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Fondo Int. Mor. Bs:</span>
+                      <span className="font-medium text-pink-600">{formatBs(informeData.fondo_int_mor_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="text-gray-600">Ajustes Bs:</span>
+                      <span className="font-medium">{formatBs(informeData.ajustes_bs)}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-gray-200 pb-1">
+                      <span className="font-bold text-gray-800">Total Fondos Bs:</span>
+                      <span className="font-bold text-indigo-700">{formatBs(informeData.total_fondos_bs)}</span>
+                    </div>
+                    <div className="flex justify-between bg-blue-50 p-2 rounded-md mt-2">
+                      <span className="font-bold text-blue-800">Saldo Final Bs (Operativo):</span>
+                      <span className="font-bold text-blue-800">{formatBs(informeData.saldo_final_bs)}</span>
+                    </div>
+                    <div className="flex justify-between bg-emerald-50 p-2 rounded-md mt-2">
+                      <span className="font-bold text-emerald-800">Disponibilidad Total Bs:</span>
+                      <span className="font-bold text-emerald-800">{formatBs(informeData.disponibilidad_total_bs)}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 mt-2 col-span-full">
+                      <span>Tasa Cambio Aplicada: {informeData.tasa_cambio} Bs/USD</span>
+                      <span>Recibos Pendientes: {informeData.recibos_pendientes}</span>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Estado de Flujo de Efectivo</h2>
+              <p className="text-sm text-gray-500 mb-4">Esta funci&oacute;n est&aacute; en desarrollo y estar&aacute; disponible pr&oacute;ximamente.</p>
+              <button disabled className="px-4 py-2 bg-gray-200 text-gray-500 rounded-lg font-bold text-sm cursor-not-allowed">
+                Generar Estado de Flujo
+              </button>
+            </div>
+            
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Cat&aacute;logo de Gastos Recurrentes Detectados</h2>
+              {loadingGastosRecurrentes ? (
+                <p className="text-gray-500 text-center py-8">Cargando gastos recurrentes...</p>
+              ) : gastosRecurrentes.length === 0 ? (
+                <p className="text-gray-500 text-center py-8 border border-dashed rounded-lg">No hay gastos recurrentes registrados a&uacute;n.</p>
+              ) : (
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                        <th className="py-2 px-4 font-bold text-gray-600">C&oacute;digo</th>
+                        <th className="py-2 px-4 font-bold text-gray-600">Descripci&oacute;n del Gasto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {gastosRecurrentes.map((g: any, i: number) => (
+                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
+                          <td className="py-2 px-4 text-gray-600 font-mono">{g.codigo}</td>
+                          <td className="py-2 px-4 text-gray-800">{g.descripcion}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Otros Informes</h2>
+              <p className="text-sm text-gray-500 mb-4">Pr&oacute;ximamente: Obtener Informe Financiero, Generar Recibo del Pr&oacute;ximo Mes, Estimaci&oacute;n de Ingresos.</p>
+            </div>
           </div>
         )}
 

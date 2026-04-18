@@ -351,6 +351,66 @@ export async function POST(request: Request) {
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     }
 
+    // -- 1. Gastos Recurrentes --
+    if (allGastos && allGastos.length > 0) {
+      const recurrentes = allGastos.map(g => ({
+        edificio_id: building.id,
+        codigo: g.codigo,
+        descripcion: g.descripcion,
+        activo: true
+      }));
+      // Upserting recurrent expenses
+      for (const req of recurrentes) {
+        await supabase.from("gastos_recurrentes").upsert(req, { onConflict: 'edificio_id,codigo' });
+      }
+    }
+
+    // -- 2. Control Diario Snapshot --
+    try {
+      const { data: tasaData } = await supabase.from("tasas_cambio").select("tasa_dolar").order("fecha", { ascending: false }).limit(1).single();
+      const tasa = tasaData?.tasa_dolar || 45.50;
+
+      const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+      const diaStr = dias[new Date(today).getDay()];
+
+      const { data: recs } = await supabase.from("recibos").select("deuda").eq("edificio_id", building.id).gt("deuda", 0);
+      const recPendientes = recs?.length || 0;
+
+      const bal = balance || {};
+      const dispTotalBs = Number(bal.saldo_disponible || 0) + Number(bal.fondo_reserva || 0);
+
+      await supabase.from("control_diario").upsert({
+        edificio_id: building.id,
+        fecha: today,
+        dia_semana: diaStr,
+        saldo_inicial_bs: bal.saldo_anterior || 0,
+        saldo_inicial_usd: tasa > 0 ? (bal.saldo_anterior || 0) / tasa : 0,
+        ingresos_bs: bal.cobranza_mes || 0,
+        ingresos_usd: tasa > 0 ? (bal.cobranza_mes || 0) / tasa : 0,
+        egresos_bs: bal.gastos_facturados || 0,
+        egresos_usd: tasa > 0 ? (bal.gastos_facturados || 0) / tasa : 0,
+        ajustes_bs: bal.ajuste_pago_tiempo || 0,
+        ajustes_usd: tasa > 0 ? (bal.ajuste_pago_tiempo || 0) / tasa : 0,
+        saldo_final_bs: bal.saldo_disponible || 0,
+        saldo_final_usd: tasa > 0 ? (bal.saldo_disponible || 0) / tasa : 0,
+        tasa_cambio: tasa,
+        recibos_pendientes: recPendientes,
+        delta_saldo_bs: Number(bal.cobranza_mes || 0) - Number(bal.gastos_facturados || 0),
+        fondo_reserva_bs: bal.fondo_reserva || 0,
+        fondo_reserva_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
+        fondo_dif_camb_bs: bal.fondo_diferencial_cambiario || 0,
+        fondo_dif_camb_usd: tasa > 0 ? (bal.fondo_diferencial_cambiario || 0) / tasa : 0,
+        fondo_int_mor_bs: bal.fondo_intereses || 0,
+        fondo_int_mor_usd: tasa > 0 ? (bal.fondo_intereses || 0) / tasa : 0,
+        total_fondos_bs: bal.fondo_reserva || 0,
+        total_fondos_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
+        disponibilidad_total_bs: dispTotalBs,
+        disponibilidad_total_usd: tasa > 0 ? dispTotalBs / tasa : 0
+      }, { onConflict: 'edificio_id,fecha' });
+    } catch (e) {
+      console.error("Error al guardar control diario:", e);
+    }
+
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
     const mesAlert = mes ? ` para el mes ${mes}` : "";
     await supabase.from("sincronizaciones").insert({

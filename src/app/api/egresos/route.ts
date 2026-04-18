@@ -36,12 +36,12 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("egresos")
-      .select("id, fecha, beneficiario, descripcion, monto, hash")
+      .select("id, fecha, mes, beneficiario, descripcion, monto, hash")
       .eq("edificio_id", edificioId)
       .order("fecha", { ascending: false });
 
     if (mes) {
-      query = query.like("fecha", `${mes}%`);
+      query = query.eq("mes", mes);
     } else {
       // Exclude total rows from default query - get real data only
       query = query.not("hash", "eq", "TOTAL-EGRESOS").neq("fecha", "2099-12-31").limit(200);
@@ -52,6 +52,13 @@ export async function GET(request: Request) {
     if (error) {
       throw error;
     }
+
+    // Obtener meses disponibles
+    const { data: mesesData } = await supabase.from("egresos")
+      .select("mes")
+      .eq("edificio_id", edificioId)
+      .order("mes", { ascending: false });
+    const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
 
     const egresosConUSD = await Promise.all(
       (egresos || []).map(async (egreso: any) => {
@@ -68,7 +75,7 @@ export async function GET(request: Request) {
       })
     );
 
-    return NextResponse.json({ egresos: egresosConUSD });
+    return NextResponse.json({ egresos: egresosConUSD, mesesDisponibles });
   } catch (error: any) {
     console.error("Egresos error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
