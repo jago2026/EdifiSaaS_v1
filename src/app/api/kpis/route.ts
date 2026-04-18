@@ -55,8 +55,8 @@ export async function GET(request: Request) {
     const { data: tasasHistoricas } = await supabase
       .from("tasas_cambio")
       .select("fecha, tasa_dolar")
-      .order("fecha", { ascending: true })
-      .limit(100);
+      .order("fecha", { ascending: false })
+      .limit(500);
 
     const { data: egresos } = await supabase
       .from("egresos")

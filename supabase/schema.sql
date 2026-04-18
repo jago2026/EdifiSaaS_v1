@@ -159,9 +159,11 @@ CREATE TABLE IF NOT EXISTS alertas (
 CREATE TABLE IF NOT EXISTS sincronizaciones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   edificio_id UUID REFERENCES edificios(id) ON DELETE CASCADE,
+  tipo VARCHAR(50) DEFAULT 'sync',
   estado VARCHAR(50) NOT NULL,
   movimientos_nuevos INTEGER DEFAULT 0,
   error TEXT,
+  detalles JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

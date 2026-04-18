@@ -7,10 +7,8 @@ const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 function parseMonto(text: string): number {
   if (!text) return 0;
-  // Limpiar caracteres no numéricos excepto el signo menos, punto y coma (según doc)
   let cleaned = text.replace(/[^\d.,-]/g, "");
   if (!cleaned) return 0;
-  // Convertir formato 1.234,56 a 1234.56
   let numStr = cleaned.replace(/\./g, "").replace(",", ".");
   return parseFloat(numStr) || 0;
 }
@@ -37,7 +35,7 @@ function normalizeMes(mesStr: string): string {
 function cleanHtml(text: string): string {
   if (!text) return "";
   return text
-    .replace(/<[^>]+>/g, "") // Eliminar etiquetas HTML según doc
+    .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&Aacute;/g, "Á")
@@ -94,8 +92,11 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 function parseRecibosTableAll(html: string): any[] {
   const results: any[] = [];
+<<<<<<< HEAD
   console.log("[DEBUG RECIBOS] HTML length:", html.length);
   // Localizar tabla según doc
+=======
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i) || 
                      html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) {
@@ -113,6 +114,7 @@ function parseRecibosTableAll(html: string): any[] {
     const propietario = cleanHtml(cells[1]);
     const numRecibosCell = cleanHtml(cells[2]);
     const deudaCell = cleanHtml(cells[3]);
+<<<<<<< HEAD
     
     // Skip total row - NO agregar duplicado
     if (propietario.includes("TOTALES")) {
@@ -125,28 +127,37 @@ function parseRecibosTableAll(html: string): any[] {
     }
     
     // Extraer valor entre paréntesis para USD según doc
+=======
+    if (propietario.includes("TOTALES")) continue;
+    if (!unidad || unidad.length > 15) continue;
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
     const matchUSD = deudaCell.match(/\(([^\)]+)\)/);
     const mUSD = matchUSD ? Math.abs(parseMonto(matchUSD[1])) : 0;
-    
-    // Extract BS amount
     const bsMatch = deudaCell.match(/\)\s*[&nbsp;]*\s*([\d.,]+)$/) || [null, deudaCell.split(" ").pop()];
     const mBS = parseMonto(bsMatch[1] || "");
+<<<<<<< HEAD
     
     if (mUSD === 0 && mBS === 0) {
       console.log("[DEBUG RECIBOS] Saltando - montos en cero");
       continue;
     }
     
+=======
+    if (mUSD === 0 && mBS === 0) continue;
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
     tUSD += mUSD;
     tBS += mBS;
     const nRec = parseInt(numRecibosCell) || 0;
     tCount += nRec;
-    
     results.push({ unidad, propietario, num_recibos: nRec, deuda_usd: mUSD, deuda: mBS });
     console.log(`[DEBUG RECIBOS] Agregado: ${unidad} - ${nRec} recibos - USD: ${mUSD} - BS: ${mBS}`);
   }
+<<<<<<< HEAD
   console.log("[DEBUG RECIBOS] Total final:", tCount, "recibos, USD:", tUSD, "BS:", tBS);
   // NO agregar fila TOTAL - el frontend la calcula
+=======
+  results.push({ unidad: "TOTAL", propietario: "TOTAL GENERAL", num_recibos: tCount, deuda_usd: tUSD, deuda: tBS, isTotal: true });
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
   return results;
 }
 
@@ -161,15 +172,16 @@ function parseEgresosTableAll(html: string): any[] {
     if (!cells || cells.length < 4) continue;
     const texts = cells.map(c => cleanHtml(c));
     if (texts[0].includes("(G)") || texts[1].includes("TOTAL EGRESOS")) continue;
-    
-    // Validar fecha según doc
     if (!texts[0].match(/\d{2}-\d{2}-\d{4}/)) continue;
-    
     const m = parseMonto(texts[3]);
     totalMonto += m;
     results.push({ fecha: texts[0], beneficiario: texts[1], operacion: texts[2], monto: m });
   }
+<<<<<<< HEAD
   // Return ONLY real rows - no total row inserted to DB
+=======
+  results.push({ fecha: "2099-12-31", beneficiario: "TOTAL GENERAL", operacion: "Resumen", monto: totalMonto, isTotal: true });
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
   return results;
 }
 
@@ -198,6 +210,7 @@ function parseGastosTable(html: string): any[] {
     const code = cleanHtml(cells[0]);
     const desc = cleanHtml(cells[1]);
     const montoCell = cleanHtml(cells[2]);
+<<<<<<< HEAD
     
     // Skip empty rows - check code first
     const codeTrimmed = code.trim();
@@ -206,6 +219,23 @@ function parseGastosTable(html: string): any[] {
       if (desc.includes("TOTAL GASTOS COMUNES:")) {
         totalGastos = parseMonto(montoCell);
         continue;
+=======
+    if (!code || code === '&nbsp;' || code.trim() === '') continue;
+    if (desc.includes("TOTAL GASTOS COMUNES:") || desc.includes("TOTAL FONDOS:") || desc.includes("TOTAL FONDOS Y GASTOS") || desc.includes("TOTAL GASTOS:")) {
+      const m = parseMonto(montoCell);
+      if (desc.includes("COMUNES")) totalGastos = m;
+      else if (desc.includes("FONDOS:")) totalFondos = m;
+      continue;
+    }
+    if (code === "00001" && desc.includes("FONDO DE RESERVA")) {
+      totalFondos = parseMonto(montoCell);
+      continue;
+    }
+    if (code.match(/^\d+$/)) {
+      const m = parseMonto(montoCell);
+      if (!desc.includes("TOTAL")) {
+        results.push({ codigo: code, descripcion: desc, monto: m });
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
       }
       if (desc.includes("TOTAL GASTOS:")) {
         totalGastosFinal = parseMonto(montoCell);
@@ -226,10 +256,15 @@ function parseGastosTable(html: string): any[] {
       results.push({ codigo: codeTrimmed, descripcion: desc, monto: m });
     }
   }
+<<<<<<< HEAD
   
   console.log("[DEBUG GASTOS] Resultados finales:", results.length, "gastos, total:", totalGastosFinal);
   
   // NO agregar fila TOTAL - el frontend la calcula
+=======
+  if (totalGastos > 0) results.push({ codigo: "TOTAL", descripcion: "TOTAL GASTOS COMUNES", monto: totalGastos, isTotal: true });
+  if (totalFondos > 0) results.push({ codigo: "RESERVA", descripcion: "TOTAL FONDO DE RESERVA", monto: totalFondos, isTotal: true });
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
   return results;
 }
 
@@ -244,15 +279,8 @@ function parseAlicuotasTable(html: string): any[] {
     const unidad = cleanHtml(cells[0]);
     const propietario = cleanHtml(cells[1]);
     const alicuotaVal = parseMonto(cleanHtml(cells[2]));
-    
     if (propietario.includes("TOTALES") || !unidad || unidad.length > 15) continue;
-    
-    results.push({ 
-      unidad, 
-      propietario, 
-      alicuota: alicuotaVal,
-      sincronizado: true
-    });
+    results.push({ unidad, propietario, alicuota: alicuotaVal, sincronizado: true });
   }
   return results;
 }
@@ -297,9 +325,14 @@ function parseBalanceFull(html: string): any {
       }
       
       const val = parseMonto(valCell1);
+<<<<<<< HEAD
       
       console.log(`[DEBUG BALANCE] ${desc}: val=${val}`);
       
+=======
+      const saldo = cells.length >= 3 ? parseMonto(cleanHtml(cells[2])) : 0;
+      const hasSaldoValue = saldo !== 0 && (cells.length >= 3 && cleanHtml(cells[2]).replace(/[\s,.-]/g, '') !== '');
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
       if (desc.includes("SALDO DE CAJA MES ANTERIOR")) balance.saldo_anterior = val;
       else if (desc.includes("COBRANZA DEL MES")) balance.cobranza_mes = val;
       else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES")) balance.gastos_facturados = val;
@@ -307,6 +340,7 @@ function parseBalanceFull(html: string): any {
       else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES")) balance.recibos_mes = val;
       else if (desc.includes("CONDOMINIOS ATRASADOS")) balance.condominios_atrasados = val;
       else if (desc.includes("CONDOMINIOS SOBRANTES")) balance.condominios_sobrantes = val;
+<<<<<<< HEAD
       else if (desc.includes("FONDO DE RESERVA MES ANTERIOR")) balance.fondo_reserva_mes_anterior = val;
       else if (desc.includes("FONDO DE PRESTACIONES SOCIALES MES ANTERIOR")) balance.fondo_prestaciones_mes_anterior = val;
       else if (desc.includes("FONDO TRABAJOS VARIOS MES ANTERIOR")) balance.fondo_trabajos_varios_mes_anterior = val;
@@ -314,6 +348,15 @@ function parseBalanceFull(html: string): any {
       else if (desc.includes("FONDO INTERESES MORATORIOS MES ANTERIOR")) balance.fondo_intereses_mes_anterior = val;
       else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO TASA BCV MES ANTERIOR")) balance.fondo_diferencial_mes_anterior = val;
       else if (desc.includes("DESC/DIF/CAMB/PAGO A TIEMPO") && desc.includes("DIFERENCIAL")) balance.fondo_diferencial_ajuste = val;
+=======
+      else if (desc.includes("SALDO RESERVAS")) balance.saldo_reservas = hasSaldoValue ? saldo : val;
+      else if (desc.includes("FONDO DE RESERVA") && !desc.includes("MES ANTERIOR")) balance.fondo_reserva = hasSaldoValue ? saldo : val;
+      else if (desc.includes("PRESTACIONES SOCIALES")) balance.fondo_prestaciones = hasSaldoValue ? saldo : val;
+      else if (desc.includes("TRABAJOS VARIOS")) balance.fondo_trabajos_varios = hasSaldoValue ? saldo : val;
+      else if (desc.includes("INTERESES MORATORIOS")) balance.fondo_intereses = hasSaldoValue ? saldo : val;
+      else if (desc.includes("DIFERENCIAL CAMBIARIO")) balance.fondo_diferencial_cambiario = hasSaldoValue ? saldo : val;
+      else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA")) balance.ajuste_alicuota = hasSaldoValue ? saldo : val;
+>>>>>>> cf3af33 (Correcciones Egresos, Gastos, KPIs y Alertas - Proyecto EdifiSaaS_v1)
     }
   }
   return balance;
@@ -322,14 +365,28 @@ function parseBalanceFull(html: string): any {
 export async function POST(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
   const today = new Date().toISOString().split('T')[0];
+  let currentBuildingId: string | null = null;
+
   try {
     const body = await request.json();
     const { userId, mes } = body;
     const mesEstandar = normalizeMes(mes);
     const { data: building } = await supabase.from("edificios").select("*").eq("usuario_id", userId).single();
     if (!building) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
+    
+    currentBuildingId = building.id;
+    console.log(`[DEBUG] Iniciando sync para edificio ${building.id} (${building.nombre})`);
+
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
-    if (!session) return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
+    if (!session) {
+      await supabase.from("sincronizaciones").insert({
+        edificio_id: building.id,
+        tipo: "sync",
+        estado: "error",
+        error: "Fallo de login en Web Admin. Verifica credenciales."
+      });
+      return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
+    }
 
     const baseUrl = new URL(building.url_login).origin;
     const [hRec, hEgr, hGas, hBal, hAli] = await Promise.all([
@@ -350,6 +407,8 @@ export async function POST(request: Request) {
     console.log("[DEBUG] Balance extraído:", balance);
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     console.log("[DEBUG] Alicuotas extraídas:", allAlicuotas.length);
+
+    console.log(`[DEBUG] Extraídos: Recibos(${allRecibos.length}), Egresos(${allEgresos.length}), Gastos(${allGastos.length}), Alicuotas(${allAlicuotas.length})`);
 
     // --- GUARDADO ---
     // Primero: obtener recibos anteriores ANTES de guardar los nuevos
@@ -555,6 +614,30 @@ export async function POST(request: Request) {
       console.log("[DEBUG] Sincronizacion guardada OK");
     }
 
+    // Registrar éxito
+    const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
+    await supabase.from("sincronizaciones").insert({
+      edificio_id: building.id,
+      tipo: "sync",
+      estado: "completado",
+      movimientos_nuevos: totalRecs,
+      error: `Sync completado OK. Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}`,
+      detalles: { stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } }
+    });
+
+    await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
+
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } });
-  } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }
+  } catch (error: any) {
+    console.error("[ERROR] Sync catch:", error);
+    if (currentBuildingId) {
+      await supabase.from("sincronizaciones").insert({
+        edificio_id: currentBuildingId,
+        tipo: "sync",
+        estado: "error",
+        error: error.message || "Error desconocido durante la sincronización"
+      });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
