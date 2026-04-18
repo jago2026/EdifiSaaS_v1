@@ -63,8 +63,8 @@ export async function POST(request: Request) {
     const toEmails = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
     if (toEmails.length === 0) return NextResponse.json({ error: "No hay emails en la junta" }, { status: 400 });
 
-    const today = new Date().toISOString().split("T")[0];
     const todayDate = new Date();
+    const today = todayDate.toISOString().split("T")[0];
     const fechaStr = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 
     if (action === "whatsapp_report") {
@@ -138,7 +138,6 @@ Generado automáticamente por el Sistema de Control de Recibos.`;
     }
 
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-    const todayDate = new Date();
 
     // Get balance
     const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1);
@@ -168,7 +167,6 @@ Generado automáticamente por el Sistema de Control de Recibos.`;
     // 7-day history
     const { data: movs7days } = await supabase.from("movimientos_dia").select("detectado_en, tipo, monto").eq("edificio_id", edificioId).gte("detectado_en", yesterday).order("detectado_en", { ascending: false });
 
-    const fechaStr = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
     const fechaCompleta = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
     const horaEnvio = todayDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" });
 
