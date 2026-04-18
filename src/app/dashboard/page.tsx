@@ -1007,10 +1007,10 @@ export default function DashboardPage() {
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("manual")}>
                 <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
                 <div className="text-2xl font-bold text-indigo-600">
-                  Bs. {formatBs(movimientosManual.length > 0 ? movimientosManual[0].saldo_acumulado : 0)}
+                  Bs. {formatBs(movimientosManual.length > 0 ? (movimientosManual[0]?.saldo_acumulado || 0) : 0)}
                 </div>
                 <div className="text-sm text-gray-500 font-medium">
-                  $ {formatUsd(movimientosManual.length > 0 ? (movimientosManual[0].saldo_acumulado / (movimientosManual[0].tasa_bcv || tasaBCV.dolar || 45)) : 0)}
+                  $ {formatUsd(movimientosManual.length > 0 ? ((movimientosManual[0]?.saldo_acumulado || 0) / (movimientosManual[0]?.tasa_bcv || tasaBCV.dolar || 45)) : 0)}
                 </div>
                 <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
                   Último Saldo Registrado
