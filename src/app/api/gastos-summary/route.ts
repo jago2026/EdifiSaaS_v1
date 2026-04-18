@@ -4,6 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
+function getCurrentMonth(): string {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = now.getFullYear();
+  return `${yyyy}-${mm}`;
+}
+
 async function getLatestTasa(): Promise<number> {
   const supabase = createClient(supabaseUrl, supabaseKey);
   try {
@@ -29,22 +36,24 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const currentMes = getCurrentMonth();
 
-    // Query ALL from gastos table without date filter first
+    // Query current month from gastos table (excluding TOTAL row)
     const { data: allGastos, error } = await supabase
       .from("gastos")
-      .select("monto, fecha")
-      .eq("edificio_id", edificioId);
+      .select("monto, fecha, mes, codigo")
+      .eq("edificio_id", edificioId)
+      .like("mes", `${currentMes}%`)
+      .neq("codigo", "TOTAL");
 
     if (error) {
       console.error("Gastos query error:", error);
       return NextResponse.json({ monto: 0, cantidad: 0, error: error.message });
     }
 
-    // Show what dates are in the table
-    console.log("DEBUG gastos-summary: all data:", allGastos?.map(g => ({ fecha: g.fecha, monto: g.monto })));
+    console.log("DEBUG gastos-summary: current month data:", allGastos?.slice(0, 5).map(g => ({ fecha: g.fecha, monto: g.monto })));
 
-    // Calculate total - no date filter, just sum all
+    // Calculate total for current month (excluding TOTAL row)
     const monto = allGastos?.reduce((sum, g) => sum + Number(g.monto), 0) || 0;
     const cantidad = allGastos?.length || 0;
     

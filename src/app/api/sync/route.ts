@@ -432,8 +432,27 @@ export async function POST(request: Request) {
       await supabase.from("alicuotas").insert(allAlicuotas.map(a => ({ ...a, edificio_id: building.id })));
     }
 
+// Get previous egresos hashes before saving new ones
+    const { data: prevEgresos } = await supabase
+      .from("egresos")
+      .select("hash")
+      .eq("edificio_id", building.id);
+    
+    const prevEgresosHashes = new Set((prevEgresos || []).map(e => e.hash));
+    
+    // Get previous gastos hashes before saving new ones
+    const { data: prevGastos } = await supabase
+      .from("gastos")
+      .select("hash")
+      .eq("edificio_id", building.id)
+      .neq("codigo", "TOTAL");
+    
+    const prevGastosHashes = new Set((prevGastos || []).map(g => g.hash));
+
+    // Clear movimientos_dia for today before saving new detected movements
     await supabase.from("movimientos_dia").delete().eq("edificio_id", building.id).eq("detectado_en", today);
 
+    // Save egresos and detect NEW movements
     for (const e of allEgresos) {
       const fDB = normalizeFecha(e.fecha);
       const hash = await generateHash(`${fDB}|${e.beneficiario}|${e.monto}`);
@@ -441,11 +460,22 @@ export async function POST(request: Request) {
       
       const desc = `${e.operacion} - ${e.beneficiario}`;
       await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-      if (fDB === today) {
-        await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, fuente: "egresos", detectado_en: today });
+      
+      // Only save to movimientos_dia if this is a NEW movement (hash not seen before)
+      if (!prevEgresosHashes.has(hash)) {
+        await supabase.from("movimientos_dia").insert({ 
+          edificio_id: building.id, 
+          tipo: "egreso", 
+          descripcion: desc, 
+          monto: e.monto, 
+          fecha: fDB, 
+          fuente: "egresos", 
+          detectado_en: today 
+        });
       }
     }
 
+    // Save gastos and detect NEW movements
     for (const g of allGastos) {
       const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${today}`);
       console.log("[DEBUG] Guardando gasto:", g.codigo, g.descripcion, "monto:", g.monto, "mes:", mesEstandar);
@@ -477,13 +507,22 @@ export async function POST(request: Request) {
           hash, 
           sincronizado: true 
         }, { onConflict: 'edificio_id,hash' });
-        
+
         if (movError) {
           console.log("[DEBUG] Error guardando movimiento:", movError);
         }
         
-        if (mesEstandar === today.substring(0, 7)) {
-          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
+        // Only save to movimientos_dia if this is a NEW movement (hash not seen before)
+        if (!prevGastosHashes.has(hash)) {
+          await supabase.from("movimientos_dia").insert({ 
+            edificio_id: building.id, 
+            tipo: "gasto", 
+            descripcion: g.descripcion, 
+            monto: g.monto, 
+            fecha: today, 
+            fuente: "gastos", 
+            detectado_en: today 
+          });
         }
       } else {
         await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: "TOTAL", descripcion: "TOTAL GENERAL", monto: g.monto, hash: "TOTAL-GASTOS", sincronizado: true }, { onConflict: 'edificio_id,hash' });
@@ -503,13 +542,19 @@ export async function POST(request: Request) {
 
     // Guardar registro de sincronización
     const syncMessage = `Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}, Alicuotas: ${allAlicuotas.length}, Pagos: ${pagosDetectados.length}`;
-    await supabase.from("sincronizaciones").insert({
+    const { data: syncData, error: syncError } = await supabase.from("sincronizaciones").insert({
       edificio_id: building.id,
       tipo: "sync",
       estado: "completado",
       movimientos_nuevos: allRecibos.length + allEgresos.length + allGastos.length,
       error: syncMessage
     });
+    
+    if (syncError) {
+      console.error("[ERROR] Failed to save sincronizacion:", syncError);
+    } else {
+      console.log("[DEBUG] Sincronizacion guardada OK");
+    }
 
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } });
   } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }

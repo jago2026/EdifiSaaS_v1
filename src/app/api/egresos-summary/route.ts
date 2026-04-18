@@ -4,6 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
+function getCurrentMonth(): string {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = now.getFullYear();
+  return `${yyyy}-${mm}`;
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,21 +21,23 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const currentMes = getCurrentMonth();
 
-    // Query ALL from egresos table without filter
+    // Query current month from egresos table
     const { data: allEgresos, error } = await supabase
       .from("egresos")
-      .select("monto, fecha")
-      .eq("edificio_id", edificioId);
+      .select("monto, fecha, mes")
+      .eq("edificio_id", edificioId)
+      .like("mes", `${currentMes}%`);
 
     if (error) {
       console.error("Egresos query error:", error);
       return NextResponse.json({ monto: 0, cantidad: 0, error: error.message });
     }
 
-    console.log("DEBUG egresos-summary: all data:", allEgresos?.slice(0, 5).map(e => ({ fecha: e.fecha, monto: e.monto })));
+    console.log("DEBUG egresos-summary: current month data:", allEgresos?.slice(0, 5).map(e => ({ fecha: e.fecha, monto: e.monto })));
 
-    // Calculate total - no date filter
+    // Calculate total for current month
     const monto = allEgresos?.reduce((sum, e) => sum + Number(e.monto), 0) || 0;
     const cantidad = allEgresos?.length || 0;
 
