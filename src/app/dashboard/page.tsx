@@ -38,6 +38,17 @@ interface Balance {
   ajuste_alicuota: number;
   fondo_intereses: number;
   fondo_diferencial_cambiario: number;
+  saldo_reservas: number;
+  recibos_mes: number;
+  total_caja_y_cobrar: number;
+  ajuste_pago_tiempo: number;
+  fondo_reserva_mes_anterior: number;
+  fondo_prestaciones_mes_anterior: number;
+  fondo_trabajos_varios_mes_anterior: number;
+  ajuste_alicuota_mes_anterior: number;
+  fondo_intereses_mes_anterior: number;
+  fondo_diferencial_mes_anterior: number;
+  fondo_diferencial_ajuste: number;
   saldo_anterior_usd?: number;
   cobranza_mes_usd?: number;
   gastos_facturados_usd?: number;
@@ -1513,22 +1524,40 @@ export default function DashboardPage() {
                   <thead>
                     <tr className="border-b bg-gray-50">
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Concepto</th>
-                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">USD</th>
-                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Bolivares</th>
+                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Monto</th>
+                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Saldo</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="border-b"><td className="py-2 px-4">SALDO DE CAJA MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(balance.saldo_anterior_usd)}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.saldo_anterior)}</td></tr>
-                    <tr className="border-b bg-gray-50"><td className="py-2 px-4">COBRANZA DEL MES</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(balance.cobranza_mes_usd)}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.cobranza_mes)}</td></tr>
-                    <tr className="border-b"><td className="py-2 px-4">GASTOS FACTURADOS EN EL MES</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(balance.gastos_facturados_usd)}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.gastos_facturados)}</td></tr>
-                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 font-medium">SALDO ACTUAL DISPONIBLE</td><td className="py-2 px-4 text-right font-medium text-gray-500">$ {formatCurrency(balance.saldo_disponible_usd)}</td><td className="py-2 px-4 text-right font-medium">Bs. {formatCurrency(balance.saldo_disponible)}</td></tr>
-                    <tr className="border-b"><td className="py-2 px-4">TOTAL CONDOMINIOS POR COBRAR</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(Number(balance.total_por_cobrar) / (balance.tasa_bcv || tasaBCV.dolar || 1))}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.total_por_cobrar)}</td></tr>
-                    <tr className="border-b bg-gray-50"><td className="py-2 px-4">CONDOMINIOS ATRASADOS</td><td className="py-2 px-4 text-right">-</td><td className="py-2 px-4 text-right">{balance.condominios_atrasados}</td></tr>
-                    <tr className="border-b"><td className="py-2 px-4">FONDO DE RESERVA</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(balance.fondo_reserva_usd)}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_reserva)}</td></tr>
-                    <tr className="border-b bg-gray-50"><td className="py-2 px-4">FONDO PRESTACIONES</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(Number(balance.fondo_prestaciones) / (balance.tasa_bcv || tasaBCV.dolar || 1))}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_prestaciones)}</td></tr>
-                    <tr className="border-b"><td className="py-2 px-4">FONDO TRABAJOS VARIOS</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(Number(balance.fondo_trabajos_varios) / (balance.tasa_bcv || tasaBCV.dolar || 1))}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_trabajos_varios)}</td></tr>
-                    <tr className="border-b bg-gray-50"><td className="py-2 px-4">FONDO INTERESES MORATORIOS</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(Number(balance.fondo_intereses) / (balance.tasa_bcv || tasaBCV.dolar || 1))}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_intereses)}</td></tr>
-                    <tr className="border-b"><td className="py-2 px-4">FONDO DIFERENCIAL CAMBIARIO</td><td className="py-2 px-4 text-right text-gray-500">$ {formatCurrency(Number(balance.fondo_diferencial_cambiario) / (balance.tasa_bcv || tasaBCV.dolar || 1))}</td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_diferencial_cambiario)}</td></tr>
+                    <tr className="border-b font-medium"><td className="py-2 px-4">CAJA</td><td className="py-2 px-4"></td><td className="py-2 px-4"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">SALDO DE CAJA MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.saldo_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">COBRANZA DEL MES</td><td className="py-2 px-4 text-right text-green-600">Bs. {formatCurrency(balance.cobranza_mes)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">GASTOS FACTURADOS EN EL MES COMUNES</td><td className="py-2 px-4 text-right text-red-600">Bs. {formatCurrency(balance.gastos_facturados)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">DESC/DIF/CAMB/PAGO A TIEMPO</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-100 font-medium"><td className="py-2 px-4">SALDO ACTUAL DISPONIBLE EN CAJA</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right text-blue-600 font-bold">Bs. {formatCurrency(balance.saldo_disponible)}</td></tr>
+                    
+                    <tr className="border-b font-medium"><td className="py-2 px-4">CUENTAS POR COBRAR</td><td className="py-2 px-4"></td><td className="py-2 px-4"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">RECIBOS DE CONDOMINIOS DEL MES</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.recibos_mes)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">CONDOMINIOS ATRASADOS</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.condominios_atrasados)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">CONDOMINIOS SOBRANTES</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.condominios_sobrantes || 0)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-100 font-medium"><td className="py-2 px-4">TOTAL CONDOMINIOS POR COBRAR</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right text-orange-600 font-bold">Bs. {formatCurrency(balance.total_por_cobrar)}</td></tr>
+                    <tr className="border-b bg-gray-100 font-medium"><td className="py-2 px-4">TOTAL CAJA Y POR COBRAR</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right text-purple-600 font-bold">Bs. {formatCurrency(balance.total_caja_y_cobrar || 0)}</td></tr>
+                    
+                    <tr className="border-b font-medium"><td className="py-2 px-4">RESERVAS</td><td className="py-2 px-4"></td><td className="py-2 px-4"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">FONDO DE RESERVA MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.fondo_reserva_mes_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 pl-8 text-gray-600">SALDO FONDO DE RESERVA</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_reserva)}</td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">FONDO PRESTACIONES SOCIALES MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.fondo_prestaciones_mes_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 pl-8 text-gray-600">SALDO FONDO PRESTACIONES SOCIALES</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_prestaciones)}</td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">FONDO TRABAJOS VARIOS MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.fondo_trabajos_varios_mes_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 pl-8 text-gray-600">SALDO FONDO TRABAJOS VARIOS</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_trabajos_varios)}</td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">AJUSTE DIFERENCIA ALICUOTA MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.ajuste_alicuota_mes_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 pl-8 text-gray-600">SALDO AJUSTE DIFERENCIA ALICUOTA</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.ajuste_alicuota)}</td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">FONDO INTERESES MORATORIOS MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.fondo_intereses_mes_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 pl-8 text-gray-600">SALDO FONDO INTERESES MORATORIOS</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_intereses)}</td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">FONDO DIFERENCIAL CAMBIARIO MES ANTERIOR</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.fondo_diferencial_mes_anterior)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b"><td className="py-2 px-4 pl-8 text-gray-600">DESC/DIF/CAMB/PAGO A TIEMPO</td><td className="py-2 px-4 text-right text-gray-500">Bs. {formatCurrency(balance.fondo_diferencial_ajuste || 0)}</td><td className="py-2 px-4 text-right"></td></tr>
+                    <tr className="border-b bg-gray-50"><td className="py-2 px-4 pl-8 text-gray-600">SALDO FONDO DIFERENCIAL CAMBIARIO</td><td className="py-2 px-4 text-right"></td><td className="py-2 px-4 text-right">Bs. {formatCurrency(balance.fondo_diferencial_cambiario)}</td></tr>
+                    <tr className="border-b bg-blue-50 font-bold"><td className="py-3 px-4">SALDO RESERVAS</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-blue-700">Bs. {formatCurrency(balance.saldo_reservas)}</td></tr>
                   </tbody>
                 </table>
               </div>
