@@ -416,10 +416,19 @@ export async function POST(request: Request) {
     const mesAlert = mes ? ` para el mes ${mes}` : "";
     await supabase.from("sincronizaciones").insert({
       edificio_id: building.id,
-      tipo: "sync",
+      tipo: mes ? "sync_historica" : "sync_diaria",
       estado: "completado",
       movimientos_nuevos: totalRecs,
-      error: `Sync OK${mesAlert}: ${allRecibos.length} recibos, ${allEgresos.length} egresos, ${allGastos.length} gastos`
+      error: `Sync OK${mesAlert}: ${allRecibos.length} recibos, ${allEgresos.length} egresos, ${allGastos.length} gastos`,
+      detalles: {
+        mes: mes || "actual",
+        sync_recibos: doSyncRecibos,
+        sync_egresos: doSyncEgresos,
+        sync_gastos: doSyncGastos,
+        sync_alicuotas: doSyncAlicuotas,
+        sync_balance: doSyncBalance,
+        stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length }
+      }
     });
 
     await supabase.from("alertas").insert({

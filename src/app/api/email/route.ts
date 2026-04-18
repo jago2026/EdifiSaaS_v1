@@ -52,11 +52,11 @@ async function getTasaBCV(): Promise<number> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { edificioId, testMode } = body;
+    const { edificioId, testMode, action } = body;
     const tasa = await getTasaBCV();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: edificio } = await supabase.from("edificios").select("id, nombre").eq("id", edificioId).single();
+    const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
 
     const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
@@ -64,6 +64,79 @@ export async function POST(request: Request) {
     if (toEmails.length === 0) return NextResponse.json({ error: "No hay emails en la junta" }, { status: 400 });
 
     const today = new Date().toISOString().split("T")[0];
+    const todayDate = new Date();
+    const fechaStr = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+    if (action === "whatsapp_report") {
+      // Get all receipts with debt
+      const { data: recibos } = await supabase.from("recibos").select("num_recibos, deuda").eq("edificio_id", edificioId).gt("deuda", 0);
+      
+      const dist: Record<number, { count: number, total: number }> = {};
+      (recibos || []).forEach(r => {
+        const n = r.num_recibos || 1;
+        if (!dist[n]) dist[n] = { count: 0, total: 0 };
+        dist[n].count++;
+        dist[n].total += Number(r.deuda);
+      });
+
+      const totalGeneralAdeudado = (recibos || []).reduce((sum, r) => sum + Number(r.deuda), 0);
+      const cantAptosConDeuda = recibos?.length || 0;
+      const totalAptos = edificio.unidades || 43;
+      const pctAptosConDeuda = (cantAptosConDeuda / totalAptos) * 100;
+      
+      // Get balance for collection percentage
+      const { data: balance } = await supabase.from("balances").select("cobranza_mes, recibos_mes").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(1).single();
+      const pctRecaudado = balance?.recibos_mes ? (Number(balance.cobranza_mes) / Number(balance.recibos_mes)) * 100 : 0;
+      const pctPendiente = 100 - pctRecaudado;
+
+      // Days remaining in month
+      const lastDay = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+      const daysRemaining = lastDay - todayDate.getDate();
+
+      let deudasTexto = "";
+      Object.keys(dist).sort((a, b) => Number(a) - Number(b)).forEach(n => {
+        const d = dist[Number(n)];
+        deudasTexto += `• ${d.count} apartamento(s) deben ${n} recibo(s), por un total de ${formatBs(d.total)}.\n`;
+      });
+
+      const whatsappMsg = `Resumen del Día: (MENSAJE A ENVIAR POR WHATSAPP)
+
+📢 Estado de pagos de condominio – ${fechaStr}
+
+Buen día, Estimados/as vecinos/as,
+
+A continuación el resumen actualizado de los recibos pendientes de condominio, con el objetivo de mantener la transparencia en el funcionamiento del edificio:
+
+📝 Resumen de deuda pendiente al ${fechaStr}:
+${deudasTexto}📊 Total general adeudado: ${formatBs(totalGeneralAdeudado)}
+
+🏠 Cantidad de apartamentos con deuda: ${cantAptosConDeuda} (equivale al ${formatNumber(pctAptosConDeuda)} % del total)
+Porcentaje recaudado del mes: ${formatNumber(pctRecaudado)} %
+Porcentaje pendiente por recaudar: ${formatNumber(pctPendiente)} %
+Días restantes del mes: ${daysRemaining}
+
+Agradecemos a quienes ya han cumplido con sus pagos.
+
+A quienes aún tienen cuotas pendientes, se les invita cordialmente a ponerse al día para garantizar el mantenimiento, seguridad y operatividad del condominio.
+
+📌 CONSULTA DETALLADA: El desglose detallado de las cuentas por cobrar del edificio se encuentra disponible para su consulta privada en el sitio web de la administradora, ingresando a la sección "Recibos Pendientes".
+
+Gracias por su colaboración y compromiso.
+
+Junta de Condominio.
+
+Generado automáticamente por el Sistema de Control de Recibos.`;
+
+      await transporter.sendMail({
+        from: `"Sistema Junta de Condominio" <${SMTP_USER}>`,
+        to: toEmails.join(", "),
+        subject: `[WHATSAPP REPORT] Resumen Condominio ${edificio.nombre} - ${fechaStr}`,
+        text: whatsappMsg,
+      });
+
+      return NextResponse.json({ success: true, message: "Reporte estilo WhatsApp enviado por email", recipient: toEmails.join(", ") });
+    }
+
     const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
     const todayDate = new Date();
 

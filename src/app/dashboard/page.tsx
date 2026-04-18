@@ -314,6 +314,26 @@ export default function DashboardPage() {
     }
   };
 
+  const sendWhatsAppReport = async () => {
+    if (!building?.id) return;
+    setSendingEmail(true);
+    setEmailMessage("");
+    try {
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edificioId: building.id, action: "whatsapp_report" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al enviar reporte");
+      setEmailMessage("✅ Reporte WhatsApp enviado por email con éxito");
+    } catch (error: any) {
+      setEmailMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -1802,6 +1822,76 @@ export default function DashboardPage() {
 
         {activeTab === "kpis" && (
           <div className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n de Unidades con Deuda</h2>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={(() => {
+                          const dist: any = {};
+                          recibos.forEach(r => {
+                            const n = r.num_recibos || 1;
+                            if (!dist[n]) dist[n] = { name: `${n} Recibo${n > 1 ? 's' : ''}`, value: 0 };
+                            dist[n].value++;
+                          });
+                          return Object.values(dist);
+                        })()}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value} aptos`}
+                      >
+                        {recibos.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][index % 7]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Cantidad de apartamentos seg&uacute;n n&uacute;mero de recibos pendientes</p>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n por Montos Pendientes</h2>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={(() => {
+                          const dist: any = {};
+                          recibos.forEach(r => {
+                            const n = r.num_recibos || 1;
+                            if (!dist[n]) dist[n] = { name: `${n} Recibo${n > 1 ? 's' : ''}`, value: 0 };
+                            dist[n].value += Number(r.deuda);
+                          });
+                          return Object.values(dist);
+                        })()}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: Bs. ${formatBs(value)}`}
+                      >
+                        {recibos.map((_, index) => (
+                          <Cell key={`cell-amt-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][index % 7]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => `Bs. ${formatBs(value)}`} />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Monto total adeudado (Bs.) distribuido por antig&uuml;edad de deuda</p>
+              </div>
+            </div>
+
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Flujo de Caja Diario (Bs.)</h2>
               {loadingKpis ? (
@@ -2504,12 +2594,21 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="border-t pt-6 flex gap-4">
+                {emailMessage && (
+                  <div className={`mb-4 p-3 rounded-lg text-xs font-bold ${emailMessage.includes('✅') ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                    {emailMessage}
+                  </div>
+                )}
+
+                <div className="border-t pt-6 flex flex-wrap gap-4">
                   <button onClick={handleSaveConfig} disabled={saving} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
                     {saving ? "Guardando..." : "Guardar Configuración"}
                   </button>
                   <button onClick={handleTestConnection} disabled={saving} className="px-6 py-2.5 bg-white text-blue-600 border border-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-colors uppercase text-xs shadow-sm">
                     Probar Conexión
+                  </button>
+                  <button onClick={sendWhatsAppReport} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
+                    {sendingEmail ? "Enviando..." : "Reporte -> Whatsapp"}
                   </button>
                   <button onClick={() => sendEmailToJunta(false)} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs ml-auto">
                     {sendingEmail ? "Enviando..." : "Enviar Informe Ahora"}
@@ -2566,21 +2665,29 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Archivos Sincronizados Off-line</h3>
-              {mesesBalance.length === 0 ? (
-                <p className="text-sm text-gray-500 italic">No hay archivos sincronizados registrados.</p>
+              <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Detalle de Datos Sincronizados Off-line</h3>
+              {sincronizaciones.filter(s => s.tipo === 'sync_historica' || s.tipo === 'sync_diaria').length === 0 ? (
+                <p className="text-sm text-gray-500 italic">No hay registros detallados de sincronización.</p>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {mesesBalance.sort().reverse().map(mes => (
-                    <div key={mes} className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-center">
-                      <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Periodo</div>
-                      <div className="text-sm font-bold text-blue-800">{mes}</div>
-                      <div className="text-[9px] text-blue-600 mt-1 uppercase font-medium">Sincronizado ✅</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {sincronizaciones.filter(s => s.estado === 'completado').slice(0, 12).map((s, idx) => (
+                    <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-xs font-black text-indigo-600 uppercase">{s.detalles?.mes || 'Actual'}</div>
+                        <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleDateString()}</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 mb-2">
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_recibos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>RECIBOS</div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_gastos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>GASTOS</div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_egresos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>EGRESOS</div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_balance ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>BALANCE</div>
+                      </div>
+                      <div className="text-[10px] text-gray-600 line-clamp-1 italic">{s.error}</div>
                     </div>
                   ))}
                 </div>
               )}
-              <p className="text-[10px] text-gray-400 mt-4 uppercase font-bold italic">ESTA LISTA MUESTRA LOS MESES QUE YA TIENEN DATOS GUARDADOS EN EL SISTEMA Y PUEDEN CONSULTARSE SIN CONEXIÓN AL PORTAL.</p>
+              <p className="text-[10px] text-gray-400 mt-4 uppercase font-bold italic">ESTA LISTA MUESTRA EL DETALLE DE LOS ÚLTIMOS ARCHIVOS Y MÓDULOS DESCARGADOS CON ÉXITO.</p>
             </div>
           </div>
         )}
