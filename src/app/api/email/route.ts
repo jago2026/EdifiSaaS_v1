@@ -71,6 +71,10 @@ export async function POST(request: Request) {
     const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1);
     const bal = balance?.[0];
 
+    // Get manual balance
+    const { data: manualBal } = await supabase.from("movimientos_manual").select("*").eq("edificio_id", edificioId).order("fecha_corte", { ascending: false }).limit(1);
+    const mBal = manualBal?.[0];
+
     // Historical balances
     const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(4);
 
@@ -95,12 +99,12 @@ export async function POST(request: Request) {
     const fechaCompleta = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
     const horaEnvio = todayDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" });
 
-    const resultadoMes = Number(bal?.cobranza_mes || 0) - Number(bal?.gastos_facturados || 0);
-    const resultadoMesUSD = resultadoMes / tasa;
     const disponibilidadTotal = Number(bal?.saldo_disponible || 0) + Number(bal?.fondo_reserva || 0);
     const disponibilidadTotalUSD = disponibilidadTotal / tasa;
     const saldoAnterior = Number(bal?.saldo_anterior || 0);
     const saldoDisponible = Number(bal?.saldo_disponible || 0);
+    const saldoManual = Number(mBal?.saldo_final || 0);
+    const saldoManualUSD = Number(mBal?.saldo_final_usd || (saldoManual / tasa));
 
     const ajustesDelDia = 0;
     const resultadoDelDia = Number(bal?.cobranza_mes || 0) - Number(bal?.gastos_facturados || 0) + ajustesDelDia;
@@ -156,6 +160,8 @@ export async function POST(request: Request) {
     .two-col td { width: 50%; vertical-align: top; padding: 0 5px; }
     .btn { display: inline-block; padding: 10px 20px; background: #1a73e8; color: #ffffff; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px; }
     .resaltado { background: #fff3cd; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    .manual-box { background: #e0f2f1; border-left: 4px solid #009688; padding: 10px; margin: 10px 0; border-radius: 4px; }
+    .manual-value { font-size: 16px; font-weight: bold; color: #00796b; text-align: center; }
   </style>
 </head>
 <body>
@@ -166,8 +172,14 @@ export async function POST(request: Request) {
     </div>
     
     <div class="content">
+      <div style="background: #eef2f3; padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #d1d9e6;">
+        <p style="margin: 0; font-size: 13px; font-weight: bold; color: #2c3e50;">
+          Saldo Manual del Día: <span style="color: #00796b;">${formatBs(saldoManual)}</span> | <span style="color: #00796b;">${formatUsd(saldoManualUSD)}</span>
+        </p>
+      </div>
+
       <!-- ESTADO FINANCIERO -->
-      <div class="section-title estado">💰 ESTADO FINANCIERO ACTUAL</div>
+      <div class="section-title estado">💰 ESTADO FINANCIERO ACTUAL (Web Admin)</div>
       <table class="two-col">
         <tr>
           <td>
@@ -187,17 +199,23 @@ export async function POST(request: Request) {
             </table>
           </td>
           <td>
-            <table class="metric-table">
-              <tr><td class="metric-label">Fondo Reserva:</td><td class="metric-value">${formatBs(bal?.fondo_reserva || 0)}</td></tr>
-              <tr><td class="metric-label">Fondo Dif. Camb.:</td><td class="metric-value">${formatBs(bal?.fondo_diferencial_cambiario || 0)}</td></tr>
-              <tr><td class="metric-label">Fondo Int. Moratorios:</td><td class="metric-value">${formatBs(bal?.fondo_intereses || 0)}</td></tr>
-              <tr><td class="metric-label" style="font-weight: bold;">Total Fondos:</td><td class="metric-value" style="color: #1a73e8; font-weight: bold;">${formatBs(bal?.fondo_reserva || 0)}</td></tr>
-            </table>
-            <div class="highlight-box" style="background: #d9ead3; border-left-color: #0b5394;">
-              <div class="highlight-value" style="color: #0b5394;">${formatBs(disponibilidadTotal)}</div>
-              <div class="highlight-subvalue">${formatUsd(disponibilidadTotalUSD)} USD</div>
+            <div style="margin-bottom: 10px;">
+              <table class="metric-table">
+                <tr><td class="metric-label">Fondo Reserva:</td><td class="metric-value">${formatBs(bal?.fondo_reserva || 0)}</td></tr>
+                <tr><td class="metric-label">Total Fondos:</td><td class="metric-value" style="color: #1a73e8; font-weight: bold;">${formatBs(bal?.fondo_reserva || 0)}</td></tr>
+              </table>
+              <div class="highlight-box" style="background: #d9ead3; border-left-color: #0b5394; margin-bottom: 5px;">
+                <div class="highlight-value" style="color: #0b5394;">${formatBs(disponibilidadTotal)}</div>
+                <div class="highlight-subvalue">${formatUsd(disponibilidadTotalUSD)} USD</div>
+              </div>
+              <div style="text-align: center; font-size: 11px; color: #5f6368; margin-bottom: 15px;">Disponibilidad Total General</div>
             </div>
-            <div style="text-align: center; font-size: 11px; color: #5f6368;">Disponibilidad Total General</div>
+
+            <div class="manual-box">
+              <div class="manual-value">${formatBs(saldoManual)}</div>
+              <div style="text-align: center; font-size: 12px; color: #00796b; font-weight: bold;">${formatUsd(saldoManualUSD)} USD</div>
+              <div style="text-align: center; font-size: 11px; color: #00796b; margin-top: 5px;">Saldo Manual (Registros Internos)</div>
+            </div>
           </td>
         </tr>
       </table>
@@ -282,11 +300,6 @@ export async function POST(request: Request) {
         <a href="${BASE_URL}/login" style="display:inline-block;padding:12px 24px;background:#1a73e8;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:14px;">Ver Control Financiero</a>
       </div>
 
-    </div>
-    <div class="footer">
-      <p>📧 <strong>Resumen Generado Automáticamente</strong> - Sistema de Control Financiero Condominio</p>
-      <p>🕐 Enviado el ${fechaCompleta} a las ${horaEnvio}</p>
-      
       <!-- DETALLES DEL DÍA -->
       <div style="margin-top: 20px; padding-top: 15px; border-top: 2px solid #eee;">
         <h3 style="color: #333; font-size: 14px; margin-bottom: 10px;">📋 Detalles de Transacciones del Día</h3>
@@ -296,8 +309,15 @@ export async function POST(request: Request) {
 
         <h4 style="color:#ea4335; font-size: 12px; margin: 15px 0 8px;">💸 Egresos Procesados Hoy</h4>
         ${newestEgresos?.length ? `<table><thead><tr style="background:#ffe8e8;"><th>Beneficiario</th><th>Operación</th><th style="text-align:right;">Monto (Bs)</th><th style="text-align:right;">Monto (USD)</th></tr></thead><tbody>${newestEgresos.map((e: any) => `<tr><td>${e.beneficiario}</td><td>Egreso: ${e.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(e.monto)}</td><td style="text-align:right;">${formatUsd(e.monto/tasa)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay egresos hoy.</p>'}
-
       </div>
+    </div>
+
+    <div class="footer">
+      <p>🕐 Enviado el ${fechaCompleta} a las ${horaEnvio}</p>
+      <p>📧 <strong>Resumen Generado Automáticamente</strong> - Sistema de Control Financiero Condominio</p>
+      <p style="font-size: 10px; color: #999; margin-top: 10px;">
+        Este mensaje fue generado automáticamente. Por favor, <strong>no responda a este email</strong>, ya que esta dirección de correo no es monitoreada y no recibiremos su respuesta.
+      </p>
     </div>
   </div>
 </body>

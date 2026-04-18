@@ -29,7 +29,7 @@ function normalizeFecha(fecha: string): string {
 
 function normalizeMes(mesStr: string): string {
   const match = mesStr?.match(/^(\d{2})-(\d{4})$/);
-  return match ? `${match[2]}-${match[1]}` : "2026-04";
+  return match ? `${match[2]}-${match[1]}` : new Date().toISOString().substring(0, 7);
 }
 
 function cleanHtml(text: string): string {
@@ -256,8 +256,15 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { userId, mes } = body;
+    const { userId, mes, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas } = body;
     const mesEstandar = normalizeMes(mes);
+    
+    // Default to true if not provided (backwards compatibility)
+    const doSyncRecibos = sync_recibos !== false;
+    const doSyncEgresos = sync_egresos !== false;
+    const doSyncGastos = sync_gastos !== false;
+    const doSyncAlicuotas = sync_alicuotas !== false;
+
     const { data: building } = await supabase.from("edificios").select("*").eq("usuario_id", userId).single();
     if (!building) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
     
@@ -266,14 +273,12 @@ export async function POST(request: Request) {
 
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
     if (!session) {
-      // Registrar error en tabla sincronizaciones
       await supabase.from("sincronizaciones").insert({
         edificio_id: building.id,
         tipo: "sync",
         estado: "error",
         error: "Fallo de login en Web Admin. Verifica credenciales."
       });
-      // Registrar alerta de error para el usuario
       await supabase.from("alertas").insert({
         edificio_id: building.id,
         tipo: "error",
@@ -285,13 +290,17 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = new URL(building.url_login).origin;
-    const [hRec, hEgr, hGas, hBal, hAli] = await Promise.all([
-      fetchPageWithCookie(`${baseUrl}/condlin.php?r=5`, session),
-      fetchPageWithCookie(`${baseUrl}/condlin.php?r=21`, session),
-      fetchPageWithCookie(`${baseUrl}/condlin.php?r=3`, session),
-      fetchPageWithCookie(`${baseUrl}/condlin.php?r=2`, session),
-      fetchPageWithCookie(`${baseUrl}/condlin.php?r=23`, session)
-    ]);
+    
+    // Fetch only requested pages
+    const promises = [
+      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5`, session) : Promise.resolve(null),
+      doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21`, session) : Promise.resolve(null),
+      doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3`, session) : Promise.resolve(null),
+      doSyncEgresos || doSyncGastos || true ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2`, session) : Promise.resolve(null),
+      doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23`, session) : Promise.resolve(null)
+    ];
+
+    const [hRec, hEgr, hGas, hBal, hAli] = await Promise.all(promises);
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
@@ -299,40 +308,41 @@ export async function POST(request: Request) {
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
 
-    console.log(`[DEBUG] Extraídos: Recibos(${allRecibos.length}), Egresos(${allEgresos.length}), Gastos(${allGastos.length}), Alicuotas(${allAlicuotas.length})`);
-
-    // --- GUARDADO ---
-    if (allRecibos.length > 0) {
+    if (doSyncRecibos && allRecibos.length > 0) {
       await supabase.from("recibos").delete().eq("edificio_id", building.id);
       await supabase.from("recibos").insert(allRecibos.map(r => ({ edificio_id: building.id, unidad: r.unidad, propietario: r.propietario, num_recibos: r.num_recibos, deuda: r.deuda, deuda_usd: r.deuda_usd, sincronizado: true, actualizado_en: today })));
     }
 
-    if (allAlicuotas.length > 0) {
+    if (doSyncAlicuotas && allAlicuotas.length > 0) {
       await supabase.from("alicuotas").delete().eq("edificio_id", building.id);
       await supabase.from("alicuotas").insert(allAlicuotas.map(a => ({ ...a, edificio_id: building.id })));
     }
 
-    await supabase.from("movimientos_dia").delete().eq("edificio_id", building.id).eq("detectado_en", today);
+    if (doSyncEgresos || doSyncGastos) {
+      await supabase.from("movimientos_dia").delete().eq("edificio_id", building.id).eq("detectado_en", today);
+    }
 
-    for (const e of allEgresos) {
-      const fDB = normalizeFecha(e.fecha);
-      const hash = await generateHash(`${fDB}|${e.beneficiario}|${e.monto}`);
-      await supabase.from("egresos").upsert({ edificio_id: building.id, fecha: fDB, beneficiario: e.beneficiario, descripcion: e.operacion, monto: e.monto, hash, sincronizado: true, mes: mesEstandar }, { onConflict: 'edificio_id,hash' });
-      
-      const desc = `${e.operacion} - ${e.beneficiario}`;
-      await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-      if (fDB === today) {
-        await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, fuente: "egresos", detectado_en: today });
+    if (doSyncEgresos) {
+      for (const e of allEgresos) {
+        const fDB = normalizeFecha(e.fecha);
+        const hash = await generateHash(`${fDB}|${e.beneficiario}|${e.monto}`);
+        await supabase.from("egresos").upsert({ edificio_id: building.id, fecha: fDB, beneficiario: e.beneficiario, descripcion: e.operacion, monto: e.monto, hash, sincronizado: true, mes: mesEstandar }, { onConflict: 'edificio_id,hash' });
+        const desc = `${e.operacion} - ${e.beneficiario}`;
+        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+        if (fDB === today) {
+          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, fuente: "egresos", detectado_en: today });
+        }
       }
     }
 
-    for (const g of allGastos) {
-      const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${today}`);
-      await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: g.codigo, descripcion: g.descripcion, monto: g.monto, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-      
-      await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-      if (mesEstandar === today.substring(0, 7)) {
-        await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
+    if (doSyncGastos) {
+      for (const g of allGastos) {
+        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${today}`);
+        await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: g.codigo, descripcion: g.descripcion, monto: g.monto, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+        if (mesEstandar === today.substring(0, 7)) {
+          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
+        }
       }
     }
 
@@ -341,7 +351,6 @@ export async function POST(request: Request) {
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     }
 
-    // Registrar éxito en sincronizaciones e insertar Alerta informativa
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
     const mesAlert = mes ? ` para el mes ${mes}` : "";
     await supabase.from("sincronizaciones").insert({
@@ -366,19 +375,8 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("[ERROR] Sync catch:", error);
     if (currentBuildingId) {
-      await supabase.from("sincronizaciones").insert({
-        edificio_id: currentBuildingId,
-        tipo: "sync",
-        estado: "error",
-        error: error.message || "Error desconocido"
-      });
-      await supabase.from("alertas").insert({
-        edificio_id: currentBuildingId,
-        tipo: "error",
-        titulo: "Error Crítico",
-        descripcion: error.message || "Fallo inesperado durante la extracción de datos.",
-        fecha: today
-      });
+      await supabase.from("sincronizaciones").insert({ edificio_id: currentBuildingId, tipo: "sync", estado: "error", error: error.message || "Error desconocido" });
+      await supabase.from("alertas").insert({ edificio_id: currentBuildingId, tipo: "error", titulo: "Error Crítico", descripcion: error.message || "Fallo inesperado durante la extracción de datos.", fecha: today });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

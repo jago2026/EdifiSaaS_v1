@@ -8,103 +8,89 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
+    const edificioId = searchParams.get("edificioId");
+    const unidad = searchParams.get("unidad");
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (action === "test-payment") {
-      // Simulate a payment by updating one unidad's debt
       const today = new Date().toISOString().split("T")[0];
       
-      // Get first edificio
-      const { data: edificio } = await supabase
-        .from("edificios")
-        .select("id")
-        .limit(1)
-        .single();
-
-      if (!edificio) {
-        return NextResponse.json({ error: "No hay edificio" }, { status: 400 });
+      let targetEdificioId = edificioId;
+      if (!targetEdificioId) {
+        const { data: ed } = await supabase.from("edificios").select("id").limit(1).single();
+        targetEdificioId = ed?.id;
       }
 
-      // Get a recibo with debt
-      const { data: recibo } = await supabase
-        .from("recibos")
-        .select("id, unidad, deuda")
-        .eq("edificio_id", edificio.id)
-        .gt("deuda", 10000)
-        .limit(1)
-        .single();
+      if (!targetEdificioId) return NextResponse.json({ error: "No hay edificio" }, { status: 400 });
 
-      if (!recibo) {
-        return NextResponse.json({ error: "No hay recibos con deuda" }, { status: 400 });
-      }
+      let query = supabase.from("recibos").select("id, unidad, deuda, propietario").eq("edificio_id", targetEdificioId).gt("deuda", 0);
+      if (unidad) query = query.eq("unidad", unidad);
+      
+      const { data: recibo } = await query.limit(1).single();
 
-      // Reduce debt to simulate payment
-      const montoPagado = Math.min(recibo.deuda, 10000);
-      const nuevaDeuda = recibo.deuda - montoPagado;
+      if (!recibo) return NextResponse.json({ error: "No hay recibos con deuda para los criterios" }, { status: 400 });
 
-      await supabase
-        .from("recibos")
-        .update({ 
-          deuda: nuevaDeuda,
-          deuda_usd: nuevaDeuda / 45.50,
-          actualizado_en: today 
-        })
-        .eq("id", recibo.id);
+      const isTotal = searchParams.get("type") === "total";
+      const montoPagado = isTotal ? recibo.deuda : (parseFloat(searchParams.get("amount") || "0") || Math.min(recibo.deuda, 5000));
+      const nuevaDeuda = Math.max(0, recibo.deuda - montoPagado);
 
-      // Record payment
+      await supabase.from("recibos").update({ 
+        deuda: nuevaDeuda,
+        deuda_usd: nuevaDeuda / 45.50,
+        actualizado_en: today 
+      }).eq("id", recibo.id);
+
       await supabase.from("movimientos_dia").insert({
-        edificio_id: edificio.id,
+        edificio_id: targetEdificioId,
         tipo: "recibo",
-        descripcion: `TEST PAGO ${recibo.unidad}`,
+        descripcion: `PAGO ${isTotal ? 'TOTAL' : 'PARCIAL'} ${recibo.unidad} - ${recibo.propietario}`,
         monto: montoPagado,
         fecha: today,
+        unidad_apartamento: recibo.unidad,
+        propietario: recibo.propietario,
         fuente: "test",
         detectado_en: today,
       });
 
-      return NextResponse.json({ 
-        success: true, 
-        message: `Simulado pago de Bs. ${montoPagado} para ${recibo.unidad}. Nueva deuda: Bs. ${nuevaDeuda}`,
+      // Also record in pagos_recibos for KPIs
+      await supabase.from("pagos_recibos").insert({
+        edificio_id: targetEdificioId,
         unidad: recibo.unidad,
-        montoPagado,
-        nuevaDeuda 
+        propietario: recibo.propietario,
+        mes: today.substring(0, 7),
+        monto: montoPagado,
+        fecha_pago: today,
+        source: "test"
       });
+
+      return NextResponse.json({ success: true, message: `Pago ${isTotal ? 'TOTAL' : 'PARCIAL'} registrado para ${recibo.unidad}`, montoPagado, nuevaDeuda });
     }
 
     if (action === "reset-deuda") {
-      // Reset all debts from previous backup (for testing)
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-      
-      const { data: edificio } = await supabase
-        .from("edificios")
-        .select("id")
-        .limit(1)
-        .single();
-
-      if (!edificio) {
-        return NextResponse.json({ error: "No hay edificio" }, { status: 400 });
+      let targetEdificioId = edificioId;
+      if (!targetEdificioId) {
+        const { data: ed } = await supabase.from("edificios").select("id").limit(1).single();
+        targetEdificioId = ed?.id;
       }
+      if (!targetEdificioId) return NextResponse.json({ error: "No hay edificio" }, { status: 400 });
 
-      // Reset debts to higher values (simulating previous day)
-      await supabase
-        .from("recibos")
-        .update({ deuda: 90000 })
-        .eq("edificio_id", edificio.id);
-
-      return NextResponse.json({ success: true, message: "Deudas reseteadas para prueba" });
+      await supabase.from("recibos").update({ deuda: 25000, deuda_usd: 25000/45.5 }).eq("edificio_id", targetEdificioId);
+      return NextResponse.json({ success: true, message: "Deudas reseteadas a Bs. 25.000 para pruebas" });
     }
 
     return NextResponse.json({ 
-      info: "API de prueba",
-     acciones: {
-        "test-payment": "Simula un pago reduciendo deuda",
-        "reset-deuda": "Resetea las deudas para nueva prueba"
+      info: "API de prueba de pagos",
+      endpoint: "/api/test-pago",
+      params: {
+        action: "test-payment | reset-deuda",
+        edificioId: "UUID opcional",
+        unidad: "Opcional",
+        type: "total | partial",
+        amount: "Monto para partial"
       }
     });
-
   } catch (error: any) {
-    console.error("Test error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

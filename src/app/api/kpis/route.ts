@@ -7,10 +7,21 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 function normalizeMonth(mes: string | null | undefined): string {
   if (!mes) return "";
   const trimmed = mes.trim();
+  
+  // If already YYYY-MM, return it
+  if (/^\d{4}-\d{2}$/.test(trimmed)) return trimmed;
+
   const parts = trimmed.split(/[-/]/);
   if (parts.length !== 2) return trimmed;
+  
   let monthPart = parts[0];
   let yearPart = parts[1];
+  
+  // If first part is 4 digits, assume it's YYYY-MM
+  if (monthPart.length === 4) {
+    return `${monthPart}-${yearPart.padStart(2, "0")}`;
+  }
+
   const month = parseInt(monthPart, 10);
   if (month >= 1 && month <= 12) {
     monthPart = month.toString().padStart(2, "0");
@@ -86,9 +97,9 @@ function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
   // Fallback: Find closest rate BEFORE that month
   const fallbackTasa = tasasHistoricas
     .filter((t: any) => t.fecha && t.fecha < `${prefix}-01`)
-    .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
+    .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
     
-  if (fallbackTasa) return parseFloat(fallbackTasa.tasa_dolar);
+  if (fallbackTasa.length > 0) return parseFloat(fallbackTasa[0].tasa_dolar);
 
   // Ultimate fallback: Use the most recent rate we have
   return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
@@ -105,11 +116,12 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get more rates to ensure we reach 2025
     const { data: tasasHistoricas } = await supabase
       .from("tasas_cambio")
       .select("fecha, tasa_dolar")
       .order("fecha", { ascending: false })
-      .limit(500);
+      .limit(1000);
 
     const { data: egresos } = await supabase
       .from("egresos")
@@ -156,7 +168,6 @@ export async function GET(request: Request) {
       .eq("edificio_id", edificioId)
       .order("fecha_pago", { ascending: true });
 
-    const getTasaForDate = (fecha: string) => getTasaBCVParaFecha(fecha, tasasHistoricas || []);
     const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
 
     // Daily cash flow (pagos vs egresos)
@@ -178,14 +189,7 @@ export async function GET(request: Request) {
 
     const balancesWithLabel = (balances || []).map((b: any) => {
       const normalized = normalizeMonth(b.mes);
-      const resTasa = getTasaForDate(b.fecha);
-      const tasa = resTasa.tasa;
-
-      // Si estamos usando un fallback (no hay tasa exacta para ese día), logueamos una alerta
-      const exactTasa = tasasHistoricas?.find((t: any) => t.fecha === b.fecha);
-      if (!exactTasa && edificioId) {
-         logTasaWarning(supabase, edificioId, b.fecha, tasa, resTasa.fecha);
-      }
+      const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
 
       return {
         ...b,
@@ -200,12 +204,17 @@ export async function GET(request: Request) {
         fondo_reserva: b.fondo_reserva || 0,
         fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,
         fondo_prestaciones: b.fondo_prestaciones || 0,
+        fondo_prestaciones_usd: tasa > 0 ? (b.fondo_prestaciones || 0) / tasa : 0,
         fondo_trabajos_varios: b.fondo_trabajos_varios || 0,
+        fondo_trabajos_varios_usd: tasa > 0 ? (b.fondo_trabajos_varios || 0) / tasa : 0,
         fondo_intereses: b.fondo_intereses || 0,
+        fondo_intereses_usd: tasa > 0 ? (b.fondo_intereses || 0) / tasa : 0,
         fondo_diferencial_cambiario: b.fondo_diferencial_cambiario || 0,
+        fondo_diferencial_cambiario_usd: tasa > 0 ? (b.fondo_diferencial_cambiario || 0) / tasa : 0,
         saldo_anterior: b.saldo_anterior || 0,
         saldo_anterior_usd: tasa > 0 ? (b.saldo_anterior || 0) / tasa : 0,
         total_por_cobrar: b.total_por_cobrar || 0,
+        total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
         tasa_bcv: tasa
       };
     }).sort((a, b) => (a.mes_normalizado || "").localeCompare(b.mes_normalizado || ""));
@@ -247,8 +256,8 @@ export async function GET(request: Request) {
       : 0;
 
     return NextResponse.json({
-      egresos: Object.values(egresosAgrupados),
-      gastos: Object.values(gastosAgrupados),
+      egresos: Object.values(egresosAgrupados).sort((a: any, b: any) => a.mes.localeCompare(b.mes)),
+      gastos: Object.values(gastosAgrupados).sort((a: any, b: any) => a.mes.localeCompare(b.mes)),
       balances: balancesWithLabel,
       movimientos: movimientos || [],
       cashFlow: cashFlowData,

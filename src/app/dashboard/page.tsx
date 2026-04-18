@@ -477,11 +477,13 @@ export default function DashboardPage() {
           }
           return a.id.localeCompare(b.id);
         });
-        let runningBalance = 0;
-        const processed = sorted.map((m: any) => {
-          const saldoFila = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
-          runningBalance += saldoFila;
-          return { ...m, saldo_acumulado: runningBalance };
+        
+        let currentRunningBalance = 0;
+        const processed = sorted.map((m: any, index: number) => {
+          // Si es el primero, empezamos con su saldo inicial
+          // Si no, el saldo final de la fila es inicial - egresos + ingresos
+          const saldoFinalFila = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
+          return { ...m, saldo_acumulado: saldoFinalFila, computed_saldo_final: saldoFinalFila };
         });
         setMovimientosManual(processed.reverse());
       }
@@ -786,7 +788,13 @@ export default function DashboardPage() {
       const res = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id }),
+        body: JSON.stringify({ 
+          userId: user?.id,
+          sync_recibos: editConfig.sync_recibos,
+          sync_egresos: editConfig.sync_egresos,
+          sync_gastos: editConfig.sync_gastos,
+          sync_alicuotas: editConfig.sync_alicuotas
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -999,15 +1007,16 @@ export default function DashboardPage() {
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("manual")}>
                 <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
                 <div className="text-2xl font-bold text-indigo-600">
-                  Bs. {formatBs(movimientosManual.length > 0 ? movimientosManual[0].saldo_final : 0)}
+                  Bs. {formatBs(movimientosManual.length > 0 ? movimientosManual[0].saldo_acumulado : 0)}
                 </div>
                 <div className="text-sm text-gray-500 font-medium">
-                  $ {formatUsd(movimientosManual.length > 0 ? movimientosManual[0].saldo_final_usd : 0)}
+                  $ {formatUsd(movimientosManual.length > 0 ? (movimientosManual[0].saldo_acumulado / (movimientosManual[0].tasa_bcv || tasaBCV.dolar || 45)) : 0)}
                 </div>
                 <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
                   Último Saldo Registrado
                 </div>
               </div>
+              
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("manual")}>
                 <div className="text-sm text-gray-500 mb-1">Por Conciliar (Manual)</div>
                 <div className="text-2xl font-bold text-amber-600">
@@ -1443,46 +1452,45 @@ export default function DashboardPage() {
                   <thead>
                     <tr className="border-b-2 bg-gray-50">
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Concepto Detallado</th>
-                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Monto Bs.</th>
-                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Equiv. USD</th>
-                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Saldo Bs.</th>
-                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Saldo USD</th>
+                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Bs.</th>
+                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">USD</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    <tr className="bg-blue-50/50 font-bold"><td className="py-2.5 px-4 text-blue-800" colSpan={5}>I. DISPONIBILIDAD EN CAJA Y BANCOS</td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_anterior / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">COBRANZA DEL MES (INGRESOS)</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">+{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.cobranza_mes / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_facturados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.gastos_facturados / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">AJUSTES / DIF. CAMBIARIA / PAGOS A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-500 font-medium">{formatBs(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.ajuste_pago_tiempo || 0) / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-blue-50/50 font-bold"><td className="py-2.5 px-4 text-blue-800" colSpan={3}>I. DISPONIBILIDAD EN CAJA Y BANCOS</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_anterior / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">COBRANZA DEL MES (INGRESOS)</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">+{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.cobranza_mes / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_facturados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.gastos_facturados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">AJUSTES / DIF. CAMBIARIA / PAGOS A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-500 font-medium">{formatBs(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.ajuste_pago_tiempo || 0) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-orange-50/50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={5}>II. CUENTAS POR COBRAR (CONDOMINIOS)</td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES ACTUAL</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.recibos_mes / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">DEUDA DE MESES ATRASADOS</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_atrasados / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDOS A FAVOR (SOBRANTES)</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_sobrantes || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.condominios_sobrantes || 0) / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
-                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-orange-700">TOTAL CUENTAS POR COBRAR</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</td></tr>
-                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL DEL EDIFICIO (CAJA + CONDOMINIOS)</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar)) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-orange-50/50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={3}>II. CUENTAS POR COBRAR (CONDOMINIOS)</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES ACTUAL</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.recibos_mes / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">DEUDA DE MESES ATRASADOS</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_atrasados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDOS A FAVOR (SOBRANTES)</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_sobrantes || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.condominios_sobrantes || 0) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-orange-700">TOTAL CUENTAS POR COBRAR</td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL DEL EDIFICIO (CAJA + CONDOMINIOS)</td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar)) / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-emerald-50/50 font-bold"><td className="py-2.5 px-4 text-emerald-800" colSpan={5}>III. FONDOS DE RESERVA Y PASIVOS</td></tr>
-                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>FONDO DE RESERVA GENERAL</td></tr>
-                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Saldo Mes Anterior</td><td className="py-2 px-4 text-right text-gray-400">{formatBs(balance.fondo_reserva_mes_anterior)}</td><td className="py-2 px-4 text-right text-gray-300 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_reserva_mes_anterior / tasaBCV.dolar : 0)}</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_reserva)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_reserva / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-emerald-50/50 font-bold"><td className="py-2.5 px-4 text-emerald-800" colSpan={3}>III. FONDOS DE RESERVA Y PASIVOS</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO DE RESERVA GENERAL</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_reserva)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_reserva / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>PASIVOS LABORALES (PRESTACIONES SOCIALES)</td></tr>
-                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right text-gray-400">{formatBs(balance.fondo_prestaciones_mes_anterior)}</td><td className="py-2 px-4 text-right text-gray-300 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_prestaciones_mes_anterior / tasaBCV.dolar : 0)}</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_prestaciones)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_prestaciones / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>PASIVOS LABORALES (PRESTACIONES SOCIALES)</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_prestaciones)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_prestaciones / tasaBCV.dolar : 0)}</td></tr>
 
-                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>FONDO TRABAJOS VARIOS / MEJORAS</td></tr>
-                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Presupuesto Asignado</td><td className="py-2 px-4 text-right text-gray-400">{formatBs(balance.fondo_trabajos_varios_mes_anterior)}</td><td className="py-2 px-4 text-right text-gray-300 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_trabajos_varios_mes_anterior / tasaBCV.dolar : 0)}</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_trabajos_varios)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_trabajos_varios / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO TRABAJOS VARIOS / MEJORAS</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Presupuesto Asignado</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_trabajos_varios)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_trabajos_varios / tasaBCV.dolar : 0)}</td></tr>
 
-                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>AJUSTE DIFERENCIA ALICUOTA</td></tr>
-                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Diferencia Mensual</td><td className="py-2 px-4 text-right text-gray-400">{formatBs(balance.ajuste_alicuota_mes_anterior)}</td><td className="py-2 px-4 text-right text-gray-300 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.ajuste_alicuota_mes_anterior / tasaBCV.dolar : 0)}</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.ajuste_alicuota)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.ajuste_alicuota / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>AJUSTE DIFERENCIA ALICUOTA</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Diferencia Mensual</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.ajuste_alicuota)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.ajuste_alicuota / tasaBCV.dolar : 0)}</td></tr>
 
-                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>FONDO INTERESES MORATORIOS</td></tr>                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado por Morosidad</td><td className="py-2 px-4 text-right text-gray-400">{formatBs(balance.fondo_intereses_mes_anterior)}</td><td className="py-2 px-4 text-right text-gray-300 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_intereses_mes_anterior / tasaBCV.dolar : 0)}</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_intereses)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_intereses / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO INTERESES MORATORIOS</td></tr>                    
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado por Morosidad</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_intereses)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_intereses / tasaBCV.dolar : 0)}</td></tr>
 
-                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>DIFERENCIAL CAMBIARIO (FONDO PROTECCIÓN)</td></tr>
-                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Ajuste por Tasa BCV</td><td className="py-2 px-4 text-right text-gray-400">{formatBs(balance.fondo_diferencial_mes_anterior)}</td><td className="py-2 px-4 text-right text-gray-300 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_diferencial_mes_anterior / tasaBCV.dolar : 0)}</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_diferencial_cambiario)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_diferencial_cambiario / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>DIFERENCIAL CAMBIARIO (FONDO PROTECCIÓN)</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Ajuste por Tasa BCV</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_diferencial_cambiario)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_diferencial_cambiario / tasaBCV.dolar : 0)}</td></tr>
 
-                    <tr className="bg-emerald-100 font-bold border-t-2 border-emerald-200"><td className="py-3 px-4 text-emerald-800">SALDO TOTAL RESERVAS ASIGNADAS</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-emerald-800 font-black">{formatBs(balance.saldo_reservas)}</td><td className="py-3 px-4 text-right text-emerald-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-emerald-100 font-bold border-t-2 border-emerald-200"><td className="py-3 px-4 text-emerald-800">SALDO TOTAL RESERVAS ASIGNADAS</td><td className="py-3 px-4 text-right text-emerald-800 font-black">{formatBs(balance.saldo_reservas)}</td><td className="py-3 px-4 text-right text-emerald-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -1765,6 +1773,86 @@ export default function DashboardPage() {
                   </ResponsiveContainer>
                 ) : (
                   <p className="text-gray-500 text-center py-8">No hay datos de egresos</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Fondo de Reserva (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: number) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Fondo Reserva"]} />
+                      <Line type="monotone" dataKey="fondo_reserva_usd" stroke="#8b5cf6" strokeWidth={2} name="Fondo Reserva ($)" dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Total Cuentas por Cobrar (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: number) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Por Cobrar"]} />
+                      <Bar dataKey="total_por_cobrar_usd" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Por Cobrar ($)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Fondo Intereses Moratorios (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: number) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Int. Moratorios"]} />
+                      <Area type="monotone" dataKey="fondo_intereses_usd" stroke="#ec4899" fill="#fbcfe8" name="Intereses ($)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Diferencial Cambiario (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: number) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Dif. Cambiario"]} />
+                      <Line type="monotone" dataKey="fondo_diferencial_cambiario_usd" stroke="#06b6d4" strokeWidth={2} name="Dif. Cambiario ($)" dot={{ r: 3 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
                 )}
               </div>
             </div>
@@ -2056,6 +2144,37 @@ export default function DashboardPage() {
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
                       <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Opciones de Sincronizaci&oacute;n</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Recibos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Egresos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Gastos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_alicuotas} onChange={(e) => setEditConfig({ ...editConfig, sync_alicuotas: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Alicuotas</span>
+                    </label>
+                  </div>
+                  <div className="mt-4">
+                    <button 
+                      onClick={handleSync} 
+                      disabled={syncing || !hasIntegration} 
+                      className="w-full md:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs"
+                    >
+                      {syncing ? "Sincronizando..." : "Ejecutar Sincronizaci\u00f3n Seleccionada"}
+                    </button>
                   </div>
                 </div>
 
