@@ -401,8 +401,14 @@ export async function POST(request: Request) {
     }
 
     if (balance) {
+      console.log("[DEBUG] Guardando balance:", JSON.stringify(balance, null, 2));
       await supabase.from("balances").delete().match({ edificio_id: building.id, mes: mesEstandar });
-      await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
+      const { data: balanceData, error: balanceError } = await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
+      if (balanceError) {
+        console.log("[DEBUG] Error guardando balance:", balanceError);
+      } else {
+        console.log("[DEBUG] Balance guardado OK");
+      }
     }
 
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } });
