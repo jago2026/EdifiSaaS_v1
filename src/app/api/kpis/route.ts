@@ -68,6 +68,26 @@ function getTasaBCVParaFecha(fechaStr: string, tasasHistoricas: any[]): { tasa: 
   return { tasa: parseFloat(tasasHistoricas[0]?.tasa_dolar || "45"), fecha: tasasHistoricas[0]?.fecha || null };
 }
 
+function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
+  if (!tasasHistoricas || tasasHistoricas.length === 0) return 45;
+  const normalized = normalizeMonth(mes);
+  if (!normalized) return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
+  
+  const [year, month] = normalized.split("-");
+  const fechaBuscada = `${year}-${month}`;
+  
+  // Try to find rate for that month
+  const tasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha.startsWith(fechaBuscada));
+  if (tasa) return parseFloat(tasa.tasa_dolar);
+
+  // Fallback: Find closest rate BEFORE that month
+  const fallbackTasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha < `${fechaBuscada}-01`);
+  if (fallbackTasa) return parseFloat(fallbackTasa.tasa_dolar);
+
+  // Ultimate fallback: Use the most recent rate we have
+  return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -104,7 +124,7 @@ export async function GET(request: Request) {
 
     const { data: balances } = await supabase
       .from("balances")
-      .select("mes, fecha, saldo_disponible, cobranza_mes, gastos_facturados, fondo_reserva, total_por_cobrar, fondo_prestaciones, fondo_trabajos_varios, fondo_intereses, saldo_anterior")
+      .select("mes, fecha, saldo_disponible, cobranza_mes, gastos_facturados, fondo_reserva, total_por_cobrar, fondo_prestaciones, fondo_trabajos_varios, fondo_intereses, fondo_diferencial_cambiario, saldo_anterior")
       .eq("edificio_id", edificioId)
       .order("mes", { ascending: true });
 
@@ -125,6 +145,7 @@ export async function GET(request: Request) {
       .eq("edificio_id", edificioId);
 
     const getTasaForDate = (fecha: string) => getTasaBCVParaFecha(fecha, tasasHistoricas || []);
+    const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
 
     const balancesWithLabel = (balances || []).map((b: any) => {
       const normalized = normalizeMonth(b.mes);
@@ -148,9 +169,11 @@ export async function GET(request: Request) {
         gastos_facturados: b.gastos_facturados || 0,
         gastos_facturados_usd: tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0,
         fondo_reserva: b.fondo_reserva || 0,
-        fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,        fondo_prestaciones: b.fondo_prestaciones || 0,
+        fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,
+        fondo_prestaciones: b.fondo_prestaciones || 0,
         fondo_trabajos_varios: b.fondo_trabajos_varios || 0,
         fondo_intereses: b.fondo_intereses || 0,
+        fondo_diferencial_cambiario: b.fondo_diferencial_cambiario || 0,
         saldo_anterior: b.saldo_anterior || 0,
         saldo_anterior_usd: tasa > 0 ? (b.saldo_anterior || 0) / tasa : 0,
         total_por_cobrar: b.total_por_cobrar || 0,
