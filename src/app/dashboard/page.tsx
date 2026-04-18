@@ -1041,11 +1041,11 @@ export default function DashboardPage() {
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("egresos")}>
                 <div className="text-sm text-gray-500 mb-1">Egresos del Mes</div>
                 <div className="text-2xl font-bold text-red-600">
-                  Bs.{formatBs(gastosSummary.monto)}
+                  Bs.{formatBs(egresosSummary.monto)}
                 </div>
-                {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(gastosSummary.monto / tasaBCV.dolar)}</div>}
+                {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(egresosSummary.monto / tasaBCV.dolar)}</div>}
                 <div className="text-xs text-gray-400 mt-1">
-                  {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
+                  {egresosSummary.cantidad} movimiento{egresosSummary.cantidad !== 1 ? "s" : ""}
                 </div>
               </div>
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("recibos")}>

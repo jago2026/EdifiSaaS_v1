@@ -38,6 +38,7 @@ export async function GET(request: Request) {
       .from("gastos")
       .select("id, fecha, codigo, descripcion, monto")
       .eq("edificio_id", edificioId)
+      .neq("codigo", "TOTAL")
       .order("fecha", { ascending: false });
 
     if (mes) {
