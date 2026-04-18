@@ -267,10 +267,11 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingMovements(true);
     try {
-      // Get today's date for filtering
-      const today = new Date().toISOString().split('T')[0];
-      // Use new endpoint that combines recibos, egresos, and gastos - filter by TODAY
-      const res = await fetch(`/api/movimientos-all?edificioId=${building.id}&fecha=${today}`);
+      // Get current month for filtering
+      const today = new Date();
+      const currentMes = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      // Get all movements for current month (gastos + egresos)
+      const res = await fetch(`/api/movimientos-all?edificioId=${building.id}&mes=${currentMes}`);
       const data = await res.json();
       if (res.ok && data.movimientos) {
         setMovements(data.movimientos);
@@ -1478,6 +1479,19 @@ export default function DashboardPage() {
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-100 font-bold">
+                      <td className="py-3 px-4 text-gray-900">TOTAL GENERAL</td>
+                      <td className="py-3 px-4 text-gray-600 text-xs">({gastos.length} registros)</td>
+                      <td className="py-3 px-4"></td>
+                      <td className="py-3 px-4 text-right text-gray-900">
+                        $ {formatUsd(gastos.reduce((sum, g: any) => sum + Number(g.monto_usd || 0), 0))}
+                      </td>
+                      <td className="py-3 px-4 text-right text-orange-600">
+                        Bs. {formatBs(gastos.reduce((sum, g: any) => sum + Number(g.monto_bs || g.monto || 0), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
