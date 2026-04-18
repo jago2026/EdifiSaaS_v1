@@ -352,9 +352,68 @@ export async function POST(request: Request) {
     console.log("[DEBUG] Alicuotas extraídas:", allAlicuotas.length);
 
     // --- GUARDADO ---
+    // Primero: obtener recibos anteriores ANTES de guardar los nuevos
+    const { data: prevRecibos } = await supabase
+      .from("recibos")
+      .select("unidad, deuda")
+      .eq("edificio_id", building.id);
+    
+    const prevRecibosMap = new Map();
+    if (prevRecibos) {
+      for (const r of prevRecibos) {
+        prevRecibosMap.set(r.unidad, r.deuda);
+      }
+    }
+    console.log("[DEBUG] Recibos anteriores:", prevRecibosMap.size);
+    
+    // Calcular pagos detectados (comparación con anterior sync)
+    const pagosDetectados: any[] = [];
+    for (const r of allRecibos) {
+      const prevDeuda = prevRecibosMap.get(r.unidad) || 0;
+      if (prevDeuda > r.deuda) {
+        const montoPagado = prevDeuda - r.deuda;
+        console.log(`[DEBUG] Pago detectado: ${r.unidad} - Bs${montoPagado} (antes: ${prevDeuda}, ahora: ${r.deuda})`);
+        pagosDetectados.push({
+          unidad: r.unidad,
+          propietario: r.propietario,
+          monto_pagado: montoPagado,
+          deuda_anterior: prevDeuda,
+          deuda_actual: r.deuda
+        });
+      }
+    }
+    console.log("[DEBUG] Total pagos detectados:", pagosDetectados.length);
+    
+    // Guardar recibos actuales
     if (allRecibos.length > 0) {
       await supabase.from("recibos").delete().eq("edificio_id", building.id);
       await supabase.from("recibos").insert(allRecibos.map(r => ({ edificio_id: building.id, unidad: r.unidad, propietario: r.propietario, num_recibos: r.num_recibos, deuda: r.deuda, deuda_usd: r.deuda_usd, sincronizado: true, actualizado_en: today })));
+    }
+    
+    // Guardar pagos detectados como movimientos tipo "pago"
+    for (const pago of pagosDetectados) {
+      const hash = await generateHash(`PAGO|${pago.unidad}|${pago.monto_pagado}|${today}`);
+      await supabase.from("movimientos").upsert({
+        edificio_id: building.id,
+        tipo: "pago",
+        descripcion: `Pago parcial/total - ${pago.unidad} - ${pago.propietario}`,
+        monto: pago.monto_pagado,
+        fecha: today,
+        hash,
+        sincronizado: true
+      }, { onConflict: 'edificio_id,hash' });
+      
+      if (mesEstandar === today.substring(0, 7)) {
+        await supabase.from("movimientos_dia").insert({
+          edificio_id: building.id,
+          tipo: "pago",
+          descripcion: `Pago - ${pago.unidad}`,
+          monto: pago.monto_pagado,
+          fecha: today,
+          fuente: "recibos",
+          detectado_en: today
+        });
+      }
     }
 
     if (allAlicuotas.length > 0) {
