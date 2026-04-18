@@ -31,6 +31,21 @@ function formatLabel(mes: string | null | undefined): string {
   return mes;
 }
 
+async function logTasaWarning(supabase: any, edificioId: string, mes: string, tasa: number) {
+  try {
+    const label = formatLabel(mes);
+    await supabase.from("alertas").insert({
+      edificio_id: edificioId,
+      tipo: "warning",
+      titulo: `Tasa Estimada para ${label}`,
+      descripcion: `No se encontró tasa BCV para ${label}. Se está usando una tasa de Bs. ${tasa} para los cálculos de USD.`,
+      fecha: new Date().toISOString().split('T')[0]
+    });
+  } catch (e) {
+    console.error("Error logging tasa warning:", e);
+  }
+}
+
 function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
   if (!tasasHistoricas || tasasHistoricas.length === 0) return 45;
   const normalized = normalizeMonth(mes);
@@ -112,6 +127,15 @@ export async function GET(request: Request) {
     const balancesWithLabel = (balances || []).map((b: any) => {
       const normalized = normalizeMonth(b.mes);
       const tasa = getTasaForMonth(b.mes);
+      
+      // Si estamos usando un fallback (no hay tasa exacta para ese mes), podríamos loguear una alerta
+      // Pero para no saturar, solo lo haremos si no hay tasa exacta
+      const exactTasa = tasasHistoricas?.find((t: any) => t.fecha && t.fecha.startsWith(normalized));
+      if (!exactTasa && edificioId) {
+         // Log async
+         logTasaWarning(supabase, edificioId, b.mes, tasa);
+      }
+
       return {
         ...b,
         mes_normalizado: normalized,

@@ -175,6 +175,8 @@ export default function DashboardPage() {
   const [loadingJunta, setLoadingJunta] = useState(false);
   const [sincronizaciones, setSincronizaciones] = useState<any[]>([]);
   const [loadingSincronizaciones, setLoadingSincronizaciones] = useState(false);
+  const [alertas, setAlertas] = useState<any[]>([]);
+  const [loadingAlertas, setLoadingAlertas] = useState(false);
   const [tasaBCV, setTasaBCV] = useState({ dolar: 0, euro: 0, fecha: "" });
   const [loadingTasa, setLoadingTasa] = useState(false);
   const [selectedMes, setSelectedMes] = useState<string>("");
@@ -506,16 +508,27 @@ export default function DashboardPage() {
   const loadSincronizaciones = async () => {
     if (!building?.id) return;
     setLoadingSincronizaciones(true);
+    setLoadingAlertas(true);
     try {
-      const res = await fetch(`/api/sincronizaciones?edificioId=${building.id}`);
-      const data = await res.json();
-      if (res.ok && data.sincronizaciones) {
-        setSincronizaciones(data.sincronizaciones);
+      const [resSinc, resAlert] = await Promise.all([
+        fetch(`/api/sincronizaciones?edificioId=${building.id}`),
+        fetch(`/api/alertas?edificioId=${building.id}`)
+      ]);
+      
+      const dataSinc = await resSinc.json();
+      if (resSinc.ok && dataSinc.sincronizaciones) {
+        setSincronizaciones(dataSinc.sincronizaciones);
+      }
+      
+      const dataAlert = await resAlert.json();
+      if (resAlert.ok && dataAlert.alertas) {
+        setAlertas(dataAlert.alertas);
       }
     } catch (error) {
-      console.error("Error loading sincronizaciones:", error);
+      console.error("Error loading history:", error);
     } finally {
       setLoadingSincronizaciones(false);
+      setLoadingAlertas(false);
     }
   };
 
@@ -1589,21 +1602,54 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "alertas" && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Historial de Ejecución y Sincronizaciones</h2>
-            <div className="space-y-4">
-              {!hasIntegration && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-3">
-                  <span className="text-2xl">⚙️</span>
-                  <div>
-                    <span className="font-bold text-yellow-800 block">Configuración Pendiente</span>
-                    <p className="text-xs text-yellow-700">Debes configurar las credenciales en &quot;Configuración&quot; para habilitar el sistema.</p>
-                  </div>
+          <div className="space-y-8">
+            {/* Sección de Notificaciones */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <span>🔔</span> Alertas y Notificaciones Recientes
+              </h2>
+              {loadingAlertas ? (
+                <p className="text-gray-500 text-center py-4">Cargando notificaciones...</p>
+              ) : alertas.length === 0 ? (
+                <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">No hay alertas recientes.</p>
+              ) : (
+                <div className="space-y-3">
+                  {alertas.map((a: any) => (
+                    <div key={a.id} className={`p-4 rounded-lg border flex gap-4 ${
+                      a.tipo === "error" ? "bg-red-50 border-red-100" :
+                      a.tipo === "warning" ? "bg-yellow-50 border-yellow-100" :
+                      "bg-green-50 border-green-100"
+                    }`}>
+                      <div className="text-xl">
+                        {a.tipo === "error" ? "❌" : a.tipo === "warning" ? "⚠️" : "✅"}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <h3 className={`font-bold text-sm ${
+                            a.tipo === "error" ? "text-red-800" :
+                            a.tipo === "warning" ? "text-yellow-800" :
+                            "text-green-800"
+                          }`}>{a.titulo}</h3>
+                          <span className="text-[10px] text-gray-400 font-mono">
+                            {new Date(a.created_at).toLocaleString("es-VE")}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">{a.descripcion}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  <strong>ℹ️ LOG DEL SISTEMA:</strong> Esta sección registra cada interacción con la web de la administradora, indicando si los procesos de extracción fueron exitosos o si ocurrieron errores de conexión o scraping.
+            </div>
+
+            {/* Sección de Logs de Sincronización */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <span>📋</span> Historial de Procesos (Logs)
+              </h2>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 mb-4">
+                <p className="text-xs text-gray-500 leading-relaxed uppercase font-bold tracking-tighter">
+                  Registro técnico detallado de cada sincronización con la web administradora.
                 </p>
               </div>
               {loadingSincronizaciones ? (
@@ -1615,28 +1661,17 @@ export default function DashboardPage() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-gray-50">
-                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Fecha y Hora</th>
-                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Tipo</th>
+                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Fecha</th>
                         <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Estado</th>
-                        <th className="text-right py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Registros</th>
-                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Resumen / Detalle</th>
+                        <th className="text-right py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Nuevos</th>
+                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Mensaje de Sistema</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {sincronizaciones.map((s: any) => (
                         <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-3 text-xs text-gray-600 font-mono">
-                            {s.created_at ? new Date(s.created_at).toLocaleString("es-VE", { 
-                              day: "2-digit", month: "2-digit", year: "numeric", 
-                              hour: "2-digit", minute: "2-digit", second: "2-digit"
-                            }) : "-"}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              s.tipo === "sync" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"
-                            }`}>
-                              {s.tipo || "sync"}
-                            </span>
+                          <td className="py-2.5 px-3 text-[10px] text-gray-400 font-mono">
+                            {s.created_at ? new Date(s.created_at).toLocaleString("es-VE") : "-"}
                           </td>
                           <td className="py-2.5 px-3">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -1649,15 +1684,9 @@ export default function DashboardPage() {
                           </td>
                           <td className="py-2.5 px-3 text-right text-xs font-bold text-gray-900">{s.movimientos_nuevos || 0}</td>
                           <td className="py-2.5 px-3">
-                            <div className="max-w-md">
-                              {s.error ? (
-                                <span className={`text-[10px] font-medium leading-tight block ${s.estado === 'error' ? 'text-red-500' : 'text-green-600'}`}>
-                                  {s.error}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-green-600 font-bold">✓ PROCESO EXITOSO</span>
-                              )}
-                            </div>
+                            <span className={`text-[10px] font-medium block truncate max-w-xs ${s.estado === 'error' ? 'text-red-500' : 'text-gray-600'}`}>
+                              {s.error}
+                            </span>
                           </td>
                         </tr>
                       ))}

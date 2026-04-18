@@ -235,14 +235,21 @@ export async function POST(request: Request) {
 
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
     if (!session) {
-      // Intento guardado resiliente (si falla columna tipo, guardamos igual lo que podamos)
-      const { error: insErr } = await supabase.from("sincronizaciones").insert({
+      // Registrar error en tabla sincronizaciones
+      await supabase.from("sincronizaciones").insert({
         edificio_id: building.id,
+        tipo: "sync",
         estado: "error",
         error: "Fallo de login en Web Admin. Verifica credenciales."
       });
-      if (insErr) console.error("Error inserting sync log:", insErr);
-
+      // Registrar alerta de error para el usuario
+      await supabase.from("alertas").insert({
+        edificio_id: building.id,
+        tipo: "error",
+        titulo: "Error de Sincronización",
+        descripcion: "No se pudo iniciar sesión en el portal de la administradora. Verifica las credenciales en configuración.",
+        fecha: today
+      });
       return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
     }
 
@@ -303,26 +310,23 @@ export async function POST(request: Request) {
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     }
 
-    // Registrar éxito resiliente
+    // Registrar éxito en sincronizaciones e insertar Alerta informativa
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
-    try {
-      await supabase.from("sincronizaciones").insert({
-        edificio_id: building.id,
-        tipo: "sync",
-        estado: "completado",
-        movimientos_nuevos: totalRecs,
-        error: `Sync completado OK. Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}`,
-        detalles: { stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } }
-      });
-    } catch (e) {
-      // Fallback si fallan columnas nuevas
-      await supabase.from("sincronizaciones").insert({
-        edificio_id: building.id,
-        estado: "completado",
-        movimientos_nuevos: totalRecs,
-        error: `Sync OK (sin detalles)`
-      });
-    }
+    await supabase.from("sincronizaciones").insert({
+      edificio_id: building.id,
+      tipo: "sync",
+      estado: "completado",
+      movimientos_nuevos: totalRecs,
+      error: `Sync OK: ${allRecibos.length} recibos, ${allEgresos.length} egresos, ${allGastos.length} gastos`
+    });
+
+    await supabase.from("alertas").insert({
+      edificio_id: building.id,
+      tipo: "success",
+      titulo: "Sincronización Exitosa",
+      descripcion: `Se actualizaron ${totalRecs} registros desde el portal Web Admin.`,
+      fecha: today
+    });
 
     await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
 
@@ -332,8 +336,16 @@ export async function POST(request: Request) {
     if (currentBuildingId) {
       await supabase.from("sincronizaciones").insert({
         edificio_id: currentBuildingId,
+        tipo: "sync",
         estado: "error",
         error: error.message || "Error desconocido"
+      });
+      await supabase.from("alertas").insert({
+        edificio_id: currentBuildingId,
+        tipo: "error",
+        titulo: "Error Crítico",
+        descripcion: error.message || "Fallo inesperado durante la extracción de datos.",
+        fecha: today
       });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });

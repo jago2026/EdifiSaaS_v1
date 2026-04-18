@@ -5,5 +5,5 @@ export async function GET() {
   const cookieStore = await cookies();
   cookieStore.delete("user_id");
   
-  return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_URL || "http://localhost:3000"));
+  return NextResponse.redirect(new URL("/login", process.env.NEXT_PUBLIC_URL || "http://localhost:3000"));
 }
