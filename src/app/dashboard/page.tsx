@@ -460,12 +460,13 @@ export default function DashboardPage() {
       const res = await fetch(`/api/movimientos-manual?edificioId=${building.id}`);
       const data = await res.json();
       if (res.ok && data.movimientos) {
-        // Calcular saldo acumulado de forma dinámica (asumiendo que vienen ordenados por fecha corte DESC)
-        // El saldo acumulado se calcula de abajo hacia arriba (más antiguos a más nuevos)
+        // Calcular saldo acumulado de forma dinámica
+        // El saldo acumulado se calcula sumando el resultado de cada fila (más antiguos a más nuevos)
         const sorted = [...data.movimientos].sort((a: any, b: any) => a.fecha_corte.localeCompare(b.fecha_corte));
         let runningBalance = 0;
         const processed = sorted.map((m: any) => {
-          runningBalance = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
+          const saldoFila = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
+          runningBalance += saldoFila;
           return { ...m, saldo_acumulado: runningBalance };
         });
         setMovimientosManual(processed.reverse());
@@ -606,17 +607,16 @@ export default function DashboardPage() {
   const createMovimientoManual = async () => {
     if (!building?.id) return;
     try {
-      const lastMov = movimientosManual.length > 0 ? movimientosManual[0] : null;
       const res = await fetch("/api/movimientos-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           edificio_id: building.id,
           fecha_corte: new Date().toISOString().split("T")[0],
-          saldo_inicial: lastMov ? lastMov.saldo_final : 0,
+          saldo_inicial: 0,
           egresos: 0,
           ingresos: 0,
-          saldo_final: lastMov ? lastMov.saldo_final : 0,
+          saldo_final: 0,
           tasa_bcv: tasaBCV.dolar || 45.50,
         }),
       });
@@ -1367,7 +1367,7 @@ export default function DashboardPage() {
                       <tr key={gasto.id} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4 text-sm text-gray-900">{gasto.fecha}</td>
                         <td className="py-3 px-4 text-sm text-gray-600 font-medium">{gasto.descripcion}</td>
-                        <td className="py-3 px-4 text-xs text-gray-400 font-mono">{gasto.codigo || "-"}</td>
+                        <td className="py-3 px-4 text-xs text-gray-400">{gasto.codigo || "-"}</td>
                         <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
                           $ {formatUsd(gasto.monto_usd || (tasaBCV.dolar > 0 ? gasto.monto / tasaBCV.dolar : 0))}
                         </td>
@@ -1491,7 +1491,7 @@ export default function DashboardPage() {
                       <tr key={a.id} className="hover:bg-gray-50 transition-colors">
                         <td className="py-2 px-2 font-bold text-gray-900">{a.unidad}</td>
                         <td className="py-2 px-2 text-gray-600 max-w-[120px] truncate text-xs">{a.propietario || "-"}</td>
-                        <td className="py-2 px-2 text-right font-mono text-xs">{a.alicuota?.toFixed(5) || "-"}%</td>
+                        <td className="py-2 px-2 text-right text-xs">{a.alicuota?.toFixed(5) || "-"}%</td>
                         <td className="py-2 px-1">
                           <input type="text" defaultValue={a.email1 || ""} onBlur={(e) => updateAlicuota(a.id, "email1", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Correo 1" />
                         </td>
@@ -1560,7 +1560,7 @@ export default function DashboardPage() {
                             a.tipo === "warning" ? "text-yellow-800" :
                             "text-green-800"
                           }`}>{a.titulo}</h3>
-                          <span className="text-[10px] text-gray-400 font-mono">
+                          <span className="text-[10px] text-gray-400">
                             {new Date(a.created_at).toLocaleString("es-VE")}
                           </span>
                         </div>
@@ -1599,7 +1599,7 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-gray-100">
                       {sincronizaciones.map((s: any) => (
                         <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-3 text-[10px] text-gray-400 font-mono">
+                          <td className="py-2.5 px-3 text-[10px] text-gray-400">
                             {s.created_at ? new Date(s.created_at).toLocaleString("es-VE") : "-"}
                           </td>
                           <td className="py-2.5 px-3">
@@ -1755,19 +1755,19 @@ export default function DashboardPage() {
                     {movimientosManual.map((m: MovimientoManual) => (
                       <tr key={m.id} className="hover:bg-blue-50/30 transition-colors">
                         <td className="py-2 px-1">
-                          <input type="date" defaultValue={m.fecha_corte} onBlur={(e) => updateMovimientoManual(m.id, "fecha_corte", e.target.value)} className="border-none bg-transparent focus:ring-0 w-24 text-[10px] font-mono p-0" />
+                          <input type="date" defaultValue={m.fecha_corte} onBlur={(e) => updateMovimientoManual(m.id, "fecha_corte", e.target.value)} className="border-none bg-transparent focus:ring-0 w-24 text-[10px] p-0" />
                         </td>
                         <td className="py-2 px-2 text-right bg-gray-100/50">
-                          <input type="number" defaultValue={m.saldo_inicial} onBlur={(e) => updateMovimientoManual(m.id, "saldo_inicial", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 font-mono" />
+                          <input type="number" defaultValue={m.saldo_inicial} onBlur={(e) => updateMovimientoManual(m.id, "saldo_inicial", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0" />
                         </td>
                         <td className="py-2 px-2 text-right bg-red-50/20">
-                          <input type="number" defaultValue={m.egresos} onBlur={(e) => updateMovimientoManual(m.id, "egresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-red-600 font-black font-mono" />
+                          <input type="number" defaultValue={m.egresos} onBlur={(e) => updateMovimientoManual(m.id, "egresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-red-600 font-black" />
                         </td>
                         <td className="py-2 px-2">
                           <input type="text" defaultValue={m.obs_egresos || ""} onBlur={(e) => updateMovimientoManual(m.id, "obs_egresos", e.target.value)} className="text-left border-none bg-transparent focus:ring-0 w-full p-0 text-[10px] italic text-gray-500" placeholder="..." />
                         </td>
                         <td className="py-2 px-2 text-right bg-green-50/20">
-                          <input type="number" defaultValue={m.ingresos} onBlur={(e) => updateMovimientoManual(m.id, "ingresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-green-700 font-black font-mono" />
+                          <input type="number" defaultValue={m.ingresos} onBlur={(e) => updateMovimientoManual(m.id, "ingresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-green-700 font-black" />
                         </td>
                         <td className="py-2 px-2">
                           <input type="text" defaultValue={m.obs_ingresos || ""} onBlur={(e) => updateMovimientoManual(m.id, "obs_ingresos", e.target.value)} className="text-left border-none bg-transparent focus:ring-0 w-full p-0 text-[10px] italic text-gray-500" placeholder="..." />
@@ -1960,7 +1960,7 @@ export default function DashboardPage() {
                       type="password"
                       value={editConfig.admin_secret}
                       onChange={(e) => setEditConfig({ ...editConfig, admin_secret: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       placeholder="Contraseña del portal"
                     />
                   </div>
@@ -1971,23 +1971,23 @@ export default function DashboardPage() {
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Login</label>
-                      <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
+                      <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos</label>
-                      <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
+                      <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
-                      <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
+                      <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Gastos</label>
-                      <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
+                      <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
-                      <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
+                      <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                   </div>
                 </div>
@@ -2027,7 +2027,7 @@ export default function DashboardPage() {
                <div className="flex gap-4 items-end">
                   <div className="flex-1">
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mes a sincronizar (MM-YYYY)</label>
-                    <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500" placeholder="03-2026" />
+                    <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" placeholder="03-2026" />
                   </div>
                   <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors uppercase text-xs h-[38px] shadow-sm">
                     {syncingMes ? "Sincronizando..." : "Sincronizar Mes Histórico"}
