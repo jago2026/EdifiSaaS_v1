@@ -31,14 +31,21 @@ function formatLabel(mes: string | null | undefined): string {
   return mes;
 }
 
-async function logTasaWarning(supabase: any, edificioId: string, mes: string, tasa: number) {
+async function logTasaWarning(supabase: any, edificioId: string, targetDate: string, tasa: number, tasaDate: string | null) {
   try {
-    const label = formatLabel(mes);
+    const formatDate = (dateStr: string) => {
+      const [year, month, day] = dateStr.split("-");
+      return `${day}/${month}/${year}`;
+    };
+
+    const targetFormatted = formatDate(targetDate);
+    const tasaDateFormatted = tasaDate ? formatDate(tasaDate) : "N/A";
+
     await supabase.from("alertas").insert({
       edificio_id: edificioId,
       tipo: "warning",
-      titulo: `Tasa Estimada para ${label}`,
-      descripcion: `No se encontró tasa BCV para ${label}. Se está usando una tasa de Bs. ${tasa} para los cálculos de USD.`,
+      titulo: `Tasa Estimada para ${targetFormatted}`,
+      descripcion: `No se encontró tasa BCV para ${targetFormatted}. Se está usando una tasa de Bs. ${tasa} de fecha ${tasaDateFormatted} para los cálculos de USD.`,
       fecha: new Date().toISOString().split('T')[0]
     });
   } catch (e) {
@@ -46,24 +53,19 @@ async function logTasaWarning(supabase: any, edificioId: string, mes: string, ta
   }
 }
 
-function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
-  if (!tasasHistoricas || tasasHistoricas.length === 0) return 45;
-  const normalized = normalizeMonth(mes);
-  if (!normalized) return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
-  
-  const [year, month] = normalized.split("-");
-  const fechaBuscada = `${year}-${month}`;
-  
-  // Try to find rate for that month
-  const tasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha.startsWith(fechaBuscada));
-  if (tasa) return parseFloat(tasa.tasa_dolar);
+function getTasaBCVParaFecha(fechaStr: string, tasasHistoricas: any[]): { tasa: number, fecha: string | null } {
+  if (!tasasHistoricas || tasasHistoricas.length === 0) return { tasa: 45, fecha: null };
 
-  // Fallback: Find closest rate BEFORE that month
-  const fallbackTasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha < `${fechaBuscada}-01`);
-  if (fallbackTasa) return parseFloat(fallbackTasa.tasa_dolar);
+  // Try to find exact rate for that day
+  const exact = tasasHistoricas.find((t: any) => t.fecha === fechaStr);
+  if (exact) return { tasa: parseFloat(exact.tasa_dolar), fecha: exact.fecha };
+
+  // Fallback: Find closest rate BEFORE that day
+  const fallbackTasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha < fechaStr);
+  if (fallbackTasa) return { tasa: parseFloat(fallbackTasa.tasa_dolar), fecha: fallbackTasa.fecha };
 
   // Ultimate fallback: Use the most recent rate we have
-  return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
+  return { tasa: parseFloat(tasasHistoricas[0]?.tasa_dolar || "45"), fecha: tasasHistoricas[0]?.fecha || null };
 }
 
 export async function GET(request: Request) {
@@ -108,7 +110,7 @@ export async function GET(request: Request) {
 
     const { data: movimientos } = await supabase
       .from("movimientos_manual")
-      .select("fecha_corte, saldo_final, saldo_final_usd, saldo_segun_administradora, compara")
+      .select("fecha_corte, saldo_final, saldo_final_usd, saldo_segun_administradora, comparado")
       .eq("edificio_id", edificioId)
       .order("fecha_corte", { ascending: true });
 
@@ -122,18 +124,17 @@ export async function GET(request: Request) {
       .select("unidad, alicuota")
       .eq("edificio_id", edificioId);
 
-    const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
+    const getTasaForDate = (fecha: string) => getTasaBCVParaFecha(fecha, tasasHistoricas || []);
 
     const balancesWithLabel = (balances || []).map((b: any) => {
       const normalized = normalizeMonth(b.mes);
-      const tasa = getTasaForMonth(b.mes);
-      
-      // Si estamos usando un fallback (no hay tasa exacta para ese mes), podríamos loguear una alerta
-      // Pero para no saturar, solo lo haremos si no hay tasa exacta
-      const exactTasa = tasasHistoricas?.find((t: any) => t.fecha && t.fecha.startsWith(normalized));
+      const resTasa = getTasaForDate(b.fecha);
+      const tasa = resTasa.tasa;
+
+      // Si estamos usando un fallback (no hay tasa exacta para ese día), logueamos una alerta
+      const exactTasa = tasasHistoricas?.find((t: any) => t.fecha === b.fecha);
       if (!exactTasa && edificioId) {
-         // Log async
-         logTasaWarning(supabase, edificioId, b.mes, tasa);
+         logTasaWarning(supabase, edificioId, b.fecha, tasa, resTasa.fecha);
       }
 
       return {
@@ -147,8 +148,7 @@ export async function GET(request: Request) {
         gastos_facturados: b.gastos_facturados || 0,
         gastos_facturados_usd: tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0,
         fondo_reserva: b.fondo_reserva || 0,
-        fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,
-        fondo_prestaciones: b.fondo_prestaciones || 0,
+        fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,        fondo_prestaciones: b.fondo_prestaciones || 0,
         fondo_trabajos_varios: b.fondo_trabajos_varios || 0,
         fondo_intereses: b.fondo_intereses || 0,
         saldo_anterior: b.saldo_anterior || 0,

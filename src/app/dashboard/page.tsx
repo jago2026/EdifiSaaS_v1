@@ -462,7 +462,13 @@ export default function DashboardPage() {
       if (res.ok && data.movimientos) {
         // Calcular saldo acumulado de forma dinámica
         // El saldo acumulado se calcula sumando el resultado de cada fila (más antiguos a más nuevos)
-        const sorted = [...data.movimientos].sort((a: any, b: any) => a.fecha_corte.localeCompare(b.fecha_corte));
+        // Usamos fecha_corte e id (o created_at) como tie-breaker para orden estable
+        const sorted = [...data.movimientos].sort((a: any, b: any) => {
+          if (a.fecha_corte !== b.fecha_corte) {
+            return a.fecha_corte.localeCompare(b.fecha_corte);
+          }
+          return a.id.localeCompare(b.id);
+        });
         let runningBalance = 0;
         const processed = sorted.map((m: any) => {
           const saldoFila = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
