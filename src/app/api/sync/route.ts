@@ -360,10 +360,40 @@ export async function POST(request: Request) {
 
     for (const g of allGastos) {
       const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${today}`);
-      await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: g.codigo, descripcion: g.descripcion, monto: g.monto, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+      console.log("[DEBUG] Guardando gasto:", g.codigo, g.descripcion, "monto:", g.monto, "mes:", mesEstandar);
+      
+      const { data: gastoData, error: gastoError } = await supabase.from("gastos").upsert({ 
+        edificio_id: building.id, 
+        mes: mesEstandar, 
+        fecha: today, 
+        codigo: g.codigo, 
+        descripcion: g.descripcion, 
+        monto: g.monto, 
+        hash, 
+        sincronizado: true 
+      }, { onConflict: 'edificio_id,hash' });
+      
+      if (gastoError) {
+        console.log("[DEBUG] Error guardando gasto:", gastoError);
+      } else {
+        console.log("[DEBUG] Gasto guardado OK:", g.codigo);
+      }
       
       if (!g.isTotal) {
-        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+        const { data: movData, error: movError } = await supabase.from("movimientos").upsert({ 
+          edificio_id: building.id, 
+          tipo: "gasto", 
+          descripcion: g.descripcion, 
+          monto: g.monto, 
+          fecha: today, 
+          hash, 
+          sincronizado: true 
+        }, { onConflict: 'edificio_id,hash' });
+        
+        if (movError) {
+          console.log("[DEBUG] Error guardando movimiento:", movError);
+        }
+        
         if (mesEstandar === today.substring(0, 7)) {
           await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
         }
