@@ -172,37 +172,38 @@ function parseGastosTable(html: string): any[] {
     const desc = cleanHtml(cells[1]);
     const montoCell = cleanHtml(cells[2]);
     
-    // Skip empty rows - &nbsp; becomes a space after cleanHtml
-    if (!code || code === '&nbsp;' || code.trim() === '' || code.trim() === ' ') continue;
-    // Skip rows where description is empty or just whitespace
+    // Skip empty rows - check code first
+    const codeTrimmed = code.trim();
+    if (!codeTrimmed || codeTrimmed === '' || codeTrimmed === '&nbsp;') {
+      // This might be a TOTAL row - check description
+      if (desc.includes("TOTAL GASTOS COMUNES:")) {
+        totalGastos = parseMonto(montoCell);
+        continue;
+      }
+      if (desc.includes("TOTAL FONDOS:")) {
+        totalFondos = parseMonto(montoCell);
+        continue;
+      }
+      if (desc.includes("TOTAL FONDOS Y GASTOS")) {
+        continue;
+      }
+      if (desc.includes("TOTAL GASTOS:")) {
+        totalGastosFinal = parseMonto(montoCell);
+        continue;
+      }
+      continue;
+    }
     if (!desc || desc.trim() === '') continue;
     
-    // Capture TOTAL rows
-    if (desc.includes("TOTAL GASTOS COMUNES:")) {
-      totalGastos = parseMonto(montoCell);
-      continue;
-    }
-    if (desc.includes("TOTAL FONDOS:")) {
-      totalFondos = parseMonto(montoCell);
-      continue;
-    }
-    if (desc.includes("TOTAL FONDOS Y GASTOS")) {
-      continue;
-    }
-    if (desc.includes("TOTAL GASTOS:")) {
-      totalGastosFinal = parseMonto(montoCell);
-      continue;
-    }
-    
     // Skip FONDO DE RESERVA row (it's a sub-item, not a main expense)
-    if (code === "00001" && desc.includes("FONDO DE RESERVA")) {
+    if (codeTrimmed === "00001" && desc.includes("FONDO DE RESERVA")) {
       continue;
     }
     
     // Only process rows with valid numeric codes (5 digits)
-    if (code.match(/^\d{5}$/)) {
+    if (codeTrimmed.match(/^\d{5}$/)) {
       const m = parseMonto(montoCell);
-      results.push({ codigo: code, descripcion: desc, monto: m });
+      results.push({ codigo: codeTrimmed, descripcion: desc, monto: m });
     }
   }
   
