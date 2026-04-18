@@ -108,6 +108,21 @@ interface Movement {
   fuente?: string;
 }
 
+interface MovimientoManual {
+  id: string;
+  fecha_corte: string;
+  saldo_inicial: number;
+  egresos: number;
+  ingresos: number;
+  saldo_final: number;
+  obs_egresos?: string;
+  obs_ingresos?: string;
+  tasa_bcv: number;
+  saldo_final_usd: number;
+  comparado: boolean;
+  saldo_acumulado?: number; // Para el cálculo dinámico en el listado
+}
+
 interface Recibo {
   id: string;
   unidad: string;
@@ -162,7 +177,7 @@ export default function DashboardPage() {
   const [loadingIngresos, setLoadingIngresos] = useState(false);
   const [balance, setBalance] = useState<Balance | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
-  const [movimientosManual, setMovimientosManual] = useState<any[]>([]);
+  const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
   const [loadingManual, setLoadingManual] = useState(false);
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
   const [loadingAlicuotas, setLoadingAlicuotas] = useState(false);
@@ -445,7 +460,15 @@ export default function DashboardPage() {
       const res = await fetch(`/api/movimientos-manual?edificioId=${building.id}`);
       const data = await res.json();
       if (res.ok && data.movimientos) {
-        setMovimientosManual(data.movimientos);
+        // Calcular saldo acumulado de forma dinámica (asumiendo que vienen ordenados por fecha corte DESC)
+        // El saldo acumulado se calcula de abajo hacia arriba (más antiguos a más nuevos)
+        const sorted = [...data.movimientos].sort((a: any, b: any) => a.fecha_corte.localeCompare(b.fecha_corte));
+        let runningBalance = 0;
+        const processed = sorted.map((m: any) => {
+          runningBalance = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
+          return { ...m, saldo_acumulado: runningBalance };
+        });
+        setMovimientosManual(processed.reverse());
       }
     } catch (error) {
       console.error("Error loading manual movements:", error);
@@ -548,12 +571,12 @@ export default function DashboardPage() {
     }
   };
 
-  const updateMovimientoManual = async (id: string, field: string, value: string | number) => {
+  const updateMovimientoManual = async (id: string, field: string, value: any) => {
     try {
       const movimiento = movimientosManual.find((m: any) => m.id === id);
       if (!movimiento) return;
       
-      const newValues = { ...movimiento, [field]: value };
+      const newValues: any = { ...movimiento, [field]: value };
       
       if (field === "saldo_inicial" || field === "egresos" || field === "ingresos" || field === "tasa_bcv") {
         const saldoInicial = field === "saldo_inicial" ? Number(value) : Number(movimiento.saldo_inicial) || 0;
@@ -572,7 +595,8 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setMovimientosManual(movimientosManual.map(m => m.id === id ? { ...m, [field]: value } : m));
+        // Recargar para recalcular saldos acumulados de toda la tabla
+        loadMovimientosManual();
       }
     } catch (error) {
       console.error("Error updating movimiento:", error);
@@ -582,22 +606,23 @@ export default function DashboardPage() {
   const createMovimientoManual = async () => {
     if (!building?.id) return;
     try {
+      const lastMov = movimientosManual.length > 0 ? movimientosManual[0] : null;
       const res = await fetch("/api/movimientos-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           edificio_id: building.id,
           fecha_corte: new Date().toISOString().split("T")[0],
-          saldo_inicial: 0,
+          saldo_inicial: lastMov ? lastMov.saldo_final : 0,
           egresos: 0,
           ingresos: 0,
-          saldo_final: 0,
+          saldo_final: lastMov ? lastMov.saldo_final : 0,
           tasa_bcv: tasaBCV.dolar || 45.50,
         }),
       });
       const data = await res.json();
       if (res.ok && data.movimiento) {
-        setMovimientosManual([data.movimiento, ...movimientosManual]);
+        loadMovimientosManual();
       }
     } catch (error) {
       console.error("Error creating movimiento:", error);
@@ -609,7 +634,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/movimientos-manual/${id}`, { method: "DELETE" });
       if (res.ok) {
-        setMovimientosManual(movimientosManual.filter((m: any) => m.id !== id));
+        loadMovimientosManual();
       }
     } catch (error) {
       console.error("Error deleting movimiento:", error);
@@ -746,6 +771,8 @@ export default function DashboardPage() {
         loadEgresosSummary();
         loadIngresosSummary();
         loadRecibos();
+        loadBalance();
+        loadSincronizaciones();
       }
     } catch (error: any) {
       setSyncMessage(error.message);
@@ -776,6 +803,7 @@ export default function DashboardPage() {
         loadMovements();
         loadEgresos();
         loadRecibos();
+        loadSincronizaciones();
       }
     } catch (error: any) {
       setSyncMessage(error.message);
@@ -869,110 +897,19 @@ export default function DashboardPage() {
 
       <div className="container mx-auto px-6 py-8">
         <div className="flex flex-wrap gap-2 mb-8">
-          <button
-            onClick={() => setActiveTab("resumen")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "resumen" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Resumen
-          </button>
-          <button
-            onClick={() => setActiveTab("ingresos")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Ingresos
-          </button>
-          <button
-            onClick={() => setActiveTab("movimientos")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Movimientos
-          </button>
-          <button
-            onClick={() => setActiveTab("egresos")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Egresos
-          </button>
-          <button
-            onClick={() => setActiveTab("gastos")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Gastos
-          </button>
-          <button
-            onClick={() => setActiveTab("recibos")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Recibos
-          </button>
-          <button
-            onClick={() => setActiveTab("balance")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "balance" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Balance
-          </button>
-          <button
-            onClick={() => setActiveTab("alicuotas")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Alicuotas
-          </button>
-          <button
-            onClick={() => setActiveTab("alertas")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Alertas
-          </button>
-          <button
-            onClick={() => setActiveTab("kpis")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            KPIs
-          </button>
-          <button
-            onClick={() => setActiveTab("manual")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-            }`}
-          >
-            Ing/Egr Manual
-          </button>
-          <button
-            onClick={() => setActiveTab("junta")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "junta" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Junta
-          </button>
-          <button
-            onClick={() => setActiveTab("configuracion")}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
-            }`}
-          >
-            Configuración
-          </button>
+          <button onClick={() => setActiveTab("resumen")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "resumen" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Resumen</button>
+          <button onClick={() => setActiveTab("ingresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Ingresos</button>
+          <button onClick={() => setActiveTab("movimientos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Movimientos</button>
+          <button onClick={() => setActiveTab("egresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Egresos</button>
+          <button onClick={() => setActiveTab("gastos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Gastos</button>
+          <button onClick={() => setActiveTab("recibos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Recibos</button>
+          <button onClick={() => setActiveTab("balance")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Balance</button>
+          <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
+          <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
+          <button onClick={() => setActiveTab("kpis")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>KPIs</button>
+          <button onClick={() => setActiveTab("manual")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"}`}>Ing/Egr Manual</button>
+          <button onClick={() => setActiveTab("junta")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Junta</button>
+          <button onClick={() => setActiveTab("configuracion")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Configuración</button>
         </div>
 
         {activeTab === "resumen" && (
@@ -1034,29 +971,23 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold text-indigo-600">
                   Bs. {formatBs(movimientosManual.length > 0 ? movimientosManual[0].saldo_final : 0)}
                 </div>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 font-medium">
                   $ {formatUsd(movimientosManual.length > 0 ? movimientosManual[0].saldo_final_usd : 0)}
                 </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  {movimientosManual.length} registro{movimientosManual.length !== 1 ? "s" : ""}
+                <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
+                  Último Saldo Registrado
                 </div>
               </div>
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("manual")}>
-                <div className="text-sm text-gray-500 mb-1">Por Conciliar</div>
+                <div className="text-sm text-gray-500 mb-1">Por Conciliar (Manual)</div>
                 <div className="text-2xl font-bold text-amber-600">
-                  {(() => {
-                    const noContemplados = movimientosManual.filter((m: any) => !m.comparado).length;
-                    return noContemplados;
-                  })()}
+                  Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0))}
                 </div>
-                <div className="text-xs text-gray-500">
-                  registro{(() => { const n = movimientosManual.filter((m: any) => !m.comparado).length; return n !== 1 ? "s" : ""; })()}
+                <div className="text-sm text-gray-500 font-medium">
+                  $ {formatUsd(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + (Number(m.ingresos || 0) - Number(m.egresos || 0)) / (m.tasa_bcv || tasaBCV.dolar || 1), 0))}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.saldo_final || 0), 0))}
-                </div>
-                <div className="text-sm text-gray-500">
-                  $ {formatUsd(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.saldo_final_usd || 0), 0))}
+                <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
+                  {movimientosManual.filter((m: any) => !m.comparado).length} Movimientos sin conciliar
                 </div>
               </div>
             </div>
@@ -1338,7 +1269,7 @@ export default function DashboardPage() {
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-100 font-bold border-t-2 border-gray-200">
-                      <td className="py-4 px-4 text-sm" colSpan={2}>TOTAL DEUDA CARTERA</td>
+                      <td className="py-4 px-4 text-sm" colSpan={2}>TOTAL DEUDA CONDOMINIOS</td>
                       <td className="py-4 px-4 text-sm text-right">{recibos.filter(r => !r.isTotal).reduce((sum, r) => sum + r.num_recibos, 0)}</td>
                       <td className="py-4 px-4 text-sm text-right text-red-700">
                         ${formatUsd(recibos.filter(r => !r.isTotal).reduce((sum, r) => sum + (r.deuda_usd || 0), 0))}
@@ -1496,12 +1427,12 @@ export default function DashboardPage() {
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">AJUSTES / DIF. CAMBIARIA / PAGOS A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-500 font-medium">{formatBs(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.ajuste_pago_tiempo || 0) / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
                     <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-orange-50/50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={5}>II. CUENTAS POR COBRAR (CARTERA)</td></tr>
+                    <tr className="bg-orange-50/50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={5}>II. CUENTAS POR COBRAR (CONDOMINIOS)</td></tr>
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES ACTUAL</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.recibos_mes / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">DEUDA DE MESES ATRASADOS</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_atrasados / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDOS A FAVOR (SOBRANTES)</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_sobrantes || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.condominios_sobrantes || 0) / tasaBCV.dolar : 0)}</td><td className="py-2.5 px-4 text-right"></td><td className="py-2.5 px-4 text-right"></td></tr>
                     <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-orange-700">TOTAL CUENTAS POR COBRAR</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</td></tr>
-                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL DEL EDIFICIO (CAJA + CARTERA)</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar)) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL DEL EDIFICIO (CAJA + CONDOMINIOS)</td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right"></td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar)) / tasaBCV.dolar : 0)}</td></tr>
                     
                     <tr className="bg-emerald-50/50 font-bold"><td className="py-2.5 px-4 text-emerald-800" colSpan={5}>III. FONDOS DE RESERVA Y PASIVOS</td></tr>
                     <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={5}>FONDO DE RESERVA GENERAL</td></tr>
@@ -1562,19 +1493,19 @@ export default function DashboardPage() {
                         <td className="py-2 px-2 text-gray-600 max-w-[120px] truncate text-xs">{a.propietario || "-"}</td>
                         <td className="py-2 px-2 text-right font-mono text-xs">{a.alicuota?.toFixed(5) || "-"}%</td>
                         <td className="py-2 px-1">
-                          <input type="text" defaultValue={a.email1 || ""} onChange={(e) => updateAlicuota(a.id, "email1", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Correo 1" />
+                          <input type="text" defaultValue={a.email1 || ""} onBlur={(e) => updateAlicuota(a.id, "email1", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Correo 1" />
                         </td>
                         <td className="py-2 px-1">
-                          <input type="text" defaultValue={a.email2 || ""} onChange={(e) => updateAlicuota(a.id, "email2", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Correo 2" />
+                          <input type="text" defaultValue={a.email2 || ""} onBlur={(e) => updateAlicuota(a.id, "email2", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Correo 2" />
                         </td>
                         <td className="py-2 px-1">
-                          <input type="text" defaultValue={a.telefono1 || ""} onChange={(e) => updateAlicuota(a.id, "telefono1", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Telf 1" />
+                          <input type="text" defaultValue={a.telefono1 || ""} onBlur={(e) => updateAlicuota(a.id, "telefono1", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Telf 1" />
                         </td>
                         <td className="py-2 px-1">
-                          <input type="text" defaultValue={a.telefono2 || ""} onChange={(e) => updateAlicuota(a.id, "telefono2", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Telf 2" />
+                          <input type="text" defaultValue={a.telefono2 || ""} onBlur={(e) => updateAlicuota(a.id, "telefono2", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Telf 2" />
                         </td>
                         <td className="py-2 px-1">
-                          <input type="text" defaultValue={a.observaciones || ""} onChange={(e) => updateAlicuota(a.id, "observaciones", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Notas" />
+                          <input type="text" defaultValue={a.observaciones || ""} onBlur={(e) => updateAlicuota(a.id, "observaciones", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Notas" />
                         </td>
                       </tr>
                     ))}
@@ -1603,7 +1534,6 @@ export default function DashboardPage() {
 
         {activeTab === "alertas" && (
           <div className="space-y-8">
-            {/* Sección de Notificaciones */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <span>🔔</span> Alertas y Notificaciones Recientes
@@ -1642,7 +1572,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Sección de Logs de Sincronización */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <span>📋</span> Historial de Procesos (Logs)
@@ -1794,56 +1723,69 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Control Manual de Movimientos Bancarios</h2>
-                <p className="text-sm text-gray-500">Registra ingresos y egresos bancarios que no aparecen en Web Admin para conciliación.</p>
+                <p className="text-sm text-gray-500 italic font-medium">Registra movimientos bancarios pendientes por cargar en Web Admin.</p>
               </div>
-              <button onClick={createMovimientoManual} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm text-sm">
-                + Agregar Registro
+              <button onClick={createMovimientoManual} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase">
+                + Nuevo Registro
               </button>
             </div>
             
             {loadingManual ? (
-              <p className="text-gray-500 text-center py-8">Cargando...</p>
+              <p className="text-gray-500 text-center py-8 font-medium">Cargando registros...</p>
             ) : movimientosManual.length === 0 ? (
               <p className="text-gray-500 text-center py-12 border border-dashed border-gray-200 rounded-lg bg-gray-50">No hay movimientos manuales registrados.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-[11px]">
                   <thead>
-                    <tr className="border-b-2 bg-gray-50">
-                      <th className="text-left py-3 px-2 font-bold text-gray-600">Fecha Corte</th>
-                      <th className="text-right py-3 px-2 font-bold text-gray-600">Saldo Inicial</th>
-                      <th className="text-right py-3 px-2 font-bold text-gray-600 text-red-600">Egresos (-)</th>
-                      <th className="text-right py-3 px-2 font-bold text-gray-600 text-green-600">Ingresos (+)</th>
-                      <th className="text-right py-3 px-2 font-bold text-gray-600">Saldo Final Bs.</th>
-                      <th className="text-right py-3 px-2 font-bold text-gray-600">Tasa BCV</th>
-                      <th className="text-right py-3 px-2 font-bold text-gray-600">Saldo Final USD</th>
-                      <th className="text-center py-3 px-2 font-bold text-gray-600">Acciones</th>
+                    <tr className="border-b-2 bg-gray-50 uppercase tracking-tighter">
+                      <th className="text-left py-3 px-2 font-black text-gray-500">Corte</th>
+                      <th className="text-right py-3 px-2 font-black text-gray-500 bg-gray-100">Saldo Inicial</th>
+                      <th className="text-right py-3 px-2 font-black text-red-600">Egresos (-)</th>
+                      <th className="text-left py-3 px-2 font-bold text-gray-400">Obs Egresos</th>
+                      <th className="text-right py-3 px-2 font-black text-green-600">Ingresos (+)</th>
+                      <th className="text-left py-3 px-2 font-bold text-gray-400">Obs Ingresos</th>
+                      <th className="text-right py-3 px-2 font-black text-blue-700 bg-blue-50">Saldo Final</th>
+                      <th className="text-right py-3 px-2 font-black text-gray-500 bg-gray-200">Saldo Acum.</th>
+                      <th className="text-center py-3 px-2 font-black text-gray-600">Conciliado?</th>
+                      <th className="text-center py-3 px-2 font-black text-gray-400">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {movimientosManual.map((m: any) => (
-                      <tr key={m.id} className="hover:bg-gray-50">
-                        <td className="py-3 px-2">
-                          <input type="date" defaultValue={m.fecha_corte} onChange={(e) => updateMovimientoManual(m.id, "fecha_corte", e.target.value)} className="border-none bg-transparent focus:ring-0 w-28 text-xs font-mono" />
+                  <tbody className="divide-y divide-gray-100 font-medium">
+                    {movimientosManual.map((m: MovimientoManual) => (
+                      <tr key={m.id} className="hover:bg-blue-50/30 transition-colors">
+                        <td className="py-2 px-1">
+                          <input type="date" defaultValue={m.fecha_corte} onBlur={(e) => updateMovimientoManual(m.id, "fecha_corte", e.target.value)} className="border-none bg-transparent focus:ring-0 w-24 text-[10px] font-mono p-0" />
                         </td>
-                        <td className="py-3 px-2">
-                          <input type="number" defaultValue={m.saldo_inicial} onBlur={(e) => updateMovimientoManual(m.id, "saldo_inicial", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full text-xs" />
+                        <td className="py-2 px-2 text-right bg-gray-100/50">
+                          <input type="number" defaultValue={m.saldo_inicial} onBlur={(e) => updateMovimientoManual(m.id, "saldo_inicial", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 font-mono" />
                         </td>
-                        <td className="py-3 px-2">
-                          <input type="number" defaultValue={m.egresos} onBlur={(e) => updateMovimientoManual(m.id, "egresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full text-xs text-red-600 font-medium" />
+                        <td className="py-2 px-2 text-right bg-red-50/20">
+                          <input type="number" defaultValue={m.egresos} onBlur={(e) => updateMovimientoManual(m.id, "egresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-red-600 font-black font-mono" />
                         </td>
-                        <td className="py-3 px-2">
-                          <input type="number" defaultValue={m.ingresos} onBlur={(e) => updateMovimientoManual(m.id, "ingresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full text-xs text-green-600 font-medium" />
+                        <td className="py-2 px-2">
+                          <input type="text" defaultValue={m.obs_egresos || ""} onBlur={(e) => updateMovimientoManual(m.id, "obs_egresos", e.target.value)} className="text-left border-none bg-transparent focus:ring-0 w-full p-0 text-[10px] italic text-gray-500" placeholder="..." />
                         </td>
-                        <td className="py-3 px-2 text-right font-bold text-gray-900">{formatBs(m.saldo_final)}</td>
-                        <td className="py-3 px-2">
-                          <input type="number" defaultValue={m.tasa_bcv} onBlur={(e) => updateMovimientoManual(m.id, "tasa_bcv", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full text-xs font-mono" />
+                        <td className="py-2 px-2 text-right bg-green-50/20">
+                          <input type="number" defaultValue={m.ingresos} onBlur={(e) => updateMovimientoManual(m.id, "ingresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-green-700 font-black font-mono" />
                         </td>
-                        <td className="py-3 px-2 text-right font-bold text-blue-700">$ {formatUsd(m.saldo_final_usd)}</td>
-                        <td className="py-3 px-2 text-center">
-                          <button onClick={() => deleteMovimientoManual(m.id)} className="text-red-400 hover:text-red-700 transition-colors p-1" title="Eliminar">
-                            🗑️
-                          </button>
+                        <td className="py-2 px-2">
+                          <input type="text" defaultValue={m.obs_ingresos || ""} onBlur={(e) => updateMovimientoManual(m.id, "obs_ingresos", e.target.value)} className="text-left border-none bg-transparent focus:ring-0 w-full p-0 text-[10px] italic text-gray-500" placeholder="..." />
+                        </td>
+                        <td className="py-2 px-2 text-right font-black text-blue-800 bg-blue-50/50">{formatBs(m.saldo_final)}</td>
+                        <td className="py-2 px-2 text-right font-black text-gray-700 bg-gray-200/30">{formatBs(m.saldo_acumulado)}</td>
+                        <td className="py-2 px-1 text-center">
+                          <select 
+                            value={m.comparado ? "true" : "false"} 
+                            onChange={(e) => updateMovimientoManual(m.id, "comparado", e.target.value === "true")}
+                            className={`text-[9px] font-black uppercase rounded border p-0.5 w-12 text-center ${m.comparado ? "bg-green-100 text-green-700 border-green-200" : "bg-red-100 text-red-700 border-red-200"}`}
+                          >
+                            <option value="true">SI</option>
+                            <option value="false">NO</option>
+                          </select>
+                        </td>
+                        <td className="py-2 px-1 text-center">
+                          <button onClick={() => deleteMovimientoManual(m.id)} className="text-gray-300 hover:text-red-600 transition-colors" title="Eliminar">🗑️</button>
                         </td>
                       </tr>
                     ))}
@@ -1884,7 +1826,7 @@ export default function DashboardPage() {
             </div>
 
             {loadingJunta ? (
-              <p className="text-gray-500 text-center py-8">Cargando...</p>
+              <p className="text-gray-500 text-center py-8 font-medium">Cargando miembros...</p>
             ) : junta.length === 0 ? (
               <p className="text-gray-500 text-center py-12 border border-dashed border-gray-200 rounded-lg">No hay miembros de junta registrados.</p>
             ) : (
@@ -1898,10 +1840,10 @@ export default function DashboardPage() {
                       <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-gray-100 font-medium">
                     {junta.map((m) => (
-                      <tr key={m.id} className="hover:bg-gray-50">
-                        <td className="py-3 px-4 text-gray-900 font-medium">{m.nombre}</td>
+                      <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-4 text-gray-900">{m.nombre}</td>
                         <td className="py-3 px-4 text-gray-600">{m.email}</td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase">{m.cargo}</span>
@@ -1999,7 +1941,7 @@ export default function DashboardPage() {
                     <select
                       value={editConfig.admin_nombre}
                       onChange={(e) => setEditConfig({ ...editConfig, admin_nombre: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
                     >
                       <option value="La Ideal C.A.">La Ideal C.A.</option>
                       <option value="Admastridcarrasquel">Admastridcarrasquel</option>
@@ -2029,23 +1971,23 @@ export default function DashboardPage() {
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Login</label>
-                      <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono" />
+                      <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos</label>
-                      <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono" />
+                      <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
-                      <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono" />
+                      <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Gastos</label>
-                      <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono" />
+                      <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
-                      <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono" />
+                      <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs font-mono bg-gray-50" />
                     </div>
                   </div>
                 </div>
@@ -2057,7 +1999,7 @@ export default function DashboardPage() {
                       type="text"
                       value={editConfig.email_junta}
                       onChange={(e) => setEditConfig({ ...editConfig, email_junta: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       placeholder="correo1@gmail.com, correo2@gmail.com"
                     />
                     <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">SOPORTA MÚLTIPLES CORREOS SEPARADOS POR COMA (,)</p>
@@ -2068,7 +2010,7 @@ export default function DashboardPage() {
                   <button onClick={handleSaveConfig} disabled={saving} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
                     {saving ? "Guardando..." : "Guardar Configuración"}
                   </button>
-                  <button onClick={handleTestConnection} disabled={saving} className="px-6 py-2.5 bg-white text-blue-600 border border-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-colors uppercase text-xs">
+                  <button onClick={handleTestConnection} disabled={saving} className="px-6 py-2.5 bg-white text-blue-600 border border-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-colors uppercase text-xs shadow-sm">
                     Probar Conexión
                   </button>
                   <button onClick={() => sendEmailToJunta(false)} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs ml-auto">
@@ -2078,18 +2020,20 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-gray-100 p-4 rounded-xl border border-gray-200">
-               <h3 className="text-sm font-bold text-gray-700 mb-4 uppercase">Sincronización por Mes Específico</h3>
+            <div className="bg-gray-100 p-4 rounded-xl border border-gray-200 shadow-inner">
+               <h3 className="text-sm font-black text-gray-700 mb-4 uppercase tracking-tighter flex items-center gap-2">
+                 <span>📅</span> Sincronización por Mes Específico
+               </h3>
                <div className="flex gap-4 items-end">
                   <div className="flex-1">
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mes a sincronizar (MM-YYYY)</label>
-                    <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-mono" placeholder="03-2026" />
+                    <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500" placeholder="03-2026" />
                   </div>
-                  <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors uppercase text-xs h-[38px]">
+                  <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors uppercase text-xs h-[38px] shadow-sm">
                     {syncingMes ? "Sincronizando..." : "Sincronizar Mes Histórico"}
                   </button>
                </div>
-               <p className="text-[10px] text-gray-500 mt-2 italic font-medium uppercase">Útil para recuperar datos de meses anteriores cerrados en el portal.</p>
+               <p className="text-[10px] text-gray-500 mt-2 italic font-black uppercase tracking-tighter">Útil para recuperar datos de meses anteriores cerrados en el portal.</p>
             </div>
           </div>
         )}
