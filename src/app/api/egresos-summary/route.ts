@@ -35,7 +35,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ monto: 0, cantidad: 0, error: error.message });
     }
 
-    console.log("DEBUG egresos-summary: current month data:", allEgresos?.slice(0, 5).map(e => ({ fecha: e.fecha, monto: e.monto })));
+    console.log("DEBUG egresos-summary: current month:", currentMes, "found:", allEgresos?.length);
 
     // Calculate total for current month
     const monto = allEgresos?.reduce((sum, e) => sum + Number(e.monto), 0) || 0;
