@@ -20,8 +20,9 @@ export async function GET(request: Request) {
     const currentMes = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
     // Get pagos from pagos_recibos table (detected payments from sync comparison)
-    // This table is populated during sync when debt decreases between syncs
-    const { data: pagos, error } = await supabase
+// This table is populated during sync when debt decreases between syncs.
+// It shows ONLY actual payments, not pending receipts.
+const { data: pagos, error } = await supabase
       .from("pagos_recibos")
       .select("id, unidad, propietario, mes, monto, fecha_pago, source, verificado")
       .eq("edificio_id", edificioId)
