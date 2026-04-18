@@ -93,6 +93,7 @@ interface Building {
   sync_egresos?: boolean;
   sync_gastos?: boolean;
   sync_alicuotas?: boolean;
+  sync_balance?: boolean;
   email_junta?: string | null;
 }
 
