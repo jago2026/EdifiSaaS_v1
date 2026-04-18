@@ -184,6 +184,8 @@ export default function DashboardPage() {
   const [alicuotasCount, setAlicuotasCount] = useState(0);
   const [alicuotaSum, setAlicuotaSum] = useState(0);
   const [alicuotaWarning, setAlicuotaWarning] = useState<any>(null);
+  const [alicuotaTotalWarning, setAlicuotaTotalWarning] = useState<string | null>(null);
+  const [showUnitsAlert, setShowUnitsAlert] = useState(false);
   const [kpisData, setKpisData] = useState<any>({ egresos: [], gastos: [], balances: [], movimientos: [] });
   const [loadingKpis, setLoadingKpis] = useState(false);
   const [junta, setJunta] = useState<any[]>([]);
@@ -214,7 +216,30 @@ export default function DashboardPage() {
     sync_egresos: true,
     sync_gastos: true,
     sync_alicuotas: true,
+    unidades: 0,
   });
+
+  useEffect(() => {
+    if (building) {
+      setEditConfig(prev => ({
+        ...prev,
+        admin_id: building.admin_id || "",
+        admin_secret: building.admin_secret || "",
+        admin_nombre: building.admin_nombre || "La Ideal C.A.",
+        url_login: building.url_login || "",
+        url_recibos: building.url_recibos || "",
+        url_egresos: building.url_egresos || "",
+        url_gastos: building.url_gastos || "",
+        url_balance: building.url_balance || "",
+        email_junta: building.email_junta || "",
+        sync_recibos: building.sync_recibos !== false,
+        sync_egresos: building.sync_egresos !== false,
+        sync_gastos: building.sync_gastos !== false,
+        sync_alicuotas: building.sync_alicuotas !== false,
+        unidades: building.unidades || 0,
+      }));
+    }
+  }, [building]);
   const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
@@ -255,23 +280,6 @@ export default function DashboardPage() {
         
         setBuilding(data.building);
         setUser(data.user);
-        if (data.building) {
-          setEditConfig({
-            admin_id: data.building.admin_id || "",
-            admin_secret: data.building.admin_secret || "",
-            admin_nombre: data.building.admin_nombre || "La Ideal C.A.",
-            url_login: data.building.url_login || "",
-            url_recibos: data.building.url_recibos || "",
-            url_egresos: data.building.url_egresos || "",
-            url_gastos: data.building.url_gastos || "",
-            url_balance: data.building.url_balance || "",
-            email_junta: data.building.email_junta || "",
-            sync_recibos: data.building.sync_recibos !== false,
-            sync_egresos: data.building.sync_egresos !== false,
-            sync_gastos: data.building.sync_gastos !== false,
-            sync_alicuotas: data.building.sync_alicuotas !== false,
-          });
-        }
       } catch (error) {
         router.push("/login");
       } finally {
@@ -527,6 +535,16 @@ export default function DashboardPage() {
         setAlicuotasCount(data.count);
         setAlicuotaSum(data.alicuotaSum || 0);
         setAlicuotaWarning(data.validationWarning || null);
+        
+        // Task 1: Check if sum deviates by more than 2% from 100%
+        const sum = data.alicuotaSum || 0;
+        if (data.count > 0 && (sum < 98 || sum > 102)) {
+          setAlicuotaTotalWarning(`⚠️ La suma de alícuotas es ${sum.toFixed(2)}%, lo cual se desvía más de 2% del 100% esperado. Por favor verifica la cantidad de unidades.`);
+          setShowUnitsAlert(true);
+        } else {
+          setAlicuotaTotalWarning(null);
+          setShowUnitsAlert(false);
+        }
       }
     } catch (error) {
       console.error("Error loading alicuotas:", error);
@@ -735,6 +753,7 @@ export default function DashboardPage() {
 
   const handleSaveConfig = async () => {
     setSaving(true);
+    setSyncMessage("");
     try {
       const res = await fetch("/api/config", {
         method: "POST",
@@ -749,9 +768,12 @@ export default function DashboardPage() {
         throw new Error(data.error || "Error al guardar");
       }
       setBuilding(data.building);
-      setActiveTab("resumen");
+      setSyncMessage("✅ Configuración guardada satisfactoriamente");
+      // Task 1: Re-validate if units changed
+      loadAlicuotas();
+      setTimeout(() => setActiveTab("resumen"), 1500);
     } catch (error: any) {
-      alert(error.message);
+      setSyncMessage(`❌ Error: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -804,15 +826,17 @@ export default function DashboardPage() {
       if (!res.ok) {
         throw new Error(data.error || "Error al sincronizar");
       }
-      setSyncMessage(data.message || `Sincronización completada para ${syncMes}`);
+      setSyncMessage(`✅ Sincronización realizada y descargados los datos de ${syncMes} satisfactoriamente`);
       if (data.stats) {
         loadMovements();
         loadEgresos();
         loadRecibos();
         loadSincronizaciones();
+        loadBalance();
+        loadAlicuotas();
       }
     } catch (error: any) {
-      setSyncMessage(error.message);
+      setSyncMessage(`❌ Error en sincronización: ${error.message}`);
     } finally {
       setSyncingMes(false);
     }
@@ -1638,6 +1662,27 @@ export default function DashboardPage() {
         {activeTab === "kpis" && (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Flujo de Caja Diario (Bs.)</h2>
+              {loadingKpis ? (
+                <p className="text-gray-500 text-center py-8">Cargando...</p>
+              ) : kpisData.cashFlow?.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={kpisData.cashFlow} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="fecha" tick={{ fontSize: 9 }} tickFormatter={(v) => v.split('-').slice(1).reverse().join('/')} />
+                    <YAxis tick={{ fontSize: 9 }} />
+                    <Tooltip formatter={(value: any) => [`Bs. ${formatBs(value as number)}`, ""]} />
+                    <Legend />
+                    <Line type="monotone" dataKey="ingresos" stroke="#10b981" name="Ingresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                    <Line type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No hay datos de flujo de caja para este periodo</p>
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución del Saldo Disponible (USD)</h2>
               {loadingKpis ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
@@ -1933,11 +1978,25 @@ export default function DashboardPage() {
                   <div className="text-gray-900 text-sm">{building.direccion || "-"}</div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Unidades</label>
-                  <div className="text-gray-900 font-bold">{building.unidades} APARTAMENTOS</div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Unidades (Apartamentos)</label>
+                  <input 
+                    type="number" 
+                    value={editConfig.unidades} 
+                    onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} 
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'}`}
+                  />
+                  {showUnitsAlert && (
+                    <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Suma alícuotas errónea ({alicuotaSum.toFixed(2)}%). Verifica unidades.</p>
+                  )}
                 </div>
               </div>
             </div>
+
+            {syncMessage && (
+              <div className={`p-4 rounded-xl font-bold text-sm shadow-sm border ${syncMessage.includes("❌") ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}`}>
+                {syncMessage}
+              </div>
+            )}
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Configuración de Integración Web Admin</h2>
@@ -2032,9 +2091,40 @@ export default function DashboardPage() {
                <h3 className="text-sm font-black text-gray-700 mb-4 uppercase tracking-tighter flex items-center gap-2">
                  <span>📅</span> Sincronización por Mes Específico
                </h3>
-               <div className="flex gap-4 items-end">
-                  <div className="flex-1">
-                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Mes a sincronizar (MM-YYYY)</label>
+               <div className="flex flex-wrap gap-4 items-end">
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Seleccionar Mes/Año</label>
+                    <div className="flex gap-2">
+                      <select 
+                        value={syncMes.split('-')[0]} 
+                        onChange={(e) => {
+                          const year = syncMes.split('-')[1] || new Date().getFullYear().toString();
+                          setSyncMes(`${e.target.value}-${year}`);
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                      >
+                        <option value="">Mes</option>
+                        {["01","02","03","04","05","06","07","08","09","10","11","12"].map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                      <select 
+                        value={syncMes.split('-')[1]} 
+                        onChange={(e) => {
+                          const month = syncMes.split('-')[0] || "01";
+                          setSyncMes(`${month}-${e.target.value}`);
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                      >
+                        <option value="">Año</option>
+                        {[2024, 2025, 2026].map(y => (
+                          <option key={y} value={y.toString()}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">O escribir (MM-YYYY)</label>
                     <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" placeholder="03-2026" />
                   </div>
                   <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors uppercase text-xs h-[38px] shadow-sm">

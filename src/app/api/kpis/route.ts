@@ -74,14 +74,20 @@ function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
   if (!normalized) return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
   
   const [year, month] = normalized.split("-");
-  const fechaBuscada = `${year}-${month}`;
+  const prefix = `${year}-${month}`;
   
-  // Try to find rate for that month
-  const tasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha.startsWith(fechaBuscada));
-  if (tasa) return parseFloat(tasa.tasa_dolar);
+  // Find all rates for that month and sort by date descending to get the last day available
+  const ratesOfMonth = tasasHistoricas
+    .filter((t: any) => t.fecha && t.fecha.startsWith(prefix))
+    .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  
+  if (ratesOfMonth.length > 0) return parseFloat(ratesOfMonth[0].tasa_dolar);
 
   // Fallback: Find closest rate BEFORE that month
-  const fallbackTasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha < `${fechaBuscada}-01`);
+  const fallbackTasa = tasasHistoricas
+    .filter((t: any) => t.fecha && t.fecha < `${prefix}-01`)
+    .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))[0];
+    
   if (fallbackTasa) return parseFloat(fallbackTasa.tasa_dolar);
 
   // Ultimate fallback: Use the most recent rate we have
@@ -144,8 +150,31 @@ export async function GET(request: Request) {
       .select("unidad, alicuota")
       .eq("edificio_id", edificioId);
 
+    const { data: pagos } = await supabase
+      .from("pagos_recibos")
+      .select("fecha_pago, monto")
+      .eq("edificio_id", edificioId)
+      .order("fecha_pago", { ascending: true });
+
     const getTasaForDate = (fecha: string) => getTasaBCVParaFecha(fecha, tasasHistoricas || []);
     const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
+
+    // Daily cash flow (pagos vs egresos)
+    const dailyFlow: any = {};
+    (pagos || []).forEach((p: any) => {
+      const f = p.fecha_pago;
+      if (!f) return;
+      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
+      dailyFlow[f].ingresos += parseFloat(p.monto || 0);
+    });
+    (egresos || []).forEach((e: any) => {
+      const f = e.fecha;
+      if (!f) return;
+      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
+      dailyFlow[f].egresos += parseFloat(e.monto || 0);
+    });
+
+    const cashFlowData = Object.values(dailyFlow).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
 
     const balancesWithLabel = (balances || []).map((b: any) => {
       const normalized = normalizeMonth(b.mes);
@@ -222,6 +251,7 @@ export async function GET(request: Request) {
       gastos: Object.values(gastosAgrupados),
       balances: balancesWithLabel,
       movimientos: movimientos || [],
+      cashFlow: cashFlowData,
       deudaTotal,
       deudaTotalUsd,
       unidadesCount,

@@ -343,19 +343,20 @@ export async function POST(request: Request) {
 
     // Registrar éxito en sincronizaciones e insertar Alerta informativa
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
+    const mesAlert = mes ? ` para el mes ${mes}` : "";
     await supabase.from("sincronizaciones").insert({
       edificio_id: building.id,
       tipo: "sync",
       estado: "completado",
       movimientos_nuevos: totalRecs,
-      error: `Sync OK: ${allRecibos.length} recibos, ${allEgresos.length} egresos, ${allGastos.length} gastos`
+      error: `Sync OK${mesAlert}: ${allRecibos.length} recibos, ${allEgresos.length} egresos, ${allGastos.length} gastos`
     });
 
     await supabase.from("alertas").insert({
       edificio_id: building.id,
       tipo: "success",
-      titulo: "Sincronización Exitosa",
-      descripcion: `Se actualizaron ${totalRecs} registros desde el portal Web Admin.`,
+      titulo: `Sincronización Exitosa${mesAlert}`,
+      descripcion: `Se actualizaron ${totalRecs} registros desde el portal Web Admin correspondiente al periodo ${mes || 'actual'}.`,
       fecha: today
     });
 

@@ -92,6 +92,7 @@ export async function POST(request: Request) {
       sync_egresos,
       sync_gastos,
       sync_alicuotas,
+      unidades,
       userId: bodyUserId 
     } = body;
 
@@ -152,6 +153,7 @@ export async function POST(request: Request) {
     if (sync_egresos !== undefined) updateData.sync_egresos = sync_egresos;
     if (sync_gastos !== undefined) updateData.sync_gastos = sync_gastos;
     if (sync_alicuotas !== undefined) updateData.sync_alicuotas = sync_alicuotas;
+    if (unidades !== undefined) updateData.unidades = unidades;
 
     const { data: building, error } = await supabase
       .from("edificios")
