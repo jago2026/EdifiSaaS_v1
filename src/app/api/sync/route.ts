@@ -256,7 +256,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { userId, mes, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas } = body;
+    const { userId, mes, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance } = body;
     const mesEstandar = normalizeMes(mes);
     
     // Default to true if not provided (backwards compatibility)
@@ -264,6 +264,7 @@ export async function POST(request: Request) {
     const doSyncEgresos = sync_egresos !== false;
     const doSyncGastos = sync_gastos !== false;
     const doSyncAlicuotas = sync_alicuotas !== false;
+    const doSyncBalance = sync_balance !== false;
 
     const { data: building } = await supabase.from("edificios").select("*").eq("usuario_id", userId).single();
     if (!building) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
@@ -296,7 +297,7 @@ export async function POST(request: Request) {
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5`, session) : Promise.resolve(null),
       doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21`, session) : Promise.resolve(null),
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3`, session) : Promise.resolve(null),
-      doSyncEgresos || doSyncGastos || true ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2`, session) : Promise.resolve(null),
+      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2`, session) : Promise.resolve(null),
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23`, session) : Promise.resolve(null)
     ];
 

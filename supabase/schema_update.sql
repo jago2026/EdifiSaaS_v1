@@ -43,3 +43,5 @@ CREATE TABLE IF NOT EXISTS gastos_recurrentes (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(edificio_id, codigo)
 );
+-- Agregar columna sync_balance a edificios si no existe
+ALTER TABLE edificios ADD COLUMN IF NOT EXISTS sync_balance BOOLEAN DEFAULT true;

@@ -260,6 +260,7 @@ export default function DashboardPage() {
     sync_egresos: true,
     sync_gastos: true,
     sync_alicuotas: true,
+    sync_balance: true,
     unidades: 0,
   });
 
@@ -280,6 +281,7 @@ export default function DashboardPage() {
         sync_egresos: building.sync_egresos !== false,
         sync_gastos: building.sync_gastos !== false,
         sync_alicuotas: building.sync_alicuotas !== false,
+        sync_balance: building.sync_balance !== false,
         unidades: building.unidades || 0,
       }));
     }
@@ -862,7 +864,8 @@ export default function DashboardPage() {
           sync_recibos: editConfig.sync_recibos,
           sync_egresos: editConfig.sync_egresos,
           sync_gastos: editConfig.sync_gastos,
-          sync_alicuotas: editConfig.sync_alicuotas
+          sync_alicuotas: editConfig.sync_alicuotas,
+          sync_balance: editConfig.sync_balance
         }),
       });
       const data = await res.json();
@@ -897,7 +900,15 @@ export default function DashboardPage() {
       const res = await fetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, mes: syncMes }),
+        body: JSON.stringify({ 
+          userId: user?.id, 
+          mes: syncMes,
+          sync_recibos: editConfig.sync_recibos,
+          sync_egresos: editConfig.sync_egresos,
+          sync_gastos: editConfig.sync_gastos,
+          sync_alicuotas: editConfig.sync_alicuotas,
+          sync_balance: editConfig.sync_balance
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -2462,6 +2473,10 @@ export default function DashboardPage() {
                       <input type="checkbox" checked={editConfig.sync_alicuotas} onChange={(e) => setEditConfig({ ...editConfig, sync_alicuotas: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-sm text-gray-700">Alicuotas</span>
                     </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700">Balance</span>
+                    </label>
                   </div>
                   <div className="mt-4">
                     <button 
@@ -2547,6 +2562,24 @@ export default function DashboardPage() {
                   </button>
                </div>
                <p className="text-[10px] text-gray-500 mt-2 italic font-black uppercase tracking-tighter">Útil para recuperar datos de meses anteriores cerrados en el portal.</p>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Archivos Sincronizados Off-line</h3>
+              {mesesBalance.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">No hay archivos sincronizados registrados.</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {mesesBalance.sort().reverse().map(mes => (
+                    <div key={mes} className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-center">
+                      <div className="text-[10px] font-bold text-blue-400 uppercase mb-1">Periodo</div>
+                      <div className="text-sm font-bold text-blue-800">{mes}</div>
+                      <div className="text-[9px] text-blue-600 mt-1 uppercase font-medium">Sincronizado ✅</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] text-gray-400 mt-4 uppercase font-bold italic">ESTA LISTA MUESTRA LOS MESES QUE YA TIENEN DATOS GUARDADOS EN EL SISTEMA Y PUEDEN CONSULTARSE SIN CONEXIÓN AL PORTAL.</p>
             </div>
           </div>
         )}
