@@ -272,28 +272,89 @@ function parseBalanceFull(html: string): any {
       if (!cells || cells.length < 2) continue;
       const desc = cleanHtml(cells[0]).toUpperCase();
       const valCell1 = cleanHtml(cells[1]);
-      if (valCell1 === '--------------------' || valCell1.includes('-')) continue;
+      
+      // Skip separator rows, but NOT negative values
+      if (valCell1 === '--------------------' || valCell1.trim() === '') continue;
+      
       const val = parseMonto(valCell1);
       const saldo = cells.length >= 3 ? parseMonto(cleanHtml(cells[2])) : 0;
       const hasSaldoValue = saldo !== 0 && (cells.length >= 3 && cleanHtml(cells[2]).replace(/[\s,.-]/g, '') !== '');
       
-      console.log(`[DEBUG BALANCE] ${desc}: ${val}, saldo: ${saldo}`);
+      console.log(`[DEBUG BALANCE] ${desc}: val=${val}, saldo=${saldo}, hasSaldo=${hasSaldoValue}`);
       
-      if (desc.includes("SALDO DE CAJA MES ANTERIOR")) balance.saldo_anterior = val;
-      else if (desc.includes("COBRANZA DEL MES")) balance.cobranza_mes = val;
-      else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES")) balance.gastos_facturados = -Math.abs(val);
-      else if (desc.includes("SALDO ACTUAL DISPONIBLE EN CAJA")) balance.saldo_disponible = hasSaldoValue ? saldo : val;
-      else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR")) balance.total_por_cobrar = hasSaldoValue ? saldo : val;
-      else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES")) balance.recibos_mes = val;
-      else if (desc.includes("CONDOMINIOS ATRASADOS")) balance.condominios_atrasados = val;
-      else if (desc.includes("CONDOMINIOS SOBRANTES")) balance.condominios_sobrantes = val;
-      else if (desc.includes("SALDO RESERVAS") || desc.includes("SALDO TOTAL RESERVAS")) balance.saldo_reservas = hasSaldoValue ? saldo : val;
-      else if (desc.includes("FONDO DE RESERVA") && !desc.includes("MES ANTERIOR")) balance.fondo_reserva = hasSaldoValue ? saldo : val;
-      else if (desc.includes("PRESTACIONES SOCIALES") && !desc.includes("MES ANTERIOR")) balance.fondo_prestaciones = hasSaldoValue ? saldo : val;
-      else if (desc.includes("TRABAJOS VARIOS") && !desc.includes("MES ANTERIOR")) balance.fondo_trabajos_varios = hasSaldoValue ? saldo : val;
-      else if (desc.includes("INTERESES MORATORIOS") && !desc.includes("MES ANTERIOR")) balance.fondo_intereses = hasSaldoValue ? saldo : val;
-      else if (desc.includes("DIFERENCIAL CAMBIARIO") && !desc.includes("MES ANTERIOR")) balance.fondo_diferencial_cambiario = hasSaldoValue ? saldo : val;
-      else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA") && !desc.includes("MES ANTERIOR")) balance.ajuste_alicuota = hasSaldoValue ? saldo : val;
+      // SALDO DE CAJA - capture both monto and saldo
+      if (desc.includes("SALDO DE CAJA MES ANTERIOR")) {
+        balance.saldo_anterior = val !== 0 ? val : saldo;
+      }
+      else if (desc.includes("COBRANZA DEL MES")) {
+        balance.cobranza_mes = val;
+      }
+      else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES")) {
+        balance.gastos_facturados = val !== 0 ? val : (saldo !== 0 ? saldo : 0);
+      }
+      else if (desc.includes("DESC/DIF/CAMB/PAGO A TIEMPO")) {
+        balance.ajuste_pago_tiempo = val;
+      }
+      else if (desc.includes("SALDO ACTUAL DISPONIBLE EN CAJA")) {
+        balance.saldo_disponible = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES")) {
+        balance.recibos_mes = val;
+      }
+      else if (desc.includes("CONDOMINIOS ATRASADOS")) {
+        balance.condominios_atrasados = val;
+      }
+      else if (desc.includes("CONDOMINIOS SOBRANTES")) {
+        balance.condominios_sobrantes = val;
+      }
+      else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR")) {
+        balance.total_por_cobrar = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("TOTAL CAJA Y POR COBRAR")) {
+        balance.total_caja_y_cobrar = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("SALDO RESERVAS") || desc.includes("SALDO TOTAL RESERVAS")) {
+        balance.saldo_reservas = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("FONDO DE RESERVA MES ANTERIOR")) {
+        balance.fondo_reserva_mes_anterior = val;
+      }
+      else if (desc.includes("SALDO FONDO DE RESERVA")) {
+        balance.fondo_reserva = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("FONDO DE PRESTACIONES SOCIALES MES ANTERIOR")) {
+        balance.fondo_prestaciones_mes_anterior = val;
+      }
+      else if (desc.includes("SALDO FONDO PRESTACIONES SOCIALES")) {
+        balance.fondo_prestaciones = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("FONDO TRABAJOS VARIOS MES ANTERIOR")) {
+        balance.fondo_trabajos_varios_mes_anterior = val;
+      }
+      else if (desc.includes("SALDO FONDO TRABAJOS VARIOS")) {
+        balance.fondo_trabajos_varios = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA MES ANTERIOR")) {
+        balance.ajuste_alicuota_mes_anterior = val;
+      }
+      else if (desc.includes("SALDO AJUSTE DIFERENCIA ALICUOTA")) {
+        balance.ajuste_alicuota = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("FONDO INTERESES MORATORIOS MES ANTERIOR")) {
+        balance.fondo_intereses_mes_anterior = val;
+      }
+      else if (desc.includes("SALDO FONDO INTERESES MORATORIOS")) {
+        balance.fondo_intereses = saldo !== 0 ? saldo : val;
+      }
+      else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO TASA BCV MES ANTERIOR")) {
+        balance.fondo_diferencial_mes_anterior = val;
+      }
+      else if (desc.includes("DESC/DIF/CAMB/PAGO A TIEMPO") && desc.includes("DIFERENCIAL")) {
+        balance.fondo_diferencial_ajuste = val;
+      }
+      else if (desc.includes("SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV")) {
+        balance.fondo_diferencial_cambiario = saldo !== 0 ? saldo : val;
+      }
     }
   }
   return balance;
