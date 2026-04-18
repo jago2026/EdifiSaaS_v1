@@ -115,6 +115,7 @@ interface Recibo {
   num_recibos: number;
   deuda: number;
   deuda_usd?: number;
+  isTotal?: boolean;
 }
 
 interface Egreso {
