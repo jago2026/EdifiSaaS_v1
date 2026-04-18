@@ -32,13 +32,23 @@ function formatLabel(mes: string | null | undefined): string {
 }
 
 function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
-  if (!mes || !tasasHistoricas || tasasHistoricas.length === 0) return 45;
+  if (!tasasHistoricas || tasasHistoricas.length === 0) return 45;
   const normalized = normalizeMonth(mes);
-  if (!normalized) return 45;
+  if (!normalized) return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
+  
   const [year, month] = normalized.split("-");
   const fechaBuscada = `${year}-${month}`;
+  
+  // Try to find rate for that month
   const tasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha.startsWith(fechaBuscada));
-  return tasa ? parseFloat(tasa.tasa_dolar) : 45;
+  if (tasa) return parseFloat(tasa.tasa_dolar);
+
+  // Fallback: Find closest rate BEFORE that month
+  const fallbackTasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha < `${fechaBuscada}-01`);
+  if (fallbackTasa) return parseFloat(fallbackTasa.tasa_dolar);
+
+  // Ultimate fallback: Use the most recent rate we have
+  return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
 }
 
 export async function GET(request: Request) {
@@ -60,14 +70,19 @@ export async function GET(request: Request) {
 
     const { data: egresos } = await supabase
       .from("egresos")
-      .select("fecha, monto, mes")
+      .select("fecha, monto, mes, descripcion")
       .eq("edificio_id", edificioId)
+      .not("fecha", "eq", "2099-12-31")
+      .not("descripcion", "ilike", "%TOTAL%")
       .order("fecha", { ascending: true });
 
     const { data: gastos } = await supabase
       .from("gastos")
-      .select("fecha, monto, mes")
+      .select("fecha, monto, mes, descripcion")
       .eq("edificio_id", edificioId)
+      .not("codigo", "eq", "TOTAL")
+      .not("codigo", "eq", "RESERVA")
+      .not("descripcion", "ilike", "%TOTAL%")
       .order("fecha", { ascending: true });
 
     const { data: balances } = await supabase
@@ -106,7 +121,7 @@ export async function GET(request: Request) {
         cobranza_mes: b.cobranza_mes || 0,
         cobranza_mes_usd: tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0,
         gastos_facturados: b.gastos_facturados || 0,
-        gastos_facturados_usd: tasa > 0 ? (b.gastos_facturados || 0) / tasa : 0,
+        gastos_facturados_usd: tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0,
         fondo_reserva: b.fondo_reserva || 0,
         fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,
         fondo_prestaciones: b.fondo_prestaciones || 0,
@@ -140,15 +155,15 @@ export async function GET(request: Request) {
       }
       const montoBs = parseFloat(g.monto || 0);
       acc[mesNorm].monto += montoBs;
-      acc[mesNorm].monto_usd += tasa > 0 ? montoBs / tasa : 0;
+      acc[mesNorm].monto_usd += tasa > 0 ? Math.abs(montoBs) / tasa : 0;
       acc[mesNorm].cantidad += 1;
       return acc;
     }, {});
 
+    const currentTasa = tasasHistoricas && tasasHistoricas.length > 0 ? parseFloat(tasasHistoricas[0].tasa_dolar) : 45;
     const deudaTotal = (recibos || []).reduce((sum, r: any) => sum + parseFloat(r.deuda || 0), 0);
     const deudaTotalUsd = (recibos || []).reduce((sum, r: any) => {
-      const tasa = getTasaForMonth(new Date().toISOString().substring(0, 7));
-      return sum + (parseFloat(r.deuda || 0) / tasa);
+      return sum + (parseFloat(r.deuda || 0) / currentTasa);
     }, 0);
     const unidadesCount = alicuotas?.length || 0;
     const alicuotaPromedio = unidadesCount > 0 

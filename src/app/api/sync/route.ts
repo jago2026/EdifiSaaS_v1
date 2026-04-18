@@ -96,7 +96,6 @@ function parseRecibosTableAll(html: string): any[] {
                      html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  let tUSD = 0, tBS = 0, tCount = 0;
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 4) continue;
@@ -115,13 +114,9 @@ function parseRecibosTableAll(html: string): any[] {
 
     if (mUSD === 0 && mBS === 0) continue;
 
-    tUSD += mUSD;
-    tBS += mBS;
     const nRec = parseInt(numRecibosCell) || 0;
-    tCount += nRec;
     results.push({ unidad, propietario, num_recibos: nRec, deuda_usd: mUSD, deuda: mBS });
   }
-  results.push({ unidad: "TOTAL", propietario: "TOTAL GENERAL", num_recibos: tCount, deuda_usd: tUSD, deuda: tBS, isTotal: true });
   return results;
 }
 
@@ -130,18 +125,15 @@ function parseEgresosTableAll(html: string): any[] {
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  let totalMonto = 0;
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 4) continue;
     const texts = cells.map(c => cleanHtml(c));
-    if (texts[0].includes("(G)") || texts[1].includes("TOTAL EGRESOS")) continue;
+    if (texts[0].includes("(G)") || texts[1].includes("TOTAL EGRESOS") || texts[1].includes("TOTAL GENERAL")) continue;
     if (!texts[0].match(/\d{2}-\d{2}-\d{4}/)) continue;
     const m = parseMonto(texts[3]);
-    totalMonto += m;
     results.push({ fecha: texts[0], beneficiario: texts[1], operacion: texts[2], monto: m });
   }
-  results.push({ fecha: "2099-12-31", beneficiario: "TOTAL GENERAL", operacion: "Resumen", monto: totalMonto, isTotal: true });
   return results;
 }
 
@@ -151,8 +143,6 @@ function parseGastosTable(html: string): any[] {
   if (!tableMatch) return results;
   const tableContent = tableMatch[1];
   const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  let totalGastos = 0;
-  let totalFondos = 0;
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 3) continue;
@@ -161,13 +151,9 @@ function parseGastosTable(html: string): any[] {
     const montoCell = cleanHtml(cells[2]);
     if (!code || code === '&nbsp;' || code.trim() === '') continue;
     if (desc.includes("TOTAL GASTOS COMUNES:") || desc.includes("TOTAL FONDOS:") || desc.includes("TOTAL FONDOS Y GASTOS") || desc.includes("TOTAL GASTOS:")) {
-      const m = parseMonto(montoCell);
-      if (desc.includes("COMUNES")) totalGastos = m;
-      else if (desc.includes("FONDOS:")) totalFondos = m;
       continue;
     }
     if (code === "00001" && desc.includes("FONDO DE RESERVA")) {
-      totalFondos = parseMonto(montoCell);
       continue;
     }
     if (code.match(/^\d+$/)) {
@@ -177,8 +163,6 @@ function parseGastosTable(html: string): any[] {
       }
     }
   }
-  if (totalGastos > 0) results.push({ codigo: "TOTAL", descripcion: "TOTAL GASTOS COMUNES", monto: totalGastos, isTotal: true });
-  if (totalFondos > 0) results.push({ codigo: "RESERVA", descripcion: "TOTAL FONDO DE RESERVA", monto: totalFondos, isTotal: true });
   return results;
 }
 
@@ -251,12 +235,14 @@ export async function POST(request: Request) {
 
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
     if (!session) {
-      await supabase.from("sincronizaciones").insert({
+      // Intento guardado resiliente (si falla columna tipo, guardamos igual lo que podamos)
+      const { error: insErr } = await supabase.from("sincronizaciones").insert({
         edificio_id: building.id,
-        tipo: "sync",
         estado: "error",
         error: "Fallo de login en Web Admin. Verifica credenciales."
       });
+      if (insErr) console.error("Error inserting sync log:", insErr);
+
       return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
     }
 
@@ -295,14 +281,10 @@ export async function POST(request: Request) {
       const hash = await generateHash(`${fDB}|${e.beneficiario}|${e.monto}`);
       await supabase.from("egresos").upsert({ edificio_id: building.id, fecha: fDB, beneficiario: e.beneficiario, descripcion: e.operacion, monto: e.monto, hash, sincronizado: true, mes: mesEstandar }, { onConflict: 'edificio_id,hash' });
       
-      if (!e.isTotal) {
-        const desc = `${e.operacion} - ${e.beneficiario}`;
-        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-        if (fDB === today) {
-          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, fuente: "egresos", detectado_en: today });
-        }
-      } else {
-        await supabase.from("egresos").upsert({ edificio_id: building.id, fecha: "2099-12-31", beneficiario: "TOTAL GENERAL", descripcion: "TOTAL", monto: e.monto, hash: "TOTAL-EGRESOS", sincronizado: true, mes: mesEstandar }, { onConflict: 'edificio_id,hash' });
+      const desc = `${e.operacion} - ${e.beneficiario}`;
+      await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+      if (fDB === today) {
+        await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, fuente: "egresos", detectado_en: today });
       }
     }
 
@@ -310,13 +292,9 @@ export async function POST(request: Request) {
       const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${today}`);
       await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: g.codigo, descripcion: g.descripcion, monto: g.monto, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
       
-      if (!g.isTotal) {
-        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-        if (mesEstandar === today.substring(0, 7)) {
-          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
-        }
-      } else {
-        await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: "TOTAL", descripcion: "TOTAL GENERAL", monto: g.monto, hash: "TOTAL-GASTOS", sincronizado: true }, { onConflict: 'edificio_id,hash' });
+      await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+      if (mesEstandar === today.substring(0, 7)) {
+        await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
       }
     }
 
@@ -325,16 +303,26 @@ export async function POST(request: Request) {
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     }
 
-    // Registrar éxito
+    // Registrar éxito resiliente
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
-    await supabase.from("sincronizaciones").insert({
-      edificio_id: building.id,
-      tipo: "sync",
-      estado: "completado",
-      movimientos_nuevos: totalRecs,
-      error: `Sync completado OK. Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}`,
-      detalles: { stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } }
-    });
+    try {
+      await supabase.from("sincronizaciones").insert({
+        edificio_id: building.id,
+        tipo: "sync",
+        estado: "completado",
+        movimientos_nuevos: totalRecs,
+        error: `Sync completado OK. Recibos: ${allRecibos.length}, Egresos: ${allEgresos.length}, Gastos: ${allGastos.length}`,
+        detalles: { stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } }
+      });
+    } catch (e) {
+      // Fallback si fallan columnas nuevas
+      await supabase.from("sincronizaciones").insert({
+        edificio_id: building.id,
+        estado: "completado",
+        movimientos_nuevos: totalRecs,
+        error: `Sync OK (sin detalles)`
+      });
+    }
 
     await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
 
@@ -344,9 +332,8 @@ export async function POST(request: Request) {
     if (currentBuildingId) {
       await supabase.from("sincronizaciones").insert({
         edificio_id: currentBuildingId,
-        tipo: "sync",
         estado: "error",
-        error: error.message || "Error desconocido durante la sincronización"
+        error: error.message || "Error desconocido"
       });
     }
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
+    // Intentar primero con todas las columnas
     const { data: sincronizaciones, error } = await supabase
       .from("sincronizaciones")
       .select("*")
@@ -22,9 +23,23 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false })
       .limit(50);
 
-    if (error) throw error;
+    if (!error) {
+        return NextResponse.json({ sincronizaciones: sincronizaciones || [] });
+    }
 
-    return NextResponse.json({ sincronizaciones: sincronizaciones || [] });
+    // Fallback: Si falla el select * (probablemente por columnas faltantes como tipo/detalles),
+    // seleccionamos solo las columnas básicas garantizadas en el esquema original.
+    console.log("Sincronizaciones API: falling back to basic columns due to error:", error.message);
+    const { data: basicSinc, error: basicErr } = await supabase
+      .from("sincronizaciones")
+      .select("id, edificio_id, estado, movimientos_nuevos, error, created_at")
+      .eq("edificio_id", edificioId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (basicErr) throw basicErr;
+
+    return NextResponse.json({ sincronizaciones: basicSinc || [] });
   } catch (error: any) {
     console.error("Error loading sincronizaciones:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

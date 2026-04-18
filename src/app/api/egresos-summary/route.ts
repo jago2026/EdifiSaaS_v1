@@ -23,12 +23,14 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const currentMes = getCurrentMonth();
 
-    // Query current month from egresos table
+    // Query current month from egresos table, excluding summary/total rows
     const { data: allEgresos, error } = await supabase
       .from("egresos")
       .select("monto, fecha, mes")
       .eq("edificio_id", edificioId)
-      .like("mes", `${currentMes}%`);
+      .like("mes", `${currentMes}%`)
+      .not("fecha", "eq", "2099-12-31")
+      .not("descripcion", "ilike", "%TOTAL%");
 
     if (error) {
       console.error("Egresos query error:", error);
