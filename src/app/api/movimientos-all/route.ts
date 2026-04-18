@@ -25,37 +25,16 @@ export async function GET(request: Request) {
     const currentMes = mes || getCurrentMonth();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Build query for movimientos_dia
-    let query = supabase
-      .from("movimientos_dia")
-      .select("id, tipo, descripcion, monto, fecha, unidad_apartamento, propietario, fuente, detectado_en")
-      .eq("edificio_id", edificioId);
+    const allMovements: any[] = [];
 
-    // Filter by month or specific date
-    if (fecha) {
-      query = query.eq("fecha", fecha);
-    } else if (mes) {
-      query = query.like("fecha", `${mes}%`);
-    }
-
-    const { data: movimientosDia, error: mdError } = await query
-      .order("fecha", { ascending: false })
-      .limit(100);
-
-    if (mdError) {
-      console.error("Error fetching movimientos_dia:", mdError);
-    }
-
-    // Also get pagos from pagos_recibos for current month
+    // Get pagos from pagos_recibos for current month
     const { data: pagos } = await supabase
       .from("pagos_recibos")
       .select("id, unidad, propietario, monto, fecha_pago, mes")
       .eq("edificio_id", edificioId)
       .eq("mes", currentMes)
       .order("fecha_pago", { ascending: false })
-      .limit(50);
-
-    const allMovements: any[] = [];
+      .limit(100);
 
     // Add pagos as "pago" type
     if (pagos) {
@@ -66,6 +45,7 @@ export async function GET(request: Request) {
           tipo: "pago",
           descripcion: `Pago - ${p.unidad} - ${p.propietario || ""}`,
           monto: p.monto,
+          monto_usd: p.monto / 45, // approximate
           unidad: p.unidad,
           propietario: p.propietario,
           fuente: "pagos_recibos",
@@ -73,18 +53,48 @@ export async function GET(request: Request) {
       }
     }
 
-    // Add movimientos_dia entries (egresos, gastos, etc.)
-    if (movimientosDia) {
-      for (const m of movimientosDia) {
+    // Get egresos from egresos table for current month
+    const { data: egresos } = await supabase
+      .from("egresos")
+      .select("id, fecha, beneficiario, descripcion, monto, monto_usd")
+      .eq("edificio_id", edificioId)
+      .like("mes", `${currentMes}%`)
+      .order("fecha", { ascending: false })
+      .limit(100);
+
+    if (egresos) {
+      for (const e of egresos) {
         allMovements.push({
-          id: m.id,
-          fecha: m.fecha,
-          tipo: m.tipo,
-          descripcion: m.descripcion,
-          monto: m.monto,
-          unidad: m.unidad_apartamento,
-          propietario: m.propietario,
-          fuente: m.fuente,
+          id: e.id,
+          fecha: e.fecha,
+          tipo: "egreso",
+          descripcion: `${e.beneficiario} - ${e.descripcion || ""}`,
+          monto: e.monto,
+          monto_usd: e.monto_usd || e.monto / 45,
+          fuente: "egresos",
+        });
+      }
+    }
+
+    // Get gastos from gastos table for current month
+    const { data: gastos } = await supabase
+      .from("gastos")
+      .select("id, fecha, codigo, descripcion, monto, monto_usd")
+      .eq("edificio_id", edificioId)
+      .like("mes", `${currentMes}%`)
+      .order("fecha", { ascending: false })
+      .limit(100);
+
+    if (gastos) {
+      for (const g of gastos) {
+        allMovements.push({
+          id: g.id,
+          fecha: g.fecha,
+          tipo: "gasto",
+          descripcion: `${g.codigo} - ${g.descripcion}`,
+          monto: g.monto,
+          monto_usd: g.monto_usd || g.monto / 45,
+          fuente: "gastos",
         });
       }
     }

@@ -101,6 +101,7 @@ interface Movement {
   fecha: string;
   descripcion: string;
   monto: number;
+  monto_usd?: number;
   tipo: string;
   unidad_apartamento?: string;
   unidad?: string;
@@ -1044,6 +1045,9 @@ export default function DashboardPage() {
                 <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
                 <div className="text-2xl font-bold text-orange-600">Bs.{(balance?.gastos_facturados || gastosSummary.monto).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
                 {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.gastos_facturados || gastosSummary.monto) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
+                <div className="text-xs text-gray-400 mt-1">
+                  {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
+                </div>
               </div>
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("balance")}>
                 <div className="text-sm text-gray-500 mb-1">Fondo Reserva</div>
@@ -1273,18 +1277,19 @@ export default function DashboardPage() {
                         <tr key={m.id} className="border-b border-green-100">
                           <td className="py-2 px-3">
                             <span className={`px-2 py-1 rounded-full text-xs ${
+                              m.tipo === "pago" ? "bg-green-200 text-green-800" : 
                               m.tipo === "recibo" ? "bg-green-200 text-green-800" : 
                               m.tipo === "gasto" ? "bg-orange-200 text-orange-800" : "bg-red-200 text-red-800"
                             }`}>
-                              {m.tipo === "recibo" ? "Recibo" : m.tipo === "gasto" ? "Gasto" : "Egreso"}
+                              {m.tipo === "pago" ? "Pago" : m.tipo === "recibo" ? "Recibo" : m.tipo === "gasto" ? "Gasto" : "Egreso"}
                             </span>
                           </td>
                           <td className="py-2 px-3 text-gray-800">{m.descripcion}</td>
                           <td className="py-2 px-3 text-gray-600">{m.unidad_apartamento || "-"}</td>
                           <td className={`py-2 px-3 text-right font-bold ${
-                            m.tipo === "recibo" ? "text-green-600" : "text-red-600"
+                            m.tipo === "pago" || m.tipo === "recibo" ? "text-green-600" : "text-red-600"
                           }`}>
-                            {m.tipo === "recibo" ? "+" : "-"}Bs. {formatBs(m.monto)}
+                            {m.tipo === "pago" || m.tipo === "recibo" ? "+" : "-"}Bs. {formatBs(m.monto)}
                           </td>
                         </tr>
                       ))}
@@ -1296,15 +1301,18 @@ export default function DashboardPage() {
 
             {/* Todos los movimientos */}
             <div className="bg-white p-6 rounded-xl shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Historial de Movimientos</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Historial de Movimientos del Mes</h2>
               {loadingMovements ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
               ) : movements.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">
-                  No hay movimientos aún. Sincroniza datos desde la sección de configuración.
+                  No hay movimientos este mes. Sincroniza datos desde la sección de configuración.
                 </p>
               ) : (
                 <div className="overflow-x-auto">
+                  <div className="text-sm text-gray-500 mb-2">
+                    Total: {movements.length} movimiento{movements.length !== 1 ? "s" : ""}
+                  </div>
                   <table className="w-full">
                     <thead>
                       <tr className="border-b">
@@ -1312,7 +1320,8 @@ export default function DashboardPage() {
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Tipo</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Descripción</th>
                         <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Unidad</th>
-                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Monto</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Monto Bs.</th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Monto USD</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1321,18 +1330,22 @@ export default function DashboardPage() {
                           <td className="py-3 px-4 text-gray-900">{mov.fecha}</td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-1 rounded-full text-xs ${
+                              mov.tipo === "pago" ? "bg-green-100 text-green-700" :
                               mov.tipo === "recibo" ? "bg-green-100 text-green-700" : 
                               mov.tipo === "gasto" ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"
                             }`}>
-                              {mov.tipo === "recibo" ? "Recibo" : mov.tipo === "gasto" ? "Gasto" : "Egreso"}
+                              {mov.tipo === "pago" ? "Pago" : mov.tipo === "recibo" ? "Recibo" : mov.tipo === "gasto" ? "Gasto" : "Egreso"}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-gray-600">{mov.descripcion}</td>
                           <td className="py-3 px-4 text-gray-500">{mov.unidad_apartamento || mov.unidad || "-"}</td>
                           <td className={`py-3 px-4 text-right font-medium ${
-                            mov.tipo === "recibo" ? "text-green-600" : "text-red-600"
+                            mov.tipo === "pago" || mov.tipo === "recibo" ? "text-green-600" : "text-red-600"
                           }`}>
-                            {mov.tipo === "recibo" ? "+" : "-"}Bs.{Number(mov.monto || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                            {mov.tipo === "pago" || mov.tipo === "recibo" ? "+" : "-"}Bs.{Number(mov.monto || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                          </td>
+                          <td className="py-3 px-4 text-right text-gray-500">
+                            $ {Number(mov.monto_usd || mov.monto / tasaBCV.dolar || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}
                           </td>
                         </tr>
                       ))}
