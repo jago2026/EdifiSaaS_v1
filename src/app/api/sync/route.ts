@@ -164,6 +164,7 @@ function parseGastosTable(html: string): any[] {
   const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   let totalGastos = 0;
   let totalFondos = 0;
+  let totalGastosFinal = 0;
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 3) continue;
@@ -171,33 +172,43 @@ function parseGastosTable(html: string): any[] {
     const desc = cleanHtml(cells[1]);
     const montoCell = cleanHtml(cells[2]);
     
-    if (!code || code === '&nbsp;' || code.trim() === '') continue;
+    // Skip empty rows - &nbsp; becomes a space after cleanHtml
+    if (!code || code === '&nbsp;' || code.trim() === '' || code.trim() === ' ') continue;
+    // Skip rows where description is empty or just whitespace
+    if (!desc || desc.trim() === '') continue;
     
-    if (desc.includes("TOTAL GASTOS COMUNES:") || desc.includes("TOTAL FONDOS:") || desc.includes("TOTAL FONDOS Y GASTOS") || desc.includes("TOTAL GASTOS:")) {
-      const m = parseMonto(montoCell);
-      if (desc.includes("COMUNES")) totalGastos = m;
-      else if (desc.includes("FONDOS:")) totalFondos = m;
+    // Capture TOTAL rows
+    if (desc.includes("TOTAL GASTOS COMUNES:")) {
+      totalGastos = parseMonto(montoCell);
       continue;
     }
-    
-    if (code === "00001" && desc.includes("FONDO DE RESERVA")) {
+    if (desc.includes("TOTAL FONDOS:")) {
       totalFondos = parseMonto(montoCell);
       continue;
     }
+    if (desc.includes("TOTAL FONDOS Y GASTOS")) {
+      continue;
+    }
+    if (desc.includes("TOTAL GASTOS:")) {
+      totalGastosFinal = parseMonto(montoCell);
+      continue;
+    }
     
-    if (code.match(/^\d+$/)) {
+    // Skip FONDO DE RESERVA row (it's a sub-item, not a main expense)
+    if (code === "00001" && desc.includes("FONDO DE RESERVA")) {
+      continue;
+    }
+    
+    // Only process rows with valid numeric codes (5 digits)
+    if (code.match(/^\d{5}$/)) {
       const m = parseMonto(montoCell);
-      if (!desc.includes("TOTAL")) {
-        results.push({ codigo: code, descripcion: desc, monto: m });
-      }
+      results.push({ codigo: code, descripcion: desc, monto: m });
     }
   }
   
-  if (totalGastos > 0) {
-    results.push({ codigo: "TOTAL", descripcion: "TOTAL GASTOS COMUNES", monto: totalGastos, isTotal: true });
-  }
-  if (totalFondos > 0) {
-    results.push({ codigo: "RESERVA", descripcion: "TOTAL FONDO DE RESERVA", monto: totalFondos, isTotal: true });
+  // Add total row at the end
+  if (totalGastosFinal > 0) {
+    results.push({ codigo: "TOTAL", descripcion: "TOTAL GASTOS", monto: totalGastosFinal, isTotal: true });
   }
   return results;
 }
