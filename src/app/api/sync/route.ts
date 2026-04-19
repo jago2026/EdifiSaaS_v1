@@ -265,23 +265,38 @@ function parseBalanceFull(html: string): any {
       const idx = text.indexOf(kw.toUpperCase());
       if (idx !== -1) {
         const sub = text.substring(idx + kw.length, idx + kw.length + 150);
-        const match = sub.match(/(\d[\d,.]*)/);
+        // Handle negative numbers (e.g., -1.234,56)
+        const match = sub.match(/(-?[\d.,]+)/);
         if (match) {
-          const val = parseMonto(match[1]);
-          if (val > 0.01) return val;
+          return parseMonto(match[1]);
         }
       }
     }
     return null;
   };
 
+  // CAJA
   balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
   balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
-  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
-  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA", "SALDO ACTUAL EN CAJA"]);
+  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS EN EL MES COMUNES", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
+  const gastosNoComunes = extractVal(["GASTOS FACTURADOS EN EL MES NO COMUNES"]);
+  if (gastosNoComunes) balance.gastos_facturados = (balance.gastos_facturados || 0) + gastosNoComunes;
+  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA"]);
+  
+  // CUENTAS POR COBRAR
   balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "EMISION TOTAL"]);
   balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
-  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
+  balance.condominios_atrasados = extractVal(["CONDOMINIOS ATRASADOS"]) || 0;
+  balance.condominios_adelantados = extractVal(["CONDOMINIOS ADELANTADOS"]) || 0;
+  balance.condominios_sobrantes = extractVal(["CONDOMINIOS SOBRANTES"]) || 0;
+  
+  // RESERVAS
+  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA", "RESERVA SALDO", "SALDO RESERVA"]);
+  balance.fondo_prestaciones = extractVal(["SALDO FONDO DE PRESTACIONES SOCIALES", "FONDO PRESTACIONES"]) || 0;
+  balance.fondo_trabajos_varios = extractVal(["SALDO FONDO TRABAJOS VARIOS", "FONDO TRABAJOS VARIOS"]) || 0;
+  balance.fondo_intereses = extractVal(["SALDO FONDO INTERESES MORATORIOS", "FONDO INTERESES MORATORIOS"]) || 0;
+  balance.fondo_diferencial_cambiario = extractVal(["SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV", "FONDO DIFERENCIAL CAMBIARIO"]) || 0;
+  balance.ajuste_alicuota = extractVal(["SALDO AJUSTE DIFERENCIA ALICUOTA", "AJUSTE DIFERENCIA ALICUOTA"]) || 0;
 
   if (!Object.values(balance).some(v => v !== null && v !== 0)) {
     console.log("Aviso: Falló extracción por texto, intentando fallback de tablas...");
@@ -305,7 +320,7 @@ function parseBalanceFull(html: string): any {
 
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
-    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva"];
+    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva", "condominios_atrasados", "condominios_adelantados", "condominios_sobrantes", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_diferencial_cambiario", "ajuste_alicuota"];
     keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
     return balance;
   }
