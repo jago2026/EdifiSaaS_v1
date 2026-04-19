@@ -196,7 +196,6 @@ export default function DashboardPage() {
   const [ingresosData, setIngresosData] = useState<any[]>([]);
   const [loadingIngresos, setLoadingIngresos] = useState(false);
   const [balance, setBalance] = useState<Balance | null>(null);
-  const [balanceDetails, setBalanceDetails] = useState<any[]>([]);
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [mesesBalance, setMesesBalance] = useState<string[]>([]);
   const [selectedMesBalance, setSelectedMesBalance] = useState<string>("");
@@ -518,12 +517,12 @@ export default function DashboardPage() {
       loadMovimientosDia();
     }
     if (activeTab === "recibos" && building?.id) {
-      loadRecibos("");
+      loadRecibos();
       loadMovimientosDia();
     }
     if (activeTab === "recibo" && building?.id) {
       loadRecibos();
-      setTimeout(() => loadReciboGeneral(selectedMesRecibos), 100);
+      setTimeout(() => loadReciboGeneral(), 100);
     }
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
@@ -668,7 +667,6 @@ export default function DashboardPage() {
       const data = await res.json();
       if (res.ok) {
         setBalance(data.balance || null);
-        setBalanceDetails(data.details || []);
         if (data.mesesDisponibles) {
           setMesesBalance(data.mesesDisponibles);
         }
@@ -1395,7 +1393,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Movimientos de Hoy ({new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })})</h2>
                 <button
@@ -1426,7 +1424,7 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full">
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
@@ -1435,12 +1433,187 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {movimientosDia.map((mov: any, idx: number) => (
-                        <tr key={idx} className="hover:bg-gray-50">
-                          <td className="py-2.5 px-3 text-sm text-gray-500 font-medium">{mov.tipo}</td>
-                          <td className="py-2.5 px-3 text-sm text-gray-900">{mov.descripcion}</td>
-                          <td className={`py-2.5 px-3 text-sm text-right font-semibold ${mov.tipo?.toLowerCase().includes('egreso') || mov.monto < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {formatBs(mov.monto)}
+                      {movimientosDia.map((m: any) => (
+                        <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                              m.tipo === "recibo" ? "bg-green-100 text-green-800" : 
+                              m.tipo === "gasto" ? "bg-orange-100 text-orange-800" : "bg-red-100 text-red-800"
+                            }`}>
+                              {m.tipo === "recibo" ? "Recibo" : m.tipo === "gasto" ? "Gasto" : "Egreso"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-sm text-gray-800">{m.descripcion}</td>
+                          <td className={`py-3 px-3 text-right font-bold text-sm ${
+                            m.tipo === "recibo" ? "text-green-600" : "text-red-600"
+                          }`}>
+                            {m.tipo === "recibo" ? "+" : "-"}Bs. {formatCurrency(m.monto)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-50 font-bold border-t-2 border-gray-100">
+                        <td className="py-3 px-3 text-sm" colSpan={2}>TOTALES DEL DÍA</td>
+                        <td className={`py-3 px-3 text-right text-sm ${
+                          movimientosDia.filter((m: any) => m.tipo === "recibo").reduce((s, m) => s + Number(m.monto), 0) -
+                          movimientosDia.filter((m: any) => m.tipo !== "recibo").reduce((s, m) => s + Number(m.monto), 0) >= 0 ? "text-green-600" : "text-red-600"
+                        }`}>
+                          Bs. {formatCurrency(
+                            movimientosDia.filter((m: any) => m.tipo === "recibo").reduce((s, m) => s + Number(m.monto), 0) -
+                            movimientosDia.filter((m: any) => m.tipo !== "recibo").reduce((s, m) => s + Number(m.monto), 0)
+                          )}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "ingresos" && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Pagos de Condominio por Unidad</h2>
+            <p className="text-sm text-gray-500 mb-4">Estado de pagos de recibos del mes - Comparación entre sync actual y anterior</p>
+            {loadingIngresos ? (
+              <p className="text-gray-500 text-center py-8">Cargando...</p>
+            ) : ingresosData.length === 0 ? (
+              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                No hay datos de pagos. Sincroniza datos desde la sección de configuración.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Propietario</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">#Recibos</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Bs</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto USD</th>
+                      <th className="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {ingresosData.map((pago: any) => (
+                      <tr key={pago.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-4 text-sm font-medium text-gray-900">{pago.unidad}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{pago.propietario || "-"}</td>
+                        <td className="py-3 px-4 text-sm text-right text-gray-900">{pago.numRecibos}</td>
+                        <td className="py-3 px-4 text-sm text-right text-gray-600">
+                          Bs. {formatCurrency(pago.montoBs)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right text-green-600 font-medium">
+                          $ {formatCurrency(pago.montoUsd)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                            pago.estado === "pagado" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}>
+                            {pago.estado === "pagado" ? "Pagado" : "Pendiente"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "movimientos" && (
+          <div className="space-y-6">
+            {movimientosDia.length > 0 && (
+              <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-green-200">
+                <h2 className="text-lg font-semibold text-green-800 mb-4 flex items-center gap-2">
+                  <span>📊</span> Movimientos del Día
+                </h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-green-200">
+                        <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Tipo</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Descripción</th>
+                        <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Unidad</th>
+                        <th className="text-right py-2 px-3 text-xs font-medium text-green-700 uppercase">Monto</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-green-100">
+                      {movimientosDia.map((m: any) => (
+                        <tr key={m.id}>
+                          <td className="py-2.5 px-3">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              m.tipo === "pago" ? "bg-green-200 text-green-800" : 
+                              m.tipo === "recibo" ? "bg-green-200 text-green-800" : 
+                              m.tipo === "gasto" ? "bg-orange-200 text-orange-800" : "bg-red-200 text-red-800"
+                            }`}>
+                              {m.tipo === "pago" ? "Pago" : m.tipo === "recibo" ? "Recibo" : m.tipo === "gasto" ? "Gasto" : "Egreso"}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-sm text-gray-800">{m.descripcion}</td>
+                          <td className="py-2.5 px-3 text-sm text-gray-600 font-medium">{m.unidad_apartamento || "-"}</td>
+                          <td className={`py-2.5 px-3 text-right text-sm font-bold ${
+                            m.tipo === "pago" || m.tipo === "recibo" ? "text-green-700" : "text-red-700"
+                          }`}>
+                            {m.tipo === "pago" || m.tipo === "recibo" ? "+" : "-"}Bs. {formatBs(m.monto)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Historial de Movimientos del Mes</h2>
+              {loadingMovements ? (
+                <p className="text-gray-500 text-center py-8">Cargando...</p>
+              ) : movements.length === 0 ? (
+                <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                  No hay movimientos este mes.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <div className="text-xs text-gray-400 mb-3 uppercase tracking-wider font-bold">
+                    Registros encontrados: {movements.length}
+                  </div>
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-gray-50">
+                        <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                        <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                        <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
+                        <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
+                        <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Bs.</th>
+                        <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto USD</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {movements.map((mov) => (
+                        <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-4 text-sm text-gray-900">{mov.fecha}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              mov.tipo === "pago" ? "bg-green-100 text-green-700" :
+                              mov.tipo === "recibo" ? "bg-green-100 text-green-700" : 
+                              mov.tipo === "gasto" ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"
+                            }`}>
+                              {mov.tipo === "pago" ? "Pago" : mov.tipo === "recibo" ? "Recibo" : mov.tipo === "gasto" ? "Gasto" : "Egreso"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600">{mov.descripcion}</td>
+                          <td className="py-3 px-4 text-sm text-gray-500 font-medium">{mov.unidad_apartamento || mov.unidad || "-"}</td>
+                          <td className={`py-3 px-4 text-right text-sm font-bold ${
+                            mov.tipo === "pago" || mov.tipo === "recibo" ? "text-green-600" : "text-red-600"
+                          }`}>
+                            {mov.tipo === "pago" || mov.tipo === "recibo" ? "+" : "-"}Bs. {formatBs(mov.monto)}
+                          </td>
+                          <td className="py-3 px-4 text-right text-sm text-gray-500 font-medium">
+                            $ {formatUsd(mov.monto_usd || (tasaBCV.dolar > 0 ? mov.monto / tasaBCV.dolar : 0))}
                           </td>
                         </tr>
                       ))}
@@ -1452,89 +1625,675 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeTab === "balance" && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-in fade-in duration-500">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Estado de Cuenta Mensual</h2>
-                <p className="text-sm text-gray-500">Resumen de disponibilidad, cuentas por cobrar y reservas</p>
+        {activeTab === "recibos" && (
+          <div className="space-y-6">
+            {selectedMesRecibos && selectedMesRecibos !== "" && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                {(() => {
+                  const firstRecibo = recibos[0];
+                  const rate = (firstRecibo && typeof firstRecibo.deuda_usd === 'number' && firstRecibo.deuda_usd > 0) 
+                    ? (firstRecibo.deuda / firstRecibo.deuda_usd) 
+                    : (tasaBCV.dolar || 1);
+
+                  const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
+                    .map(key => reciboGeneral.find(i => `${i.codigo}-${i.descripcion}-${i.monto}` === key));
+
+                  const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO DE RESERVA'));
+                  const itemsNoComunes = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL') || i?.codigo === '00085');
+                  const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
+
+                  const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
+                  const sumCuota = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
+
+                  const totalGastosComunes = sumMonto(itemsComunes);
+                  const totalCuotaComunes = sumCuota(itemsComunes);
+
+                  const totalFondos = sumMonto(itemsFondos);
+                  const totalCuotaFondos = sumCuota(itemsFondos);
+
+                  const totalNoComunes = sumMonto(itemsNoComunes);
+                  const totalCuotaNoComunes = sumCuota(itemsNoComunes);
+
+                  return (
+                    <>
+                      <div className="flex justify-between items-center mb-6">
+                        <div>
+                          <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Visualizaci&oacute;n de Recibo de Condominio</h2>
+                          <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes {selectedMesRecibos}</p>
+                          <div className="mt-2 text-xs font-bold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded border border-blue-100">
+                            Tasa de cambio: {rate.toFixed(2)} Bs/USD
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {building?.url_recibo_mes && (
+                            <a
+                              href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                            >
+                              <span>📄</span> PDF RECIBO
+                            </a>
+                          )}
+                          <button onClick={() => loadReciboGeneral(selectedMesRecibos)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
+                            <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {loadingReciboGeneral ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                          <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
+                        </div>
+                      ) : reciboGeneral.length > 0 ? (
+                        <div className="overflow-hidden border border-gray-200 rounded-xl">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
+                                <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
+                                <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                                <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
+                                <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (USD)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {itemsComunes.map((item, idx) => (
+                                <tr key={`comun-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                                  <td className="py-2 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                                  <td className="py-2 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-600">{formatBs(item.cuota_parte)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-500 font-medium">{formatUsd(Number(item.cuota_parte || 0) / rate)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold">
+                                <td colSpan={2} className="py-2 px-4 text-right text-gray-700 uppercase text-[10px]">TOTAL GASTOS COMUNES:</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalGastosComunes)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalCuotaComunes)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatUsd(totalCuotaComunes / rate)}</td>
+                              </tr>
+
+                              {itemsFondos.map((item, idx) => (
+                                <tr key={`fondo-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                                  <td className="py-2 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                                  <td className="py-2 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-600">{formatBs(item.cuota_parte)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-500 font-medium">{formatUsd(Number(item.cuota_parte || 0) / rate)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold">
+                                <td colSpan={2} className="py-2 px-4 text-right text-gray-700 uppercase text-[10px]">TOTAL FONDOS:</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalFondos)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalCuotaFondos)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatUsd(totalCuotaFondos / rate)}</td>
+                              </tr>
+
+                              <tr className="bg-indigo-50 font-black">
+                                <td colSpan={2} className="py-2 px-4 text-right text-indigo-800 uppercase text-[10px]">TOTAL FONDOS Y GASTOS COMUNES:</td>
+                                <td className="py-2 px-4 text-right text-indigo-900">{formatBs(totalGastosComunes + totalFondos)}</td>
+                                <td className="py-2 px-4 text-right text-indigo-900">{formatBs(totalCuotaComunes + totalCuotaFondos)}</td>
+                                <td className="py-2 px-4 text-right text-indigo-900">{formatUsd((totalCuotaComunes + totalCuotaFondos) / rate)}</td>
+                              </tr>
+
+                              {itemsNoComunes.map((item, idx) => (
+                                <tr key={`nocomun-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                                  <td className="py-2 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                                  <td className="py-2 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-600">{formatBs(item.cuota_parte)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-500 font-medium">{formatUsd(Number(item.cuota_parte || 0) / rate)}</td>
+                                </tr>
+                              ))}
+
+                              {itemsNoComunes.length > 0 && (
+                                <tr className="bg-gray-50 font-bold">
+                                  <td colSpan={2} className="py-2 px-4 text-right text-gray-700 uppercase text-[10px]">TOTAL GASTOS NO COMUNES:</td>
+                                  <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalNoComunes)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalCuotaNoComunes)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-900">{formatUsd(totalCuotaNoComunes / rate)}</td>
+                                </tr>
+                              )}
+                            </tbody>
+                            <tfoot className="bg-blue-600 text-white font-black border-t-2 border-blue-700">
+                              <tr>
+                                <td colSpan={2} className="py-3 px-4 text-right uppercase text-xs">TOTAL RECIBO:</td>
+                                <td className="py-3 px-4 text-right">
+                                  Bs. {formatBs(totalGastosComunes + totalFondos + totalNoComunes)}
+                                </td>
+                                <td className="py-3 px-4 text-right text-lg">
+                                  Bs. {formatBs(totalCuotaComunes + totalCuotaFondos + totalCuotaNoComunes)}
+                                </td>
+                                <td className="py-3 px-4 text-right text-lg">
+                                  $ {formatUsd((totalCuotaComunes + totalCuotaFondos + totalCuotaNoComunes) / rate)}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
+                          <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
+                          <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos de este mes para visualizar el detalle.</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={selectedMesBalance}
-                  onChange={(e) => {
-                    setSelectedMesBalance(e.target.value);
-                    loadBalance(e.target.value);
-                  }}
-                  className="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {mesesBalance.map(mes => (
-                    <option key={mes} value={mes}>{mes}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => loadBalance(selectedMesBalance)}
-                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                  title="Actualizar balance"
-                >
-                  <svg className={`w-5 h-5 ${loadingBalance ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
+            )}
+
+
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Relaci&oacute;n de Recibos Pendientes</h2>
+                  <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
+                </div>
+                <div className="flex gap-4 items-center">
+                {mesesRecibos.length > 0 && (
+                  <select
+                    value={selectedMesRecibos}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedMesRecibos(val);
+                      loadRecibos(val);
+                      loadReciboGeneral(val);
+                    }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
+                  >
+                    <option value="">Mes Actual</option>
+                    {mesesRecibos.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                )}
+                <button onClick={() => loadRecibos()} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Refrescar">
+                  <span className="text-xl">🔄</span>
                 </button>
               </div>
             </div>
-
-            {loadingBalance ? (
-              <div className="py-20 text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
-                <p className="text-gray-500">Cargando balance...</p>
-              </div>
-            ) : !balance ? (
-              <div className="text-center py-12 border border-dashed border-gray-200 rounded-xl">
-                <p className="text-gray-500 mb-2">No hay datos de balance para este período.</p>
-                <button onClick={() => handleSync()} className="text-blue-600 font-medium hover:underline">Sincronizar ahora</button>
-              </div>
+            {loadingRecibos ? (
+              <p className="text-gray-500 text-center py-8">Cargando...</p>
+            ) : recibos.length === 0 ? (
+              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                No hay recibos pendientes.
+              </p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Propietario</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">#Recibos</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda USD</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda Bs</th>
+                    </tr>
+                  </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {balanceDetails.length > 0 ? (
-                      balanceDetails.map((line: any, idx: number) => {
-                        const dUpper = line.descripcion.toUpperCase();
-                        const isHeader = dUpper.includes('DISPONIBILIDAD') || dUpper.includes('CUENTAS POR COBRAR') || dUpper.includes('RESERVAS');
-                        const isTotal = dUpper.includes('TOTAL') || dUpper.includes('SALDO ACTUAL DISPONIBLE') || dUpper.includes('SALDO RESERVAS');
-                        const isSubHeader = !isHeader && !isTotal && (line.monto === 0 || line.monto === null) && (line.saldo === 0 || line.saldo === null);
-
-                        return (
-                          <tr key={idx} className={isHeader ? "bg-indigo-50 font-bold" : isTotal ? "bg-gray-100 font-bold border-y border-gray-200" : isSubHeader ? "bg-gray-50/30 font-semibold italic" : ""}>
-                            <td className={`py-2.5 px-4 ${isHeader ? "text-indigo-800" : isTotal ? "text-gray-900" : (line.monto === 0 && line.saldo === 0) ? "text-gray-500 font-bold" : "pl-10 text-gray-700"}`}>
-                              {line.descripcion}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-gray-600">
-                              {line.monto !== 0 ? formatBs(line.monto) : ""}
-                            </td>
-                            <td className="py-2.5 px-4 text-right text-gray-900 font-medium">
-                              {line.saldo !== 0 ? formatBs(line.saldo) : ""}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    ) : (
-                      <>
-                        <tr className="bg-blue-50/50 font-bold"><td className="py-2.5 px-4 text-blue-800" colSpan={3}>I. DISPONIBILIDAD EN CAJA Y BANCOS</td></tr>
-                        <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">Bs. {formatBs(balance.saldo_anterior)}</td></tr>
-                        <tr><td className="py-2.5 px-4 pl-10 text-gray-700">COBRANZA DEL MES (INGRESOS)</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">+{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic"></td></tr>
-                        <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_facturados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic"></td></tr>
-                        <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right text-blue-700 font-extrabold"></td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">Bs. {formatBs(balance.saldo_disponible)}</td></tr>
-                      </>
-                    )}
+                    {recibos.filter(r => !r.isTotal).map((recibo) => (
+                      <tr key={recibo.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-4 text-sm font-bold text-gray-900">{recibo.unidad}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{recibo.propietario}</td>
+                        <td className="py-3 px-4 text-sm text-right text-gray-900 font-medium">{recibo.num_recibos}</td>
+                        <td className="py-3 px-4 text-sm text-right text-red-600 font-bold">
+                          ${formatUsd(recibo.deuda_usd)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right text-red-600 font-bold">
+                          Bs.{formatBs(recibo.deuda)}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-100 font-bold border-t-2 border-gray-200">
+                      <td className="py-4 px-4 text-sm" colSpan={2}>TOTAL DEUDA CONDOMINIOS</td>
+                      <td className="py-4 px-4 text-sm text-right">{recibos.filter(r => !r.isTotal).reduce((sum, r) => sum + r.num_recibos, 0)}</td>
+                      <td className="py-4 px-4 text-sm text-right text-red-700">
+                        ${formatUsd(recibos.filter(r => !r.isTotal).reduce((sum, r) => sum + (r.deuda_usd || 0), 0))}
+                      </td>
+                      <td className="py-4 px-4 text-sm text-right text-red-700">
+                        Bs.{formatBs(recibos.filter(r => !r.isTotal).reduce((sum, r) => sum + Number(r.deuda), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+        )}
+
+        {activeTab === "egresos" && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Egresos Generales</h2>
+              {mesesEgresos.length > 0 && (
+                <select
+                  value={selectedMesEgresos}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedMesEgresos(val);
+                    loadEgresos(val);
+                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Mes Actual</option>
+                  {mesesEgresos.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {loadingEgresos ? (
+              <p className="text-gray-500 text-center py-8">Cargando...</p>
+            ) : egresos.length === 0 ? (
+              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                No hay egresos registrados.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Beneficiario</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Operación</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">USD</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Bolivares</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {egresos.filter((e: any) => !e.isTotal && e.fecha !== "2099-12-31" && !e.beneficiario?.includes("TOTAL")).map((egreso: any) => (
+                      <tr key={egreso.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-4 text-sm text-gray-900">{egreso.fecha}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600 font-medium">{egreso.beneficiario}</td>
+                        <td className="py-3 px-4 text-xs text-gray-500 italic">{egreso.operacion}</td>
+                        <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
+                          $ {formatUsd(egreso.monto_usd || (tasaBCV.dolar > 0 ? egreso.monto / tasaBCV.dolar : 0))}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right font-bold text-red-600">
+                          Bs. {formatBs(Number(egreso.monto_bs || egreso.monto))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-100 font-bold border-t-2 border-gray-200">
+                      <td className="py-4 px-4 text-sm">TOTAL GENERAL</td>
+                      <td className="py-4 px-4 text-[10px] text-gray-400 uppercase tracking-widest" colSpan={2}>
+                        {egresos.filter((e: any) => !e.isTotal && e.fecha !== "2099-12-31" && !e.beneficiario?.includes("TOTAL")).length} REGISTROS
+                      </td>
+                      <td className="py-4 px-4 text-sm text-right text-gray-800">
+                        $ {formatUsd(egresos.filter((e: any) => !e.isTotal && e.fecha !== "2099-12-31" && !e.beneficiario?.includes("TOTAL")).reduce((sum, e) => sum + (e.monto_usd || (tasaBCV.dolar > 0 ? e.monto / tasaBCV.dolar : 0)), 0))}
+                      </td>
+                      <td className="py-4 px-4 text-sm text-right text-red-700">
+                        Bs. {formatBs(egresos.filter((e: any) => !e.isTotal && e.fecha !== "2099-12-31" && !e.beneficiario?.includes("TOTAL")).reduce((sum, e) => sum + Number(e.monto_bs || e.monto), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
           </div>
         )}
-{activeTab === "alicuotas" && (
+
+        {activeTab === "gastos" && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Gastos del Edificio</h2>
+              {mesesGastos.length > 0 && (
+                <select
+                  value={selectedMesGastos}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedMesGastos(val);
+                    loadGastos(val);
+                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Mes Actual</option>
+                  {mesesGastos.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {loadingGastos ? (
+              <p className="text-gray-500 text-center py-8">Cargando...</p>
+            ) : gastos.length === 0 ? (
+              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                No hay gastos de edificio registrados.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b bg-gray-50">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Concepto</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">USD</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Bolivares</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {gastos.filter(g => !g.isTotal).map((gasto: any) => (
+                      <tr key={gasto.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-4 text-sm text-gray-900">{gasto.fecha}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600 font-medium">{gasto.descripcion}</td>
+                        <td className="py-3 px-4 text-xs text-gray-400">{gasto.codigo || "-"}</td>
+                        <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
+                          $ {formatUsd(gasto.monto_usd || (tasaBCV.dolar > 0 ? gasto.monto / tasaBCV.dolar : 0))}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right font-bold text-orange-600">
+                          Bs. {formatBs(Number(gasto.monto_bs || gasto.monto))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-100 font-bold border-t-2 border-gray-200">
+                      <td className="py-4 px-4 text-sm">TOTAL GENERAL GASTOS</td>
+                      <td className="py-4 px-4 text-[10px] text-gray-400 uppercase tracking-widest">
+                        {gastos.filter(g => !g.isTotal).length} CONCEPTOS
+                      </td>
+                      <td className="py-4 px-4"></td>
+                      <td className="py-4 px-4 text-sm text-right text-gray-800">
+                        $ {formatUsd(gastos.filter(g => !g.isTotal).reduce((sum, g: any) => sum + Number(g.monto_usd || (tasaBCV.dolar > 0 ? g.monto / tasaBCV.dolar : 0)), 0))}
+                      </td>
+                      <td className="py-4 px-4 text-sm text-right text-orange-700">
+                        Bs. {formatBs(gastos.filter(g => !g.isTotal).reduce((sum, g: any) => sum + Number(g.monto_bs || g.monto || 0), 0))}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "recibo" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Ver Recibo de Condominio</h2>
+                  <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {mesesRecibos.length > 0 && (
+                    <select
+                      value={selectedMesRecibos}
+                      onChange={(e) => {
+                        const newMes = e.target.value;
+                        setSelectedMesRecibos(newMes);
+                        if (newMes) loadReciboGeneral();
+                        else setReciboGeneral([]);
+                      }}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
+                    >
+                      <option value="">Mes Actual</option>
+                      {mesesRecibos.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  )}
+                  {building?.url_recibo_mes && (
+                    <a
+                      href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <span>📄</span> PDF
+                    </a>
+                  )}
+                  <button onClick={() => loadReciboGeneral()} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
+                    <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
+                  </button>
+                </div>
+              </div>
+
+              {loadingReciboGeneral ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                  <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
+                </div>
+              ) : reciboGeneral.length > 0 ? (() => {
+                  const rawItems = [...reciboGeneral];
+                  const gastoItems: any[] = [];
+                  const fondoReserva: any[] = [];
+                  const gastosNoComunes: any[] = [];
+                  
+                  for (const item of rawItems) {
+                    const code = item.codigo || '';
+                    const desc = (item.descripcion || '').toUpperCase();
+                    
+                    if (code === '00085') {
+                      gastosNoComunes.push(item);
+                    } else if (code === '00001' && desc.includes('TRABAJADOR')) {
+                      gastoItems.unshift(item);
+                    } else if (code === '00001' && desc.includes('FONDO')) {
+                      fondoReserva.push(item);
+                    } else if (code === '00001') {
+                      gastoItems.push(item);
+                    } else {
+                      gastoItems.push(item);
+                    }
+                  }
+                  
+                  const sortedGastos = gastoItems.sort((a, b) => {
+                    const codeA = a.codigo || '';
+                    const codeB = b.codigo || '';
+                    if (codeA === '00001') return 1;
+                    if (codeB === '00001') return -1;
+                    return codeA.localeCompare(codeB);
+                  });
+                  
+                  const totalGastosMonto = sortedGastos.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
+                  const totalGastosCuota = sortedGastos.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
+                  const totalFondosMonto = fondoReserva.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
+                  const totalFondosCuota = fondoReserva.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
+                  const totalFondosYGastosComunesMonto = totalGastosMonto + totalFondosMonto;
+                  const totalFondosYGastosComunesCuota = totalGastosCuota + totalFondosCuota;
+                  
+                  return (
+<div className="overflow-hidden border border-gray-200 rounded-xl">
+                  <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
+                    Tasa de cambio: {formatBs(tasaCambio)} Bs/USD
+                  </div>
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (USD)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {sortedGastos.map((item, idx) => (
+                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                          <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
+                        </tr>
+                      ))}
+                      {totalGastosMonto > 0 && (
+                        <tr className="bg-blue-50 border-t-2 border-blue-200">
+                          <td colSpan={2} className="py-2 px-4 text-right text-blue-800 uppercase text-xs font-bold">TOTAL GASTOS COMUNES:</td>
+                          <td className="py-2 px-4 text-right text-blue-800 font-bold">{formatBs(totalGastosMonto)}</td>
+                          <td className="py-2 px-4 text-right text-blue-800 font-bold">{formatBs(totalGastosCuota)}</td>
+                          <td className="py-2 px-4 text-right text-green-700 font-bold">{formatUsd(totalGastosCuota / tasaCambio)}</td>
+                        </tr>
+                      )}
+                      {fondoReserva.map((item, idx) => (
+                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                          <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
+                        </tr>
+                      ))}
+                      {totalFondosMonto > 0 && (
+                        <tr className="bg-cyan-50 border-t-2 border-cyan-200">
+                          <td colSpan={2} className="py-2 px-4 text-right text-cyan-800 uppercase text-xs font-bold">TOTAL FONDOS:</td>
+                          <td className="py-2 px-4 text-right text-cyan-800 font-bold">{formatBs(totalFondosMonto)}</td>
+                          <td className="py-2 px-4 text-right text-cyan-800 font-bold">{formatBs(totalFondosCuota)}</td>
+                          <td className="py-2 px-4 text-right text-green-700 font-bold">{formatUsd(totalFondosCuota / tasaCambio)}</td>
+                        </tr>
+                      )}
+                      {totalFondosYGastosComunesMonto > 0 && (
+                        <tr className="bg-indigo-50 border-t-2 border-indigo-200">
+                          <td colSpan={2} className="py-2 px-4 text-right text-indigo-800 uppercase text-xs font-bold">TOTAL FONDOS Y GASTOS COMUNES:</td>
+                          <td className="py-2 px-4 text-right text-indigo-800 font-bold">{formatBs(totalFondosYGastosComunesMonto)}</td>
+                          <td className="py-2 px-4 text-right text-indigo-800 font-bold">{formatBs(totalFondosYGastosComunesCuota)}</td>
+                          <td className="py-2 px-4 text-right text-green-700 font-bold">{formatUsd(totalFondosYGastosComunesCuota / tasaCambio)}</td>
+                        </tr>
+                      )}
+                      {gastosNoComunes.map((item, idx) => (
+                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                          <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                      <tr className="bg-indigo-100">
+                        <td colSpan={2} className="py-3 px-4 text-right text-indigo-800 uppercase text-xs">TOTAL RECIBO:</td>
+                        <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
+                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
+                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-800 text-xl font-black">
+                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0) / tasaCambio)}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                  );
+                })() : (
+                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
+                  <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos de este mes para visualizar el detalle.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "balance" && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Estado de Cuenta del Edificio (Balance General)</h2>
+              {mesesBalance.length > 0 && (
+                <select
+                  value={selectedMesBalance}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedMesBalance(val);
+                    loadBalance(val);
+                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                >
+                  <option value="">Mes Actual</option>
+                  {mesesBalance.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {loadingBalance ? (
+              <p className="text-gray-500 text-center py-8">Cargando...</p>
+            ) : !balance ? (
+              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                No hay datos de balance. Ejecuta una sincronización primero.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p className="text-[10px] text-blue-600 font-bold uppercase mb-1">Disponible en Caja</p>
+                    <p className="text-xl font-black text-blue-900">Bs. {formatBs(balance.saldo_disponible)}</p>
+                    <p className="text-xs text-blue-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</p>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                    <p className="text-[10px] text-orange-600 font-bold uppercase mb-1">Cuentas por Cobrar</p>
+                    <p className="text-xl font-black text-orange-900">Bs. {formatBs(balance.total_por_cobrar)}</p>
+                    <p className="text-xs text-orange-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</p>
+                  </div>
+                  <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase mb-1">Reservas Asignadas</p>
+                    <p className="text-xl font-black text-emerald-900">Bs. {formatBs(balance.saldo_reservas)}</p>
+                    <p className="text-xs text-emerald-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b-2 bg-gray-50">
+                      <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Concepto Detallado</th>
+                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Bs.</th>
+                      <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">USD</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr className="bg-blue-50/50 font-bold"><td className="py-2.5 px-4 text-blue-800" colSpan={3}>I. DISPONIBILIDAD EN CAJA Y BANCOS</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_anterior / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">COBRANZA DEL MES (INGRESOS)</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">+{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.cobranza_mes / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_facturados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.gastos_facturados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">AJUSTES / DIF. CAMBIARIA / PAGOS A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-500 font-medium">{formatBs(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.ajuste_pago_tiempo || 0) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</td></tr>
+                    
+                    <tr className="bg-orange-50/50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={3}>II. CUENTAS POR COBRAR (CONDOMINIOS)</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES ACTUAL</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.recibos_mes / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">DEUDA DE MESES ATRASADOS</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_atrasados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDOS A FAVOR (SOBRANTES)</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_sobrantes || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.condominios_sobrantes || 0) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-orange-700">TOTAL CUENTAS POR COBRAR</td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL DEL EDIFICIO (CAJA + CONDOMINIOS)</td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar)) / tasaBCV.dolar : 0)}</td></tr>
+                    
+                    <tr className="bg-emerald-50/50 font-bold"><td className="py-2.5 px-4 text-emerald-800" colSpan={3}>III. FONDOS DE RESERVA Y PASIVOS</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO DE RESERVA GENERAL</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_reserva)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_reserva / tasaBCV.dolar : 0)}</td></tr>
+                    
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>PASIVOS LABORALES (PRESTACIONES SOCIALES)</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_prestaciones)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_prestaciones / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO TRABAJOS VARIOS / MEJORAS</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Presupuesto Asignado</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_trabajos_varios)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_trabajos_varios / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>AJUSTE DIFERENCIA ALICUOTA</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Diferencia Mensual</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.ajuste_alicuota)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.ajuste_alicuota / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO INTERESES MORATORIOS</td></tr>                    
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado por Morosidad</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_intereses)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_intereses / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>DIFERENCIAL CAMBIARIO (FONDO PROTECCIÓN)</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Ajuste por Tasa BCV</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_diferencial_cambiario)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_diferencial_cambiario / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-emerald-100 font-bold border-t-2 border-emerald-200"><td className="py-3 px-4 text-emerald-800">SALDO TOTAL RESERVAS ASIGNADAS</td><td className="py-3 px-4 text-right text-emerald-800 font-black">{formatBs(balance.saldo_reservas)}</td><td className="py-3 px-4 text-right text-emerald-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "alicuotas" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Alicuotas por Unidad</h2>
             {loadingAlicuotas ? (

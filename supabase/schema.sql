@@ -89,16 +89,16 @@ CREATE TABLE IF NOT EXISTS gastos (
 CREATE TABLE IF NOT EXISTS balances (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   edificio_id UUID REFERENCES edificios(id) ON DELETE CASCADE,
-  mes VARCHAR(7),  -- Format: YYYY-MM
+  mes VARCHAR(7),  -- Format: MM-YYYY for historical data
   fecha DATE NOT NULL,
   saldo_anterior DECIMAL(12, 2) DEFAULT 0,
   cobranza_mes DECIMAL(12, 2) DEFAULT 0,
   gastos_facturados DECIMAL(12, 2) DEFAULT 0,
   saldo_disponible DECIMAL(12, 2) DEFAULT 0,
   total_por_cobrar DECIMAL(12, 2) DEFAULT 0,
-  recibos_mes DECIMAL(12, 2) DEFAULT 0,
-  condominios_atrasados DECIMAL(12, 2) DEFAULT 0,
-  condominios_sobrantes DECIMAL(12, 2) DEFAULT 0,
+  recibos_mes INTEGER DEFAULT 0,
+  condominios_atrasados INTEGER DEFAULT 0,
+  condominios_sobrantes INTEGER DEFAULT 0,
   fondo_reserva DECIMAL(12, 2) DEFAULT 0,
   fondo_prestaciones DECIMAL(12, 2) DEFAULT 0,
   fondo_trabajos_varios DECIMAL(12, 2) DEFAULT 0,
@@ -108,19 +108,6 @@ CREATE TABLE IF NOT EXISTS balances (
   sincronizado BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(edificio_id, mes)
-);
-
--- 12b. Detalle de balance de edificio
-CREATE TABLE IF NOT EXISTS balances_detalle (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  edificio_id UUID REFERENCES edificios(id) ON DELETE CASCADE,
-  mes VARCHAR(10) NOT NULL,
-  descripcion TEXT,
-  monto DECIMAL(12, 2),
-  saldo DECIMAL(12, 2),
-  orden INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(edificio_id, mes, descripcion)
 );
 
 -- 6. Movimientos (histórico de movimientos)
