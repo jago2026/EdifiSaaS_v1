@@ -242,9 +242,13 @@ export default function DashboardPage() {
       const mes = selectedMesRecibos || "";
       console.log("[UI] loadReciboGeneral called with mes:", mes, "selectedMesRecibos:", selectedMesRecibos);
       
+      const tasaUrl = mes 
+        ? `/api/tasa-bcv?fecha=${mes}-28` 
+        : '/api/tasa-bcv';
+      
       const [reciboRes, tasaRes] = await Promise.all([
         fetch(`/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`),
-        fetch('/api/tasa-bcv')
+        fetch(tasaUrl)
       ]);
       
       const [reciboData, tasaData] = await Promise.all([reciboRes.json(), tasaRes.json()]);
