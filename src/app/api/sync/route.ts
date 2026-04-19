@@ -247,7 +247,7 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
-  // ELIMINAR SCRIPTS Y ESTILOS ANTES DE LIMPIAR TEXTO
+  // 1. ELIMINAR SCRIPTS, ESTILOS, CABECERAS Y NAVEGACIÓN
   const cleanHtmlOnly = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
@@ -255,44 +255,72 @@ function parseBalanceFull(html: string): any {
     .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
     .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
 
-  // Limpiar HTML de etiquetas, entidades y espacios extra
+  // 2. REEMPLAZAR ENTIDADES HTML COMUNES Y LIMPIAR ETIQUETAS
   const rawText = cleanHtmlOnly
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ');
+    .replace(/&#8209;/g, '-')
+    .replace(/&times;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
     
   const text = rawText.toUpperCase();
   
-  console.log(`Balance Text Clean (primeros 500 chars): ${text.substring(0, 500)}`);
+  console.log(`Balance Text Clean (primeros 1000 chars): ${text.substring(0, 1000)}`);
   
-  // Función de extracción por proximidad mejorada
+  // 3. FUNCIÓN DE EXTRACCIÓN POR PROXIMIDAD (Busca el primer número real después de la etiqueta)
   const extractVal = (keywords: string[]) => {
     for (const kw of keywords) {
-      const idx = text.indexOf(kw);
+      const idx = text.indexOf(kw.toUpperCase());
       if (idx !== -1) {
-        // Buscar el primer número que aparezca después de la palabra clave
-        const sub = text.substring(idx + kw.length, idx + kw.length + 100);
-        const match = sub.match(/([\d,.]+)/);
+        // Mirar hasta 150 caracteres después de la palabra clave
+        const sub = text.substring(idx + kw.length, idx + kw.length + 150);
+        // Expresión regular para capturar números con formato Bs. (ej: 1.234,56 o 1234.56)
+        const match = sub.match(/(\d[\d,.]*)/);
         if (match) {
           const val = parseMonto(match[1]);
-          if (val !== 0) return val;
+          if (val > 0.01) return val; // Ignorar ceros técnicos
         }
       }
     }
     return null;
   };
 
-  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO CAJA ANTERIOR"]);
-  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "COBRANZA MES"]);
-  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "GASTOS EN EL MES", "EGRESOS MES"]);
-  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA", "SALDO ACTUAL", "DISPONIBLE CAJA"]);
-  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "RECIBOS MES"]);
-  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "PENDIENTE COBRO"]);
+  // Palabras clave mucho más flexibles y cortas para mayor probabilidad de éxito
+  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
+  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
+  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
+  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA", "SALDO ACTUAL EN CAJA"]);
+  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "EMISION TOTAL"]);
+  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
   balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
+
+  // 4. FALLBACK: Si no encontramos nada, intentamos el método de celdas de tabla clásico
+  if (!Object.values(balance).some(v => v !== null && v !== 0)) {
+    console.log("Aviso: Falló extracción por texto, intentando fallback de tablas...");
+    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
+    for (const t of allTables) {
+       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+       for (const row of rows) {
+          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+          if (!cells || cells.length < 2) continue;
+          const desc = cleanHtml(cells[0]).toUpperCase();
+          const val = parseMonto(cleanHtml(cells[1]));
+          if (val < 0.01) continue;
+          
+          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
+          else if (desc.includes("COBRANZA") || desc.includes("COBRADO")) balance.cobranza_mes = val;
+          else if (desc.includes("GASTOS") || desc.includes("EGRESOS")) balance.gastos_facturados = val;
+          else if (desc.includes("DISPONIBLE") || desc.includes("EN CAJA")) balance.saldo_disponible = val;
+       }
+    }
+  }
 
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
-    for (const key in balance) { if (balance[key] === null) balance[key] = 0; }
+    // Asegurar que no haya nulos para evitar fallos en Supabase
+    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva"];
+    keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
     return balance;
   }
 
