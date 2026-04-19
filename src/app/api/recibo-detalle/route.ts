@@ -4,6 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
+function normalizeMes(mesStr: string): string {
+  const match = mesStr?.match(/^(\d{2})-(\d{4})$/);
+  return match ? `${match[2]}-${match[1]}` : (mesStr || "");
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const edificioId = searchParams.get("edificioId");
@@ -14,13 +19,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "edificioId required" }, { status: 400 });
   }
 
-  console.log(`ReciboDetalle API: edificioId=${edificioId}, mes=${mes}, unidad=${unidad}`);
+  const mesNormalizado = normalizeMes(mes || "");
+  console.log(`ReciboDetalle API: edificioId=${edificioId}, mes=${mes}, mesNormalizado=${mesNormalizado}, unidad=${unidad}`);
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Si no hay mes especificado, obtener el mes más reciente
-    let targetMes = mes;
+    let targetMes = mesNormalizado;
     
     if (!targetMes || targetMes === "") {
       console.log("[RECIBO-DETALLE] No mes specified, fetching most recent month");
@@ -45,6 +50,7 @@ export async function GET(request: NextRequest) {
 
     if (targetMes) {
       query = query.eq("mes", targetMes);
+      console.log("[RECIBO-DETALLE] Searching for mes:", targetMes);
     }
 
     if (unidad) {
@@ -60,7 +66,7 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    console.log(`ReciboDetalle API: Encontrados ${detalles?.length || 0} registros`);
+    console.log(`ReciboDetalle API: Encontrados ${detalles?.length || 0} registros para mes=${targetMes}`);
     return NextResponse.json({ detalles: detalles || [] });
   } catch (error: any) {
     console.error("Error loading recibo detalle:", error);
