@@ -374,29 +374,32 @@ export async function POST(request: Request) {
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
       doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
-      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null),
-      // Also fetch r=21 for balance data as fallback
-      doSyncBalance ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null)
+      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
     ];
 
-    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary, hEgresosForBalance] = await Promise.all(promises);
+    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
 
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
-    console.log(`- hEgresosForBalance: ${hEgresosForBalance ? hEgresosForBalance.length : 0} chars`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
+    
+    // DEBUG: show hBal content that has tables
+    if (hBal) {
+      const tables = hBal.split('<table');
+      console.log(`[Balance] Total tables in hBal: ${tables.length}`);
+      // Show each table that hasSALDO or COBRANZA
+      for (let i = 0; i < Math.min(tables.length, 10); i++) {
+        if (tables[i].toUpperCase().includes('SALDO') || tables[i].toUpperCase().includes('COBRANZA')) {
+          console.log(`[Balance] Table ${i} has data:`, tables[i].substring(0, 300));
+        }
+      }
+    }
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
-    // Try both hBal (r=2) and hEgresosForBalance (r=21) for balance data
-    // Use the one with more actual table content
-    const hBalTables = (hBal || '').split('<table').length;
-    const hEgrTables = (hEgresosForBalance || '').split('<table').length;
-    console.log(`[Balance] Tables in hBal: ${hBalTables}, in hEgresosForBalance: ${hEgrTables}`);
-    const combinedHtml = hEgrTables > hBalTables ? hEgresosForBalance : hBal;
-    const balance = combinedHtml ? parseBalanceFull(combinedHtml) : null;
+    const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
