@@ -288,10 +288,13 @@ function parseBalanceFull(html: string): any {
   // CAJA - extract with wider search for negatives
   balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
   balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
-  // Sumar COMUNES + NO COMUNES
-  const gastosComunes = extractVal(["GASTOS FACTURADOS EN EL MES COMUNES"]);
-  const gastosNoComunes = extractVal(["GASTOS FACTURADOS EN EL MES NO COMUNES"]);
-  balance.gastos_facturados = (gastosComunes || 0) + (gastosNoComunes || 0);
+  // GASTOS separated
+  balance.gastos_comunes = extractVal(["GASTOS FACTURADOS EN EL MES COMUNES"]);
+  balance.gastos_no_comunes = extractVal(["GASTOS FACTURADOS EN EL MES NO COMUNES"]);
+  balance.gastos_facturados = (balance.gastos_comunes || 0) + (balance.gastos_no_comunes || 0);
+  // OTROS INGRESOS/EGRESOS
+  balance.ajuste_pago_tiempo = extractVal(["DESC/DIF CAMBIARIO PAGO A TIEMPO", "DESC/DIF CAMBIARIO PAGO"]) || 0;
+  balance.fondo_intereses_mov = extractVal(["FONDO INTERESES MORATORIOS"]) || 0;
   balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA"]);
   
   // CUENTAS POR COBRAR
@@ -301,12 +304,19 @@ function parseBalanceFull(html: string): any {
   balance.condominios_adelantados = extractVal(["CONDOMINIOS ADELANTADOS"]) || 0;
   balance.condominios_sobrantes = extractVal(["CONDOMINIOS SOBRANTES"]) || 0;
   
-  // RESERVAS
-  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA", "RESERVA SALDO", "SALDO RESERVA"]);
+  // RESERVAS - with historical values (mes anterior + movimiento)
+  balance.fondo_reserva_mes_anterior = extractVal(["FONDO DE RESERVA MES ANTERIOR", "FONDO RESERVA MES ANTERIOR"]) || 0;
+  balance.fondo_reserva_mov = extractVal(["FONDO DE RESERVA"]) || 0;
+  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA", "RESERVA SALDO", "SALDO RESERVA"]) || balance.fondo_reserva_mes_anterior + balance.fondo_reserva_mov;
+  
   balance.fondo_prestaciones = extractVal(["SALDO FONDO DE PRESTACIONES SOCIALES", "FONDO PRESTACIONES"]) || 0;
   balance.fondo_trabajos_varios = extractVal(["SALDO FONDO TRABAJOS VARIOS", "FONDO TRABAJOS VARIOS"]) || 0;
   balance.fondo_intereses = extractVal(["SALDO FONDO INTERESES MORATORIOS", "FONDO INTERESES MORATORIOS"]) || 0;
-  balance.fondo_diferencial_cambiario = extractVal(["SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV", "FONDO DIFERENCIAL CAMBIARIO"]) || 0;
+  
+  balance.fondo_diferencial_mes_anterior = extractVal(["FONDO DIFERENCIAL CAMBIARIO TASA BCV MES ANTERIOR", "DIFERENCIAL CAMBIARIO MES ANTERIOR"]) || 0;
+  balance.fondo_diferencial_mov = extractVal(["FONDO DIFERENCIAL CAMBIARIO TASA BCV"]) || 0;
+  balance.fondo_diferencial_cambiario = extractVal(["SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV", "FONDO DIFERENCIAL CAMBIARIO"]) || balance.fondo_diferencial_mes_anterior + balance.fondo_diferencial_mov;
+  
   balance.ajuste_alicuota = extractVal(["SALDO AJUSTE DIFERENCIA ALICUOTA", "AJUSTE DIFERENCIA ALICUOTA"]) || 0;
 
   if (!Object.values(balance).some(v => v !== null && v !== 0)) {
@@ -331,7 +341,7 @@ function parseBalanceFull(html: string): any {
 
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
-    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva", "condominios_atrasados", "condominios_adelantados", "condominios_sobrantes", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_diferencial_cambiario", "ajuste_alicuota"];
+    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "gastos_comunes", "gastos_no_comunes", "saldo_disponible", "recibos_mes", "total_por_cobrar", "condominios_atrasados", "condominios_adelantados", "condominios_sobrantes", "fondo_reserva", "fondo_reserva_mes_anterior", "fondo_reserva_mov", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_intereses_mov", "fondo_diferencial_cambiario", "fondo_diferencial_mes_anterior", "fondo_diferencial_mov", "ajuste_pago_tiempo", "ajuste_alicuota"];
     keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
     return balance;
   }
