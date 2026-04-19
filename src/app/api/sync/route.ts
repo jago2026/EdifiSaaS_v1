@@ -264,23 +264,34 @@ function parseBalanceFull(html: string): any {
     for (const kw of keywords) {
       const idx = text.indexOf(kw.toUpperCase());
       if (idx !== -1) {
-        const sub = text.substring(idx + kw.length, idx + kw.length + 150);
-        // Handle negative numbers (e.g., -1.234,56)
-        const match = sub.match(/(-?[\d.,]+)/);
+        // Extend search to 200 chars after keyword
+        const start = idx + kw.length;
+        const end = Math.min(start + 200, text.length);
+        const sub = text.substring(start, end);
+        // Check if there's a negative sign BEFORE the number
+        const negMatch = sub.match(/^[\s-]+(-?[\d.,]+)/);
+        const posMatch = sub.match(/^[\s]*(-?[\d.,]+)/);
+        const match = negMatch || posMatch;
         if (match) {
-          return parseMonto(match[1]);
+          let val = parseMonto(match[1]);
+          // If starts with negative sign, make it negative
+          if (match[0].includes('-') && !match[1].startsWith('-') && val > 0) {
+            val = -Math.abs(val);
+          }
+          return val;
         }
       }
     }
     return null;
   };
 
-  // CAJA
+  // CAJA - extract with wider search for negatives
   balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
   balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
-  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS EN EL MES COMUNES", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
+  // Sumar COMUNES + NO COMUNES
+  const gastosComunes = extractVal(["GASTOS FACTURADOS EN EL MES COMUNES"]);
   const gastosNoComunes = extractVal(["GASTOS FACTURADOS EN EL MES NO COMUNES"]);
-  if (gastosNoComunes) balance.gastos_facturados = (balance.gastos_facturados || 0) + gastosNoComunes;
+  balance.gastos_facturados = (gastosComunes || 0) + (gastosNoComunes || 0);
   balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA"]);
   
   // CUENTAS POR COBRAR
