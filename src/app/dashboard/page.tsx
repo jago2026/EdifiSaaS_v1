@@ -512,6 +512,7 @@ export default function DashboardPage() {
     if (activeTab === "informes" && building?.id) {
       loadInforme();
       loadGastosRecurrentes();
+      loadEvolucionRecurrentes();
     }
     if (activeTab === "junta" && building?.id) {
       loadJunta();
