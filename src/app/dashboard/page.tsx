@@ -1971,6 +1971,15 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
                 </div>
               ) : reciboGeneral.length > 0 ? (() => {
+                  const classifyItem = (item: any) => {
+                    const desc = (item.descripcion || '').toUpperCase();
+                    const code = item.codigo || '';
+                    if (code === '00085') return 'no_comunes';
+                    if (code === '00001' && desc.includes('TRABAJADOR')) return 'gasto';
+                    if (code === '00001' && desc.includes('FONDO')) return 'fondo';
+                    return 'gasto';
+                  };
+                  
                   const sortedItems = [...reciboGeneral].sort((a, b) => {
                     const codeA = a.codigo || '';
                     const codeB = b.codigo || '';
@@ -1981,14 +1990,14 @@ export default function DashboardPage() {
                     return codeA.localeCompare(codeB);
                   });
                   
-                  const gastoItems = sortedItems.filter(i => i.codigo !== '00001' && i.codigo !== '00085');
-                  const fondoReserva = sortedItems.filter(i => i.codigo === '00001');
-                  const gastosNoComunes = sortedItems.filter(i => i.codigo === '00085');
+                  const gastoItems = sortedItems.filter(i => classifyItem(i) === 'gasto');
+                  const fondoReserva = sortedItems.filter(i => classifyItem(i) === 'fondo');
+                  const gastosNoComunes = sortedItems.filter(i => classifyItem(i) === 'no_comunes');
                   
-                  const totalGastosMonto = gastoItems.reduce((sum, i) => sum + Number(i.monto || 0), 0);
-                  const totalGastosCuota = gastoItems.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
-                  const totalFondosMonto = fondoReserva.reduce((sum, i) => sum + Number(i.monto || 0), 0);
-                  const totalFondosCuota = fondoReserva.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
+                  const totalGastosMonto = gastoItems.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
+                  const totalGastosCuota = gastoItems.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
+                  const totalFondosMonto = fondoReserva.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
+                  const totalFondosCuota = fondoReserva.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
                   const totalFondosYGastosComunesMonto = totalGastosMonto + totalFondosMonto;
                   const totalFondosYGastosComunesCuota = totalGastosCuota + totalFondosCuota;
                   
