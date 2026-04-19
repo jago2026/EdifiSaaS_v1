@@ -436,8 +436,11 @@ export async function POST(request: Request) {
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
       console.log(`Guardando ${detailedReceiptItems.length} items de detalle para ${mesEstandar}`);
       
-      // Borrar registros anteriores del mes y guardar los nuevos
-      await supabase.from("recibos_detalle").delete().match({ edificio_id: building.id, mes: mesEstandar });
+      // Borrar registros anteriores del mes primero
+      await supabase.from("recibos_detalle").delete().eq("edificio_id", building.id).eq("mes", mesEstandar);
+      
+      // Pequeña pausa para asegurar que el delete termine
+      await new Promise(r => setTimeout(r, 100));
       
       const itemsToSave = detailedReceiptItems.map(item => ({
         edificio_id: building.id,
