@@ -3282,32 +3282,63 @@ export default function DashboardPage() {
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Login</label>
-                      <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                      <div className="flex gap-2">
+                        <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        {editConfig.url_login && (
+                          <a href={editConfig.url_login} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos (Pendientes)</label>
-                      <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                      <div className="flex gap-2">
+                        <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        {editConfig.url_recibos && (
+                          <a href={editConfig.url_recibos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (?r=4)</label>
-                      <input
-                        type="text"
-                        value={editConfig.url_recibo_mes}
-                        placeholder={editConfig.admin_nombre === "La Ideal C.A." ? "https://admlaideal.com.ve/condlin.php?r=4" : ""}
-                        onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}
-                        className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
-                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={editConfig.url_recibo_mes}
+                          placeholder={editConfig.admin_nombre === "La Ideal C.A." ? "https://admlaideal.com.ve/condlin.php?r=4" : ""}
+                          onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}
+                          className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
+                        />
+                        {editConfig.url_recibo_mes && (
+                          <a href={editConfig.url_recibo_mes} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
                     </div>
-                    <div className="space-y-1">                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
-                      <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        {editConfig.url_egresos && (
+                          <a href={editConfig.url_egresos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Gastos</label>
-                      <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                      <div className="flex gap-2">
+                        <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        {editConfig.url_gastos && (
+                          <a href={editConfig.url_gastos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
-                      <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                      <div className="flex gap-2">
+                        <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        {editConfig.url_balance && (
+                          <a href={editConfig.url_balance} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
