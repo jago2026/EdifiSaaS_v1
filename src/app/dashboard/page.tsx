@@ -499,11 +499,7 @@ export default function DashboardPage() {
     }
     if (activeTab === "recibos" && building?.id) {
       loadRecibos();
-      if (selectedMesRecibos) {
-        loadReciboGeneral();
-      } else {
-        setReciboGeneral([]);
-      }
+      loadReciboGeneral();
       loadMovimientosDia();
     }
     if (activeTab === "egresos" && building?.id) {
@@ -1606,9 +1602,27 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-6">
                   <div>
                     <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Visualizaci&oacute;n de Recibo de Condominio</h2>
-                    <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes {selectedMesRecibos}</p>
+                    <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes {selectedMesRecibos || "actual"}</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {mesesRecibos.length > 0 && (
+                      <select
+                        value={selectedMesRecibos}
+                        onChange={(e) => {
+                          setSelectedMesRecibos(e.target.value);
+                          setTimeout(() => {
+                            if (e.target.value) loadReciboGeneral();
+                            else setReciboGeneral([]);
+                          }, 100);
+                        }}
+                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none uppercase"
+                      >
+                        <option value="">Mes Actual</option>
+                        {mesesRecibos.map(m => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    )}
                     {building?.url_recibo_mes && (
                       <a
                         href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
@@ -1616,7 +1630,7 @@ export default function DashboardPage() {
                         rel="noopener noreferrer"
                         className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
                       >
-                        <span>📄</span> PDF RECIBO
+                        <span>📄</span> PDF
                       </a>
                     )}
                     <button onClick={loadReciboGeneral} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
