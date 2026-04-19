@@ -234,12 +234,12 @@ export default function DashboardPage() {
   const [syncMes, setSyncMes] = useState("");
   const [syncing, setSyncing] = useState(false);
 
-  const loadReciboGeneral = async () => {
+  const loadReciboGeneral = async (mesOverride?: string) => {
     if (!building?.id) return;
     setLoadingReciboGeneral(true);
     setReciboGeneral([]);
     try {
-      const mes = selectedMesRecibos;
+      const mes = mesOverride !== undefined ? mesOverride : (selectedMesRecibos || "");
       console.log("[UI] loadReciboGeneral called with mes:", mes);
       
       const tasaUrl = mes 
@@ -555,14 +555,16 @@ export default function DashboardPage() {
     }
   }, [activeTab, building?.id]);
 
-  const loadRecibos = async () => {
+  const loadRecibos = async (mesOverride?: string) => {
     if (!building?.id) return;
     setLoadingRecibos(true);
     setRecibos([]); // Limpiar estado previo
     try {
       const url = new URL(`/api/recibos`, window.location.origin);
       url.searchParams.append("edificioId", building.id);
-      if (selectedMesRecibos) url.searchParams.append("mes", selectedMesRecibos);
+      
+      const mes = mesOverride !== undefined ? mesOverride : selectedMesRecibos;
+      if (mes) url.searchParams.append("mes", mes);
 
       const res = await fetch(url.toString());
       const data = await res.json();
@@ -650,13 +652,16 @@ export default function DashboardPage() {
     }
   };
 
-  const loadBalance = async () => {
+  const loadBalance = async (mesOverride?: string) => {
     if (!building?.id) return;
     setLoadingBalance(true);
+    setBalance(null); // Limpiar estado previo
     try {
       const url = new URL(`/api/balance`, window.location.origin);
       url.searchParams.append("edificioId", building.id);
-      if (selectedMesBalance) url.searchParams.append("mes", selectedMesBalance);
+      
+      const mes = mesOverride !== undefined ? mesOverride : selectedMesBalance;
+      if (mes) url.searchParams.append("mes", mes);
 
       const res = await fetch(url.toString());
       const data = await res.json();
@@ -933,14 +938,15 @@ export default function DashboardPage() {
     }
   };
 
-  const loadEgresos = async () => {
+  const loadEgresos = async (mesOverride?: string) => {
     if (!building?.id) return;
     setLoadingEgresos(true);
     setEgresos([]); // Limpiar estado previo
     try {
       const url = new URL(`/api/egresos`, window.location.origin);
       url.searchParams.append("edificioId", building.id);
-      if (selectedMesEgresos) url.searchParams.append("mes", selectedMesEgresos);
+      const mes = mesOverride !== undefined ? mesOverride : selectedMesEgresos;
+      if (mes) url.searchParams.append("mes", mes);
 
       const res = await fetch(url.toString());
       const data = await res.json();
@@ -957,14 +963,15 @@ export default function DashboardPage() {
     }
   };
 
-  const loadGastos = async () => {
+  const loadGastos = async (mesOverride?: string) => {
     if (!building?.id) return;
     setLoadingGastos(true);
     setGastos([]); // Limpiar estado previo
     try {
       const url = new URL(`/api/gastos`, window.location.origin);
       url.searchParams.append("edificioId", building.id);
-      if (selectedMesGastos) url.searchParams.append("mes", selectedMesGastos);
+      const mes = mesOverride !== undefined ? mesOverride : selectedMesGastos;
+      if (mes) url.searchParams.append("mes", mes);
 
       const res = await fetch(url.toString());
       const data = await res.json();
@@ -1622,113 +1629,199 @@ export default function DashboardPage() {
           <div className="space-y-6">
             {selectedMesRecibos && selectedMesRecibos !== "" && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Visualizaci&oacute;n de Recibo de Condominio</h2>
-                    <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes {selectedMesRecibos || "actual"}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {mesesRecibos.length > 0 && (
-                      <select
-                        value={selectedMesRecibos}
-                        onChange={(e) => {
-                          const newMes = e.target.value;
-                          setSelectedMesRecibos(newMes);
-                          if (newMes) loadReciboGeneral();
-                          else setReciboGeneral([]);
-                        }}
-                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none uppercase"
-                      >
-                        <option value="">Mes Actual</option>
-                        {mesesRecibos.map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    )}
-                    {building?.url_recibo_mes && (
-                      <a
-                        href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
-                      >
-                        <span>📄</span> PDF
-                      </a>
-                    )}
-                    <button onClick={loadReciboGeneral} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
-                      <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
-                    </button>
-                  </div>
-                </div>
+                {(() => {
+                  const rate = recibos.length > 0 && recibos[0].deuda_usd > 0 
+                    ? (recibos[0].deuda / recibos[0].deuda_usd) 
+                    : (tasaBCV.dolar || 1);
 
-                {loadingReciboGeneral ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
-                    <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
-                  </div>
-                ) : reciboGeneral.length > 0 ? (
-                  <div className="overflow-hidden border border-gray-200 rounded-xl">
-                    <table className="w-full text-sm text-left">
-                      <thead className="bg-gray-50 border-b border-gray-200">
-                        <tr>
-                          <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
-                          <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
-                          <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
-<th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {reciboGeneral.map((item, idx) => (
-                          <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
-                            <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
-                            <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
-                            <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-<td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                        <tr>
-                          <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
-                          <td className="py-3 px-4 text-right text-indigo-700 text-lg">
-                            Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
-                          </td>
-                          <td className="py-3 px-4 text-right text-indigo-700 text-lg">
-                            $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
-                    <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
-                    <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos de este mes para visualizar el detalle.</p>
-                  </div>
-                )}
+                  const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
+                    .map(key => reciboGeneral.find(i => `${i.codigo}-${i.descripcion}-${i.monto}` === key));
+
+                  const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO DE RESERVA'));
+                  const itemsNoComunes = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL') || i?.codigo === '00085');
+                  const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
+
+                  const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
+                  const sumCuota = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
+
+                  const totalGastosComunes = sumMonto(itemsComunes);
+                  const totalCuotaComunes = sumCuota(itemsComunes);
+
+                  const totalFondos = sumMonto(itemsFondos);
+                  const totalCuotaFondos = sumCuota(itemsFondos);
+
+                  const totalNoComunes = sumMonto(itemsNoComunes);
+                  const totalCuotaNoComunes = sumCuota(itemsNoComunes);
+
+                  return (
+                    <>
+                      <div className="flex justify-between items-center mb-6">
+                        <div>
+                          <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Visualizaci&oacute;n de Recibo de Condominio</h2>
+                          <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes {selectedMesRecibos}</p>
+                          <div className="mt-2 text-xs font-bold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded border border-blue-100">
+                            Tasa de cambio: {rate.toFixed(2)} Bs/USD
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {building?.url_recibo_mes && (
+                            <a
+                              href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                            >
+                              <span>📄</span> PDF RECIBO
+                            </a>
+                          )}
+                          <button onClick={() => loadReciboGeneral(selectedMesRecibos)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
+                            <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {loadingReciboGeneral ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                          <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
+                        </div>
+                      ) : reciboGeneral.length > 0 ? (
+                        <div className="overflow-hidden border border-gray-200 rounded-xl">
+                          <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
+                                <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
+                                <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                                <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
+                                <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (USD)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {itemsComunes.map((item, idx) => (
+                                <tr key={`comun-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                                  <td className="py-2 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                                  <td className="py-2 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-600">{formatBs(item.cuota_parte)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-500 font-medium">{formatUsd(Number(item.cuota_parte || 0) / rate)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold">
+                                <td colSpan={2} className="py-2 px-4 text-right text-gray-700 uppercase text-[10px]">TOTAL GASTOS COMUNES:</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalGastosComunes)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalCuotaComunes)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatUsd(totalCuotaComunes / rate)}</td>
+                              </tr>
+
+                              {itemsFondos.map((item, idx) => (
+                                <tr key={`fondo-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                                  <td className="py-2 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                                  <td className="py-2 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-600">{formatBs(item.cuota_parte)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-500 font-medium">{formatUsd(Number(item.cuota_parte || 0) / rate)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold">
+                                <td colSpan={2} className="py-2 px-4 text-right text-gray-700 uppercase text-[10px]">TOTAL FONDOS:</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalFondos)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalCuotaFondos)}</td>
+                                <td className="py-2 px-4 text-right text-gray-900">{formatUsd(totalCuotaFondos / rate)}</td>
+                              </tr>
+
+                              <tr className="bg-indigo-50 font-black">
+                                <td colSpan={2} className="py-2 px-4 text-right text-indigo-800 uppercase text-[10px]">TOTAL FONDOS Y GASTOS COMUNES:</td>
+                                <td className="py-2 px-4 text-right text-indigo-900">{formatBs(totalGastosComunes + totalFondos)}</td>
+                                <td className="py-2 px-4 text-right text-indigo-900">{formatBs(totalCuotaComunes + totalCuotaFondos)}</td>
+                                <td className="py-2 px-4 text-right text-indigo-900">{formatUsd((totalCuotaComunes + totalCuotaFondos) / rate)}</td>
+                              </tr>
+
+                              {itemsNoComunes.map((item, idx) => (
+                                <tr key={`nocomun-${idx}`} className="hover:bg-gray-50 transition-colors">
+                                  <td className="py-2 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                                  <td className="py-2 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                                  <td className="py-2 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-600">{formatBs(item.cuota_parte)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-500 font-medium">{formatUsd(Number(item.cuota_parte || 0) / rate)}</td>
+                                </tr>
+                              ))}
+
+                              {itemsNoComunes.length > 0 && (
+                                <tr className="bg-gray-50 font-bold">
+                                  <td colSpan={2} className="py-2 px-4 text-right text-gray-700 uppercase text-[10px]">TOTAL GASTOS NO COMUNES:</td>
+                                  <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalNoComunes)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-900">{formatBs(totalCuotaNoComunes)}</td>
+                                  <td className="py-2 px-4 text-right text-gray-900">{formatUsd(totalCuotaNoComunes / rate)}</td>
+                                </tr>
+                              )}
+                            </tbody>
+                            <tfoot className="bg-blue-600 text-white font-black border-t-2 border-blue-700">
+                              <tr>
+                                <td colSpan={2} className="py-3 px-4 text-right uppercase text-xs">TOTAL RECIBO:</td>
+                                <td className="py-3 px-4 text-right">
+                                  Bs. {formatBs(totalGastosComunes + totalFondos + totalNoComunes)}
+                                </td>
+                                <td className="py-3 px-4 text-right text-lg">
+                                  Bs. {formatBs(totalCuotaComunes + totalCuotaFondos + totalCuotaNoComunes)}
+                                </td>
+                                <td className="py-3 px-4 text-right text-lg">
+                                  $ {formatUsd((totalCuotaComunes + totalCuotaFondos + totalCuotaNoComunes) / rate)}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
+                          <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
+                          <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos de este mes para visualizar el detalle.</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
 
+
+
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Relaci&oacute;n de Recibos Pendientes</h2>
                   <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={loadRecibos} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar">
-                    <span className={loadingRecibos ? "animate-spin inline-block" : ""}>🔄</span>
-                  </button>
-                </div>
+                <div className="flex gap-4 items-center">
+                {mesesRecibos.length > 0 && (
+                  <select
+                    value={selectedMesRecibos}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedMesRecibos(val);
+                      loadRecibos(val);
+                      loadReciboGeneral(val);
+                    }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
+                  >
+                    <option value="">Mes Actual</option>
+                    {mesesRecibos.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                )}
+                <button onClick={() => loadRecibos()} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Refrescar">
+                  <span className="text-xl">🔄</span>
+                </button>
               </div>
-
-              {loadingRecibos ? (
-                <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : recibos.length === 0 ? (
-                <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
-                  No hay recibos pendientes.
-                </p>
-              ) : (
+            </div>
+            {loadingRecibos ? (
+              <p className="text-gray-500 text-center py-8">Cargando...</p>
+            ) : recibos.length === 0 ? (
+              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                No hay recibos pendientes.
+              </p>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -1782,10 +1875,10 @@ export default function DashboardPage() {
                 <select
                   value={selectedMesEgresos}
                   onChange={(e) => {
-                    setSelectedMesEgresos(e.target.value);
-                    setTimeout(() => loadEgresos(), 0);
-                  }}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                    const val = e.target.value;
+                    setSelectedMesEgresos(val);
+                    loadEgresos(val);
+                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
                 >
                   <option value="">Mes Actual</option>
                   {mesesEgresos.map(m => (
@@ -1855,10 +1948,10 @@ export default function DashboardPage() {
                 <select
                   value={selectedMesGastos}
                   onChange={(e) => {
-                    setSelectedMesGastos(e.target.value);
-                    setTimeout(() => loadGastos(), 0);
-                  }}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                    const val = e.target.value;
+                    setSelectedMesGastos(val);
+                    loadGastos(val);
+                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
                 >
                   <option value="">Mes Actual</option>
                   {mesesGastos.map(m => (
@@ -2109,10 +2202,10 @@ export default function DashboardPage() {
                 <select
                   value={selectedMesBalance}
                   onChange={(e) => {
-                    setSelectedMesBalance(e.target.value);
-                    setTimeout(() => loadBalance(), 0);
-                  }}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
+                    const val = e.target.value;
+                    setSelectedMesBalance(val);
+                    loadBalance(val);
+                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
                 >
                   <option value="">Mes Actual</option>
                   {mesesBalance.map(m => (
