@@ -111,31 +111,33 @@ export async function POST(request: Request) {
 
       const whatsappMsg = `Resumen del Día: (MENSAJE A ENVIAR POR WHATSAPP)
 
-📢 Estado de pagos de condominio – ${fechaStr}
+📢 *ESTADO DE PAGOS DE CONDOMINIO – ${fechaStr}*
 
 Buen día, Estimados/as vecinos/as,
 
 A continuación el resumen actualizado de los recibos pendientes de condominio, con el objetivo de mantener la transparencia en el funcionamiento del edificio:
 
-📝 Resumen de deuda pendiente al ${fechaStr}:
-${deudasTexto}📊 Total general adeudado: ${formatBs(totalGeneralAdeudado)}
+📝 *Resumen de deuda pendiente al ${fechaStr}:*
+${deudasTexto}
+📊 *Total general adeudado: ${formatBs(totalGeneralAdeudado)}*
 
-🏠 Cantidad de apartamentos con deuda: ${cantAptosConDeuda} (equivale al ${formatNumber(pctAptosConDeuda)} % del total)
-Porcentaje recaudado del mes: ${formatNumber(pctRecaudado)} %
-Porcentaje pendiente por recaudar: ${formatNumber(pctPendiente)} %
-Días restantes del mes: ${daysRemaining}
+🏠 *Estadísticas de Cobranza:*
+• Aptos con deuda: ${cantAptosConDeuda} (${formatNumber(pctAptosConDeuda)}% del total)
+• Recaudado del mes: ${formatNumber(pctRecaudado)}% ✅
+• Pendiente por recaudar: ${formatNumber(pctPendiente)}% ⏳
+• Días restantes del mes: ${daysRemaining} 📅
 
 Agradecemos a quienes ya han cumplido con sus pagos.
 
 A quienes aún tienen cuotas pendientes, se les invita cordialmente a ponerse al día para garantizar el mantenimiento, seguridad y operatividad del condominio.
 
-📌 CONSULTA DETALLADA: El desglose detallado de las cuentas por cobrar del edificio se encuentra disponible para su consulta privada en el sitio web de la administradora, ingresando a la sección "Recibos Pendientes".
+📌 *CONSULTA DETALLADA:* El desglose detallado de las cuentas por cobrar del edificio se encuentra disponible para su consulta privada en el sitio web de la administradora, ingresando a la sección "Recibos Pendientes".
 
 Gracias por su colaboración y compromiso.
 
-Junta de Condominio.
+*Junta de Condominio.*
 
-Generado automáticamente por el Sistema de Control de Recibos.`;
+_Generado automáticamente por el Sistema de Control de Recibos._`;
 
       await transporter.sendMail({
         from: `"Sistema Junta de Condominio" <${SMTP_USER}>`,
