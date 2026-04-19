@@ -1935,11 +1935,10 @@ export default function DashboardPage() {
                     <select
                       value={selectedMesRecibos}
                       onChange={(e) => {
-                        setSelectedMesRecibos(e.target.value);
-                        setTimeout(() => {
-                          if (e.target.value) loadReciboGeneral();
-                          else setReciboGeneral([]);
-                        }, 100);
+                        const newMes = e.target.value;
+                        setSelectedMesRecibos(newMes);
+                        if (newMes) loadReciboGeneral();
+                        else setReciboGeneral([]);
                       }}
                       className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                     >
@@ -1971,28 +1970,29 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
                 </div>
               ) : reciboGeneral.length > 0 ? (() => {
-                  const classifyItem = (item: any) => {
-                    const desc = (item.descripcion || '').toUpperCase();
+                  const rawItems = [...reciboGeneral];
+                  const gastoItems: any[] = [];
+                  const fondoReserva: any[] = [];
+                  const gastosNoComunes: any[] = [];
+                  let foundFirst00001 = false;
+                  
+                  for (const item of rawItems) {
                     const code = item.codigo || '';
-                    if (code === '00085') return 'no_comunes';
-                    if (code === '00001' && desc.includes('TRABAJADOR')) return 'gasto';
-                    if (code === '00001' && desc.includes('FONDO')) return 'fondo';
-                    return 'gasto';
-                  };
-                  
-                  const sortedItems = [...reciboGeneral].sort((a, b) => {
-                    const codeA = a.codigo || '';
-                    const codeB = b.codigo || '';
-                    if (codeA === '00001') return 1;
-                    if (codeB === '00001') return -1;
-                    if (codeA === '00085') return 1;
-                    if (codeB === '00085') return -1;
-                    return codeA.localeCompare(codeB);
-                  });
-                  
-                  const gastoItems = sortedItems.filter(i => classifyItem(i) === 'gasto');
-                  const fondoReserva = sortedItems.filter(i => classifyItem(i) === 'fondo');
-                  const gastosNoComunes = sortedItems.filter(i => classifyItem(i) === 'no_comunes');
+                    const desc = (item.descripcion || '').toUpperCase();
+                    
+                    if (code === '00085') {
+                      gastosNoComunes.push(item);
+                    } else if (code === '00001') {
+                      if (!foundFirst00001) {
+                        gastoItems.push(item);
+                        foundFirst00001 = true;
+                      } else {
+                        fondoReserva.push(item);
+                      }
+                    } else {
+                      gastoItems.push(item);
+                    }
+                  }
                   
                   const totalGastosMonto = gastoItems.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
                   const totalGastosCuota = gastoItems.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
