@@ -2221,7 +2221,26 @@ export default function DashboardPage() {
                 No hay datos de balance. Ejecuta una sincronización primero.
               </p>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                    <p className="text-[10px] text-blue-600 font-bold uppercase mb-1">Disponible en Caja</p>
+                    <p className="text-xl font-black text-blue-900">Bs. {formatBs(balance.saldo_disponible)}</p>
+                    <p className="text-xs text-blue-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</p>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                    <p className="text-[10px] text-orange-600 font-bold uppercase mb-1">Cuentas por Cobrar</p>
+                    <p className="text-xl font-black text-orange-900">Bs. {formatBs(balance.total_por_cobrar)}</p>
+                    <p className="text-xs text-orange-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</p>
+                  </div>
+                  <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase mb-1">Reservas Asignadas</p>
+                    <p className="text-xl font-black text-emerald-900">Bs. {formatBs(balance.saldo_reservas)}</p>
+                    <p className="text-xs text-emerald-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b-2 bg-gray-50">
@@ -2268,6 +2287,7 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
             )}
           </div>
         )}
