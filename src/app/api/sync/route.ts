@@ -253,6 +253,12 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
+  console.log("[parseBalanceFull] HTML received, length:", html?.length);
+  if (!html || html.length < 100) {
+    console.log("[parseBalanceFull] HTML empty or too short, returning null");
+    return null;
+  }
+  
   // 1. ELIMINAR SCRIPTS, ESTILOS, CABECERAS Y NAVEGACIÓN
   const cleanHtmlOnly = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
@@ -272,7 +278,8 @@ function parseBalanceFull(html: string): any {
     
   const text = rawText.toUpperCase();
   
-  console.log(`Balance Text Clean (primeros 1000 chars): ${text.substring(0, 1000)}`);
+  console.log("[parseBalanceFull] Text cleaned, length:", text.length);
+  console.log("[parseBalanceFull] Text (first 500 chars):", text.substring(0, 500));
   
   // 3. FUNCIÓN DE EXTRACCIÓN POR PROXIMIDAD (Busca el primer número real después de la etiqueta)
   const extractVal = (keywords: string[]) => {
@@ -300,6 +307,8 @@ function parseBalanceFull(html: string): any {
   balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "EMISION TOTAL"]);
   balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
   balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
+
+  console.log("[parseBalanceFull] Extracted values:", JSON.stringify(balance));
 
   // 4. FALLBACK: Si no encontramos nada, intentamos el método de celdas de tabla clásico
   if (!Object.values(balance).some(v => v !== null && v !== 0)) {

@@ -1793,28 +1793,11 @@ export default function DashboardPage() {
                   <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Relaci&oacute;n de Recibos Pendientes</h2>
                   <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
                 </div>
-                <div className="flex gap-4 items-center">
-                {mesesRecibos.length > 0 && (
-                  <select
-                    value={selectedMesRecibos}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedMesRecibos(val);
-                      loadRecibos(val);
-                      loadReciboGeneral(val);
-                    }}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
-                  >
-                    <option value="">Mes Actual</option>
-                    {mesesRecibos.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                )}
+<div className="flex gap-4 items-center">
                 <button onClick={() => loadRecibos()} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Refrescar">
                   <span className="text-xl">🔄</span>
                 </button>
-              </div>
+                </div>
             </div>
             {loadingRecibos ? (
               <p className="text-gray-500 text-center py-8">Cargando...</p>
@@ -2030,8 +2013,7 @@ export default function DashboardPage() {
                       onChange={(e) => {
                         const newMes = e.target.value;
                         setSelectedMesRecibos(newMes);
-                        if (newMes) loadReciboGeneral();
-                        else setReciboGeneral([]);
+                        loadReciboGeneral(newMes);
                       }}
                       className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                     >
