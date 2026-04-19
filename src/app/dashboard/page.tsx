@@ -74,6 +74,18 @@ interface Alicuota {
   observaciones?: string;
 }
 
+interface LogItem {
+  id: string;
+  tipo: 'alerta' | 'sync';
+  subtipo?: string;
+  titulo?: string;
+  descripcion: string;
+  estado?: string;
+  movimientos_nuevos?: number;
+  error?: string;
+  created_at: string;
+}
+
 interface Building {
   id: string;
   nombre: string;
@@ -184,6 +196,8 @@ export default function DashboardPage() {
   const [selectedMesEgresos, setSelectedMesEgresos] = useState<string>("");
   const [mesesGastos, setMesesGastos] = useState<string[]>([]);
   const [selectedMesGastos, setSelectedMesGastos] = useState<string>("");
+  const [mesesRecibos, setMesesRecibos] = useState<string[]>([]);
+  const [selectedMesRecibos, setSelectedMesRecibos] = useState<string>("");
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
   const [loadingManual, setLoadingManual] = useState(false);
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
@@ -433,10 +447,17 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingRecibos(true);
     try {
-      const res = await fetch(`/api/recibos?edificioId=${building.id}`);
+      const url = new URL(`/api/recibos`, window.location.origin);
+      url.searchParams.append("edificioId", building.id);
+      if (selectedMesRecibos) url.searchParams.append("mes", selectedMesRecibos);
+
+      const res = await fetch(url.toString());
       const data = await res.json();
-      if (res.ok && data.recibos) {
-        setRecibos(data.recibos);
+      if (res.ok) {
+        setRecibos(data.recibos || []);
+        if (data.mesesDisponibles) {
+          setMesesRecibos(data.mesesDisponibles);
+        }
       }
     } catch (error) {
       console.error("Error loading recibos:", error);
@@ -1368,8 +1389,23 @@ export default function DashboardPage() {
         {activeTab === "recibos" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Recibos Pendientes por Unidad</h2>
-              <div className="flex gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">Relaci&oacute;n de Recibos Pendientes</h2>
+              <div className="flex gap-4 items-center">
+                {mesesRecibos.length > 0 && (
+                  <select
+                    value={selectedMesRecibos}
+                    onChange={(e) => {
+                      setSelectedMesRecibos(e.target.value);
+                      setTimeout(() => loadRecibos(), 0);
+                    }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
+                  >
+                    <option value="">Mes Actual</option>
+                    {mesesRecibos.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                )}
                 <button onClick={loadRecibos} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Refrescar">
                   <span className="text-xl">🔄</span>
                 </button>
@@ -1726,92 +1762,71 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "alertas" && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span>🔔</span> Alertas y Notificaciones Recientes
+                <span>🔔</span> Bit&aacute;cora de Eventos y Alertas
               </h2>
-              {loadingAlertas ? (
-                <p className="text-gray-500 text-center py-4">Cargando notificaciones...</p>
-              ) : alertas.length === 0 ? (
-                <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">No hay alertas recientes.</p>
-              ) : (
-                <div className="space-y-3">
-                  {alertas.map((a: any) => (
-                    <div key={a.id} className={`p-4 rounded-lg border flex gap-4 ${
-                      a.tipo === "error" ? "bg-red-50 border-red-100" :
-                      a.tipo === "warning" ? "bg-yellow-50 border-yellow-100" :
-                      "bg-green-50 border-green-100"
-                    }`}>
-                      <div className="text-xl">
-                        {a.tipo === "error" ? "❌" : a.tipo === "warning" ? "⚠️" : "✅"}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-3">
-                          <h3 className={`font-bold text-sm ${
-                            a.tipo === "error" ? "text-red-800" :
-                            a.tipo === "warning" ? "text-yellow-800" :
-                            "text-green-800"
-                          }`}>{a.titulo}</h3>
-                          <span className="text-[10px] text-gray-400">
-                            {new Date(a.created_at).toLocaleString("es-VE")}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">{a.descripcion}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <span>📋</span> Historial de Procesos (Logs)
-              </h2>
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-100 mb-4">
-                <p className="text-xs text-gray-500 leading-relaxed uppercase font-bold tracking-tighter">
-                  Registro técnico detallado de cada sincronización con la web administradora.
-                </p>
-              </div>
-              {loadingSincronizaciones ? (
-                <p className="text-gray-500 text-center py-4">Cargando historial...</p>
-              ) : sincronizaciones.length === 0 ? (
-                <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">No hay registros de ejecución.</p>
+              
+              {loadingAlertas || loadingSincronizaciones ? (
+                <p className="text-gray-500 text-center py-8">Cargando bit&aacute;cora...</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm text-left border-collapse">
                     <thead>
-                      <tr className="border-b bg-gray-50">
-                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Fecha</th>
-                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Estado</th>
-                        <th className="text-right py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Nuevos</th>
-                        <th className="text-left py-2 px-3 text-[10px] font-bold text-gray-500 uppercase">Mensaje de Sistema</th>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="py-2 px-4 font-bold text-gray-500 uppercase text-[10px]">Fecha / Hora</th>
+                        <th className="py-2 px-4 font-bold text-gray-500 uppercase text-[10px]">Tipo</th>
+                        <th className="py-2 px-4 font-bold text-gray-500 uppercase text-[10px]">Estado/Evento</th>
+                        <th className="py-2 px-4 font-bold text-gray-500 uppercase text-[10px]">Descripci&oacute;n / Mensaje</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {sincronizaciones.map((s: any) => (
-                        <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-3 text-[10px] text-gray-400">
-                            {s.created_at ? new Date(s.created_at).toLocaleString("es-VE") : "-"}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              s.estado === "completado" ? "bg-green-100 text-green-700" :
-                              s.estado === "error" ? "bg-red-100 text-red-700" :
-                              "bg-yellow-100 text-yellow-700"
-                            }`}>
-                              {s.estado || "pendiente"}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-xs font-bold text-gray-900">{s.movimientos_nuevos || 0}</td>
-                          <td className="py-2.5 px-3">
-                            <span className={`text-[10px] font-medium block truncate max-w-xs ${s.estado === 'error' ? 'text-red-500' : 'text-gray-600'}`}>
-                              {s.error}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {(() => {
+                        const unified: LogItem[] = [
+                          ...alertas.map(a => ({ ...a, tipo: 'alerta' as const })),
+                          ...sincronizaciones.map(s => ({ ...s, tipo: 'sync' as const, titulo: 'Sincronización', descripcion: s.error || 'Proceso completado' }))
+                        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                        if (unified.length === 0) {
+                          return <tr><td colSpan={4} className="py-8 text-center text-gray-500">No hay registros en la bit&aacute;cora.</td></tr>;
+                        }
+
+                        return unified.map((item, idx) => {
+                          const isError = item.estado === 'error' || item.tipo === 'error' || (item as any).tipo_alerta === 'error';
+                          const isWarning = item.tipo === 'warning' || (item as any).tipo_alerta === 'warning';
+
+                          return (
+                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-3 px-4 text-[10px] text-gray-400 whitespace-nowrap">
+                                {new Date(item.created_at).toLocaleString("es-VE")}
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                                  item.tipo === 'sync' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
+                                }`}>
+                                  {item.tipo}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                  isError ? 'bg-red-100 text-red-700' : 
+                                  isWarning ? 'bg-yellow-100 text-yellow-700' : 
+                                  'bg-green-100 text-green-700'
+                                }`}>
+                                  {item.titulo || item.estado || 'OK'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 text-xs text-gray-600">
+                                {item.descripcion}
+                                {item.movimientos_nuevos !== undefined && item.movimientos_nuevos > 0 && (
+                                  <span className="ml-2 text-[10px] font-bold text-gray-400">({item.movimientos_nuevos} nuevos)</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>

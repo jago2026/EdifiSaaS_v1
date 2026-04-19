@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const edificioId = searchParams.get("edificioId");
+    const mes = searchParams.get("mes");
 
     if (!edificioId) {
       return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
@@ -15,18 +16,33 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: recibos, error } = await supabase
+    let query = supabase
       .from("recibos")
-      .select("id, unidad, propietario, num_recibos, deuda, deuda_usd")
+      .select("id, unidad, propietario, num_recibos, deuda, deuda_usd, mes")
       .eq("edificio_id", edificioId)
-      .order("unidad", { ascending: true })
-      .limit(100);
+      .order("unidad", { ascending: true });
+
+    if (mes) {
+      query = query.eq("mes", mes);
+    } else {
+      // Por defecto el mes más reciente
+      query = query.order("mes", { ascending: false }).limit(100);
+    }
+
+    const { data: recibos, error } = await query;
 
     if (error) {
       throw error;
     }
 
-    return NextResponse.json({ recibos: recibos || [] });
+    // Obtener meses disponibles
+    const { data: mesesData } = await supabase.from("recibos")
+      .select("mes")
+      .eq("edificio_id", edificioId)
+      .order("mes", { ascending: false });
+    const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
+
+    return NextResponse.json({ recibos: recibos || [], mesesDisponibles });
   } catch (error: any) {
     console.error("Recibos error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

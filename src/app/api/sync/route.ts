@@ -93,16 +93,17 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 function parseReceiptMonthlySummary(html: string): number {
   if (!html) return 0;
   // Buscamos el monto total en la tabla de r=4. 
-  // Suele estar al final de una columna. 
-  const tableMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/i);
-  if (!tableMatch) return 0;
-  const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  // El usuario indica que está en una fila que dice "TOTAL RECIBO:"
+  const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i];
-    if (row.toUpperCase().includes("TOTAL")) {
+    const rowText = cleanHtml(row).toUpperCase();
+    if (rowText.includes("TOTAL RECIBO")) {
       const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
       if (cells && cells.length > 0) {
-        return parseMonto(cleanHtml(cells[cells.length - 1]));
+        // En el ejemplo del usuario, el total está en la última celda de esa fila
+        const val = parseMonto(cleanHtml(cells[cells.length - 1]));
+        if (val > 0) return val;
       }
     }
   }
@@ -333,8 +334,19 @@ export async function POST(request: Request) {
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
 
     if (doSyncRecibos && allRecibos.length > 0) {
-      await supabase.from("recibos").delete().eq("edificio_id", building.id);
-      await supabase.from("recibos").insert(allRecibos.map(r => ({ edificio_id: building.id, unidad: r.unidad, propietario: r.propietario, num_recibos: r.num_recibos, deuda: r.deuda, deuda_usd: r.deuda_usd, sincronizado: true, actualizado_en: today })));
+      // Eliminar registros previos para este edificio y este mes específico para evitar duplicados
+      await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
+      await supabase.from("recibos").insert(allRecibos.map(r => ({ 
+        edificio_id: building.id, 
+        unidad: r.unidad, 
+        propietario: r.propietario, 
+        num_recibos: r.num_recibos, 
+        deuda: r.deuda, 
+        deuda_usd: r.deuda_usd, 
+        sincronizado: true, 
+        actualizado_en: today,
+        mes: mesEstandar
+      })));
     }
 
     if (doSyncAlicuotas && allAlicuotas.length > 0) {
