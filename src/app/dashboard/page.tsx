@@ -1662,7 +1662,7 @@ export default function DashboardPage() {
                           <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
                           <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
                           <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
-                          <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte ($)</th>
+<th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -1671,7 +1671,7 @@ export default function DashboardPage() {
                             <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
                             <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
                             <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                            <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatUsd(item.cuota_parte) : '-'}</td>
+<td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1985,7 +1985,7 @@ export default function DashboardPage() {
                           Bs. {formatBs(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.monto), 0))}
                         </td>
                         <td className="py-3 px-4 text-right text-indigo-700 text-lg">
-                          $ {formatUsd(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                          Bs. {formatBs(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                         </td>
                       </tr>
                       {reciboGeneral.some(i => i.codigo === '00085') && (
@@ -1995,7 +1995,7 @@ export default function DashboardPage() {
                             Bs. {formatBs(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.monto), 0))}
                           </td>
                           <td className="py-2 px-4 text-right text-orange-700 font-bold">
-                            $ {formatUsd(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                            Bs. {formatBs(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                           </td>
                         </tr>
                       )}
@@ -2005,7 +2005,7 @@ export default function DashboardPage() {
                           Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
                         </td>
                         <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
-                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                         </td>
                       </tr>
                     </tfoot>
