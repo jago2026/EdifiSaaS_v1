@@ -283,10 +283,46 @@ function parseBalanceFull(html: string): any {
   balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
   balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
 
-  // 4. Parsear TODAS las filas de la tabla de balance
+  // 4. Extraer TODOS los campos del texto (más confiable que las tablas vacías)
+  const extractFromText = (keywords: string[], isNegative = false) => {
+    for (const kw of keywords) {
+      const idx = text.indexOf(kw);
+      if (idx !== -1) {
+        // Buscar número en los siguientes 80 caracteres
+        const subs = text.substring(idx + kw.length, idx + kw.length + 80);
+        const match = subs.match(/(-?[\d.,]+)/);
+        if (match) {
+          let val = parseMonto(match[1]);
+          if (isNegative && val > 0) val = -val;
+          return val;
+        }
+      }
+    }
+    return null;
+  };
+
+  // Extracción por texto del Balance Original
+  balance.saldo_anterior = extractFromText(["SALDO DE CAJA MES ANTERIOR"]) || extractFromText(["SALDO ANTERIOR"]) || 0;
+  balance.cobranza_mes = extractFromText(["COBRANZA DEL MES"]) || 0;
+  balance.gastos_facturados = extractFromText(["GASTOS FACTURADOS EN EL MES COMUNES"], true) || 0;
+  const gastosNoComunes = extractFromText(["GASTOS FACTURADOS EN EL MES NO COMUNES"], true);
+  if (gastosNoComunes !== null) balance.gastos_facturados = (balance.gastos_facturados || 0) + gastosNoComunes;
+  balance.saldo_disponible = extractFromText(["SALDO ACTUAL DISPONIBLE EN CAJA"]) || 0;
+  balance.recibos_mes = extractFromText(["RECIBOS DE CONDOMINIOS DEL MES"]) || 0;
+  balance.total_por_cobrar = extractFromText(["TOTAL CONDOMINIOS POR COBRAR"]) || 0;
+  balance.condominios_atrasados = extractFromText(["CONDOMINIOS ATRASADOS"]) || 0;
+  balance.condominios_adelantados = extractFromText(["CONDOMINIOS ADELANTADOS"], true) || 0;
+  balance.condominios_sobrantes = extractFromText(["CONDOMINIOS SOBRANTES"], true) || 0;
+  balance.fondo_reserva = extractFromText(["SALDO FONDO DE RESERVA"]) || extractFromText(["FONDO DE RESERVA"]) || 0;
+  balance.fondo_prestaciones = extractFromText(["SALDO FONDO DE PRESTACIONES SOCIALES"]) || 0;
+  balance.fondo_trabajos_varios = extractFromText(["SALDO FONDO TRABAJOS VARIOS"], true) || 0;
+  balance.fondo_intereses = extractFromText(["SALDO FONDO INTERESES MORATORIOS"]) || 0;
+  balance.fondo_diferencial_cambiario = extractFromText(["SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV"]) || 0;
+  balance.ajuste_alicuota = extractFromText(["SALDO AJUSTE DIFERENCIA ALICUOTA"], true) || 0;
+
+  // 5. Fallback: también intentar parsear de las tablas HTML
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
   for (const t of allTables) {
-    // Buscar tabla que tenga las columnas Descripcion, Montos, Saldo
     if (!t.includes('Descripci') && !t.includes('Descripción')) continue;
     
     const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
@@ -298,41 +334,23 @@ function parseBalanceFull(html: string): any {
       const monto = cells[1] ? parseMonto(cleanHtml(cells[1])) : 0;
       const saldo = cells[2] ? parseMonto(cleanHtml(cells[2])) : 0;
       
-      if (desc.includes("SALDO DE CAJA MES ANTERIOR")) {
-        balance.saldo_anterior = monto;
-      } else if (desc.includes("COBRANZA DEL MES")) {
-        balance.cobranza_mes = monto;
-      } else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES")) {
-        balance.gastos_facturados = (balance.gastos_facturados || 0) + monto;
-      } else if (desc.includes("GASTOS FACTURADOS EN EL MES NO COMUNES")) {
-        balance.gastos_facturados = (balance.gastos_facturados || 0) + monto;
-      } else if (desc.includes("SALDO ACTUAL DISPONIBLE")) {
-        balance.saldo_disponible = saldo;
-      } else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES")) {
-        balance.recibos_mes = monto;
-      } else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR")) {
-        balance.total_por_cobrar = saldo;
-      } else if (desc.includes("CONDOMINIOS ATRASADOS")) {
-        balance.condominios_atrasados = monto;
-      } else if (desc.includes("CONDOMINIOS ADELANTADOS")) {
-        balance.condominios_adelantados = monto;
-      } else if (desc.includes("CONDOMINIOS SOBRANTES")) {
-        balance.condominios_sobrantes = monto;
-      } else if (desc.includes("FONDO DE RESERVA") && !desc.includes("MES ANTERIOR")) {
-        balance.fondo_reserva = saldo;
-      } else if (desc.includes("FONDO DE PRESTACIONES")) {
-        balance.fondo_prestaciones = saldo;
-      } else if (desc.includes("FONDO TRABAJOS VARIOS")) {
-        balance.fondo_trabajos_varios = saldo;
-      } else if (desc.includes("FONDO INTERESES MORATORIOS") && !desc.includes("MES")) {
-        balance.fondo_intereses = saldo;
-      } else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO")) {
-        balance.fondo_diferencial_cambiario = saldo;
-      } else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA")) {
-        balance.ajuste_alicuota = saldo;
-      }
+      if (desc.includes("SALDO DE CAJA MES ANTERIOR") && !balance.saldo_anterior) balance.saldo_anterior = monto;
+      else if (desc.includes("COBRANZA DEL MES") && !balance.cobranza_mes) balance.cobranza_mes = monto;
+      else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES") && !balance.gastos_facturados) balance.gastos_facturados = monto;
+      else if (desc.includes("SALDO ACTUAL DISPONIBLE") && !balance.saldo_disponible) balance.saldo_disponible = saldo;
+      else if (desc.includes("RECIBOS DE CONDOMINIOS") && !balance.recibos_mes) balance.recibos_mes = monto;
+      else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR") && !balance.total_por_cobrar) balance.total_por_cobrar = saldo;
+      else if (desc.includes("CONDOMINIOS ATRASADOS") && !balance.condominios_atrasados) balance.condominios_atrasados = monto;
+      else if (desc.includes("CONDOMINIOS ADELANTADOS") && !balance.condominios_adelantados) balance.condominios_adelantados = monto;
+      else if (desc.includes("CONDOMINIOS SOBRANTES") && !balance.condominios_sobrantes) balance.condominios_sobrantes = monto;
+      else if (desc.includes("FONDO DE RESERVA") && !desc.includes("MES") && !balance.fondo_reserva) balance.fondo_reserva = saldo;
+      else if (desc.includes("FONDO DE PRESTACIONES") && !balance.fondo_prestaciones) balance.fondo_prestaciones = saldo;
+      else if (desc.includes("FONDO TRABAJOS VARIOS") && !balance.fondo_trabajos_varios) balance.fondo_trabajos_varios = saldo;
+      else if (desc.includes("FONDO INTERESES MORATORIOS") && !desc.includes("MES") && !balance.fondo_intereses) balance.fondo_intereses = saldo;
+      else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO") && !balance.fondo_diferencial_cambiario) balance.fondo_diferencial_cambiario = saldo;
+      else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA") && !balance.ajuste_alicuota) balance.ajuste_alicuota = saldo;
     }
-    break; // Solo procesamos la primera tabla con descripción
+    break;
   }
 
   console.log(`[Balance] Result after table extraction:`, JSON.stringify(balance));
