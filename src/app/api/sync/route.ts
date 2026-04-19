@@ -435,18 +435,41 @@ export async function POST(request: Request) {
     const comboParam = mes ? `&combo=${comboValue}` : "";
     
     console.log(`[Sync] mes=${mes}, comboValue=${comboValue}, comboParam=${comboParam}`);
-    console.log(`[Sync] Balance URL = ${baseUrl}/condlin.php?&r=2${comboParam}`);
+    
+    // Try BOTH URL formats and compare
+    const balanceUrlWithPHPSESSID = `${baseUrl}/condlin.php?&r=2&PHPSESSID=&combo=${comboValue}`;
+    const balanceUrlNoPHPSESSID = `${baseUrl}/condlin.php?&r=2&combo=${comboValue}`;
+    
+    console.log(`[Sync] Balance URL 1 (with PHPSESSID=): ${balanceUrlWithPHPSESSID}`);
+    console.log(`[Sync] Balance URL 2 (no PHPSESSID): ${balanceUrlNoPHPSESSID}`);
+
+    // Fetch BOTH URLs and compare
+    const hBal1 = doSyncBalance ? await fetchPageWithCookie(balanceUrlWithPHPSESSID, session) : null;
+    const hBal2 = doSyncBalance ? await fetchPageWithCookie(balanceUrlNoPHPSESSID, session) : null;
+    
+    console.log(`[Balance] URL1 length: ${hBal1 ? hBal1.length : 0} chars`);
+    console.log(`[Balance] URL2 length: ${hBal2 ? hBal2.length : 0} chars`);
+    
+    // Use the longer one (more data)
+    let finalHBal = hBal1;
+    if (hBal2 && (!hBal1 || hBal2.length > hBal1.length)) {
+      console.log("[Balance] Using URL2 (more data)");
+      finalHBal = hBal2;
+    } else if (hBal1) {
+      console.log("[Balance] Using URL1");
+    }
 
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
       doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
-      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?&r=2${comboParam}`, session) : Promise.resolve(null),
+      Promise.resolve(finalHBal), // Reuse already fetched
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
     ];
 
-    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
+    const [hRec, hEgr, hGas, hBalResult, hAli, hRecSummary] = await Promise.all(promises);
+    const hBal = hBalResult || finalHBal;
 
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
