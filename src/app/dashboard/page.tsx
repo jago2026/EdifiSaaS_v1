@@ -1636,28 +1636,29 @@ export default function DashboardPage() {
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
                           <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
-                          <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n del Concepto</th>
+                          <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
                           <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                          <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte ($)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {Array.from(new Set(reciboGeneral.map(i => i.codigo))).map((codigo) => {
-                          const item = reciboGeneral.find(i => i.codigo === codigo);
-                          if (!item) return null;
-                          return (
-                            <tr key={`${codigo}`} className="hover:bg-gray-50 transition-colors">
-                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
-                              <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
-                              <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                            </tr>
-                          );
-                        })}
+                        {reciboGeneral.map((item, idx) => (
+                          <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                            <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                            <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                            <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatUsd(item.cuota_parte) : '-'}</td>
+                          </tr>
+                        ))}
                       </tbody>
                       <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
                         <tr>
                           <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
                           <td className="py-3 px-4 text-right text-indigo-700 text-lg">
                             Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                          </td>
+                          <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                            $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                           </td>
                         </tr>
                       </tfoot>
@@ -1679,115 +1680,19 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {mesesRecibos.length > 0 && (
-                    <select
-                      value={selectedMesRecibos}
-                      onChange={(e) => {
-                        setSelectedMesRecibos(e.target.value);
-                        setTimeout(() => {
-                          loadRecibos();
-                          if (e.target.value) loadReciboGeneral();
-                          else setReciboGeneral([]);
-                        }, 100);
-                      }}
-                      className="px-4 py-2 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none uppercase"
-                    >
-                      <option value="">Mes Actual (Online)</option>
-                      {mesesRecibos.map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                    </select>
-                  )}
                   <button onClick={loadRecibos} className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar">
                     <span className={loadingRecibos ? "animate-spin inline-block" : ""}>🔄</span>
                   </button>
                 </div>
               </div>
 
-              {loadingReciboGeneral ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
-                  <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
-                </div>
-              ) : reciboGeneral.length > 0 ? (
-                <div className="overflow-hidden border border-gray-200 rounded-xl">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
-                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
-                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
-                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte ($)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {reciboGeneral.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
-                          <td className="py-2.5 px-4 text-gray-800 font-medium">{item.descripcion}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatUsd(item.cuota_parte) : '-'} </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                      <tr>
-                        <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
-                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
-                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
-                        </td>
-                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
-                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+              {loadingRecibos ? (
+                <p className="text-gray-500 text-center py-8">Cargando...</p>
+              ) : recibos.length === 0 ? (
+                <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                  No hay recibos pendientes.
+                </p>
               ) : (
-                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
-                  <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
-                  <p className="text-[10px] text-gray-400 mt-1 uppercase">Sincroniza los datos para descargar el detalle del recibo de condominio.</p>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Ver Recibo de Condominio</h2>
-                  <p className="text-xs text-gray-500 font-medium">Detalle de gastos por apartamento</p>
-                </div>
-                <div className="flex gap-4 items-center">
-                {mesesRecibos.length > 0 && (
-                  <select
-                    value={selectedMesRecibos}
-                    onChange={(e) => {
-                      setSelectedMesRecibos(e.target.value);
-                      setTimeout(() => {
-                        loadRecibos();
-                        loadReciboGeneral();
-                      }, 0);
-                    }}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
-                  >
-                    <option value="">Mes Actual</option>
-                    {mesesRecibos.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                )}
-                <button onClick={loadRecibos} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Refrescar">
-                  <span className="text-xl">🔄</span>
-                </button>
-              </div>
-            </div>
-            {loadingRecibos ? (
-              <p className="text-gray-500 text-center py-8">Cargando...</p>
-            ) : recibos.length === 0 ? (
-              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
-                No hay recibos pendientes.
-              </p>
-            ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
