@@ -313,9 +313,10 @@ function parseBalanceFull(html: string): any {
 
   const found = Object.values(balance).some((v: any) => v !== null && v !== undefined && v !== 0);
   if (!found) {
-    console.log("[Balance] WARNING: No values extracted from tables!");
-    if (allTables.length > 0 && allTables[0]) {
-      console.log("[Balance] Sample table content:", allTables[0].substring(0, 500));
+    console.log("[Balance] WARNING: No values extracted!");
+    // MOSTRAR TODAS LAS TABLAS
+    for (let i = 0; i < allTables.length; i++) {
+      console.log(`[Balance] Table ${i}:`, allTables[i].substring(0, 300));
     }
   }
 
