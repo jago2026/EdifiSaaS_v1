@@ -96,7 +96,6 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 function parseReciboDetalle(html: string): any[] {
   const results: any[] = [];
-  const seenCodes = new Set();
   // Buscamos la tabla que tiene los gastos (C&oacute;digo, Descripci&oacute;n, Monto, Cuota Parte)
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
@@ -115,10 +114,6 @@ function parseReciboDetalle(html: string): any[] {
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
     if (desc.toUpperCase().includes("TOTAL")) continue;
     if (code.length > 10) continue; // Probablemente no es un código
-
-    // Evitar duplicados
-    if (seenCodes.has(code)) continue;
-    seenCodes.add(code);
 
     results.push({
       codigo: code,

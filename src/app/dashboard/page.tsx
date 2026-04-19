@@ -1715,8 +1715,9 @@ export default function DashboardPage() {
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
-                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n del Concepto</th>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
                         <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte ($)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1725,6 +1726,7 @@ export default function DashboardPage() {
                           <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
                           <td className="py-2.5 px-4 text-gray-800 font-medium">{item.descripcion}</td>
                           <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatUsd(item.cuota_parte) : '-'} </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1733,6 +1735,9 @@ export default function DashboardPage() {
                         <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
                         <td className="py-3 px-4 text-right text-indigo-700 text-lg">
                           Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                         </td>
                       </tr>
                     </tfoot>
@@ -1749,8 +1754,8 @@ export default function DashboardPage() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Relaci&oacute;n de Recibos Pendientes</h2>
-                  <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
+                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Ver Recibo de Condominio</h2>
+                  <p className="text-xs text-gray-500 font-medium">Detalle de gastos por apartamento</p>
                 </div>
                 <div className="flex gap-4 items-center">
                 {mesesRecibos.length > 0 && (
