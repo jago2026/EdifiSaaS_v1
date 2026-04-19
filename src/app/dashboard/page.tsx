@@ -495,6 +495,41 @@ export default function DashboardPage() {
     loadTasaBCV();
   }, [building?.id]);
 
+  useEffect(() => {
+    if (user?.id && building?.id) {
+      handleAutoSync(user.id);
+    }
+  }, [user?.id]);
+
+  const handleAutoSync = async (userId: string) => {
+    try {
+      const res = await fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          sync_recibos: true,
+          sync_egresos: true,
+          sync_gastos: true,
+          sync_alicuotas: true,
+          sync_balance: true
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.stats) {
+        loadMovements();
+        loadGastosSummary();
+        loadEgresosSummary();
+        loadIngresosSummary();
+        loadRecibos();
+        loadBalance();
+        loadSincronizaciones();
+      }
+    } catch (error) {
+      // Silently ignore auto-sync errors on login
+    }
+  };
+
   const loadMovements = async () => {
     if (!building?.id) return;
     setLoadingMovements(true);
@@ -1184,7 +1219,9 @@ export default function DashboardPage() {
         loadRecibos();
         loadReciboGeneral();
         loadSincronizaciones();
-        loadBalance();
+        // Recargar meses disponibles sin filtro para que el nuevo mes aparezca en el combo
+        setSelectedMesBalance("");
+        loadBalance("");
         loadAlicuotas();
       }
     } catch (error: any) {
@@ -3327,11 +3364,13 @@ export default function DashboardPage() {
                         <input
                           type="text"
                           value={editConfig.url_recibo_mes}
-                          placeholder="https://admlaideal.com.ve/condlin.php?r=4"
+                          placeholder={editConfig.url_login ? `${(() => { try { return new URL(editConfig.url_login).origin; } catch { return "https://[dominio]"; } })()}/condlin.php?r=4` : "https://[dominio]/condlin.php?r=4"}
                           onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}
                           className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
                         />
-                        <a href={editConfig.url_recibo_mes || "https://admlaideal.com.ve/condlin.php?r=4"} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        {(editConfig.url_recibo_mes || editConfig.url_login) && (
+                          <a href={editConfig.url_recibo_mes || `${(() => { try { return new URL(editConfig.url_login).origin; } catch { return ""; } })()}/condlin.php?r=4`} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-1">
