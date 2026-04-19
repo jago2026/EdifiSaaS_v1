@@ -1630,8 +1630,9 @@ export default function DashboardPage() {
             {selectedMesRecibos && selectedMesRecibos !== "" && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 {(() => {
-                  const rate = recibos.length > 0 && recibos[0].deuda_usd > 0 
-                    ? (recibos[0].deuda / recibos[0].deuda_usd) 
+                  const firstRecibo = recibos[0];
+                  const rate = (firstRecibo && typeof firstRecibo.deuda_usd === 'number' && firstRecibo.deuda_usd > 0) 
+                    ? (firstRecibo.deuda / firstRecibo.deuda_usd) 
                     : (tasaBCV.dolar || 1);
 
                   const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
@@ -2050,7 +2051,7 @@ export default function DashboardPage() {
                       <span>📄</span> PDF
                     </a>
                   )}
-                  <button onClick={loadReciboGeneral} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
+                  <button onClick={() => loadReciboGeneral()} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
                     <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
                   </button>
                 </div>
