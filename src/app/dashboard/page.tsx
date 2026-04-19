@@ -2245,7 +2245,7 @@ export default function DashboardPage() {
                       label={{ value: "Egresos (Bs)", angle: 90, position: "insideRight", fontSize: 10 }}
                     />
                     <Tooltip 
-                      formatter={(value: any, name: string) => [`Bs. ${formatBs(value as number)}`, name]}
+                      formatter={(value: any, name: any) => [`Bs. ${formatBs(value as number)}`, name]}
                       contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
                     />
                     <Legend verticalAlign="top" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
