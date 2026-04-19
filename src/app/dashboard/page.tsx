@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -499,8 +499,11 @@ export default function DashboardPage() {
     }
     if (activeTab === "recibos" && building?.id) {
       loadRecibos();
-      loadReciboGeneral();
       loadMovimientosDia();
+    }
+    if (activeTab === "recibo" && building?.id) {
+      loadRecibos();
+      loadReciboGeneral();
     }
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
@@ -1272,6 +1275,7 @@ export default function DashboardPage() {
           <button onClick={() => setActiveTab("egresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Egresos</button>
           <button onClick={() => setActiveTab("gastos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Gastos</button>
           <button onClick={() => setActiveTab("recibos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Recibos</button>
+          <button onClick={() => setActiveTab("recibo")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibo" ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"}`}>Recibo Condominio</button>
           <button onClick={() => setActiveTab("balance")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Balance</button>
           <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
           <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
@@ -1896,6 +1900,98 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "recibo" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Ver Recibo de Condominio</h2>
+                  <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {mesesRecibos.length > 0 && (
+                    <select
+                      value={selectedMesRecibos}
+                      onChange={(e) => {
+                        setSelectedMesRecibos(e.target.value);
+                        setTimeout(() => {
+                          if (e.target.value) loadReciboGeneral();
+                          else setReciboGeneral([]);
+                        }, 100);
+                      }}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
+                    >
+                      <option value="">Mes Actual</option>
+                      {mesesRecibos.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  )}
+                  {building?.url_recibo_mes && (
+                    <a
+                      href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <span>📄</span> PDF
+                    </a>
+                  )}
+                  <button onClick={loadReciboGeneral} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
+                    <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
+                  </button>
+                </div>
+              </div>
+
+              {loadingReciboGeneral ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                  <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
+                </div>
+              ) : reciboGeneral.length > 0 ? (
+                <div className="overflow-hidden border border-gray-200 rounded-xl">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte ($)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {reciboGeneral.map((item, idx) => (
+                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                          <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatUsd(item.cuota_parte) : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                      <tr>
+                        <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
+                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
+                  <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos de este mes para visualizar el detalle.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
