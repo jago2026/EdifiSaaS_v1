@@ -35,8 +35,9 @@ export async function GET(request: NextRequest) {
 
     let { data: detalles, error } = await query;
 
-    // Si no hay mes especificado yunidad es GENERAL, obtener el mes más reciente
-    if (!error && (!detalles || detalles.length === 0) && !mes && unidad === "GENERAL") {
+    // Si no hay mes especificado (null o vacío) y unidad es GENERAL, obtener el mes más reciente
+    if (!error && (!detalles || detalles.length === 0) && (!mes || mes === "") && unidad === "GENERAL") {
+      console.log("[RECIBO-DETALLE] No data found, fetching most recent month");
       const fallbackQuery = supabase
         .from("recibos_detalle")
         .select("*")
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
         .order("mes", { ascending: false })
         .limit(1);
       const { data: fallback, error: fallbackError } = await fallbackQuery;
+      console.log("[RECIBO-DETALLE] Fallback result:", fallback?.length, "items");
       if (!fallbackError && fallback && fallback.length > 0) {
         detalles = fallback;
       }
