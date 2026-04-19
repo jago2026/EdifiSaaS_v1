@@ -1395,7 +1395,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Movimientos de Hoy ({new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })})</h2>
                 <button
@@ -1426,7 +1426,7 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b bg-gray-50">
                         <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
@@ -1435,13 +1435,76 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
+                      {movimientosDia.map((mov: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="py-2.5 px-3 text-sm text-gray-500 font-medium">{mov.tipo}</td>
+                          <td className="py-2.5 px-3 text-sm text-gray-900">{mov.descripcion}</td>
+                          <td className={`py-2.5 px-3 text-sm text-right font-semibold ${mov.tipo?.toLowerCase().includes('egreso') || mov.monto < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatBs(mov.monto)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "balance" && (
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Estado de Cuenta Mensual</h2>
+                <p className="text-sm text-gray-500">Resumen de disponibilidad, cuentas por cobrar y reservas</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={selectedMesBalance}
+                  onChange={(e) => {
+                    setSelectedMesBalance(e.target.value);
+                    loadBalance(e.target.value);
+                  }}
+                  className="rounded-lg border-gray-300 text-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {mesesBalance.map(mes => (
+                    <option key={mes} value={mes}>{mes}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => loadBalance(selectedMesBalance)}
+                  className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                  title="Actualizar balance"
+                >
+                  <svg className={`w-5 h-5 ${loadingBalance ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {loadingBalance ? (
+              <div className="py-20 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                <p className="text-gray-500">Cargando balance...</p>
+              </div>
+            ) : !balance ? (
+              <div className="text-center py-12 border border-dashed border-gray-200 rounded-xl">
+                <p className="text-gray-500 mb-2">No hay datos de balance para este período.</p>
+                <button onClick={() => handleSync()} className="text-blue-600 font-medium hover:underline">Sincronizar ahora</button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <tbody className="divide-y divide-gray-100">
                     {balanceDetails.length > 0 ? (
-                      balanceDetails.map((line, idx) => {
+                      balanceDetails.map((line: any, idx: number) => {
                         const dUpper = line.descripcion.toUpperCase();
                         const isHeader = dUpper.includes('DISPONIBILIDAD') || dUpper.includes('CUENTAS POR COBRAR') || dUpper.includes('RESERVAS');
                         const isTotal = dUpper.includes('TOTAL') || dUpper.includes('SALDO ACTUAL DISPONIBLE') || dUpper.includes('SALDO RESERVAS');
                         const isSubHeader = !isHeader && !isTotal && (line.monto === 0 || line.monto === null) && (line.saldo === 0 || line.saldo === null);
-                        
+
                         return (
                           <tr key={idx} className={isHeader ? "bg-indigo-50 font-bold" : isTotal ? "bg-gray-100 font-bold border-y border-gray-200" : isSubHeader ? "bg-gray-50/30 font-semibold italic" : ""}>
                             <td className={`py-2.5 px-4 ${isHeader ? "text-indigo-800" : isTotal ? "text-gray-900" : (line.monto === 0 && line.saldo === 0) ? "text-gray-500 font-bold" : "pl-10 text-gray-700"}`}>
@@ -1468,12 +1531,10 @@ export default function DashboardPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
             )}
           </div>
         )}
-
-        {activeTab === "alicuotas" && (
+{activeTab === "alicuotas" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Alicuotas por Unidad</h2>
             {loadingAlicuotas ? (
