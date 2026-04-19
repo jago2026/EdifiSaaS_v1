@@ -76,7 +76,8 @@ interface Alicuota {
 
 interface LogItem {
   id: string;
-  tipo: 'alerta' | 'sync';
+  sourceType: 'alerta' | 'sync';
+  tipo?: string;
   subtipo?: string;
   titulo?: string;
   descripcion: string;
@@ -1784,8 +1785,8 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-gray-100">
                       {(() => {
                         const unified: LogItem[] = [
-                          ...alertas.map(a => ({ ...a, tipo: 'alerta' as const })),
-                          ...sincronizaciones.map(s => ({ ...s, tipo: 'sync' as const, titulo: 'Sincronización', descripcion: s.error || 'Proceso completado' }))
+                          ...alertas.map(a => ({ ...a, sourceType: 'alerta' as const })),
+                          ...sincronizaciones.map(s => ({ ...s, sourceType: 'sync' as const, titulo: 'Sincronización', descripcion: s.error || 'Proceso completado' }))
                         ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
                         if (unified.length === 0) {
@@ -1793,7 +1794,7 @@ export default function DashboardPage() {
                         }
 
                         return unified.map((item, idx) => {
-                          const isError = item.estado === 'error' || item.tipo === 'error' || (item as any).tipo_alerta === 'error';
+                          const isError = item.estado === 'error' || item.tipo === 'error';
                           const isWarning = item.tipo === 'warning' || (item as any).tipo_alerta === 'warning';
 
                           return (
@@ -1803,9 +1804,9 @@ export default function DashboardPage() {
                               </td>
                               <td className="py-3 px-4">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                                  item.tipo === 'sync' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
+                                  item.sourceType === 'sync' ? 'bg-indigo-100 text-indigo-700' : 'bg-blue-100 text-blue-700'
                                 }`}>
-                                  {item.tipo}
+                                  {item.sourceType}
                                 </span>
                               </td>
                               <td className="py-3 px-4">
