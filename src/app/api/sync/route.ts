@@ -90,6 +90,25 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 // --- EXTRACTORES ---
 
+function parseReceiptMonthlySummary(html: string): number {
+  if (!html) return 0;
+  // Buscamos el monto total en la tabla de r=4. 
+  // Suele estar al final de una columna. 
+  const tableMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch) return 0;
+  const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
+    if (row.toUpperCase().includes("TOTAL")) {
+      const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+      if (cells && cells.length > 0) {
+        return parseMonto(cleanHtml(cells[cells.length - 1]));
+      }
+    }
+  }
+  return 0;
+}
+
 function parseRecibosTableAll(html: string): any[] {
   const results: any[] = [];
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i) || 
@@ -292,22 +311,26 @@ export async function POST(request: Request) {
 
     const baseUrl = new URL(building.url_login).origin;
     
+    const comboParam = mes ? `&combo=${mes}` : "";
+
     // Fetch only requested pages
     const promises = [
-      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5`, session) : Promise.resolve(null),
-      doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21`, session) : Promise.resolve(null),
-      doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3`, session) : Promise.resolve(null),
-      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2`, session) : Promise.resolve(null),
-      doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23`, session) : Promise.resolve(null)
+      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
+      doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
+      doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
+      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
+      doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
+      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
     ];
 
-    const [hRec, hEgr, hGas, hBal, hAli] = await Promise.all(promises);
+    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
+    const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
 
     if (doSyncRecibos && allRecibos.length > 0) {
       await supabase.from("recibos").delete().eq("edificio_id", building.id);
@@ -348,6 +371,7 @@ export async function POST(request: Request) {
     }
 
     if (balance) {
+      if (monthlyReceiptTotal > 0) balance.recibos_mes = monthlyReceiptTotal;
       await supabase.from("balances").delete().match({ edificio_id: building.id, mes: mesEstandar });
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     }
@@ -360,7 +384,6 @@ export async function POST(request: Request) {
         descripcion: g.descripcion,
         activo: true
       }));
-      // Upserting recurrent expenses
       for (const req of recurrentes) {
         await supabase.from("gastos_recurrentes").upsert(req, { onConflict: 'edificio_id,codigo' });
       }
@@ -427,7 +450,7 @@ export async function POST(request: Request) {
         sync_gastos: doSyncGastos,
         sync_alicuotas: doSyncAlicuotas,
         sync_balance: doSyncBalance,
-        stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length }
+        stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal }
       }
     });
 
@@ -441,7 +464,7 @@ export async function POST(request: Request) {
 
     await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
 
-    return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length } });
+    return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal } });
   } catch (error: any) {
     console.error("[ERROR] Sync catch:", error);
     if (currentBuildingId) {

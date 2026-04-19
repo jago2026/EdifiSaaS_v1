@@ -2617,10 +2617,33 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-gray-100 p-4 rounded-xl border border-gray-200 shadow-inner">
+            <div className="bg-gray-100 p-6 rounded-xl border border-gray-200 shadow-inner">
                <h3 className="text-sm font-black text-gray-700 mb-4 uppercase tracking-tighter flex items-center gap-2">
                  <span>📅</span> Sincronización por Mes Específico
                </h3>
+               
+               <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
+                 <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-3 tracking-widest">¿Qué descargar de este mes?</h4>
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-xs font-bold text-gray-700">Recibos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-xs font-bold text-gray-700">Egresos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-xs font-bold text-gray-700">Gastos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-xs font-bold text-gray-700">Balance</span>
+                    </label>
+                  </div>
+               </div>
+
                <div className="flex flex-wrap gap-4 items-end">
                   <div className="flex-1 min-w-[150px]">
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Seleccionar Mes/Año</label>
@@ -2658,7 +2681,7 @@ export default function DashboardPage() {
                     <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" placeholder="03-2026" />
                   </div>
                   <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors uppercase text-xs h-[38px] shadow-sm">
-                    {syncingMes ? "Sincronizando..." : "Sincronizar Mes Histórico"}
+                    {syncingMes ? "Sincronizando..." : "Descargar Mes Histórico"}
                   </button>
                </div>
                <p className="text-[10px] text-gray-500 mt-2 italic font-black uppercase tracking-tighter">Útil para recuperar datos de meses anteriores cerrados en el portal.</p>
@@ -2677,11 +2700,28 @@ export default function DashboardPage() {
                         <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleDateString()}</div>
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-2">
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_recibos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>RECIBOS</div>
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_gastos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>GASTOS</div>
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_egresos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>EGRESOS</div>
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.detalles?.sync_balance ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>BALANCE</div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_recibos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
+                          <span>RECIBOS</span>
+                          {s.detalles?.sync_recibos && <span className="ml-1 opacity-70">({s.detalles?.stats?.recibos || 0})</span>}
+                        </div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_gastos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
+                          <span>GASTOS</span>
+                          {s.detalles?.sync_gastos && <span className="ml-1 opacity-70">({s.detalles?.stats?.gastos || 0})</span>}
+                        </div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_egresos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
+                          <span>EGRESOS</span>
+                          {s.detalles?.sync_egresos && <span className="ml-1 opacity-70">({s.detalles?.stats?.egresos || 0})</span>}
+                        </div>
+                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_balance ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
+                          <span>BALANCE</span>
+                          {s.detalles?.sync_balance && <span className="ml-1 opacity-70">OK</span>}
+                        </div>
                       </div>
+                      {s.detalles?.stats?.recibo_total > 0 && (
+                        <div className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded mb-1">
+                          TOTAL RECIBO: Bs. {formatBs(s.detalles.stats.recibo_total)}
+                        </div>
+                      )}
                       <div className="text-[10px] text-gray-600 line-clamp-1 italic">{s.error}</div>
                     </div>
                   ))}
