@@ -142,7 +142,7 @@ export async function GET(request: Request) {
 
     const { data: balances } = await supabase
       .from("balances")
-      .select("mes, fecha, saldo_disponible, cobranza_mes, gastos_facturados, fondo_reserva, total_por_cobrar, fondo_prestaciones, fondo_trabajos_varios, fondo_intereses, fondo_diferencial_cambiario, saldo_anterior")
+      .select("mes, fecha, saldo_disponible, cobranza_mes, gastos_facturados, fondo_reserva, total_por_cobrar, fondo_prestaciones, fondo_trabajos_varios, fondo_intereses, fondo_diferencial_cambiario, saldo_anterior, recibos_mes")
       .eq("edificio_id", edificioId)
       .order("mes", { ascending: true });
 

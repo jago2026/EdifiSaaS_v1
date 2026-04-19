@@ -47,9 +47,78 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: data || [] });
     }
 
+    if (action === "evolucion_recurrentes") {
+      // Obtener detalles de recibos filtrando solo por códigos activos en gastos_recurrentes
+      const { data: recurrentes } = await supabase
+        .from("gastos_recurrentes")
+        .select("codigo, descripcion, categoria")
+        .eq("edificio_id", edificioId)
+        .eq("activo", true);
+      
+      if (!recurrentes || recurrentes.length === 0) {
+        return NextResponse.json({ data: [] });
+      }
+
+      const codigos = recurrentes.map((r: any) => r.codigo);
+
+      const { data: detalles, error } = await supabase
+        .from("recibos_detalle")
+        .select("mes, codigo, descripcion, monto, cuota_parte")
+        .eq("edificio_id", edificioId)
+        .in("codigo", codigos)
+        .order("mes", { ascending: true });
+
+      if (error) throw error;
+
+      // Agrupar por mes y categoría
+      const mapRecurrente = new Map();
+      recurrentes.forEach((r: any) => mapRecurrente.set(r.codigo, r.categoria));
+
+      const evolucion: any = {};
+      (detalles || []).forEach((d: any) => {
+        if (!evolucion[d.mes]) evolucion[d.mes] = { mes: d.mes, total: 0, categorias: {} };
+        const cat = mapRecurrente.get(d.codigo) || 'otros';
+        if (!evolucion[d.mes].categorias[cat]) evolucion[d.mes].categorias[cat] = 0;
+        
+        evolucion[d.mes].total += Number(d.monto);
+        evolucion[d.mes].categorias[cat] += Number(d.monto);
+      });
+
+      return NextResponse.json({ data: Object.values(evolucion) });
+    }
+
     return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   } catch (error: any) {
     console.error("Informes API error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { action, edificioId, data } = body;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    if (action === "update_recurrentes") {
+      // data: { codigo, activo, categoria }
+      const { error } = await supabase
+        .from("gastos_recurrentes")
+        .upsert({
+          edificio_id: edificioId,
+          codigo: data.codigo,
+          descripcion: data.descripcion,
+          activo: data.activo,
+          categoria: data.categoria
+        }, { onConflict: 'edificio_id,codigo' });
+
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
+  } catch (error: any) {
+    console.error("Informes API POST error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

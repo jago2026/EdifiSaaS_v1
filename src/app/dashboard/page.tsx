@@ -229,6 +229,7 @@ export default function DashboardPage() {
   const [loadingInforme, setLoadingInforme] = useState(false);
   const [gastosRecurrentes, setGastosRecurrentes] = useState<any[]>([]);
   const [loadingGastosRecurrentes, setLoadingGastosRecurrentes] = useState(false);
+  const [evolucionRecurrentes, setEvolucionRecurrentes] = useState<any[]>([]);
 
   const loadInforme = async () => {
     if (!building?.id || !informeFecha) return;
@@ -260,6 +261,38 @@ export default function DashboardPage() {
       console.error("Error loading gastos recurrentes:", error);
     } finally {
       setLoadingGastosRecurrentes(false);
+    }
+  };
+
+  const loadEvolucionRecurrentes = async () => {
+    if (!building?.id) return;
+    try {
+      const res = await fetch(`/api/informes?action=evolucion_recurrentes&edificioId=${building.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setEvolucionRecurrentes(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error loading evolution:", error);
+    }
+  };
+
+  const updateRecurrente = async (codigo: string, descripcion: string, activo: boolean, categoria: string) => {
+    if (!building?.id) return;
+    try {
+      await fetch("/api/informes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_recurrentes",
+          edificioId: building.id,
+          data: { codigo, descripcion, activo, categoria }
+        })
+      });
+      loadGastosRecurrentes();
+      loadEvolucionRecurrentes();
+    } catch (error) {
+      console.error("Error updating recurrente:", error);
     }
   };
   const [editConfig, setEditConfig] = useState({
@@ -2253,11 +2286,17 @@ export default function DashboardPage() {
 
               {loadingInforme ? (
                 <p className="text-gray-500 text-center py-8">Cargando datos...</p>
-              ) : informeData === "not_found" ? (
-                <p className="text-gray-500 text-center py-8 border border-dashed rounded-lg">No hay datos registrados de sincronización para esta fecha.</p>
-              ) : informeData ? (
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                  <h3 className="font-bold text-gray-800 mb-4 border-b pb-2">Resumen Financiero al: {informeFecha.split('-').reverse().join('/')}</h3>
+              ) : (informeData === "not_found" || !informeData) ? (
+                <div className="text-center py-8 border border-dashed rounded-lg bg-gray-50">
+                  <p className="text-gray-500 font-medium">No hay datos registrados en Control Diario para esta fecha.</p>
+                  <p className="text-[10px] text-gray-400 mt-1">Los datos se generan autom&aacute;ticamente al realizar una sincronizaci&oacute;n exitosa.</p>
+                </div>
+              ) : (
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-inner">
+                  <h3 className="font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between">
+                    <span>Resumen Financiero al: {informeFecha.split('-').reverse().join('/')}</span>
+                    <span className="text-xs text-blue-600 font-black uppercase">Fotograf&iacute;a de Sincronizaci&oacute;n</span>
+                  </h3>
                   <div className="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
                     <div className="flex justify-between border-b border-gray-200 pb-1">
                       <span className="text-gray-600">Saldo Inicial Bs:</span>
@@ -2305,7 +2344,92 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-              ) : null}
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">Gesti&oacute;n de Gastos Recurrentes</h2>
+              
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Lista de Gestión */}
+                <div className="lg:col-span-1 space-y-4">
+                  <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-b pb-2">Conceptos Detectados</h3>
+                  <div className="overflow-y-auto max-h-[500px] pr-2 space-y-2">
+                    {gastosRecurrentes.map((g: any, i: number) => (
+                      <div key={i} className={`p-3 rounded-lg border transition-all ${g.activo ? 'bg-white border-blue-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
+                        <div className="flex justify-between items-start mb-2">
+                          <span className="text-[10px] font-mono font-black text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{g.codigo}</span>
+                          <input 
+                            type="checkbox" 
+                            checked={g.activo} 
+                            onChange={(e) => updateRecurrente(g.codigo, g.descripcion, e.target.checked, g.categoria || 'otros')}
+                            className="w-4 h-4 text-blue-600 rounded"
+                          />
+                        </div>
+                        <p className="text-xs font-bold text-gray-800 leading-tight mb-3">{g.descripcion}</p>
+                        <select
+                          value={g.categoria || 'otros'}
+                          onChange={(e) => updateRecurrente(g.codigo, g.descripcion, g.activo, e.target.value)}
+                          className="w-full px-2 py-1 text-[10px] border border-gray-200 rounded-md bg-white font-bold uppercase text-blue-600"
+                        >
+                          <option value="servicios">Servicios P&uacute;blicos</option>
+                          <option value="seguridad">Vigilancia y Seguridad</option>
+                          <option value="mantenimiento">Mantenimientos Contratados</option>
+                          <option value="otros">Otros Gastos</option>
+                        </select>
+                      </div>
+                    ))}
+                    {gastosRecurrentes.length === 0 && <p className="text-xs text-gray-400 italic text-center py-4">Realiza una sincronizaci&oacute;n para detectar conceptos.</p>}
+                  </div>
+                </div>
+
+                {/* Evolución y Gráficos */}
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Evoluci&oacute;n de Gastos Recurrentes</h3>
+                    <button onClick={loadEvolucionRecurrentes} className="text-xs text-blue-600 font-bold hover:underline">Refrescar Gr&aacute;ficos</button>
+                  </div>
+                  
+                  {evolucionRecurrentes.length === 0 ? (
+                    <div className="bg-gray-50 rounded-xl p-8 text-center border-2 border-dashed border-gray-200">
+                      <p className="text-sm text-gray-500 font-medium">No hay datos históricos para los conceptos marcados como activos.</p>
+                      <p className="text-[10px] text-gray-400 mt-1 italic">Marca los gastos que quieres monitorear en la lista de la izquierda.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-8">
+                      <div className="bg-gray-50 p-4 rounded-xl">
+                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4 text-center">Inversi&oacute;n Mensual por Categor&iacute;a (Bs.)</h4>
+                        <ResponsiveContainer width="100%" height={300}>
+                          <BarChart data={evolucionRecurrentes} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="mes" tick={{fontSize: 10}} />
+                            <YAxis tick={{fontSize: 10}} />
+                            <Tooltip formatter={(value: any) => `Bs. ${formatBs(value as number)}`} />
+                            <Legend wrapperStyle={{fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase'}} />
+                            <Bar dataKey="categorias.servicios" name="Servicios" stackId="a" fill="#3b82f6" />
+                            <Bar dataKey="categorias.seguridad" name="Seguridad" stackId="a" fill="#10b981" />
+                            <Bar dataKey="categorias.mantenimiento" name="Mantenimiento" stackId="a" fill="#f59e0b" />
+                            <Bar dataKey="categorias.otros" name="Otros" stackId="a" fill="#94a3b8" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-xl">
+                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4 text-center">Tendencia de Gasto Recurrente Total (Bs.)</h4>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <LineChart data={evolucionRecurrentes} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="mes" tick={{fontSize: 10}} />
+                            <YAxis tick={{fontSize: 10}} />
+                            <Tooltip formatter={(value: any) => `Bs. ${formatBs(value as number)}`} />
+                            <Line type="monotone" dataKey="total" stroke="#ef4444" strokeWidth={3} name="Total Recurrente" dot={{ r: 4 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
@@ -2314,39 +2438,6 @@ export default function DashboardPage() {
               <button disabled className="px-4 py-2 bg-gray-200 text-gray-500 rounded-lg font-bold text-sm cursor-not-allowed">
                 Generar Estado de Flujo
               </button>
-            </div>
-            
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Cat&aacute;logo de Gastos Recurrentes Detectados</h2>
-              {loadingGastosRecurrentes ? (
-                <p className="text-gray-500 text-center py-8">Cargando gastos recurrentes...</p>
-              ) : gastosRecurrentes.length === 0 ? (
-                <p className="text-gray-500 text-center py-8 border border-dashed rounded-lg">No hay gastos recurrentes registrados a&uacute;n.</p>
-              ) : (
-                <div className="overflow-x-auto max-h-96">
-                  <table className="w-full text-sm text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200 sticky top-0">
-                        <th className="py-2 px-4 font-bold text-gray-600">C&oacute;digo</th>
-                        <th className="py-2 px-4 font-bold text-gray-600">Descripci&oacute;n del Gasto</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {gastosRecurrentes.map((g: any, i: number) => (
-                        <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-2 px-4 text-gray-600 font-mono">{g.codigo}</td>
-                          <td className="py-2 px-4 text-gray-800">{g.descripcion}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Otros Informes</h2>
-              <p className="text-sm text-gray-500 mb-4">Pr&oacute;ximamente: Obtener Informe Financiero, Generar Recibo del Pr&oacute;ximo Mes, Estimaci&oacute;n de Ingresos.</p>
             </div>
           </div>
         )}
@@ -2705,11 +2796,11 @@ export default function DashboardPage() {
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Detalle de Datos Sincronizados Off-line</h3>
-              {sincronizaciones.filter(s => s.tipo === 'sync_historica' || s.tipo === 'sync_diaria').length === 0 ? (
+              {sincronizaciones.filter(s => s.estado === 'completado').length === 0 ? (
                 <p className="text-sm text-gray-500 italic">No hay registros detallados de sincronización.</p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sincronizaciones.filter(s => s.estado === 'completado').slice(0, 12).map((s, idx) => (
+                  {sincronizaciones.filter(s => s.estado === 'completado').slice(0, 18).map((s, idx) => (
                     <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
                       <div className="flex justify-between items-start mb-2">
                         <div className="text-xs font-black text-indigo-600 uppercase">{s.detalles?.mes || 'Actual'}</div>
@@ -2733,9 +2824,9 @@ export default function DashboardPage() {
                           {s.detalles?.sync_balance && <span className="ml-1 opacity-70">OK</span>}
                         </div>
                       </div>
-                      {s.detalles?.stats?.recibo_total > 0 && (
+                      {(s.detalles?.stats?.recibo_total > 0 || s.movimientos_nuevos > 0) && (
                         <div className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded mb-1">
-                          TOTAL RECIBO: Bs. {formatBs(s.detalles.stats.recibo_total)}
+                          {s.detalles?.stats?.recibo_total > 0 ? `TOTAL RECIBO: Bs. ${formatBs(s.detalles.stats.recibo_total)}` : `REGISTROS: ${s.movimientos_nuevos}`}
                         </div>
                       )}
                       <div className="text-[10px] text-gray-600 line-clamp-1 italic">{s.error}</div>

@@ -90,6 +90,37 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 // --- EXTRACTORES ---
 
+function parseReciboDetalle(html: string): any[] {
+  const results: any[] = [];
+  // Buscamos la tabla que tiene los gastos (C&oacute;digo, Descripci&oacute;n, Monto, Cuota Parte)
+  const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch) return results;
+  
+  const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  for (const row of rows) {
+    const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+    if (!cells || cells.length < 3) continue;
+    
+    const code = cleanHtml(cells[0]);
+    const desc = cleanHtml(cells[1]);
+    const monto = parseMonto(cleanHtml(cells[2]));
+    const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
+    
+    // Saltamos filas de totales o vacías
+    if (!code || code === "&nbsp;" || code.trim() === "") continue;
+    if (desc.toUpperCase().includes("TOTAL")) continue;
+    if (code.length > 10) continue; // Probablemente no es un código
+
+    results.push({
+      codigo: code,
+      descripcion: desc,
+      monto: monto,
+      cuota_parte: cuotaParte
+    });
+  }
+  return results;
+}
+
 function parseReceiptMonthlySummary(html: string): number {
   if (!html) return 0;
   // Buscamos el monto total en la tabla de r=4. 
@@ -332,6 +363,7 @@ export async function POST(request: Request) {
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
+    const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
 
     if (doSyncRecibos && allRecibos.length > 0) {
       // Eliminar registros previos para este edificio y este mes específico para evitar duplicados
@@ -347,6 +379,25 @@ export async function POST(request: Request) {
         actualizado_en: today,
         mes: mesEstandar
       })));
+    }
+
+    if (doSyncRecibos && detailedReceiptItems.length > 0) {
+      // Guardar detalle de gastos del recibo para recurrentes
+      // Usamos una unidad genérica 'EDIFICIO' para el detalle general si no hay unidad específica
+      // O simplemente guardamos los ítems vinculados al edificio y mes.
+      const itemsToSave = detailedReceiptItems.map(item => ({
+        edificio_id: building.id,
+        unidad: 'GENERAL',
+        propietario: 'EDIFICIO',
+        mes: mesEstandar,
+        codigo: item.codigo,
+        descripcion: item.descripcion,
+        monto: item.monto,
+        cuota_parte: item.cuota_parte,
+        tipo: 'gasto_comun'
+      }));
+
+      await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo' });
     }
 
     if (doSyncAlicuotas && allAlicuotas.length > 0) {
