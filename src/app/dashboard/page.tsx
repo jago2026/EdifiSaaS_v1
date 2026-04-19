@@ -3515,7 +3515,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <p className="text-[10px] text-gray-400 mt-4 italic font-bold uppercase tracking-tighter">
-                Nota: El envío automático utiliza los emails configurados en la pestaña "Junta". Si hay un error, se notificará a correojago@gmail.com.
+                Nota: El envío automático utiliza los emails configurados en la pestaña &quot;Junta&quot;. Si hay un error, se notificará a correojago@gmail.com.
               </p>
             </div>
 
