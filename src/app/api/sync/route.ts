@@ -370,6 +370,9 @@ export async function POST(request: Request) {
       comboValue = `${lastDay}-${mm}-${yyyy}`;
     }
     const comboParam = mes ? `&combo=${comboValue}` : "";
+    
+    console.log(`[Sync] mes=${mes}, comboValue=${comboValue}, comboParam=${comboParam}`);
+    console.log(`[Sync] Balance URL = ${baseUrl}/condlin.php?r=2${comboParam}`);
 
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
