@@ -241,60 +241,58 @@ function parseBalanceFull(html: string): any {
     return null;
   }
   
-  // Limpiar HTML pero mantener estructura de tabelas
-  const cleanHtml2 = (text: string): string => {
-    if (!text) return "";
-    return text.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
-  };
+  // Simple approach: look for numbers after specific keywords in the HTML
+  const keywords: { key: string; terms: string[] }[] = [
+    { key: 'saldo_anterior', terms: ['SALDO DE CAJA MES ANTERIOR', 'SALDO ANTERIOR'] },
+    { key: 'cobranza_mes', terms: ['COBRANZA DEL MES'] },
+    { key: 'gastos_facturados', terms: ['GASTOS FACTURADOS'] },
+    { key: 'saldo_disponible', terms: ['SALDO ACTUAL DISPONIBLE', 'DISPONIBLE EN CAJA'] },
+    { key: 'recibos_mes', terms: ['RECIBOS DE CONDOMINIOS'] },
+    { key: 'total_por_cobrar', terms: ['TOTAL CONDOMINIOS POR COBRAR'] },
+    { key: 'fondo_reserva', terms: ['FONDO DE RESERVA'] },
+    { key: 'fondo_prestaciones', terms: ['PRESTACIONES SOCIALES'] },
+    { key: 'fondo_trabajos_varios', terms: ['TRABAJOS VARIOS'] },
+    { key: 'fondo_intereses', terms: ['INTERESES MORATORIOS'] },
+    { key: 'fondo_diferencial_cambiario', terms: ['DIFERENCIAL CAMBIARIO'] },
+  ];
   
-  // Buscar patrones: Description followed by value
-  // Pattern: keyword in one place, number in another nearby
-  const extractByPattern = (htmlText: string, keywords: { key: string; terms: string[] }[]): void => {
-    const text = cleanHtml2(htmlText).toUpperCase();
-    const lines = text.split(/[\n\r]+/);
+  const text = html.toUpperCase();
+  
+  for (const { key, terms } of keywords) {
+    if (balance[key] !== undefined && balance[key] !== 0) continue;
     
-    for (const { key, terms } of keywords) {
-      if (balance[key] !== undefined && balance[key] !== 0) continue;
+    for (const term of terms) {
+      const idx = text.indexOf(term);
+      if (idx === -1) continue;
       
-      for (const term of terms) {
-        // Buscar la línea que contiene la palabra clave
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
-          if (line.includes(term.toUpperCase())) {
-            // Buscar número en líneas cercanas (anterior, actual, o siguiente)
-            for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + 2); j++) {
-              const val = parseMonto(lines[j]);
-              if (Math.abs(val) > 0.01) {
-                balance[key] = val;
-                console.log(`[Balance] ${key}: ${val} (near '${term}')`);
-                break;
-              }
-            }
-            if (balance[key] !== undefined && balance[key] !== 0) break;
-          }
+      // Look for number in the next 200 characters
+      const nextText = text.substring(idx, idx + 200);
+      const numbers = nextText.match(/[\d.]+,\d{2}/g);
+      if (numbers && numbers.length > 0) {
+        const val = parseMonto(numbers[0]);
+        if (Math.abs(val) > 0.01) {
+          balance[key] = val;
+          console.log(`[Balance] Found ${key}: ${val}`);
+          break;
         }
-        if (balance[key] !== undefined && balance[key] !== 0) break;
       }
     }
-  };
+  }
   
-  // Extraer usando patrones de palabras clave en el HTML completo
-  extractByPattern(html, [
-    { key: 'saldo_anterior', terms: ['SALDO DE CAJA MES ANTERIOR', 'SALDO ANTERIOR'] },
-    { key: 'cobranza_mes', terms: ['COBRANZA DEL MES', 'TOTAL COBRADO', 'INGRESOS DEL MES'] },
-    { key: 'gastos_facturados', terms: ['GASTOS FACTURADOS EN EL MES', 'GASTOS FACTURADOS', 'TOTAL GASTOS', 'GASTOS EN EL MES'] },
-    { key: 'saldo_disponible', terms: ['SALDO ACTUAL DISPONIBLE', 'SALDO DISPONIBLE EN CAJA', 'DISPONIBLE EN CAJA'] },
-    { key: 'recibos_mes', terms: ['RECIBOS DE CONDOMINIOS DEL MES', 'RECIBOS DEL MES'] },
-    { key: 'condominios_atrasados', terms: ['CONDOMINIOS ATRASADOS'] },
-    { key: 'condominios_sobrantes', terms: ['CONDOMINIOS SOBRANTES', 'CONDOMINIOS ADELANTADOS'] },
-    { key: 'total_por_cobrar', terms: ['TOTAL CONDOMINIOS POR COBRAR'] },
-    { key: 'fondo_reserva', terms: ['SALDO FONDO DE RESERVA', 'SALDO RESERVA'] },
-    { key: 'fondo_prestaciones', terms: ['SALDO FONDO DE PRESTACIONES'] },
-    { key: 'fondo_trabajos_varios', terms: ['SALDO FONDO TRABAJOS'] },
-    { key: 'fondo_intereses', terms: ['SALDO FONDO INTERESES'] },
-    { key: 'fondo_diferencial_cambiario', terms: ['SALDO FONDO DIFERENCIAL'] },
-    { key: 'ajuste_alicuota', terms: ['AJUSTE DIFERENCIA', 'SALDO AJUSTE'] }
-  ]);
+  // If we still have nothing, look for ANY large numbers in the HTML
+  if (Object.values(balance).every((v: any) => !v)) {
+    console.log("[Balance] Trying fallback - looking for any numbers");
+    const allNumbers = text.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g);
+    if (allNumbers && allNumbers.length > 0) {
+      // Try to find the largest numbers which might be totals
+      const largeNums = allNumbers.map(n => parseMonto(n)).filter(n => n > 10000).sort((a, b) => b - a);
+      if (largeNums.length > 0) {
+        balance.saldo_disponible = largeNums[0];
+        balance.total_por_cobrar = largeNums[1] || largeNums[0];
+        console.log(`[Balance] Fallback found large numbers: ${largeNums[0]}, ${largeNums[1]}`);
+      }
+    }
+  }
   
   // Calcular total_por_cobrar si no se encontró directamente pero tenemos los componentes
   if (!balance.total_por_cobrar || balance.total_por_cobrar === 0) {
