@@ -1150,6 +1150,7 @@ export default function DashboardPage() {
         loadMovements();
         loadEgresos();
         loadRecibos();
+        loadReciboGeneral();
         loadSincronizaciones();
         loadBalance();
         loadAlicuotas();
