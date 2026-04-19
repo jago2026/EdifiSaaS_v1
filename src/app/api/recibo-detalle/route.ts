@@ -19,38 +19,41 @@ export async function GET(request: NextRequest) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
+    // Si no hay mes especificado, obtener el mes más reciente
+    let targetMes = mes;
+    
+    if (!targetMes || targetMes === "") {
+      console.log("[RECIBO-DETALLE] No mes specified, fetching most recent month");
+      const recentQuery = supabase
+        .from("recibos_detalle")
+        .select("mes")
+        .eq("edificio_id", edificioId)
+        .eq("unidad", "GENERAL")
+        .order("mes", { ascending: false })
+        .limit(1);
+      const { data: recentData } = await recentQuery;
+      if (recentData && recentData.length > 0) {
+        targetMes = recentData[0].mes;
+        console.log("[RECIBO-DETALLE] Using most recent month:", targetMes);
+      }
+    }
+    
     let query = supabase
       .from("recibos_detalle")
       .select("*")
-      .eq("edificio_id", edificioId)
-      .order("codigo");
+      .eq("edificio_id", edificioId);
 
-    if (mes) {
-      query = query.eq("mes", mes);
+    if (targetMes) {
+      query = query.eq("mes", targetMes);
     }
 
     if (unidad) {
       query = query.eq("unidad", unidad);
     }
 
-    let { data: detalles, error } = await query;
+    query = query.order("codigo");
 
-    // Si no hay mes especificado (null o vacío) y unidad es GENERAL, obtener el mes más reciente
-    if (!error && (!detalles || detalles.length === 0) && (!mes || mes === "") && unidad === "GENERAL") {
-      console.log("[RECIBO-DETALLE] No data found, fetching most recent month");
-      const fallbackQuery = supabase
-        .from("recibos_detalle")
-        .select("*")
-        .eq("edificio_id", edificioId)
-        .eq("unidad", "GENERAL")
-        .order("mes", { ascending: false })
-        .limit(1);
-      const { data: fallback, error: fallbackError } = await fallbackQuery;
-      console.log("[RECIBO-DETALLE] Fallback result:", fallback?.length, "items");
-      if (!fallbackError && fallback && fallback.length > 0) {
-        detalles = fallback;
-      }
-    }
+    let { data: detalles, error } = await query;
 
     if (error) {
       console.error("Supabase error in recibo-detalle:", error);
