@@ -254,7 +254,12 @@ function parseBalanceFull(html: string): any {
     
   const text = rawText.toUpperCase();
   
-  console.log(`Balance Text Clean (primeros 1000 chars): ${text.substring(0, 1000)}`);
+  // Debug: show full cleaned text to find balance data
+  console.log(`Balance Text Clean (primeros 1500 chars): ${text.substring(0, 1500)}`);
+  console.log(`[Balance] Looking for: SALDO DE CAJA MES ANTERIOR at pos: ${text.indexOf('SALDO DE CAJA MES ANTERIOR')}`);
+  console.log(`[Balance] Looking for: COBRANZA DEL MES at pos: ${text.indexOf('COBRANZA DEL MES')}`);
+  console.log(`[Balance] Looking for: GASTOS FACTURADOS at pos: ${text.indexOf('GASTOS FACTURADOS')}`);
+  console.log(`[Balance] Looking for: SALDO ACTUAL at pos: ${text.indexOf('SALDO ACTUAL')}`);
   
   // 3. FUNCIÓN DE EXTRACCIÓN POR PROXIMIDAD (Busca el primer número real después de la etiqueta)
   const extractVal = (keywords: string[]) => {
