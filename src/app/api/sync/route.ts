@@ -553,7 +553,7 @@ export async function POST(request: Request) {
       const diaStr = dias[new Date(today).getDay()];
       const { data: recs } = await supabase.from("recibos").select("deuda").eq("edificio_id", building.id).gt("deuda", 0);
       const recPendientes = recs?.length || 0;
-      const bal = balance || {};
+      const bal: any = balance || {};
       const dispTotalBs = Number(bal.saldo_disponible || 0) + Number(bal.fondo_reserva || 0);
 
       await supabase.from("control_diario").upsert({
