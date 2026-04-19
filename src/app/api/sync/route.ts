@@ -288,11 +288,16 @@ function parseBalanceFull(html: string): any {
     for (const kw of keywords) {
       const idx = text.indexOf(kw);
       if (idx !== -1) {
-        // Buscar número en los siguientes 80 caracteres
-        const subs = text.substring(idx + kw.length, idx + kw.length + 80);
+        // Buscar número en los siguientes 100 caracteres (incluye negativo)
+        const subs = text.substring(idx + kw.length, idx + kw.length + 100);
+        // Captura número con signo negativo opcional
         const match = subs.match(/(-?[\d.,]+)/);
         if (match) {
           let val = parseMonto(match[1]);
+          // Si el texto tiene signo negativo explícito, invertir valor
+          if (subs.includes('-') && !match[1].startsWith('-')) {
+            val = -Math.abs(val);
+          }
           if (isNegative && val > 0) val = -val;
           return val;
         }
