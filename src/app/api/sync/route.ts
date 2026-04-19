@@ -239,72 +239,38 @@ function parseAlicuotasTable(html: string): any[] {
 
 function parseBalanceFull(html: string): any {
   const balance: any = {};
-  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
   
-  let found = false;
-  for (const t of allTables) {
-    const tableText = cleanHtml(t).toUpperCase();
-    // Búsqueda más flexible de palabras clave
-    const hasSaldo = tableText.includes("SALDO") || tableText.includes("CAJA");
-    const hasReserva = tableText.includes("RESERVA") || tableText.includes("FONDO");
-    const hasCobrar = tableText.includes("COBRAR") || tableText.includes("RECIBOS");
-    
-    if (!hasSaldo && !hasReserva && !hasCobrar) continue;
-    
-    const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-    for (const row of rows) {
-      const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-      if (!cells || cells.length < 2) continue;
-      
-      const desc = cleanHtml(cells[0]).toUpperCase().replace(/\s+/g, ' ');
-      const valCell1 = cleanHtml(cells[1]);
-      
-      if (valCell1.includes('---')) continue;
-      
-      const val = parseMonto(valCell1);
-      const saldo = cells.length >= 3 ? parseMonto(cleanHtml(cells[2])) : 0;
-      const hasSaldoValue = cells.length >= 3 && cleanHtml(cells[2]).replace(/[\s,.-]/g, '') !== '';
+  // Limpiar HTML para búsqueda global
+  const text = cleanHtml(html).toUpperCase().replace(/\s+/g, ' ');
+  
+  // Función auxiliar para extraer montos siguiendo una etiqueta
+  const extractAfter = (label: string) => {
+    const idx = text.indexOf(label);
+    if (idx === -1) return null;
+    const sub = text.substring(idx + label.length, idx + label.length + 50);
+    const match = sub.match(/[\d,.]+/);
+    return match ? parseMonto(match[0]) : null;
+  };
 
-      if (desc.includes("SALDO DE CAJA MES ANTERIOR") || desc.includes("SALDO ANTERIOR")) {
-        balance.saldo_anterior = val;
-        found = true;
-      } else if (desc.includes("COBRANZA DEL MES") || desc.includes("TOTAL COBRADO")) {
-        balance.cobranza_mes = val;
-        found = true;
-      } else if (desc.includes("GASTOS FACTURADOS") || desc.includes("TOTAL GASTOS")) {
-        balance.gastos_facturados = val;
-        found = true;
-      } else if (desc.includes("PAGO A TIEMPO") || desc.includes("DESC/DIF/CAMB")) {
-        balance.ajuste_pago_tiempo = val;
-        found = true;
-      } else if (desc.includes("ACTUAL DISPONIBLE") || desc.includes("SALDO EN CAJA")) {
-        balance.saldo_disponible = hasSaldoValue ? saldo : val;
-        found = true;
-      } else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES") || desc.includes("EMISION DEL MES")) {
-        balance.recibos_mes = val;
-        found = true;
-      } else if (desc.includes("CONDOMINIOS ATRASADOS")) {
-        balance.condominios_atrasados = val;
-        found = true;
-      } else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR") || desc.includes("TOTAL POR COBRAR")) {
-        balance.total_por_cobrar = hasSaldoValue ? saldo : val;
-        found = true;
-      } else if (desc.includes("FONDO DE RESERVA")) {
-        if (desc.includes("MES ANTERIOR")) balance.fondo_reserva_mes_anterior = val;
-        else if (desc.includes("SALDO")) balance.fondo_reserva = hasSaldoValue ? saldo : val;
-        found = true;
-      } else if (desc.includes("INTERESES MORATORIOS")) {
-        if (desc.includes("MES ANTERIOR")) balance.fondo_intereses_mes_anterior = val;
-        else if (desc.includes("SALDO")) balance.fondo_intereses = hasSaldoValue ? saldo : val;
-        found = true;
-      } else if (desc.includes("DIFERENCIAL CAMBIARIO")) {
-        if (desc.includes("MES ANTERIOR")) balance.fondo_diferencial_mes_anterior = val;
-        else if (desc.includes("SALDO")) balance.fondo_diferencial_cambiario = hasSaldoValue ? saldo : val;
-        found = true;
-      }
-    }
+  // Intentar extracción por palabras clave globales si la tabla falla
+  balance.saldo_anterior = extractAfter("SALDO DE CAJA MES ANTERIOR") || extractAfter("SALDO ANTERIOR");
+  balance.cobranza_mes = extractAfter("COBRANZA DEL MES") || extractAfter("TOTAL COBRADO") || extractAfter("INGRESOS DEL MES");
+  balance.gastos_facturados = extractAfter("GASTOS FACTURADOS EN EL MES") || extractAfter("TOTAL GASTOS") || extractAfter("EGRESOS DEL MES");
+  balance.saldo_disponible = extractAfter("SALDO ACTUAL DISPONIBLE EN CAJA") || extractAfter("SALDO DISPONIBLE") || extractAfter("SALDO EN CAJA");
+  balance.recibos_mes = extractAfter("RECIBOS DE CONDOMINIOS DEL MES") || extractAfter("EMISION DEL MES");
+  balance.total_por_cobrar = extractAfter("TOTAL CONDOMINIOS POR COBRAR") || extractAfter("TOTAL POR COBRAR");
+  balance.fondo_reserva = extractAfter("SALDO FONDO DE RESERVA") || extractAfter("FONDO DE RESERVA SALDO");
+
+  // Validar si encontramos algo
+  const found = Object.values(balance).some(v => v !== null && v !== 0);
+  
+  if (found) {
+    // Rellenar nulos con 0 para evitar errores en BD
+    for (const key in balance) { if (balance[key] === null) balance[key] = 0; }
+    return balance;
   }
-  return found ? balance : null;
+
+  return null;
 }
 
 async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {

@@ -233,6 +233,7 @@ export default function DashboardPage() {
   const loadReciboGeneral = async () => {
     if (!building?.id) return;
     setLoadingReciboGeneral(true);
+    setReciboGeneral([]); // Limpiar estado previo
     try {
       const mes = selectedMesRecibos || "";
       const url = `/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`;
@@ -525,6 +526,7 @@ export default function DashboardPage() {
   const loadRecibos = async () => {
     if (!building?.id) return;
     setLoadingRecibos(true);
+    setRecibos([]); // Limpiar estado previo
     try {
       const url = new URL(`/api/recibos`, window.location.origin);
       url.searchParams.append("edificioId", building.id);
@@ -902,6 +904,7 @@ export default function DashboardPage() {
   const loadEgresos = async () => {
     if (!building?.id) return;
     setLoadingEgresos(true);
+    setEgresos([]); // Limpiar estado previo
     try {
       const url = new URL(`/api/egresos`, window.location.origin);
       url.searchParams.append("edificioId", building.id);
@@ -925,6 +928,7 @@ export default function DashboardPage() {
   const loadGastos = async () => {
     if (!building?.id) return;
     setLoadingGastos(true);
+    setGastos([]); // Limpiar estado previo
     try {
       const url = new URL(`/api/gastos`, window.location.origin);
       url.searchParams.append("edificioId", building.id);

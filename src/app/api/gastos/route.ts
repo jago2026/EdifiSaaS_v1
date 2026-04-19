@@ -53,6 +53,16 @@ export async function GET(request: Request) {
       throw error;
     }
 
+    // ELIMINAR DUPLICADOS (Evitar ver filas repetidas en la tabla)
+    const uniqueGastosMap = new Map();
+    (gastos || []).forEach((g: any) => {
+      const key = `${g.fecha}-${g.codigo}-${g.monto}`;
+      if (!uniqueGastosMap.has(key)) {
+        uniqueGastosMap.set(key, g);
+      }
+    });
+    const uniqueGastos = Array.from(uniqueGastosMap.values());
+
     // Obtener meses disponibles
     const { data: mesesData } = await supabase.from("gastos")
       .select("mes")
@@ -61,7 +71,7 @@ export async function GET(request: Request) {
     const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
 
     const gastosConUSD = await Promise.all(
-      (gastos || []).map(async (gasto) => {
+      uniqueGastos.map(async (gasto: any) => {
         const tasa = await getTasaForFecha(gasto.fecha);
         return {
           ...gasto,

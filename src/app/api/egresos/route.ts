@@ -53,6 +53,15 @@ export async function GET(request: Request) {
       throw error;
     }
 
+    // ELIMINAR DUPLICADOS POR HASH (Importante para evitar ver filas repetidas)
+    const uniqueEgresosMap = new Map();
+    (egresos || []).forEach((e: any) => {
+      if (!uniqueEgresosMap.has(e.hash)) {
+        uniqueEgresosMap.set(e.hash, e);
+      }
+    });
+    const uniqueEgresos = Array.from(uniqueEgresosMap.values());
+
     // Obtener meses disponibles
     const { data: mesesData } = await supabase.from("egresos")
       .select("mes")
@@ -61,7 +70,7 @@ export async function GET(request: Request) {
     const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
 
     const egresosConUSD = await Promise.all(
-      (egresos || []).map(async (egreso: any) => {
+      uniqueEgresos.map(async (egreso: any) => {
         const tasa = await getTasaForFecha(egreso.fecha);
         // Mark totals by checking for special hash or date
         const isTotal = egreso.hash === "TOTAL-EGRESOS" || egreso.fecha === "2099-12-31";

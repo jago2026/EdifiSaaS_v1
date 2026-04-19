@@ -35,6 +35,16 @@ export async function GET(request: Request) {
       throw error;
     }
 
+    // ELIMINAR DUPLICADOS (Asegurar una fila por unidad y mes)
+    const uniqueRecibosMap = new Map();
+    (recibos || []).forEach((r: any) => {
+      const key = `${r.unidad}-${r.mes}`;
+      if (!uniqueRecibosMap.has(key)) {
+        uniqueRecibosMap.set(key, r);
+      }
+    });
+    const uniqueRecibos = Array.from(uniqueRecibosMap.values());
+
     // Obtener meses disponibles
     const { data: mesesData } = await supabase.from("recibos")
       .select("mes")
@@ -42,7 +52,7 @@ export async function GET(request: Request) {
       .order("mes", { ascending: false });
     const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
 
-    return NextResponse.json({ recibos: recibos || [], mesesDisponibles });
+    return NextResponse.json({ recibos: uniqueRecibos, mesesDisponibles });
   } catch (error: any) {
     console.error("Recibos error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
