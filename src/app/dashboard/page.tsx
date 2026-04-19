@@ -227,6 +227,7 @@ export default function DashboardPage() {
   const [reciboGeneral, setReciboGeneral] = useState<any[]>([]);
   const [loadingReciboGeneral, setLoadingReciboGeneral] = useState(false);
   const [syncMes, setSyncMes] = useState("");
+  const [syncing, setSyncing] = useState(false);
 
   const loadReciboGeneral = async () => {
     if (!building?.id) return;
