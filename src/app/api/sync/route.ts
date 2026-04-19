@@ -476,19 +476,18 @@ export async function POST(request: Request) {
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
     
-    // DEBUG: show full hBal if extraction fails
+    // DEBUG: show full hBal content
     if (hBal) {
       const tables = hBal.split('<table');
       console.log(`[Balance] Total tables in hBal: ${tables.length}`);
+      console.log(`[Balance] hBal FIRST 800 chars:`, hBal.substring(0, 800));
+      console.log(`[Balance] hBal LAST 500 chars:`, hBal.substring(hBal.length - 500));
       // Search for any text containing SALDO to find where data is
       const saldoIdx = hBal.toUpperCase().indexOf('SALDO DE CAJA');
-      if (saldoIdx > 0) {
-        console.log(`[Balance] Found SALDO text at position ${saldoIdx}:`, hBal.substring(saldoIdx, saldoIdx + 300));
-      }
-      // Table 8 (the balance table)
-      if (tables[8]) {
-        console.log(`[Balance] Table 8 full:`, tables[8].substring(0, 2000));
-      }
+      console.log(`[Balance] indexOf('SALDO DE CAJA'): ${saldoIdx}`);
+      // Search for Estado de Cuenta
+      const ecIdx = hBal.toUpperCase().indexOf('ESTADO DE CUENTA');
+      console.log(`[Balance] indexOf('ESTADO DE CUENTA'): ${ecIdx}`);
     }
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
