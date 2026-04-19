@@ -304,6 +304,8 @@ function parseBalanceFull(html: string): any {
     }
   }
 
+console.log(`[Balance] Result after text extraction:`, JSON.stringify(balance));
+  
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
     // Asegurar que no haya nulos para evitar fallos en Supabase
@@ -312,6 +314,9 @@ function parseBalanceFull(html: string): any {
     return balance;
   }
 
+  // FALLBACK: Show tables HTML for debugging
+  console.log(`[Balance] All HTML with tables:`, html.substring(0, 3000));
+  console.log("No se pudo extraer balance");
   return null;
 }
 
