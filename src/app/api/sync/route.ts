@@ -235,88 +235,84 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
-  console.log("[Balance] HTML received, length:", html?.length);
-  if (!html || html.length < 100) {
-    console.log("[Balance] HTML empty or too short, returning null");
-    return null;
-  }
-  
-  // Simple approach: look for numbers after specific keywords in the HTML
-  const keywords: { key: string; terms: string[] }[] = [
-    { key: 'saldo_anterior', terms: ['SALDO DE CAJA MES ANTERIOR', 'SALDO ANTERIOR'] },
-    { key: 'cobranza_mes', terms: ['COBRANZA DEL MES'] },
-    { key: 'gastos_facturados', terms: ['GASTOS FACTURADOS'] },
-    { key: 'saldo_disponible', terms: ['SALDO ACTUAL DISPONIBLE', 'DISPONIBLE EN CAJA'] },
-    { key: 'recibos_mes', terms: ['RECIBOS DE CONDOMINIOS'] },
-    { key: 'total_por_cobrar', terms: ['TOTAL CONDOMINIOS POR COBRAR'] },
-    { key: 'fondo_reserva', terms: ['FONDO DE RESERVA'] },
-    { key: 'fondo_prestaciones', terms: ['PRESTACIONES SOCIALES'] },
-    { key: 'fondo_trabajos_varios', terms: ['TRABAJOS VARIOS'] },
-    { key: 'fondo_intereses', terms: ['INTERESES MORATORIOS'] },
-    { key: 'fondo_diferencial_cambiario', terms: ['DIFERENCIAL CAMBIARIO'] },
-  ];
-  
-  const text = html.toUpperCase();
-  
-  for (const { key, terms } of keywords) {
-    if (balance[key] !== undefined && balance[key] !== 0) continue;
+  // 1. ELIMINAR SCRIPTS, ESTILOS, CABECERAS Y NAVEGACIÓN
+  const cleanHtmlOnly = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+    .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, ' ')
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
+
+  // 2. REEMPLAZAR ENTIDADES HTML COMUNES Y LIMPIAR ETIQUETAS
+  const rawText = cleanHtmlOnly
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#8209;/g, '-')
+    .replace(/&times;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
     
-    for (const term of terms) {
-      const idx = text.indexOf(term);
-      if (idx === -1) continue;
-      
-      // Look for number in the next 200 characters
-      const nextText = text.substring(idx, idx + 200);
-      const numbers = nextText.match(/[\d.]+,\d{2}/g);
-      if (numbers && numbers.length > 0) {
-        const val = parseMonto(numbers[0]);
-        if (Math.abs(val) > 0.01) {
-          balance[key] = val;
-          console.log(`[Balance] Found ${key}: ${val}`);
-          break;
+  const text = rawText.toUpperCase();
+  
+  console.log(`Balance Text Clean (primeros 1000 chars): ${text.substring(0, 1000)}`);
+  
+  // 3. FUNCIÓN DE EXTRACCIÓN POR PROXIMIDAD (Busca el primer número real después de la etiqueta)
+  const extractVal = (keywords: string[]) => {
+    for (const kw of keywords) {
+      const idx = text.indexOf(kw.toUpperCase());
+      if (idx !== -1) {
+        // Mirar hasta 150 caracteres después de la palabra clave
+        const sub = text.substring(idx + kw.length, idx + kw.length + 150);
+        // Expresión regular para capturar números con formato Bs. (ej: 1.234,56 o 1234.56)
+        const match = sub.match(/(\d[\d,.]*)/);
+        if (match) {
+          const val = parseMonto(match[1]);
+          if (val > 0.01) return val; // Ignorar ceros técnicos
         }
       }
     }
-  }
-  
-  // If we still have nothing, look for ANY large numbers in the HTML
-  if (Object.values(balance).every((v: any) => !v)) {
-    console.log("[Balance] Trying fallback - looking for any numbers");
-    const allNumbers = text.match(/\d{1,3}(?:\.\d{3})*,\d{2}/g);
-    if (allNumbers && allNumbers.length > 0) {
-      // Try to find the largest numbers which might be totals
-      const largeNums = allNumbers.map(n => parseMonto(n)).filter(n => n > 10000).sort((a, b) => b - a);
-      if (largeNums.length > 0) {
-        balance.saldo_disponible = largeNums[0];
-        balance.total_por_cobrar = largeNums[1] || largeNums[0];
-        console.log(`[Balance] Fallback found large numbers: ${largeNums[0]}, ${largeNums[1]}`);
-      }
+    return null;
+  };
+
+  // Palabras clave mucho más flexibles y cortas para mayor probabilidad de éxito
+  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
+  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
+  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
+  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA", "SALDO ACTUAL EN CAJA"]);
+  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "EMISION TOTAL"]);
+  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
+  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
+
+  // 4. FALLBACK: Si no encontramos nada, intentamos el método de celdas de tabla clásico
+  if (!Object.values(balance).some(v => v !== null && v !== 0)) {
+    console.log("Aviso: Falló extracción por texto, intentando fallback de tablas...");
+    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
+    for (const t of allTables) {
+       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+       for (const row of rows) {
+          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+          if (!cells || cells.length < 2) continue;
+          const desc = cleanHtml(cells[0]).toUpperCase();
+          const val = parseMonto(cleanHtml(cells[1]));
+          if (val < 0.01) continue;
+          
+          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
+          else if (desc.includes("COBRANZA") || desc.includes("COBRADO")) balance.cobranza_mes = val;
+          else if (desc.includes("GASTOS") || desc.includes("EGRESOS")) balance.gastos_facturados = val;
+          else if (desc.includes("DISPONIBLE") || desc.includes("EN CAJA")) balance.saldo_disponible = val;
+       }
     }
   }
-  
-  // Calcular total_por_cobrar si no se encontró directamente pero tenemos los componentes
-  if (!balance.total_por_cobrar || balance.total_por_cobrar === 0) {
-    const recibos = balance.recibos_mes || 0;
-    const atrasados = balance.condominios_atrasados || 0;
-    const sobrantes = balance.condominios_sobrantes || 0;
-    if (recibos !== 0 || atrasados !== 0 || sobrantes !== 0) {
-      balance.total_por_cobrar = recibos + atrasados + sobrantes;
-      console.log(`[Balance] Calculated total_por_cobrar: ${balance.total_por_cobrar}`);
-    }
-  }
-  
-  console.log("[Balance] Extracted values:", JSON.stringify(balance));
 
-  const found = Object.values(balance).some((v: any) => v !== null && v !== undefined && v !== 0);
-  if (!found) {
-    console.log("[Balance] WARNING: No values extracted!");
+  const found = Object.values(balance).some(v => v !== null && v !== 0);
+  if (found) {
+    // Asegurar que no haya nulos para evitar fallos en Supabase
+    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva"];
+    keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
+    return balance;
   }
 
-  // Asegurar que no haya nulos
-  const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva", "condominios_atrasados", "condominios_sobrantes", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_diferencial_cambiario", "ajuste_pago_tiempo"];
-  keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
-  
-  return balance;
+  return null;
 }
 
 async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {
