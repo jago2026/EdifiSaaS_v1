@@ -8,18 +8,18 @@ function normalizeMonth(mes: string | null | undefined): string {
   if (!mes) return "";
   const trimmed = mes.trim();
   if (/^\d{4}-\d{2}$/.test(trimmed)) return trimmed;
+  
+  const matchFull = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (matchFull) return `${matchFull[3]}-${matchFull[2]}`;
+  
   const parts = trimmed.split(/[-/]/);
-  if (parts.length !== 2) return trimmed;
-  let monthPart = parts[0];
-  let yearPart = parts[1];
-  if (monthPart.length === 4) {
-    return `${monthPart}-${yearPart.padStart(2, "0")}`;
+  if (parts.length === 2) {
+    let monthPart = parts[0];
+    let yearPart = parts[1];
+    if (monthPart.length === 4) return `${monthPart}-${yearPart.padStart(2, "0")}`;
+    return `${yearPart}-${monthPart.padStart(2, "0")}`;
   }
-  const month = parseInt(monthPart, 10);
-  if (month >= 1 && month <= 12) {
-    monthPart = month.toString().padStart(2, "0");
-  }
-  return `${yearPart}-${monthPart}`;
+  return trimmed;
 }
 
 async function getTasaBCVParaMes(mes: string, supabase: any): Promise<number> {
@@ -80,9 +80,16 @@ export async function GET(request: Request) {
       .order("mes", { ascending: false });
     const mesesDisponibles = Array.from(new Set(mesesData?.map(m => m.mes).filter(Boolean)));
 
-    const targetMes = balance?.mes || mes;
+    const targetMes = balance?.mes || normalizeMonth(mes);
     const tasa = await getTasaBCVParaMes(targetMes, supabase);
     
+    // Obtener detalles del balance
+    const { data: details } = await supabase.from("balances_detalle")
+      .select("*")
+      .eq("edificio_id", edificioId)
+      .eq("mes", targetMes)
+      .order("orden", { ascending: true });
+
     if (balance) {
       balance.saldo_anterior_usd = Number(balance.saldo_anterior) / tasa;
       balance.cobranza_mes_usd = Number(balance.cobranza_mes) / tasa;
@@ -97,7 +104,7 @@ export async function GET(request: Request) {
       balance.tasa_bcv = tasa;
     }
 
-    return NextResponse.json({ balance, tasa, mesesDisponibles });
+    return NextResponse.json({ balance, tasa, mesesDisponibles, details });
   } catch (error: any) {
     console.error("Balance API error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
