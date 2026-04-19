@@ -401,7 +401,8 @@ export async function POST(request: Request) {
       const [mm, yyyy] = mes.split("-");
       const mmNum = parseInt(mm, 10);
       const yyyyNum = parseInt(yyyy, 10);
-      const lastDay = new Date(yyyyNum, mmNum - 1, 0).getDate();
+      // new Date(yyyy, mmNum, 0) gives the last day of month mmNum (day 0 of next month = last day of current)
+      const lastDay = new Date(yyyyNum, mmNum, 0).getDate();
       comboValue = `${lastDay}-${mm}-${yyyy}`;
     }
     const comboParam = mes ? `&combo=${comboValue}` : "";
