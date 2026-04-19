@@ -55,18 +55,8 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    // ELIMINAR DUPLICADOS (Evitar filas repetidas si el upsert falló antes)
-    const uniqueMap = new Map();
-    (detalles || []).forEach((d: any) => {
-      const key = `${d.mes}-${d.codigo}-${d.descripcion}`;
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, d);
-      }
-    });
-    const uniqueDetalles = Array.from(uniqueMap.values());
-
-    console.log(`ReciboDetalle API: Encontrados ${uniqueDetalles.length} registros únicos`);
-    return NextResponse.json({ detalles: uniqueDetalles });
+    console.log(`ReciboDetalle API: Encontrados ${detalles?.length || 0} registros`);
+    return NextResponse.json({ detalles: detalles || [] });
   } catch (error: any) {
     console.error("Error loading recibo detalle:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

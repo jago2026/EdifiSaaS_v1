@@ -457,7 +457,7 @@ export async function POST(request: Request) {
         cuota_parte: item.cuota_parte,
         tipo: 'gasto_comun'
       }));
-      const { error: detErr } = await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo' });
+      const { error: detErr } = await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo,descripcion' });
       if (detErr) console.error("Error guardando detalle recibo:", detErr);
     }
 
