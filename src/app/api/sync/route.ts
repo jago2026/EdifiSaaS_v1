@@ -9,7 +9,6 @@ function parseMonto(text: string): number {
   if (!text) return 0;
   let cleaned = text.replace(/[^\d.,-]/g, "");
   if (!cleaned) return 0;
-  // Handle Venezuelan format: 1.178.587,11 -> 1178587.11
   let numStr = cleaned.replace(/\./g, "").replace(",", ".");
   return parseFloat(numStr) || 0;
 }
@@ -92,14 +91,15 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
   } catch (error) { return null; }
 }
 
-// --- EXTRACTORES ---
-
 function parseReciboDetalle(html: string): any[] {
+  console.log("[parseReciboDetalle] Input HTML length:", html?.length);
   const results: any[] = [];
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+  console.log("[parseReciboDetalle] Table match found:", !!tableMatch);
   if (!tableMatch) return results;
 
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  console.log("[parseReciboDetalle] Total rows found:", rows.length);
   
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -113,14 +113,21 @@ function parseReciboDetalle(html: string): any[] {
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
     if (!code.match(/^\d{5}$/)) continue;
 
-    results.push({ codigo: code, descripcion: desc, monto, cuota_parte: cuotaParte });
+    console.log("[parseReciboDetalle] Parsed row:", { code, desc: desc.substring(0, 30), monto, cuotaParte });
+    
+    results.push({
+      codigo: code,
+      descripcion: desc,
+      monto: monto,
+      cuota_parte: cuotaParte
+    });
   }
+  console.log("[parseReciboDetalle] Total parsed items:", results.length);
   return results;
 }
+
 function parseReceiptMonthlySummary(html: string): number {
   if (!html) return 0;
-  // Basado en el HTML del usuario, el total está en una celda que sigue a "TOTAL RECIBO:"
-  // Ejemplo: <tr><td>&nbsp;</td><td style='padding-left:50px;'>TOTAL RECIBO:</td><td align=right>&nbsp;</td><td align=right>31.884,99</td></tr>
   const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i];
@@ -128,7 +135,6 @@ function parseReceiptMonthlySummary(html: string): number {
     if (rowText.includes("TOTAL RECIBO")) {
       const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
       if (cells && cells.length > 0) {
-        // Buscamos el último valor numérico en la fila
         for (let j = cells.length - 1; j >= 0; j--) {
           const val = parseMonto(cleanHtml(cells[j]));
           if (val > 0) return val;
@@ -235,7 +241,6 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
-  // 1. ELIMINAR SCRIPTS, ESTILOS, CABECERAS Y NAVEGACIÓN
   const cleanHtmlOnly = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
@@ -243,7 +248,6 @@ function parseBalanceFull(html: string): any {
     .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
     .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
 
-  // 2. REEMPLAZAR ENTIDADES HTML COMUNES Y LIMPIAR ETIQUETAS
   const rawText = cleanHtmlOnly
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;/g, ' ')
@@ -254,32 +258,23 @@ function parseBalanceFull(html: string): any {
     
   const text = rawText.toUpperCase();
   
-  // Debug: show full cleaned text to find balance data
-  console.log(`Balance Text Clean (primeros 1500 chars): ${text.substring(0, 1500)}`);
-  console.log(`[Balance] Looking for: SALDO DE CAJA MES ANTERIOR at pos: ${text.indexOf('SALDO DE CAJA MES ANTERIOR')}`);
-  console.log(`[Balance] Looking for: COBRANZA DEL MES at pos: ${text.indexOf('COBRANZA DEL MES')}`);
-  console.log(`[Balance] Looking for: GASTOS FACTURADOS at pos: ${text.indexOf('GASTOS FACTURADOS')}`);
-  console.log(`[Balance] Looking for: SALDO ACTUAL at pos: ${text.indexOf('SALDO ACTUAL')}`);
+  console.log(`Balance Text Clean (primeros 1000 chars): ${text.substring(0, 1000)}`);
   
-  // 3. FUNCIÓN DE EXTRACCIÓN POR PROXIMIDAD (Busca el primer número real después de la etiqueta)
   const extractVal = (keywords: string[]) => {
     for (const kw of keywords) {
       const idx = text.indexOf(kw.toUpperCase());
       if (idx !== -1) {
-        // Mirar hasta 150 caracteres después de la palabra clave
         const sub = text.substring(idx + kw.length, idx + kw.length + 150);
-        // Expresión regular para capturar números con formato Bs. (ej: 1.234,56 o 1234.56)
         const match = sub.match(/(\d[\d,.]*)/);
         if (match) {
           const val = parseMonto(match[1]);
-          if (val > 0.01) return val; // Ignorar ceros técnicos
+          if (val > 0.01) return val;
         }
       }
     }
     return null;
   };
 
-  // Palabras clave mucho más flexibles y cortas para mayor probabilidad de éxito
   balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
   balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
   balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
@@ -288,92 +283,33 @@ function parseBalanceFull(html: string): any {
   balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
   balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
 
-  // 4. Extraer TODOS los campos del texto (más confiable que las tablas vacías)
-  const extractFromText = (keywords: string[], isNegative = false) => {
-    for (const kw of keywords) {
-      const idx = text.indexOf(kw);
-      if (idx !== -1) {
-        // Buscar número en los siguientes 100 caracteres (incluye negativo)
-        const subs = text.substring(idx + kw.length, idx + kw.length + 100);
-        // Captura número con signo negativo opcional
-        const match = subs.match(/(-?[\d.,]+)/);
-        if (match) {
-          let val = parseMonto(match[1]);
-          // Si el texto tiene signo negativo explícito, invertir valor
-          if (subs.includes('-') && !match[1].startsWith('-')) {
-            val = -Math.abs(val);
-          }
-          if (isNegative && val > 0) val = -val;
-          return val;
-        }
-      }
+  if (!Object.values(balance).some(v => v !== null && v !== 0)) {
+    console.log("Aviso: Falló extracción por texto, intentando fallback de tablas...");
+    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
+    for (const t of allTables) {
+       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+       for (const row of rows) {
+          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+          if (!cells || cells.length < 2) continue;
+          const desc = cleanHtml(cells[0]).toUpperCase();
+          const val = parseMonto(cleanHtml(cells[1]));
+          if (val < 0.01) continue;
+          
+          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
+          else if (desc.includes("COBRANZA") || desc.includes("COBRADO")) balance.cobranza_mes = val;
+          else if (desc.includes("GASTOS") || desc.includes("EGRESOS")) balance.gastos_facturados = val;
+          else if (desc.includes("DISPONIBLE") || desc.includes("EN CAJA")) balance.saldo_disponible = val;
+       }
     }
-    return null;
-  };
-
-  // Extracción por texto del Balance Original
-  balance.saldo_anterior = extractFromText(["SALDO DE CAJA MES ANTERIOR"]) || extractFromText(["SALDO ANTERIOR"]) || 0;
-  balance.cobranza_mes = extractFromText(["COBRANZA DEL MES"]) || 0;
-  balance.gastos_facturados = extractFromText(["GASTOS FACTURADOS EN EL MES COMUNES"], true) || 0;
-  const gastosNoComunes = extractFromText(["GASTOS FACTURADOS EN EL MES NO COMUNES"], true);
-  if (gastosNoComunes !== null) balance.gastos_facturados = (balance.gastos_facturados || 0) + gastosNoComunes;
-  balance.saldo_disponible = extractFromText(["SALDO ACTUAL DISPONIBLE EN CAJA"]) || 0;
-  balance.recibos_mes = extractFromText(["RECIBOS DE CONDOMINIOS DEL MES"]) || 0;
-  balance.total_por_cobrar = extractFromText(["TOTAL CONDOMINIOS POR COBRAR"]) || 0;
-  balance.condominios_atrasados = extractFromText(["CONDOMINIOS ATRASADOS"]) || 0;
-  balance.condominios_adelantados = extractFromText(["CONDOMINIOS ADELANTADOS"], true) || 0;
-  balance.condominios_sobrantes = extractFromText(["CONDOMINIOS SOBRANTES"], true) || 0;
-  balance.fondo_reserva = extractFromText(["SALDO FONDO DE RESERVA"]) || extractFromText(["FONDO DE RESERVA"]) || 0;
-  balance.fondo_prestaciones = extractFromText(["SALDO FONDO DE PRESTACIONES SOCIALES"]) || 0;
-  balance.fondo_trabajos_varios = extractFromText(["SALDO FONDO TRABAJOS VARIOS"], true) || 0;
-  balance.fondo_intereses = extractFromText(["SALDO FONDO INTERESES MORATORIOS"]) || 0;
-  balance.fondo_diferencial_cambiario = extractFromText(["SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV"]) || 0;
-  balance.ajuste_alicuota = extractFromText(["SALDO AJUSTE DIFERENCIA ALICUOTA"], true) || 0;
-
-  // 5. Fallback: también intentar parsear de las tablas HTML
-  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
-  for (const t of allTables) {
-    if (!t.includes('Descripci') && !t.includes('Descripción')) continue;
-    
-    const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-    for (const row of rows) {
-      const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-      if (!cells || cells.length < 2) continue;
-      
-      const desc = cleanHtml(cells[0]).toUpperCase().trim();
-      const monto = cells[1] ? parseMonto(cleanHtml(cells[1])) : 0;
-      const saldo = cells[2] ? parseMonto(cleanHtml(cells[2])) : 0;
-      
-      if (desc.includes("SALDO DE CAJA MES ANTERIOR") && !balance.saldo_anterior) balance.saldo_anterior = monto;
-      else if (desc.includes("COBRANZA DEL MES") && !balance.cobranza_mes) balance.cobranza_mes = monto;
-      else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES") && !balance.gastos_facturados) balance.gastos_facturados = monto;
-      else if (desc.includes("SALDO ACTUAL DISPONIBLE") && !balance.saldo_disponible) balance.saldo_disponible = saldo;
-      else if (desc.includes("RECIBOS DE CONDOMINIOS") && !balance.recibos_mes) balance.recibos_mes = monto;
-      else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR") && !balance.total_por_cobrar) balance.total_por_cobrar = saldo;
-      else if (desc.includes("CONDOMINIOS ATRASADOS") && !balance.condominios_atrasados) balance.condominios_atrasados = monto;
-      else if (desc.includes("CONDOMINIOS ADELANTADOS") && !balance.condominios_adelantados) balance.condominios_adelantados = monto;
-      else if (desc.includes("CONDOMINIOS SOBRANTES") && !balance.condominios_sobrantes) balance.condominios_sobrantes = monto;
-      else if (desc.includes("FONDO DE RESERVA") && !desc.includes("MES") && !balance.fondo_reserva) balance.fondo_reserva = saldo;
-      else if (desc.includes("FONDO DE PRESTACIONES") && !balance.fondo_prestaciones) balance.fondo_prestaciones = saldo;
-      else if (desc.includes("FONDO TRABAJOS VARIOS") && !balance.fondo_trabajos_varios) balance.fondo_trabajos_varios = saldo;
-      else if (desc.includes("FONDO INTERESES MORATORIOS") && !desc.includes("MES") && !balance.fondo_intereses) balance.fondo_intereses = saldo;
-      else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO") && !balance.fondo_diferencial_cambiario) balance.fondo_diferencial_cambiario = saldo;
-      else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA") && !balance.ajuste_alicuota) balance.ajuste_alicuota = saldo;
-    }
-    break;
   }
 
-  console.log(`[Balance] Result after table extraction:`, JSON.stringify(balance));
-  
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
-    // Asegurar que no haya nulos para evitar fallos en Supabase
-    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva", "condominios_atrasados", "condominios_adelantados", "condominios_sobrantes", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_diferencial_cambiario", "ajuste_alicuota"];
+    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva"];
     keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
     return balance;
   }
 
-  console.log("No se pudo extraer balance");
   return null;
 }
 
@@ -422,73 +358,23 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = new URL(building.url_login).origin;
-    // Convert mes (mm-yyyy) to dd-mm-yyyy (last day of month)
-    let comboValue = mes;
-    if (mes && mes.includes("-")) {
-      const [mm, yyyy] = mes.split("-");
-      const mmNum = parseInt(mm, 10);
-      const yyyyNum = parseInt(yyyy, 10);
-      const lastDay = new Date(yyyyNum, mmNum - 1, 0).getDate();
-      comboValue = `${lastDay}-${mm}-${yyyy}`;
-    }
-    // Use format: ?&r=2 like the user's working URL
-    const comboParam = mes ? `&combo=${comboValue}` : "";
-    
-    console.log(`[Sync] mes=${mes}, comboValue=${comboValue}, comboParam=${comboParam}`);
-    
-    // Try BOTH URL formats and compare
-    const balanceUrlWithPHPSESSID = `${baseUrl}/condlin.php?&r=2&PHPSESSID=&combo=${comboValue}`;
-    const balanceUrlNoPHPSESSID = `${baseUrl}/condlin.php?&r=2&combo=${comboValue}`;
-    
-    console.log(`[Sync] Balance URL 1 (with PHPSESSID=): ${balanceUrlWithPHPSESSID}`);
-    console.log(`[Sync] Balance URL 2 (no PHPSESSID): ${balanceUrlNoPHPSESSID}`);
-
-    // Fetch BOTH URLs and compare
-    const hBal1 = doSyncBalance ? await fetchPageWithCookie(balanceUrlWithPHPSESSID, session) : null;
-    const hBal2 = doSyncBalance ? await fetchPageWithCookie(balanceUrlNoPHPSESSID, session) : null;
-    
-    console.log(`[Balance] URL1 length: ${hBal1 ? hBal1.length : 0} chars`);
-    console.log(`[Balance] URL2 length: ${hBal2 ? hBal2.length : 0} chars`);
-    
-    // Use the longer one (more data)
-    let finalHBal = hBal1;
-    if (hBal2 && (!hBal1 || hBal2.length > hBal1.length)) {
-      console.log("[Balance] Using URL2 (more data)");
-      finalHBal = hBal2;
-    } else if (hBal1) {
-      console.log("[Balance] Using URL1");
-    }
+    const comboParam = mes ? `&combo=${mes}` : "";
 
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
       doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
-      Promise.resolve(finalHBal), // Reuse already fetched
+      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
     ];
 
-    const [hRec, hEgr, hGas, hBalResult, hAli, hRecSummary] = await Promise.all(promises);
-    const hBal = hBalResult || finalHBal;
+    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
 
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
-    
-    // DEBUG: show full hBal content
-    if (hBal) {
-      const tables = hBal.split('<table');
-      console.log(`[Balance] Total tables in hBal: ${tables.length}`);
-      console.log(`[Balance] hBal FIRST 800 chars:`, hBal.substring(0, 800));
-      console.log(`[Balance] hBal LAST 500 chars:`, hBal.substring(hBal.length - 500));
-      // Search for any text containing SALDO to find where data is
-      const saldoIdx = hBal.toUpperCase().indexOf('SALDO DE CAJA');
-      console.log(`[Balance] indexOf('SALDO DE CAJA'): ${saldoIdx}`);
-      // Search for Estado de Cuenta
-      const ecIdx = hBal.toUpperCase().indexOf('ESTADO DE CUENTA');
-      console.log(`[Balance] indexOf('ESTADO DE CUENTA'): ${ecIdx}`);
-    }
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
@@ -505,7 +391,6 @@ export async function POST(request: Request) {
 
     if (doSyncRecibos && allRecibos.length > 0) {
       console.log(`Guardando ${allRecibos.length} recibos para ${mesEstandar}`);
-      // Usar upsert para evitar errores de duplicados si la restricción es conflictiva
       const recibosToSave = allRecibos.map(r => ({ 
         edificio_id: building.id, 
         unidad: r.unidad, 
@@ -521,7 +406,6 @@ export async function POST(request: Request) {
       const { error: recErr } = await supabase.from("recibos").upsert(recibosToSave, { onConflict: 'edificio_id,unidad,mes' });
       if (recErr) {
         console.error("Error guardando recibos con upsert:", recErr);
-        // Fallback: borrar e insertar si el upsert falla por falta de columna en el onConflict
         await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
         await supabase.from("recibos").insert(recibosToSave);
       }
@@ -531,7 +415,6 @@ export async function POST(request: Request) {
       console.log(`Guardando ${detailedReceiptItems.length} items de detalle para ${mesEstandar}`);
       
       try {
-        // Primero intentar delete
         const { error: deleteError } = await supabase
           .from("recibos_detalle")
           .delete()
@@ -542,7 +425,6 @@ export async function POST(request: Request) {
           console.log("Delete error, trying insert anyway:", deleteError);
         }
         
-        // Esperar más tiempo
         await new Promise(r => setTimeout(r, 500));
         
         const itemsToSave = detailedReceiptItems.map(item => ({
@@ -559,7 +441,6 @@ export async function POST(request: Request) {
         
         const { error: detErr } = await supabase.from("recibos_detalle").insert(itemsToSave);
         
-        // Si hay error de duplicado, intentar borrando todo del edificio y reintentando
         if (detErr && detErr.code === '23505') {
           console.log("Duplicate error, retrying after full delete...");
           await supabase.from("recibos_detalle").delete().eq("edificio_id", building.id).eq("mes", mesEstandar);
@@ -631,7 +512,6 @@ export async function POST(request: Request) {
 
     if (allConcepts.length > 0) {
       console.log(`Actualizando ${allConcepts.length} conceptos recurrentes para ${building.id}`);
-      // Obtener estados actuales para no sobrescribir 'activo' ni 'categoria'
       const { data: existingRec } = await supabase.from("gastos_recurrentes").select("codigo, activo, categoria").eq("edificio_id", building.id);
       const existingMap = new Map(existingRec?.map(r => [r.codigo, r]) || []);
 
@@ -676,7 +556,6 @@ export async function POST(request: Request) {
 
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
     
-    // Crear una alerta de sincronización exitosa
     try {
       await supabase.from("alertas").insert({
         edificio_id: building.id,
