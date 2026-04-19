@@ -387,6 +387,11 @@ export async function POST(request: Request) {
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
+    
+    // DEBUG: mostrar contenido de hBal
+    if (hBal) {
+      console.log("[Balance] hBal sample:", hBal.substring(0, 800));
+    }
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
