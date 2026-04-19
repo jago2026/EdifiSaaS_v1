@@ -1980,11 +1980,31 @@ export default function DashboardPage() {
                     </tbody>
                     <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
                       <tr>
-                        <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
+                        <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">TOTAL FONDOS Y GASTOS COMUNES:</td>
                         <td className="py-3 px-4 text-right text-indigo-700 text-lg">
-                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                          Bs. {formatBs(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.monto), 0))}
                         </td>
                         <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          $ {formatUsd(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                        </td>
+                      </tr>
+                      {reciboGeneral.some(i => i.codigo === '00085') && (
+                        <tr className="bg-orange-50">
+                          <td colSpan={2} className="py-2 px-4 text-right text-orange-700 uppercase text-xs">GASTOS NO COMUNES (FONDO DIFERENCIAL):</td>
+                          <td className="py-2 px-4 text-right text-orange-700 font-bold">
+                            Bs. {formatBs(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.monto), 0))}
+                          </td>
+                          <td className="py-2 px-4 text-right text-orange-700 font-bold">
+                            $ {formatUsd(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                          </td>
+                        </tr>
+                      )}
+                      <tr className="bg-indigo-100">
+                        <td colSpan={2} className="py-3 px-4 text-right text-indigo-800 uppercase text-xs">TOTAL RECIBO:</td>
+                        <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
+                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
                           $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                         </td>
                       </tr>
