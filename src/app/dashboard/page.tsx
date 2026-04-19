@@ -239,8 +239,8 @@ export default function DashboardPage() {
     setLoadingReciboGeneral(true);
     setReciboGeneral([]);
     try {
-      const mes = selectedMesRecibos || "";
-      console.log("[UI] loadReciboGeneral called with mes:", mes, "selectedMesRecibos:", selectedMesRecibos);
+      const mes = selectedMesRecibos;
+      console.log("[UI] loadReciboGeneral called with mes:", mes);
       
       const tasaUrl = mes 
         ? `/api/tasa-bcv?fecha=${mes}-28` 
@@ -1632,11 +1632,10 @@ export default function DashboardPage() {
                       <select
                         value={selectedMesRecibos}
                         onChange={(e) => {
-                          setSelectedMesRecibos(e.target.value);
-                          setTimeout(() => {
-                            if (e.target.value) loadReciboGeneral();
-                            else setReciboGeneral([]);
-                          }, 100);
+                          const newMes = e.target.value;
+                          setSelectedMesRecibos(newMes);
+                          if (newMes) loadReciboGeneral();
+                          else setReciboGeneral([]);
                         }}
                         className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 outline-none uppercase"
                       >
