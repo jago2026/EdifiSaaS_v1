@@ -382,6 +382,11 @@ export async function POST(request: Request) {
 
     const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
 
+    console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
+    console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
+    console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
+    console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
+
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
@@ -390,9 +395,15 @@ export async function POST(request: Request) {
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
 
+    console.log(`- Parsed Recibos: ${allRecibos.length}`);
+    console.log(`- Parsed Balance: ${balance ? "SI" : "NO"}`);
+    console.log(`- Parsed Recibo Total: ${monthlyReceiptTotal}`);
+    console.log(`- Parsed Detailed Items: ${detailedReceiptItems.length}`);
+
     if (doSyncRecibos && allRecibos.length > 0) {
+      console.log(`Guardando ${allRecibos.length} recibos para ${mesEstandar}`);
       await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
-      await supabase.from("recibos").insert(allRecibos.map(r => ({ 
+      const { error: recErr } = await supabase.from("recibos").insert(allRecibos.map(r => ({ 
         edificio_id: building.id, 
         unidad: r.unidad, 
         propietario: r.propietario, 
@@ -403,9 +414,11 @@ export async function POST(request: Request) {
         actualizado_en: today,
         mes: mesEstandar
       })));
+      if (recErr) console.error("Error guardando recibos:", recErr);
     }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
+      console.log(`Guardando ${detailedReceiptItems.length} items de detalle para ${mesEstandar}`);
       const itemsToSave = detailedReceiptItems.map(item => ({
         edificio_id: building.id,
         unidad: 'GENERAL',
@@ -417,7 +430,8 @@ export async function POST(request: Request) {
         cuota_parte: item.cuota_parte,
         tipo: 'gasto_comun'
       }));
-      await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo' });
+      const { error: detErr } = await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo' });
+      if (detErr) console.error("Error guardando detalle recibo:", detErr);
     }
 
     if (doSyncAlicuotas && allAlicuotas.length > 0) {
@@ -462,12 +476,20 @@ export async function POST(request: Request) {
       console.log(`No se pudo extraer balance para ${mesEstandar}`);
     }
 
-    if (allGastos && allGastos.length > 0) {
+    const allConcepts = [...(allGastos || [])];
+    detailedReceiptItems.forEach(item => {
+      if (!allConcepts.find(c => c.codigo === item.codigo)) {
+        allConcepts.push({ codigo: item.codigo, descripcion: item.descripcion });
+      }
+    });
+
+    if (allConcepts.length > 0) {
+      console.log(`Actualizando ${allConcepts.length} conceptos recurrentes para ${building.id}`);
       // Obtener estados actuales para no sobrescribir 'activo' ni 'categoria'
       const { data: existingRec } = await supabase.from("gastos_recurrentes").select("codigo, activo, categoria").eq("edificio_id", building.id);
       const existingMap = new Map(existingRec?.map(r => [r.codigo, r]) || []);
 
-      for (const g of allGastos) {
+      for (const g of allConcepts) {
         const existing = existingMap.get(g.codigo);
         await supabase.from("gastos_recurrentes").upsert({ 
           edificio_id: building.id, 

@@ -1038,6 +1038,7 @@ export default function DashboardPage() {
   const handleSaveConfig = async () => {
     setSaving(true);
     setSyncMessage("");
+    console.log("Config being saved:", editConfig);
     try {
       const res = await fetch("/api/config", {
         method: "POST",
@@ -3157,8 +3158,38 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight">Mantenimiento de la Plataforma</h2>
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight flex items-center gap-2">
+                <span>⏰</span> Programación de Tareas Automáticas
+              </h2>
+              <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+                <p className="text-xs text-indigo-700 font-medium mb-4 leading-relaxed">
+                  El sistema está preparado para realizar una <strong>Sincronización Automática</strong> diaria a las 05:00 AM (VET) y enviar el reporte por email a la Junta. 
+                  Para activar esta función, debe configurar un "Cron Job" que llame a la siguiente URL:
+                </p>
+                <div className="bg-white p-3 rounded-lg border border-indigo-200 font-mono text-[10px] break-all mb-4 text-indigo-600 select-all">
+                  {window.location.origin}/api/cron
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2">Estado del Servicio</h4>
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                      <span className="text-xs font-bold text-gray-700 uppercase">API de Automatización Activa</span>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2">Frecuencia Recomendada</h4>
+                    <p className="text-xs font-black text-gray-700 uppercase">Diaria (05:00 AM)</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-4 italic font-bold uppercase tracking-tighter">
+                Nota: El envío automático utiliza los emails configurados en la pestaña "Junta". Si hay un error, se notificará a correojago@gmail.com.
+              </p>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight">Mantenimiento de la Plataforma</h2>              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
                 <div className="flex-1">
                   <h3 className="text-blue-800 font-bold mb-1">Mantenimiento de Base de Datos Supabase</h3>
                   <p className="text-xs text-blue-600 leading-relaxed font-medium">
