@@ -369,7 +369,6 @@ export default function DashboardPage() {
       }));
     }
   }, [building]);
-  const [saving, setSaving] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
 
