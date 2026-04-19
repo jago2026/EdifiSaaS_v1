@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  console.log(`Sincronizaciones API: Fetching for edificioId=${edificioId}`);
+
   try {
     // Intentar primero con todas las columnas
     const { data: sincronizaciones, error } = await supabase
@@ -24,6 +26,7 @@ export async function GET(request: NextRequest) {
       .limit(50);
 
     if (!error) {
+        console.log(`Sincronizaciones API: Encontrados ${sincronizaciones?.length || 0} registros`);
         return NextResponse.json({ sincronizaciones: sincronizaciones || [] });
     }
 

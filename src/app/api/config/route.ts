@@ -8,6 +8,7 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 const DEFAULT_URLS_LA_IDEAL = {
   url_login: 'https://admlaideal.com.ve/condlin.php?r=1',
   url_recibos: 'https://admlaideal.com.ve/condlin.php?r=5',
+  url_recibo_mes: 'https://admlaideal.com.ve/condlin.php?r=4',
   url_egresos: 'https://admlaideal.com.ve/condlin.php?r=21',
   url_gastos: 'https://admlaideal.com.ve/condlin.php?r=3',
   url_balance: 'https://admlaideal.com.ve/condlin.php?r=2',
@@ -16,6 +17,7 @@ const DEFAULT_URLS_LA_IDEAL = {
 const DEFAULT_URLS_ASTRI = {
   url_login: 'https://www.admastridcarrasquel.com/condlin.php',
   url_recibos: 'https://www.admastridcarrasquel.com/condlin.php?r=5',
+  url_recibo_mes: 'https://www.admastridcarrasquel.com/condlin.php?r=4',
   url_egresos: 'https://www.admastridcarrasquel.com/condlin.php?r=21',
   url_gastos: 'https://www.admastridcarrasquel.com/condlin.php?r=3',
   url_balance: 'https://www.admastridcarrasquel.com/condlin.php?r=2',
@@ -25,6 +27,7 @@ const DEFAULT_URLS_ASTRI = {
 const DEFAULT_URLS_ELITE = {
   url_login: 'https://www.administradoraelite.com/control.php',
   url_recibos: 'https://www.administradoraelite.com/condlin.php?r=5',
+  url_recibo_mes: 'https://www.administradoraelite.com/condlin.php?r=4',
   url_egresos: 'https://www.administradoraelite.com/condlin.php?r=21',
   url_gastos: 'https://www.administradoraelite.com/condlin.php?r=3',
   url_balance: 'https://www.administradoraelite.com/condlin.php?r=2',
@@ -33,6 +36,7 @@ const DEFAULT_URLS_ELITE = {
 const DEFAULT_URLS_INTERCANAR = {
   url_login: 'https://www.intercanariven.com/control.php',
   url_recibos: 'https://www.intercanariven.com/condlin.php?r=5',
+  url_recibo_mes: 'https://www.intercanariven.com/condlin.php?r=4',
   url_egresos: 'https://www.intercanariven.com/condlin.php?r=21',
   url_gastos: 'https://www.intercanariven.com/condlin.php?r=3',
   url_balance: 'https://www.intercanariven.com/condlin.php?r=2',
@@ -41,6 +45,7 @@ const DEFAULT_URLS_INTERCANAR = {
 const DEFAULT_URLS_ACTUAL = {
   url_login: 'https://www.admactual.com/control.php',
   url_recibos: 'https://www.admactual.com/condlin.php?r=5',
+  url_recibo_mes: 'https://www.admactual.com/condlin.php?r=4',
   url_egresos: 'https://www.admactual.com/condlin.php?r=21',
   url_gastos: 'https://www.admactual.com/condlin.php?r=3',
   url_balance: 'https://www.admactual.com/condlin.php?r=2',
@@ -49,6 +54,7 @@ const DEFAULT_URLS_ACTUAL = {
 const DEFAULT_URLS_CHACAO = {
   url_login: 'https://condominioschacao.com/control.php',
   url_recibos: 'https://condominioschacao.com/condlin.php?r=5',
+  url_recibo_mes: 'https://condominioschacao.com/condlin.php?r=4',
   url_egresos: 'https://condominioschacao.com/condlin.php?r=21',
   url_gastos: 'https://condominioschacao.com/condlin.php?r=3',
   url_balance: 'https://condominioschacao.com/condlin.php?r=2',
@@ -57,6 +63,7 @@ const DEFAULT_URLS_CHACAO = {
 const DEFAULT_URLS_OBELISCO = {
   url_login: 'https://www.obelisco.com.ve/condlin.php?r=1',
   url_recibos: 'https://www.obelisco.com.ve/condlin.php?r=5',
+  url_recibo_mes: 'https://www.obelisco.com.ve/condlin.php?r=4',
   url_egresos: 'https://www.obelisco.com.ve/condlin.php?r=21',
   url_gastos: 'https://www.obelisco.com.ve/condlin.php?r=3',
   url_balance: 'https://www.obelisco.com.ve/condlin.php?r=2',
@@ -65,6 +72,7 @@ const DEFAULT_URLS_OBELISCO = {
 const DEFAULT_URLS_GCM = {
   url_login: 'https://administradoragcm.com/empresa.htm/control.php',
   url_recibos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=5',
+  url_recibo_mes: 'https://administradoragcm.com/empresa.htm/condlin.php?r=4',
   url_egresos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=21',
   url_gastos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=3',
   url_balance: 'https://administradoragcm.com/empresa.htm/condlin.php?r=2',
@@ -82,6 +90,7 @@ export async function POST(request: Request) {
       admin_nombre,
       url_login,
       url_recibos,
+      url_recibo_mes,
       url_egresos,
       url_gastos,
       url_balance,
@@ -140,6 +149,9 @@ export async function POST(request: Request) {
 
     if (url_recibos) updateData.url_recibos = url_recibos;
     else if (urls.url_recibos) updateData.url_recibos = urls.url_recibos;
+
+    if (url_recibo_mes) updateData.url_recibo_mes = url_recibo_mes;
+    else if (urls.url_recibo_mes) updateData.url_recibo_mes = urls.url_recibo_mes;
 
     if (url_egresos) updateData.url_egresos = url_egresos;
     else if (urls.url_egresos) updateData.url_egresos = urls.url_egresos;

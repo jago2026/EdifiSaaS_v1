@@ -197,6 +197,7 @@ CREATE TABLE IF NOT EXISTS tasas_cambio (
 -- Agregar columnas nuevas a edificios si no existen
 ALTER TABLE edificios ADD COLUMN IF NOT EXISTS url_login TEXT;
 ALTER TABLE edificios ADD COLUMN IF NOT EXISTS url_recibos TEXT;
+ALTER TABLE edificios ADD COLUMN IF NOT EXISTS url_recibo_mes TEXT;
 ALTER TABLE edificios ADD COLUMN IF NOT EXISTS url_egresos TEXT;
 ALTER TABLE edificios ADD COLUMN IF NOT EXISTS url_gastos TEXT;
 ALTER TABLE edificios ADD COLUMN IF NOT EXISTS url_balance TEXT;

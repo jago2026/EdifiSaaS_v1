@@ -52,12 +52,22 @@ async function getTasaBCV(): Promise<number> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { edificioId, testMode, action } = body;
+    const { edificioId, testMode, action, error: errorMsg, recipient } = body;
     const tasa = await getTasaBCV();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
+
+    if (action === "error_notification") {
+      await transporter.sendMail({
+        from: `"SaaS - Error de Sincronización" <${SMTP_USER}>`,
+        to: recipient || "correojago@gmail.com",
+        subject: `⚠️ ERROR en Sincronización - ${edificio.nombre} - ${new Date().toLocaleDateString()}`,
+        text: `Se ha detectado un error durante la sincronización automática o el envío del reporte para el edificio ${edificio.nombre}.\n\nDetalles del error:\n${errorMsg || "Desconocido"}\n\nPor favor, verifica el estado del sistema.`,
+      });
+      return NextResponse.json({ success: true, message: "Notificación de error enviada" });
+    }
 
     const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
     const toEmails = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
@@ -394,10 +404,10 @@ Generado automáticamente por el Sistema de Control de Recibos.`;
 </body>
 </html>`;
 
-    const subject = `${testMode ? "[TEST] " : ""}Resumen Financiero Condominio - ${fechaStr}`;
+    const subject = `SaaS - Resumen Financiero Condominio - ${fechaStr}`;
 
     await transporter.sendMail({
-      from: `"Sistema Junta de Condominio" <${SMTP_USER}>`,
+      from: `"SaaS - Sistema Junta de Condominio" <${SMTP_USER}>`,
       to: toEmails.join(", "),
       subject,
       html,

@@ -242,6 +242,7 @@ function parseBalanceFull(html: string): any {
   // Expresión más flexible para encontrar tablas, independientemente de la clase específica
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
   
+  let found = false;
   for (const t of allTables) {
     const tableText = cleanHtml(t).toUpperCase();
     if (!tableText.includes("SALDO DE CAJA") && !tableText.includes("FONDO DE RESERVA") && !tableText.includes("CUENTAS POR COBRAR")) continue;
@@ -262,48 +263,65 @@ function parseBalanceFull(html: string): any {
 
       if (desc.includes("SALDO DE CAJA MES ANTERIOR")) {
         balance.saldo_anterior = val;
+        found = true;
       } else if (desc.includes("COBRANZA DEL MES")) {
         balance.cobranza_mes = val;
+        found = true;
       } else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES")) {
         balance.gastos_facturados = val;
+        found = true;
       } else if (desc.includes("DESC/DIF/CAMB/PAGO A TIEMPO")) {
         balance.ajuste_pago_tiempo = val;
+        found = true;
       } else if (desc.includes("SALDO ACTUAL DISPONIBLE EN CAJA")) {
         balance.saldo_disponible = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES")) {
         balance.recibos_mes = val;
+        found = true;
       } else if (desc.includes("CONDOMINIOS ATRASADOS")) {
         balance.condominios_atrasados = val;
+        found = true;
       } else if (desc.includes("CONDOMINIOS SOBRANTES")) {
         balance.condominios_sobrantes = val;
+        found = true;
       } else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR")) {
         balance.total_por_cobrar = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("TOTAL CAJA Y POR COBRAR")) {
         balance.total_caja_y_cobrar = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("FONDO DE RESERVA")) {
         if (desc.includes("MES ANTERIOR")) balance.fondo_reserva_mes_anterior = val;
         else if (desc.includes("SALDO FONDO DE RESERVA")) balance.fondo_reserva = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("PRESTACIONES SOCIALES")) {
         if (desc.includes("MES ANTERIOR")) balance.fondo_prestaciones_mes_anterior = val;
         else if (desc.includes("SALDO FONDO DE PRESTACIONES")) balance.fondo_prestaciones = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("TRABAJOS VARIOS")) {
         if (desc.includes("MES ANTERIOR")) balance.fondo_trabajos_varios_mes_anterior = val;
         else if (desc.includes("SALDO FONDO TRABAJOS VARIOS")) balance.fondo_trabajos_varios = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA")) {
         if (desc.includes("MES ANTERIOR")) balance.ajuste_alicuota_mes_anterior = val;
         else if (desc.includes("SALDO AJUSTE DIFERENCIA ALICUOTA")) balance.ajuste_alicuota = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("INTERESES MORATORIOS")) {
         if (desc.includes("MES ANTERIOR")) balance.fondo_intereses_mes_anterior = val;
         else if (desc.includes("SALDO FONDO INTERESES MORATORIOS")) balance.fondo_intereses = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO TASA BCV")) {
         if (desc.includes("MES ANTERIOR")) balance.fondo_diferencial_mes_anterior = val;
         else if (desc.includes("SALDO FONDO DIFERENCIAL CAMBIARIO")) balance.fondo_diferencial_cambiario = hasSaldoValue ? saldo : val;
+        found = true;
       } else if (desc.includes("SALDO RESERVAS")) {
         balance.saldo_reservas = hasSaldoValue ? saldo : val;
+        found = true;
       }
     }
   }
-  return balance;
+  return found ? balance : null;
 }
 
 async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {
@@ -436,14 +454,28 @@ export async function POST(request: Request) {
     }
 
     if (balance) {
+      console.log(`Balance detectado para ${mesEstandar}:`, balance);
       if (monthlyReceiptTotal > 0) balance.recibos_mes = monthlyReceiptTotal;
       await supabase.from("balances").delete().match({ edificio_id: building.id, mes: mesEstandar });
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
+    } else {
+      console.log(`No se pudo extraer balance para ${mesEstandar}`);
     }
 
     if (allGastos && allGastos.length > 0) {
+      // Obtener estados actuales para no sobrescribir 'activo' ni 'categoria'
+      const { data: existingRec } = await supabase.from("gastos_recurrentes").select("codigo, activo, categoria").eq("edificio_id", building.id);
+      const existingMap = new Map(existingRec?.map(r => [r.codigo, r]) || []);
+
       for (const g of allGastos) {
-        await supabase.from("gastos_recurrentes").upsert({ edificio_id: building.id, codigo: g.codigo, descripcion: g.descripcion, activo: true }, { onConflict: 'edificio_id,codigo' });
+        const existing = existingMap.get(g.codigo);
+        await supabase.from("gastos_recurrentes").upsert({ 
+          edificio_id: building.id, 
+          codigo: g.codigo, 
+          descripcion: g.descripcion, 
+          activo: existing ? existing.activo : true,
+          categoria: existing ? existing.categoria : "otros"
+        }, { onConflict: "edificio_id,codigo" });
       }
     }
 
@@ -475,6 +507,20 @@ export async function POST(request: Request) {
     } catch (e) {}
 
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
+    
+    // Crear una alerta de sincronización exitosa
+    try {
+      await supabase.from("alertas").insert({
+        edificio_id: building.id,
+        tipo: "info",
+        titulo: `Sincronización ${mes ? "Histórica" : "Diaria"} Exitosa`,
+        descripcion: `Se sincronizaron correctamente los datos de ${mes || "el mes actual"}. Se detectaron ${totalRecs} registros nuevos entre recibos, egresos y gastos.`,
+        fecha: today
+      });
+    } catch (e) {
+      console.error("Error creating sync alert:", e);
+    }
+
     await supabase.from("sincronizaciones").insert({
       edificio_id: building.id, tipo: mes ? "sync_historica" : "sync_diaria", estado: "completado",
       movimientos_nuevos: totalRecs, detalles: {

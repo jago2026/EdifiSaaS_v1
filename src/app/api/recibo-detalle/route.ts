@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "edificioId required" }, { status: 400 });
   }
 
+  console.log(`ReciboDetalle API: edificioId=${edificioId}, mes=${mes}, unidad=${unidad}`);
+
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
@@ -33,8 +35,12 @@ export async function GET(request: NextRequest) {
 
     const { data: detalles, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase error in recibo-detalle:", error);
+      throw error;
+    }
 
+    console.log(`ReciboDetalle API: Encontrados ${detalles?.length || 0} registros`);
     return NextResponse.json({ detalles: detalles || [] });
   } catch (error: any) {
     console.error("Error loading recibo detalle:", error);

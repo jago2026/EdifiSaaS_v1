@@ -98,6 +98,7 @@ interface Building {
   admin_nombre: string | null;
   url_login: string | null;
   url_recibos: string | null;
+  url_recibo_mes: string | null;
   url_egresos: string | null;
   url_gastos: string | null;
   url_balance: string | null;
@@ -302,17 +303,19 @@ export default function DashboardPage() {
 
   const updateRecurrente = async (codigo: string, descripcion: string, activo: boolean, categoria: string) => {
     if (!building?.id) return;
-    
+
+    console.log(`Updating recurrente: ${codigo}, activo: ${activo}, categoria: ${categoria}`);
+
     // Guardar estado previo por si falla
     const previousGastos = [...gastosRecurrentes];
-    
+
     // Actualización optimista local
-    setGastosRecurrentes(prev => 
+    setGastosRecurrentes(prev =>
       prev.map(g => g.codigo === codigo ? { ...g, activo, categoria } : g)
     );
 
     try {
-      await fetch("/api/informes", {
+      const res = await fetch("/api/informes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -321,21 +324,26 @@ export default function DashboardPage() {
           data: { codigo, descripcion, activo, categoria }
         })
       });
-      // Recargar para sincronizar con el servidor
-      loadGastosRecurrentes();
-      loadEvolucionRecurrentes();
+
+      if (!res.ok) {
+        throw new Error("Failed to update on server");
+      }
+
+      console.log("Update successful on server");
+      // Opcionalmente recargar, pero con cuidado de no sobreescribir el estado local muy rápido
+      // loadGastosRecurrentes(); 
     } catch (error) {
       console.error("Error updating recurrente:", error);
       // Revertir en caso de error
       setGastosRecurrentes(previousGastos);
     }
-  };
-  const [editConfig, setEditConfig] = useState({
+  };  const [editConfig, setEditConfig] = useState({
     admin_id: "",
     admin_secret: "",
     admin_nombre: "La Ideal C.A.",
     url_login: "",
     url_recibos: "",
+    url_recibo_mes: "",
     url_egresos: "",
     url_gastos: "",
     url_balance: "",
@@ -357,6 +365,7 @@ export default function DashboardPage() {
         admin_nombre: building.admin_nombre || "La Ideal C.A.",
         url_login: building.url_login || "",
         url_recibos: building.url_recibos || "",
+        url_recibo_mes: building.url_recibo_mes || "",
         url_egresos: building.url_egresos || "",
         url_gastos: building.url_gastos || "",
         url_balance: building.url_balance || "",
@@ -935,6 +944,97 @@ export default function DashboardPage() {
     }
   };
 
+  const updateAdminAndUrls = (adminName: string) => {
+    let urls = {
+      url_login: editConfig.url_login,
+      url_recibos: editConfig.url_recibos,
+      url_recibo_mes: editConfig.url_recibo_mes,
+      url_egresos: editConfig.url_egresos,
+      url_gastos: editConfig.url_gastos,
+      url_balance: editConfig.url_balance,
+    };
+
+    if (adminName === "La Ideal C.A.") {
+      urls = {
+        url_login: 'https://admlaideal.com.ve/condlin.php?r=1',
+        url_recibos: 'https://admlaideal.com.ve/condlin.php?r=5',
+        url_recibo_mes: 'https://admlaideal.com.ve/condlin.php?r=4',
+        url_egresos: 'https://admlaideal.com.ve/condlin.php?r=21',
+        url_gastos: 'https://admlaideal.com.ve/condlin.php?r=3',
+        url_balance: 'https://admlaideal.com.ve/condlin.php?r=2',
+      };
+    } else if (adminName === "Admastridcarrasquel" || adminName === "Administradora AC. Condominios, C.A.") {
+      urls = {
+        url_login: 'https://www.admastridcarrasquel.com/condlin.php',
+        url_recibos: 'https://www.admastridcarrasquel.com/condlin.php?r=5',
+        url_recibo_mes: 'https://www.admastridcarrasquel.com/condlin.php?r=4',
+        url_egresos: 'https://www.admastridcarrasquel.com/condlin.php?r=21',
+        url_gastos: 'https://www.admastridcarrasquel.com/condlin.php?r=3',
+        url_balance: 'https://www.admastridcarrasquel.com/condlin.php?r=2',
+      };
+    } else if (adminName === "Administradora Elite") {
+      urls = {
+        url_login: 'https://www.administradoraelite.com/control.php',
+        url_recibos: 'https://www.administradoraelite.com/condlin.php?r=5',
+        url_recibo_mes: 'https://www.administradoraelite.com/condlin.php?r=4',
+        url_egresos: 'https://www.administradoraelite.com/condlin.php?r=21',
+        url_gastos: 'https://www.administradoraelite.com/condlin.php?r=3',
+        url_balance: 'https://www.administradoraelite.com/condlin.php?r=2',
+      };
+    } else if (adminName === "Intercanar" || adminName === "Intercanariven") {
+      urls = {
+        url_login: 'https://www.intercanariven.com/control.php',
+        url_recibos: 'https://www.intercanariven.com/condlin.php?r=5',
+        url_recibo_mes: 'https://www.intercanariven.com/condlin.php?r=4',
+        url_egresos: 'https://www.intercanariven.com/condlin.php?r=21',
+        url_gastos: 'https://www.intercanariven.com/condlin.php?r=3',
+        url_balance: 'https://www.intercanariven.com/condlin.php?r=2',
+      };
+    } else if (adminName === "Admactual" || adminName === "Administradora Actual, C.A.") {
+      urls = {
+        url_login: 'https://www.admactual.com/control.php',
+        url_recibos: 'https://www.admactual.com/condlin.php?r=5',
+        url_recibo_mes: 'https://www.admactual.com/condlin.php?r=4',
+        url_egresos: 'https://www.admactual.com/condlin.php?r=21',
+        url_gastos: 'https://www.admactual.com/condlin.php?r=3',
+        url_balance: 'https://www.admactual.com/condlin.php?r=2',
+      };
+    } else if (adminName === "Condominios Chacao") {
+      urls = {
+        url_login: 'https://condominioschacao.com/control.php',
+        url_recibos: 'https://condominioschacao.com/condlin.php?r=5',
+        url_recibo_mes: 'https://condominioschacao.com/condlin.php?r=4',
+        url_egresos: 'https://condominioschacao.com/condlin.php?r=21',
+        url_gastos: 'https://condominioschacao.com/condlin.php?r=3',
+        url_balance: 'https://condominioschacao.com/condlin.php?r=2',
+      };
+    } else if (adminName === "Obelisco") {
+      urls = {
+        url_login: 'https://www.obelisco.com.ve/condlin.php?r=1',
+        url_recibos: 'https://www.obelisco.com.ve/condlin.php?r=5',
+        url_recibo_mes: 'https://www.obelisco.com.ve/condlin.php?r=4',
+        url_egresos: 'https://www.obelisco.com.ve/condlin.php?r=21',
+        url_gastos: 'https://www.obelisco.com.ve/condlin.php?r=3',
+        url_balance: 'https://www.obelisco.com.ve/condlin.php?r=2',
+      };
+    } else if (adminName === "Administradora GCM") {
+      urls = {
+        url_login: 'https://administradoragcm.com/empresa.htm/control.php',
+        url_recibos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=5',
+        url_recibo_mes: 'https://administradoragcm.com/empresa.htm/condlin.php?r=4',
+        url_egresos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=21',
+        url_gastos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=3',
+        url_balance: 'https://administradoragcm.com/empresa.htm/condlin.php?r=2',
+      };
+    }
+
+    setEditConfig({
+      ...editConfig,
+      admin_nombre: adminName,
+      ...urls
+    });
+  };
+
   const handleSaveConfig = async () => {
     setSaving(true);
     setSyncMessage("");
@@ -1487,8 +1587,17 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes seleccionado</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {mesesRecibos.length > 0 && (
-                    <select
+                  {building?.url_recibo_mes && (
+                    <a
+                      href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <span>📄</span> PDF RECIBO
+                    </a>
+                  )}
+                  {mesesRecibos.length > 0 && (                    <select
                       value={selectedMesRecibos}
                       onChange={(e) => {
                         setSelectedMesRecibos(e.target.value);
@@ -2009,11 +2118,39 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "kpis" && (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n de Unidades con Deuda</h2>
-                <div className="h-[300px]">
+           <div className="space-y-6">
+             {/* Tarjetas de Métricas USD */}
+             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Disponible en Caja</div>
+                 <div className="text-lg font-black text-blue-600">$ {formatUsd(balance?.saldo_disponible_usd || 0)}</div>
+                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.saldo_disponible)}</div>
+               </div>
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Cuentas por Cobrar</div>
+                 <div className="text-lg font-black text-orange-600">$ {formatUsd(balance?.total_por_cobrar_usd || 0)}</div>
+                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.total_por_cobrar)}</div>
+               </div>
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Fondo de Reserva</div>
+                 <div className="text-lg font-black text-emerald-600">$ {formatUsd(balance?.fondo_reserva_usd || 0)}</div>
+                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_reserva)}</div>
+               </div>
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Int. Moratorios</div>
+                 <div className="text-lg font-black text-pink-600">$ {formatUsd(balance?.fondo_intereses_usd || 0)}</div>
+                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_intereses)}</div>
+               </div>
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Dif. Cambiario</div>
+                 <div className="text-lg font-black text-indigo-600">$ {formatUsd(balance?.fondo_diferencial_cambiario_usd || 0)}</div>
+                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_diferencial_cambiario)}</div>
+               </div>
+             </div>
+
+             <div className="grid md:grid-cols-2 gap-6">
+               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n de Unidades con Deuda</h2>                <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -2085,43 +2222,126 @@ export default function DashboardPage() {
               {loadingKpis ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
               ) : kpisData.cashFlow?.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <ComposedChart data={kpisData.cashFlow} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <ResponsiveContainer width="100%" height={400}>
+                  <ComposedChart data={kpisData.cashFlow} margin={{ top: 10, right: 40, left: 10, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="fecha" tick={{ fontSize: 9 }} tickFormatter={(v) => v.split('-').slice(1).reverse().join('/')} />
-                    <YAxis yAxisId="left" tick={{ fontSize: 9 }} />
-                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9 }} />
-                    <Tooltip formatter={(value: any) => [`Bs. ${formatBs(value as number)}`, ""]} />
-                    <Legend />
-                    <Bar yAxisId="left" dataKey="ingresos" fill="#10b981" name="Ingresos (Bs.)" radius={[2, 2, 0, 0]} barSize={20} />
+                    <XAxis 
+                      dataKey="fecha" 
+                      tick={{ fontSize: 9 }} 
+                      tickFormatter={(v) => v.split("-").slice(1).reverse().join("/")} 
+                      angle={-45}
+                      textAnchor="end"
+                      height={50}
+                    />
+                    <YAxis 
+                      yAxisId="left" 
+                      tick={{ fontSize: 9 }} 
+                      label={{ value: "Ingresos (Bs)", angle: -90, position: "insideLeft", fontSize: 10 }}
+                    />
+                    <YAxis 
+                      yAxisId="right" 
+                      orientation="right" 
+                      tick={{ fontSize: 9 }} 
+                      label={{ value: "Egresos (Bs)", angle: 90, position: "insideRight", fontSize: 10 }}
+                    />
+                    <Tooltip 
+                      formatter={(value: any, name: string) => [`Bs. ${formatBs(value as number)}`, name]}
+                      contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
+                    />
+                    <Legend verticalAlign="top" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
+                    <Bar yAxisId="left" dataKey="ingresos" fill="#10b981" name="Ingresos (Bs.)" radius={[2, 2, 0, 0]} barSize={15} />
                     <Line yAxisId="right" type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-gray-500 text-center py-8">No hay datos de flujo de caja para este periodo</p>
               )}
+              <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Comparativa diaria de ingresos (barras verdes, eje izq) vs egresos (línea roja, eje der)</p>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución del Saldo Disponible (USD)</h2>
-              {loadingKpis ? (
-                <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : kpisData.balances?.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fontWeight: 500 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
-                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value: any) => [`$${formatUsd(value as number)}`, "Saldo"]} />
-                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                    <Line type="monotone" dataKey="saldo_disponible_usd" stroke="#2563eb" strokeWidth={3} name="Saldo Disponible ($)" dot={{ r: 4, fill: '#2563eb', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-gray-500 text-center py-8 border border-dashed rounded-lg">No hay datos suficientes para generar gráficos.</p>
-              )}
-            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución de Cobranza Mensual (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Cobranza"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Bar dataKey="cobranza_mes_usd" fill="#10b981" name="Cobranza ($)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
 
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Total Cuentas por Cobrar (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Cuentas por Cobrar"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Area type="monotone" dataKey="total_por_cobrar_usd" stroke="#f59e0b" fill="#fef3c7" name="Por Cobrar ($)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución Fondos de Reserva (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Monto"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Line type="monotone" dataKey="fondo_reserva_usd" stroke="#059669" name="Fondo Reserva ($)" strokeWidth={2} />
+                      <Line type="monotone" dataKey="fondo_intereses_usd" stroke="#d97706" name="Intereses Morat. ($)" strokeWidth={2} />
+                      <Line type="monotone" dataKey="fondo_diferencial_cambiario_usd" stroke="#2563eb" name="Dif. Cambiario ($)" strokeWidth={2} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución del Saldo Disponible (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Saldo"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Line type="monotone" dataKey="saldo_disponible_usd" stroke="#2563eb" strokeWidth={3} name="Saldo Disponible ($)" dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+            </div>
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobranza vs Gastos (USD)</h2>
               {loadingKpis ? (
@@ -2739,15 +2959,14 @@ export default function DashboardPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Administradora</label>
                     <select
-                      value={editConfig.admin_nombre}
-                      onChange={(e) => setEditConfig({ ...editConfig, admin_nombre: e.target.value })}
+                      value={editConfig.admin_nombre || "La Ideal C.A."}
+                      onChange={(e) => updateAdminAndUrls(e.target.value)}
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
-                    >
-                      <option value="La Ideal C.A.">La Ideal C.A.</option>
-                      <option value="Admastridcarrasquel">Admastridcarrasquel</option>
+                    >                      <option value="La Ideal C.A.">La Ideal C.A.</option>
+                      <option value="Admastridcarrasquel">Administradora AC. Condominios, C.A.</option>
                       <option value="Administradora Elite">Administradora Elite</option>
-                      <option value="Intercanar">Intercanar</option>
-                      <option value="Admactual">Admactual</option>
+                      <option value="Intercanar">Intercanariven</option>
+                      <option value="Admactual">Administradora Actual, C.A.</option>
                       <option value="Condominios Chacao">Condominios Chacao</option>
                       <option value="Obelisco">Obelisco</option>
                       <option value="Administradora GCM">Administradora GCM</option>
@@ -2774,10 +2993,13 @@ export default function DashboardPage() {
                       <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos</label>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos (Pendientes)</label>
                       <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (PDF ?r=4)</label>
+                      <input type="text" value={editConfig.url_recibo_mes} onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                    </div>                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
                       <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
