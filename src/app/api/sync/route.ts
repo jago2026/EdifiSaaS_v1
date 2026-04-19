@@ -391,7 +391,11 @@ export async function POST(request: Request) {
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
     // Try both hBal (r=2) and hEgresosForBalance (r=21) for balance data
-    const combinedHtml = hBal && hBal.length > hBal.indexOf('<table') ? hBal : (hEgresosForBalance || hBal);
+    // Use the one with more actual table content
+    const hBalTables = (hBal || '').split('<table').length;
+    const hEgrTables = (hEgresosForBalance || '').split('<table').length;
+    console.log(`[Balance] Tables in hBal: ${hBalTables}, in hEgresosForBalance: ${hEgrTables}`);
+    const combinedHtml = hEgrTables > hBalTables ? hEgresosForBalance : hBal;
     const balance = combinedHtml ? parseBalanceFull(combinedHtml) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
