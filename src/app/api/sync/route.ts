@@ -436,27 +436,54 @@ export async function POST(request: Request) {
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
       console.log(`Guardando ${detailedReceiptItems.length} items de detalle para ${mesEstandar}`);
       
-      // Borrar registros anteriores del mes primero
-      await supabase.from("recibos_detalle").delete().eq("edificio_id", building.id).eq("mes", mesEstandar);
-      
-      // Pequeña pausa para asegurar que el delete termine
-      await new Promise(r => setTimeout(r, 100));
-      
-      const itemsToSave = detailedReceiptItems.map(item => ({
-        edificio_id: building.id,
-        unidad: 'GENERAL',
-        propietario: 'EDIFICIO',
-        mes: mesEstandar,
-        codigo: item.codigo,
-        descripcion: item.descripcion,
-        monto: item.monto,
-        cuota_parte: item.cuota_parte,
-        tipo: 'gasto_comun'
-      }));
-      
-      const { error: detErr } = await supabase.from("recibos_detalle").insert(itemsToSave);
-      if (detErr) console.error("Error guardando detalle recibo:", detErr);
-      else console.log(`Guardados ${itemsToSave.length} items en recibos_detalle`);
+      try {
+        // Primero intentar delete
+        const { error: deleteError } = await supabase
+          .from("recibos_detalle")
+          .delete()
+          .eq("edificio_id", building.id)
+          .eq("mes", mesEstandar);
+        
+        if (deleteError) {
+          console.log("Delete error, trying insert anyway:", deleteError);
+        }
+        
+        // Esperar más tiempo
+        await new Promise(r => setTimeout(r, 500));
+        
+        const itemsToSave = detailedReceiptItems.map(item => ({
+          edificio_id: building.id,
+          unidad: 'GENERAL',
+          propietario: 'EDIFICIO',
+          mes: mesEstandar,
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          monto: item.monto,
+          cuota_parte: item.cuota_parte,
+          tipo: 'gasto_comun'
+        }));
+        
+        const { error: detErr } = await supabase.from("recibos_detalle").insert(itemsToSave);
+        
+        // Si hay error de duplicado, intentar borrando todo del edificio y reintentando
+        if (detErr && detErr.code === '23505') {
+          console.log("Duplicate error, retrying after full delete...");
+          await supabase.from("recibos_detalle").delete().eq("edificio_id", building.id).eq("mes", mesEstandar);
+          await new Promise(r => setTimeout(r, 500));
+          const { error: retryErr } = await supabase.from("recibos_detalle").insert(itemsToSave);
+          if (retryErr) {
+            console.error("Error guardando detalle recibo (retry):", retryErr);
+          } else {
+            console.log(`Guardados ${itemsToSave.length} items en recibos_detalle (retry)`);
+          }
+        } else if (detErr) {
+          console.error("Error guardando detalle recibo:", detErr);
+        } else {
+          console.log(`Guardados ${itemsToSave.length} items en recibos_detalle`);
+        }
+      } catch (err) {
+        console.error("Exception guardando detalle recibo:", err);
+      }
     }
 
     if (doSyncAlicuotas && allAlicuotas.length > 0) {
