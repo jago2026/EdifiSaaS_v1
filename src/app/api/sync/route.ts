@@ -283,39 +283,68 @@ function parseBalanceFull(html: string): any {
   balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
   balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
 
-  // 4. FALLBACK: Si no encontramos nada, intentamos el método de celdas de tabla clásico
-  if (!Object.values(balance).some(v => v !== null && v !== 0)) {
-    console.log("Aviso: Falló extracción por texto, intentando fallback de tablas...");
-    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
-    for (const t of allTables) {
-       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-       for (const row of rows) {
-          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-          if (!cells || cells.length < 2) continue;
-          const desc = cleanHtml(cells[0]).toUpperCase();
-          const val = parseMonto(cleanHtml(cells[1]));
-          if (val < 0.01) continue;
-          
-          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
-          else if (desc.includes("COBRANZA") || desc.includes("COBRADO")) balance.cobranza_mes = val;
-          else if (desc.includes("GASTOS") || desc.includes("EGRESOS")) balance.gastos_facturados = val;
-          else if (desc.includes("DISPONIBLE") || desc.includes("EN CAJA")) balance.saldo_disponible = val;
-       }
+  // 4. Parsear TODAS las filas de la tabla de balance
+  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
+  for (const t of allTables) {
+    // Buscar tabla que tenga las columnas Descripcion, Montos, Saldo
+    if (!t.includes('Descripci') && !t.includes('Descripción')) continue;
+    
+    const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+    for (const row of rows) {
+      const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+      if (!cells || cells.length < 2) continue;
+      
+      const desc = cleanHtml(cells[0]).toUpperCase().trim();
+      const monto = cells[1] ? parseMonto(cleanHtml(cells[1])) : 0;
+      const saldo = cells[2] ? parseMonto(cleanHtml(cells[2])) : 0;
+      
+      if (desc.includes("SALDO DE CAJA MES ANTERIOR")) {
+        balance.saldo_anterior = monto;
+      } else if (desc.includes("COBRANZA DEL MES")) {
+        balance.cobranza_mes = monto;
+      } else if (desc.includes("GASTOS FACTURADOS EN EL MES COMUNES")) {
+        balance.gastos_facturados = (balance.gastos_facturados || 0) + monto;
+      } else if (desc.includes("GASTOS FACTURADOS EN EL MES NO COMUNES")) {
+        balance.gastos_facturados = (balance.gastos_facturados || 0) + monto;
+      } else if (desc.includes("SALDO ACTUAL DISPONIBLE")) {
+        balance.saldo_disponible = saldo;
+      } else if (desc.includes("RECIBOS DE CONDOMINIOS DEL MES")) {
+        balance.recibos_mes = monto;
+      } else if (desc.includes("TOTAL CONDOMINIOS POR COBRAR")) {
+        balance.total_por_cobrar = saldo;
+      } else if (desc.includes("CONDOMINIOS ATRASADOS")) {
+        balance.condominios_atrasados = monto;
+      } else if (desc.includes("CONDOMINIOS ADELANTADOS")) {
+        balance.condominios_adelantados = monto;
+      } else if (desc.includes("CONDOMINIOS SOBRANTES")) {
+        balance.condominios_sobrantes = monto;
+      } else if (desc.includes("FONDO DE RESERVA") && !desc.includes("MES ANTERIOR")) {
+        balance.fondo_reserva = saldo;
+      } else if (desc.includes("FONDO DE PRESTACIONES")) {
+        balance.fondo_prestaciones = saldo;
+      } else if (desc.includes("FONDO TRABAJOS VARIOS")) {
+        balance.fondo_trabajos_varios = saldo;
+      } else if (desc.includes("FONDO INTERESES MORATORIOS") && !desc.includes("MES")) {
+        balance.fondo_intereses = saldo;
+      } else if (desc.includes("FONDO DIFERENCIAL CAMBIARIO")) {
+        balance.fondo_diferencial_cambiario = saldo;
+      } else if (desc.includes("AJUSTE DIFERENCIA ALICUOTA")) {
+        balance.ajuste_alicuota = saldo;
+      }
     }
+    break; // Solo procesamos la primera tabla con descripción
   }
 
-console.log(`[Balance] Result after text extraction:`, JSON.stringify(balance));
+  console.log(`[Balance] Result after table extraction:`, JSON.stringify(balance));
   
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
     // Asegurar que no haya nulos para evitar fallos en Supabase
-    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva"];
+    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva", "condominios_atrasados", "condominios_adelantados", "condominios_sobrantes", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_diferencial_cambiario", "ajuste_alicuota"];
     keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
     return balance;
   }
 
-  // FALLBACK: Show tables HTML for debugging
-  console.log(`[Balance] All HTML with tables:`, html.substring(0, 3000));
   console.log("No se pudo extraer balance");
   return null;
 }
