@@ -95,15 +95,11 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 // --- EXTRACTORES ---
 
 function parseReciboDetalle(html: string): any[] {
-  console.log("[parseReciboDetalle] Input HTML length:", html?.length);
   const results: any[] = [];
-  // Buscamos la tabla que tiene los gastos (C&oacute;digo, Descripci&oacute;n, Monto, Cuota Parte)
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
-  console.log("[parseReciboDetalle] Table match found:", !!tableMatch);
   if (!tableMatch) return results;
 
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  console.log("[parseReciboDetalle] Total rows found:", rows.length);
   
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -114,25 +110,11 @@ function parseReciboDetalle(html: string): any[] {
     const monto = parseMonto(cleanHtml(cells[2]));
     const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
 
-    // Saltamos filas vacías
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
-    
-    // Filtrar solo filas que tienen códigos válidos (5 dígitos)
     if (!code.match(/^\d{5}$/)) continue;
-    
-    // No filtramos por "TOTAL" aquí, lo hacemos después
-    // Las filas con códigos como 00001, 00007, etc. son válidas
 
-    console.log("[parseReciboDetalle] Parsed row:", { code, desc: desc.substring(0, 30), monto, cuotaParte });
-    
-    results.push({
-      codigo: code,
-      descripcion: desc,
-      monto: monto,
-      cuota_parte: cuotaParte
-    });
+    results.push({ codigo: code, descripcion: desc, monto, cuota_parte: cuotaParte });
   }
-  console.log("[parseReciboDetalle] Total parsed items:", results.length);
   return results;
 }
 function parseReceiptMonthlySummary(html: string): number {
@@ -253,93 +235,95 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
-  console.log("[parseBalanceFull] HTML received, length:", html?.length);
+  console.log("[Balance] HTML received, length:", html?.length);
   if (!html || html.length < 100) {
-    console.log("[parseBalanceFull] HTML empty or too short, returning null");
+    console.log("[Balance] HTML empty or too short, returning null");
     return null;
   }
   
-  // 1. ELIMINAR SCRIPTS, ESTILOS, CABECERAS Y NAVEGACIÓN
-  const cleanHtmlOnly = html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
-    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
-    .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, ' ')
-    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
-    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
-
-  // 2. REEMPLAZAR ENTIDADES HTML COMUNES Y LIMPIAR ETIQUETAS
-  const rawText = cleanHtmlOnly
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#8209;/g, '-')
-    .replace(/&times;/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-    
-  const text = rawText.toUpperCase();
+  // Extraer tablas del HTML
+  const allTables = html.match(/<table[^>]*>[\s\S]*?<\/table>/gi) || [];
+  console.log(`[Balance] Found ${allTables.length} tables in HTML`);
   
-  console.log("[parseBalanceFull] Text cleaned, length:", text.length);
-  console.log("[parseBalanceFull] Text (first 500 chars):", text.substring(0, 500));
-  
-  // 3. FUNCIÓN DE EXTRACCIÓN POR PROXIMIDAD (Busca el primer número real después de la etiqueta)
-  const extractVal = (keywords: string[]) => {
-    for (const kw of keywords) {
-      const idx = text.indexOf(kw.toUpperCase());
-      if (idx !== -1) {
-        // Mirar hasta 150 caracteres después de la palabra clave
-        const sub = text.substring(idx + kw.length, idx + kw.length + 150);
-        // Expresión regular para capturar números con formato Bs. (ej: 1.234,56 o 1234.56)
-        const match = sub.match(/(\d[\d,.]*)/);
-        if (match) {
-          const val = parseMonto(match[1]);
-          if (val > 0.01) return val; // Ignorar ceros técnicos
+  // Función para buscar en celdas de tabla
+  const searchInTables = (keywords: { key: string; searchTerms: string[] }[]): void => {
+    for (const table of allTables) {
+      const rows = table.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+      for (const row of rows) {
+        const cells = row.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || [];
+        if (cells.length < 2) continue;
+        
+        // Obtener texto de todas las celdas
+        const cellTexts = cells.map(c => cleanHtml(c).toUpperCase());
+        const fullRowText = cellTexts.join(' | ');
+        
+        for (const { key, searchTerms } of keywords) {
+          if (balance[key] !== undefined && balance[key] !== null && balance[key] !== 0) continue;
+          
+          for (const term of searchTerms) {
+            if (fullRowText.includes(term.toUpperCase())) {
+              // Buscar valor numérico en la fila - generalmente en la última o penúltima celda
+              for (let i = cells.length - 1; i >= 0; i--) {
+                const cellText = cleanHtml(cells[i]);
+                const val = parseMonto(cellText);
+                if (val > 0.01 || (val < -0.01)) {
+                  balance[key] = val;
+                  console.log(`[Balance] Found ${key}: ${val} (term: ${term})`);
+                  break;
+                }
+              }
+              break;
+            }
+          }
         }
       }
     }
-    return null;
   };
+  
+  // Buscar campos principales en las tablas
+  searchInTables([
+    { key: 'saldo_anterior', searchTerms: ['SALDO DE CAJA MES ANTERIOR', 'SALDO ANTERIOR'] },
+    { key: 'cobranza_mes', searchTerms: ['COBRANZA DEL MES', 'TOTAL COBRADO', 'INGRESOS DEL MES'] },
+    { key: 'gastos_facturados', searchTerms: ['GASTOS FACTURADOS', 'GASTOS FACTURADOS EN EL MES', 'TOTAL GASTOS'] },
+    { key: 'saldo_disponible', searchTerms: ['SALDO ACTUAL DISPONIBLE', 'SALDO DISPONIBLE', 'DISPONIBLE EN CAJA'] },
+    { key: 'recibos_mes', searchTerms: ['RECIBOS DEL MES', 'RECIBOS DE CONDOMINIOS DEL MES', 'EMISION DEL MES'] },
+    { key: 'condominios_atrasados', searchTerms: ['CONDOMINIOS ATRASADOS', 'DEUDA DE MESES', 'ATRASADOS'] },
+    { key: 'condominios_sobrantes', searchTerms: ['CONDOMINIOS SOBRANTES', 'SOBRANTES', 'SALDOS A FAVOR'] },
+    { key: 'total_por_cobrar', searchTerms: ['TOTAL CONDOMINIOS POR COBRAR', 'TOTAL POR COBRAR'] },
+    { key: 'fondo_reserva', searchTerms: ['SALDO FONDO DE RESERVA', 'FONDO DE RESERVA'] },
+    { key: 'fondo_prestaciones', searchTerms: ['PRESTACIONES SOCIALES', 'FONDO DE PRESTACIONES'] },
+    { key: 'fondo_trabajos_varios', searchTerms: ['TRABAJOS VARIOS', 'FONDO TRABAJOS'] },
+    { key: 'fondo_intereses', searchTerms: ['INTERESES MORATORIOS', 'FONDO INTERESES'] },
+    { key: 'fondo_diferencial_cambiario', searchTerms: ['DIFERENCIAL CAMBIARIO', 'FONDO DIFERENCIAL'] },
+    { key: 'ajuste_pago_tiempo', searchTerms: ['AJUSTE', 'PAGO A TIEMPO', 'DIF. CAMBIARIA'] }
+  ]);
+  
+  // Calcular total_por_cobrar si no se encontró directamente pero tenemos los componentes
+  if (!balance.total_por_cobrar || balance.total_por_cobrar === 0) {
+    const recibos = balance.recibos_mes || 0;
+    const atrasados = balance.condominios_atrasados || 0;
+    const sobrantes = balance.condominios_sobrantes || 0;
+    if (recibos !== 0 || atrasados !== 0 || sobrantes !== 0) {
+      balance.total_por_cobrar = recibos + atrasados + sobrantes;
+      console.log(`[Balance] Calculated total_por_cobrar: ${balance.total_por_cobrar}`);
+    }
+  }
+  
+  console.log("[Balance] Extracted values:", JSON.stringify(balance));
 
-  // Palabras clave mucho más flexibles y cortas para mayor probabilidad de éxito
-  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO MES ANTERIOR"]);
-  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "RECIBOS COBRADOS"]);
-  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "PAGOS REALIZADOS"]);
-  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA", "SALDO ACTUAL EN CAJA"]);
-  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "EMISION TOTAL"]);
-  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "CUENTAS POR COBRAR"]);
-  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
-
-  console.log("[parseBalanceFull] Extracted values:", JSON.stringify(balance));
-
-  // 4. FALLBACK: Si no encontramos nada, intentamos el método de celdas de tabla clásico
-  if (!Object.values(balance).some(v => v !== null && v !== 0)) {
-    console.log("Aviso: Falló extracción por texto, intentando fallback de tablas...");
-    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
-    for (const t of allTables) {
-       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-       for (const row of rows) {
-          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-          if (!cells || cells.length < 2) continue;
-          const desc = cleanHtml(cells[0]).toUpperCase();
-          const val = parseMonto(cleanHtml(cells[1]));
-          if (val < 0.01) continue;
-          
-          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
-          else if (desc.includes("COBRANZA") || desc.includes("COBRADO")) balance.cobranza_mes = val;
-          else if (desc.includes("GASTOS") || desc.includes("EGRESOS")) balance.gastos_facturados = val;
-          else if (desc.includes("DISPONIBLE") || desc.includes("EN CAJA")) balance.saldo_disponible = val;
-       }
+  const found = Object.values(balance).some((v: any) => v !== null && v !== undefined && v !== 0);
+  if (!found) {
+    console.log("[Balance] WARNING: No values extracted from tables!");
+    if (allTables.length > 0 && allTables[0]) {
+      console.log("[Balance] Sample table content:", allTables[0].substring(0, 500));
     }
   }
 
-  const found = Object.values(balance).some(v => v !== null && v !== 0);
-  if (found) {
-    // Asegurar que no haya nulos para evitar fallos en Supabase
-    const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva"];
-    keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
-    return balance;
-  }
-
-  return null;
+  // Asegurar que no haya nulos
+  const keys = ["saldo_anterior", "cobranza_mes", "gastos_facturados", "saldo_disponible", "recibos_mes", "total_por_cobrar", "fondo_reserva", "condominios_atrasados", "condominios_sobrantes", "fondo_prestaciones", "fondo_trabajos_varios", "fondo_intereses", "fondo_diferencial_cambiario", "ajuste_pago_tiempo"];
+  keys.forEach(k => { if (balance[k] === null || balance[k] === undefined) balance[k] = 0; });
+  
+  return balance;
 }
 
 async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {
