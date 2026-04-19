@@ -241,61 +241,59 @@ function parseBalanceFull(html: string): any {
     return null;
   }
   
-  // Extraer tablas del HTML
-  const allTables = html.match(/<table[^>]*>[\s\S]*?<\/table>/gi) || [];
-  console.log(`[Balance] Found ${allTables.length} tables in HTML`);
+  // Limpiar HTML pero mantener estructura de tabelas
+  const cleanHtml2 = (text: string): string => {
+    if (!text) return "";
+    return text.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
+  };
   
-  // Función para buscar en celdas de tabla
-  const searchInTables = (keywords: { key: string; searchTerms: string[] }[]): void => {
-    for (const table of allTables) {
-      const rows = table.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
-      for (const row of rows) {
-        const cells = row.match(/<td[^>]*>[\s\S]*?<\/td>/gi) || [];
-        if (cells.length < 2) continue;
-        
-        // Obtener texto de todas las celdas
-        const cellTexts = cells.map(c => cleanHtml(c).toUpperCase());
-        const fullRowText = cellTexts.join(' | ');
-        
-        for (const { key, searchTerms } of keywords) {
-          if (balance[key] !== undefined && balance[key] !== null && balance[key] !== 0) continue;
-          
-          for (const term of searchTerms) {
-            if (fullRowText.includes(term.toUpperCase())) {
-              // Buscar valor numérico en la fila - generalmente en la última o penúltima celda
-              for (let i = cells.length - 1; i >= 0; i--) {
-                const cellText = cleanHtml(cells[i]);
-                const val = parseMonto(cellText);
-                if (val > 0.01 || (val < -0.01)) {
-                  balance[key] = val;
-                  console.log(`[Balance] Found ${key}: ${val} (term: ${term})`);
-                  break;
-                }
+  // Buscar patrones: Description followed by value
+  // Pattern: keyword in one place, number in another nearby
+  const extractByPattern = (htmlText: string, keywords: { key: string; terms: string[] }[]): void => {
+    const text = cleanHtml2(htmlText).toUpperCase();
+    const lines = text.split(/[\n\r]+/);
+    
+    for (const { key, terms } of keywords) {
+      if (balance[key] !== undefined && balance[key] !== 0) continue;
+      
+      for (const term of terms) {
+        // Buscar la línea que contiene la palabra clave
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.includes(term.toUpperCase())) {
+            // Buscar número en líneas cercanas (anterior, actual, o siguiente)
+            for (let j = Math.max(0, i - 1); j <= Math.min(lines.length - 1, i + 2); j++) {
+              const val = parseMonto(lines[j]);
+              if (Math.abs(val) > 0.01) {
+                balance[key] = val;
+                console.log(`[Balance] ${key}: ${val} (near '${term}')`);
+                break;
               }
-              break;
             }
+            if (balance[key] !== undefined && balance[key] !== 0) break;
           }
         }
+        if (balance[key] !== undefined && balance[key] !== 0) break;
       }
     }
   };
   
-  // Buscar campos principales en las tablas
-  searchInTables([
-    { key: 'saldo_anterior', searchTerms: ['SALDO DE CAJA MES ANTERIOR', 'SALDO ANTERIOR'] },
-    { key: 'cobranza_mes', searchTerms: ['COBRANZA DEL MES', 'TOTAL COBRADO', 'INGRESOS DEL MES'] },
-    { key: 'gastos_facturados', searchTerms: ['GASTOS FACTURADOS', 'GASTOS FACTURADOS EN EL MES', 'TOTAL GASTOS'] },
-    { key: 'saldo_disponible', searchTerms: ['SALDO ACTUAL DISPONIBLE', 'SALDO DISPONIBLE', 'DISPONIBLE EN CAJA'] },
-    { key: 'recibos_mes', searchTerms: ['RECIBOS DEL MES', 'RECIBOS DE CONDOMINIOS DEL MES', 'EMISION DEL MES'] },
-    { key: 'condominios_atrasados', searchTerms: ['CONDOMINIOS ATRASADOS', 'DEUDA DE MESES', 'ATRASADOS'] },
-    { key: 'condominios_sobrantes', searchTerms: ['CONDOMINIOS SOBRANTES', 'SOBRANTES', 'SALDOS A FAVOR'] },
-    { key: 'total_por_cobrar', searchTerms: ['TOTAL CONDOMINIOS POR COBRAR', 'TOTAL POR COBRAR'] },
-    { key: 'fondo_reserva', searchTerms: ['SALDO FONDO DE RESERVA', 'FONDO DE RESERVA'] },
-    { key: 'fondo_prestaciones', searchTerms: ['PRESTACIONES SOCIALES', 'FONDO DE PRESTACIONES'] },
-    { key: 'fondo_trabajos_varios', searchTerms: ['TRABAJOS VARIOS', 'FONDO TRABAJOS'] },
-    { key: 'fondo_intereses', searchTerms: ['INTERESES MORATORIOS', 'FONDO INTERESES'] },
-    { key: 'fondo_diferencial_cambiario', searchTerms: ['DIFERENCIAL CAMBIARIO', 'FONDO DIFERENCIAL'] },
-    { key: 'ajuste_pago_tiempo', searchTerms: ['AJUSTE', 'PAGO A TIEMPO', 'DIF. CAMBIARIA'] }
+  // Extraer usando patrones de palabras clave en el HTML completo
+  extractByPattern(html, [
+    { key: 'saldo_anterior', terms: ['SALDO DE CAJA MES ANTERIOR', 'SALDO ANTERIOR'] },
+    { key: 'cobranza_mes', terms: ['COBRANZA DEL MES', 'TOTAL COBRADO', 'INGRESOS DEL MES'] },
+    { key: 'gastos_facturados', terms: ['GASTOS FACTURADOS EN EL MES', 'GASTOS FACTURADOS', 'TOTAL GASTOS', 'GASTOS EN EL MES'] },
+    { key: 'saldo_disponible', terms: ['SALDO ACTUAL DISPONIBLE', 'SALDO DISPONIBLE EN CAJA', 'DISPONIBLE EN CAJA'] },
+    { key: 'recibos_mes', terms: ['RECIBOS DE CONDOMINIOS DEL MES', 'RECIBOS DEL MES'] },
+    { key: 'condominios_atrasados', terms: ['CONDOMINIOS ATRASADOS'] },
+    { key: 'condominios_sobrantes', terms: ['CONDOMINIOS SOBRANTES', 'CONDOMINIOS ADELANTADOS'] },
+    { key: 'total_por_cobrar', terms: ['TOTAL CONDOMINIOS POR COBRAR'] },
+    { key: 'fondo_reserva', terms: ['SALDO FONDO DE RESERVA', 'SALDO RESERVA'] },
+    { key: 'fondo_prestaciones', terms: ['SALDO FONDO DE PRESTACIONES'] },
+    { key: 'fondo_trabajos_varios', terms: ['SALDO FONDO TRABAJOS'] },
+    { key: 'fondo_intereses', terms: ['SALDO FONDO INTERESES'] },
+    { key: 'fondo_diferencial_cambiario', terms: ['SALDO FONDO DIFERENCIAL'] },
+    { key: 'ajuste_alicuota', terms: ['AJUSTE DIFERENCIA', 'SALDO AJUSTE'] }
   ]);
   
   // Calcular total_por_cobrar si no se encontró directamente pero tenemos los componentes
@@ -314,10 +312,6 @@ function parseBalanceFull(html: string): any {
   const found = Object.values(balance).some((v: any) => v !== null && v !== undefined && v !== 0);
   if (!found) {
     console.log("[Balance] WARNING: No values extracted!");
-    // MOSTRAR TODAS LAS TABLAS
-    for (let i = 0; i < allTables.length; i++) {
-      console.log(`[Balance] Table ${i}:`, allTables[i].substring(0, 300));
-    }
   }
 
   // Asegurar que no haya nulos
