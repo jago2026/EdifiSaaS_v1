@@ -247,6 +247,10 @@ function parseBalanceFull(html: string): any {
     return text.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
   };
   
+  // DEBUG: mostrar texto limpio
+  const cleanText = cleanHtml2(html);
+  console.log("[Balance] Clean text sample:", cleanText.substring(0, 1000));
+  
   // Buscar patrones: Description followed by value
   // Pattern: keyword in one place, number in another nearby
   const extractByPattern = (htmlText: string, keywords: { key: string; terms: string[] }[]): void => {
