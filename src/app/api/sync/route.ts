@@ -51,6 +51,9 @@ function cleanHtml(text: string): string {
     .replace(/&uacute;/g, "ú")
     .replace(/&ntilde;/g, "ñ")
     .replace(/&Ntilde;/g, "Ñ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&TIMES;/gi, "")
+    .replace(/&#8209;/g, "-")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -93,24 +96,29 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 function parseReciboDetalle(html: string): any[] {
   const results: any[] = [];
+  const seenCodes = new Set();
   // Buscamos la tabla que tiene los gastos (C&oacute;digo, Descripci&oacute;n, Monto, Cuota Parte)
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
-  
+
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 3) continue;
-    
+
     const code = cleanHtml(cells[0]);
     const desc = cleanHtml(cells[1]);
     const monto = parseMonto(cleanHtml(cells[2]));
     const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
-    
+
     // Saltamos filas de totales o vacías
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
     if (desc.toUpperCase().includes("TOTAL")) continue;
     if (code.length > 10) continue; // Probablemente no es un código
+
+    // Evitar duplicados
+    if (seenCodes.has(code)) continue;
+    seenCodes.add(code);
 
     results.push({
       codigo: code,
@@ -121,7 +129,6 @@ function parseReciboDetalle(html: string): any[] {
   }
   return results;
 }
-
 function parseReceiptMonthlySummary(html: string): number {
   if (!html) return 0;
   // Basado en el HTML del usuario, el total está en una celda que sigue a "TOTAL RECIBO:"
@@ -244,7 +251,9 @@ function parseBalanceFull(html: string): any {
   const cleanHtmlOnly = html
     .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
     .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
-    .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, ' ');
+    .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, ' ')
+    .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+    .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
 
   // Limpiar HTML de etiquetas, entidades y espacios extra
   const rawText = cleanHtmlOnly
@@ -273,13 +282,13 @@ function parseBalanceFull(html: string): any {
     return null;
   };
 
-  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR"]);
-  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS"]);
-  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS"]);
-  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA"]);
-  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES"]);
-  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR"]);
-  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO"]);
+  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR", "SALDO CAJA ANTERIOR"]);
+  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS", "COBRANZA MES"]);
+  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS", "GASTOS EN EL MES", "EGRESOS MES"]);
+  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA", "SALDO ACTUAL", "DISPONIBLE CAJA"]);
+  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES", "RECIBOS MES"]);
+  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR", "PENDIENTE COBRO"]);
+  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO", "SALDO RESERVA"]);
 
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {

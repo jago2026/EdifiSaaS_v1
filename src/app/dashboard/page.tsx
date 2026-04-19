@@ -8,7 +8,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart
 } from "recharts";
 
-type Tab = "resumen" | "movimientos" | "recibos" | "egresos" | "gastos" | "balance" | "alicuotas" | "alertas" | "kpis" | "configuracion" | "manual" | "junta" | "ingresos";
+type Tab = "resumen" | "movimientos" | "recibos" | "egresos" | "gastos" | "balance" | "alicuotas" | "alertas" | "kpis" | "configuracion" | "manual" | "junta" | "ingresos" | "informes";
 
 interface User {
   id: string;
@@ -465,7 +465,7 @@ export default function DashboardPage() {
     if (activeTab === "kpis" && building?.id) {
       loadKpis();
     }
-    if (activeTab === "informes" && building?.id) {
+    if ((activeTab as string) === "informes" && building?.id) {
       loadInforme();
       loadGastosRecurrentes();
       loadEvolucionRecurrentes();
@@ -1205,8 +1205,8 @@ export default function DashboardPage() {
 
         {activeTab === "recibos" && (
           <div className="space-y-6">
-            {/* Solo mostrar el bloque del recibo si se ha seleccionado un mes */}
-            {selectedMesRecibos && (
+            {/* Solo mostrar el bloque del recibo si se ha seleccionado un mes específico */}
+            {selectedMesRecibos && selectedMesRecibos !== "" && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 animate-in slide-in-from-top duration-300">
                 <div className="flex justify-between items-center mb-6">
                   <div>
@@ -1244,21 +1244,33 @@ export default function DashboardPage() {
                         <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-xs font-bold animate-pulse">CARGANDO DETALLE DEL RECIBO...</td></tr>
                       ) : reciboGeneral.length > 0 ? (
                         <>
-                          {/* Eliminando duplicados por código en el renderizado por si acaso */}
-                          {Array.from(new Set(reciboGeneral.map(i => i.codigo))).map((codigo) => {
-                            const item = reciboGeneral.find(i => i.codigo === codigo);
+                          {/* Eliminando duplicados por código en el renderizado */}
+                          {(() => {
+                            const uniqueItems: any[] = [];
+                            const seenCodes = new Set();
+                            reciboGeneral.forEach(item => {
+                              if (!seenCodes.has(item.codigo)) {
+                                seenCodes.add(item.codigo);
+                                uniqueItems.push(item);
+                              }
+                            });
+                            
                             return (
-                              <tr key={`${codigo}`} className="hover:bg-blue-50/30 transition-colors group">
-                                <td className="px-4 py-3 text-xs font-mono font-bold text-blue-600">{item.codigo}</td>
-                                <td className="px-4 py-3 text-xs font-bold text-gray-700 group-hover:text-blue-700 uppercase">{item.descripcion}</td>
-                                <td className="px-4 py-3 text-xs font-black text-gray-900 text-right">{Number(item.monto).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</td>
-                              </tr>
+                              <>
+                                {uniqueItems.map((item) => (
+                                  <tr key={`${item.codigo}`} className="hover:bg-blue-50/30 transition-colors group">
+                                    <td className="px-4 py-3 text-xs font-mono font-bold text-blue-600">{item.codigo}</td>
+                                    <td className="px-4 py-3 text-xs font-bold text-gray-700 group-hover:text-blue-700 uppercase">{item.descripcion}</td>
+                                    <td className="px-4 py-3 text-xs font-black text-gray-900 text-right">{Number(item.monto).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</td>
+                                  </tr>
+                                ))}
+                                <tr className="bg-blue-50/50">
+                                  <td colSpan={2} className="px-4 py-3 text-xs font-black text-blue-800 text-right uppercase tracking-widest">Total Gastos del Mes:</td>
+                                  <td className="px-4 py-3 text-sm font-black text-blue-600 text-right underline decoration-double">Bs. {uniqueItems.reduce((sum: number, i: any) => sum + Number(i.monto), 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                              </>
                             );
-                          })}
-                          <tr className="bg-blue-50/50">
-                            <td colSpan={2} className="px-4 py-3 text-xs font-black text-blue-800 text-right uppercase tracking-widest">Total Gastos del Mes:</td>
-                            <td className="px-4 py-3 text-sm font-black text-blue-600 text-right underline decoration-double">Bs. {reciboGeneral.reduce((sum: number, i: any) => sum + Number(i.monto), 0).toLocaleString('es-VE', { minimumFractionDigits: 2 })}</td>
-                          </tr>
+                          })()}
                         </>
                       ) : (
                         <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-xs font-bold uppercase tracking-widest italic">Sincroniza los datos para visualizar el detalle del recibo.</td></tr>
@@ -1980,7 +1992,7 @@ export default function DashboardPage() {
            </div>
         )}
 
-        {activeTab === "informes" && (
+        {(activeTab as string) === "informes" && (
            <div className="space-y-6">
              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen por Fecha</h2>
