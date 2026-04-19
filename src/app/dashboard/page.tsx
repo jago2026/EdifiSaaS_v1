@@ -1974,7 +1974,6 @@ export default function DashboardPage() {
                   const gastoItems: any[] = [];
                   const fondoReserva: any[] = [];
                   const gastosNoComunes: any[] = [];
-                  let foundFirst00001 = false;
                   
                   for (const item of rawItems) {
                     const code = item.codigo || '';
@@ -1982,20 +1981,27 @@ export default function DashboardPage() {
                     
                     if (code === '00085') {
                       gastosNoComunes.push(item);
+                    } else if (code === '00001' && desc.includes('TRABAJADOR')) {
+                      gastoItems.unshift(item);
+                    } else if (code === '00001' && desc.includes('FONDO')) {
+                      fondoReserva.push(item);
                     } else if (code === '00001') {
-                      if (!foundFirst00001) {
-                        gastoItems.push(item);
-                        foundFirst00001 = true;
-                      } else {
-                        fondoReserva.push(item);
-                      }
+                      gastoItems.push(item);
                     } else {
                       gastoItems.push(item);
                     }
                   }
                   
-                  const totalGastosMonto = gastoItems.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
-                  const totalGastosCuota = gastoItems.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
+                  const sortedGastos = gastoItems.sort((a, b) => {
+                    const codeA = a.codigo || '';
+                    const codeB = b.codigo || '';
+                    if (codeA === '00001') return 1;
+                    if (codeB === '00001') return -1;
+                    return codeA.localeCompare(codeB);
+                  });
+                  
+                  const totalGastosMonto = sortedGastos.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
+                  const totalGastosCuota = sortedGastos.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
                   const totalFondosMonto = fondoReserva.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
                   const totalFondosCuota = fondoReserva.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
                   const totalFondosYGastosComunesMonto = totalGastosMonto + totalFondosMonto;
@@ -2017,7 +2023,7 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {gastoItems.map((item, idx) => (
+                      {sortedGastos.map((item, idx) => (
                         <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
                           <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
                           <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
