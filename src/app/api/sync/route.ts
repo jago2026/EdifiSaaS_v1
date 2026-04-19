@@ -239,9 +239,13 @@ function parseAlicuotasTable(html: string): any[] {
 
 function parseBalanceFull(html: string): any {
   const balance: any = {};
-  const allTables = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/g) || [];
+  // Expresión más flexible para encontrar tablas, independientemente de la clase específica
+  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
+  
   for (const t of allTables) {
-    if (!t.includes("SALDO DE CAJA") && !t.includes("FONDO DE RESERVA") && !t.includes("CUENTAS POR COBRAR")) continue;
+    const tableText = cleanHtml(t).toUpperCase();
+    if (!tableText.includes("SALDO DE CAJA") && !tableText.includes("FONDO DE RESERVA") && !tableText.includes("CUENTAS POR COBRAR")) continue;
+    
     const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
     for (const row of rows) {
       const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -302,6 +306,23 @@ function parseBalanceFull(html: string): any {
   return balance;
 }
 
+async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {
+  try {
+    const { data: logs } = await supabase
+      .from(table)
+      .select("id")
+      .eq("edificio_id", edificioId)
+      .order("created_at", { ascending: false });
+
+    if (logs && logs.length > limit) {
+      const idsToDelete = logs.slice(limit).map((l: any) => l.id);
+      await supabase.from(table).delete().in("id", idsToDelete);
+    }
+  } catch (e) {
+    console.error(`Error limiting logs for ${table}:`, e);
+  }
+}
+
 export async function POST(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
   const today = new Date().toISOString().split('T')[0];
@@ -325,6 +346,7 @@ export async function POST(request: Request) {
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
     if (!session) {
       await supabase.from("sincronizaciones").insert({ edificio_id: building.id, tipo: "sync", estado: "error", error: "Fallo de login" });
+      await limitLogs(supabase, "sincronizaciones", building.id);
       return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
     }
 
@@ -461,6 +483,8 @@ export async function POST(request: Request) {
         stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal }
       }
     });
+    await limitLogs(supabase, "sincronizaciones", building.id);
+    await limitLogs(supabase, "alertas", building.id);
 
     await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal } });

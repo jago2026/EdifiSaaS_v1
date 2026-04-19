@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
 type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta";
 
@@ -172,7 +172,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState<Building | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [syncing, setSyncing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [maintenanceLoading, setMaintenanceLoading] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -222,7 +224,27 @@ export default function DashboardPage() {
   const [selectedUnidad, setSelectedUnidad] = useState<string>("");
   const [reciboDetalle, setReciboDetalle] = useState<any[]>([]);
   const [loadingRecibo, setLoadingRecibo] = useState(false);
+  const [reciboGeneral, setReciboGeneral] = useState<any[]>([]);
+  const [loadingReciboGeneral, setLoadingReciboGeneral] = useState(false);
   const [syncMes, setSyncMes] = useState("");
+
+  const loadReciboGeneral = async () => {
+    if (!building?.id) return;
+    setLoadingReciboGeneral(true);
+    try {
+      const mes = selectedMesRecibos || "";
+      const url = `/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok) {
+        setReciboGeneral(data.detalles || []);
+      }
+    } catch (error) {
+      console.error("Error loading general receipt:", error);
+    } finally {
+      setLoadingReciboGeneral(false);
+    }
+  };
   const [syncingMes, setSyncingMes] = useState(false);
   const [informeFecha, setInformeFecha] = useState<string>(new Date().toISOString().split('T')[0]);
   const [informeData, setInformeData] = useState<any>(null);
@@ -279,6 +301,15 @@ export default function DashboardPage() {
 
   const updateRecurrente = async (codigo: string, descripcion: string, activo: boolean, categoria: string) => {
     if (!building?.id) return;
+    
+    // Guardar estado previo por si falla
+    const previousGastos = [...gastosRecurrentes];
+    
+    // Actualización optimista local
+    setGastosRecurrentes(prev => 
+      prev.map(g => g.codigo === codigo ? { ...g, activo, categoria } : g)
+    );
+
     try {
       await fetch("/api/informes", {
         method: "POST",
@@ -289,10 +320,13 @@ export default function DashboardPage() {
           data: { codigo, descripcion, activo, categoria }
         })
       });
+      // Recargar para sincronizar con el servidor
       loadGastosRecurrentes();
       loadEvolucionRecurrentes();
     } catch (error) {
       console.error("Error updating recurrente:", error);
+      // Revertir en caso de error
+      setGastosRecurrentes(previousGastos);
     }
   };
   const [editConfig, setEditConfig] = useState({
@@ -446,6 +480,7 @@ export default function DashboardPage() {
     }
     if (activeTab === "recibos" && building?.id) {
       loadRecibos();
+      loadReciboGeneral();
     }
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
@@ -1006,6 +1041,29 @@ export default function DashboardPage() {
     }
   };
 
+  const handleMaintenance = async () => {
+    if (!building?.id) return;
+    setMaintenanceLoading(true);
+    setMaintenanceMessage("Iniciando mantenimiento de tablas...");
+    try {
+      const res = await fetch("/api/config/maintenance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edificioId: building.id })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMaintenanceMessage(`✅ ${data.message || "Mantenimiento completado. Se ha enviado el reporte por email."}`);
+      } else {
+        setMaintenanceMessage(`❌ Error: ${data.error || "Fallo en mantenimiento"}`);
+      }
+    } catch (error: any) {
+      setMaintenanceMessage(`❌ Error de red: ${error.message}`);
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
   const handleTestConnection = async () => {
     setSaving(true);
     setSyncMessage("Probando conexión...");
@@ -1421,16 +1479,96 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "recibos" && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Relaci&oacute;n de Recibos Pendientes</h2>
-              <div className="flex gap-4 items-center">
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Visualizaci&oacute;n de Recibo de Condominio</h2>
+                  <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes seleccionado</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {mesesRecibos.length > 0 && (
+                    <select
+                      value={selectedMesRecibos}
+                      onChange={(e) => {
+                        setSelectedMesRecibos(e.target.value);
+                        setTimeout(() => {
+                          loadRecibos();
+                          loadReciboGeneral();
+                        }, 0);
+                      }}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-indigo-50 font-bold text-indigo-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Mes Actual (Online)</option>
+                      {mesesRecibos.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button onClick={() => { loadRecibos(); loadReciboGeneral(); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-indigo-100" title="Refrescar">
+                    <span className="text-xl">🔄</span>
+                  </button>
+                </div>
+              </div>
+
+              {loadingReciboGeneral ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
+                  <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
+                </div>
+              ) : reciboGeneral.length > 0 ? (
+                <div className="overflow-hidden border border-gray-200 rounded-xl">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
+                        <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n del Concepto</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {reciboGeneral.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                          <td className="py-2.5 px-4 text-gray-800 font-medium">{item.descripcion}</td>
+                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
+                      <tr>
+                        <td colSpan={2} className="py-3 px-4 text-right text-gray-700 uppercase text-xs">Total Gastos del Mes:</td>
+                        <td className="py-3 px-4 text-right text-indigo-700 text-lg">
+                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
+                  <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase">Sincroniza los datos para descargar el detalle del recibo de condominio.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Relaci&oacute;n de Recibos Pendientes</h2>
+                  <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
+                </div>
+                <div className="flex gap-4 items-center">
                 {mesesRecibos.length > 0 && (
                   <select
                     value={selectedMesRecibos}
                     onChange={(e) => {
                       setSelectedMesRecibos(e.target.value);
-                      setTimeout(() => loadRecibos(), 0);
+                      setTimeout(() => {
+                        loadRecibos();
+                        loadReciboGeneral();
+                      }, 0);
                     }}
                     className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
                   >
@@ -1494,6 +1632,7 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+        </div>
         )}
 
         {activeTab === "egresos" && (
@@ -1947,15 +2086,16 @@ export default function DashboardPage() {
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
               ) : kpisData.cashFlow?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={kpisData.cashFlow} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <ComposedChart data={kpisData.cashFlow} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="fecha" tick={{ fontSize: 9 }} tickFormatter={(v) => v.split('-').slice(1).reverse().join('/')} />
-                    <YAxis tick={{ fontSize: 9 }} />
+                    <YAxis yAxisId="left" tick={{ fontSize: 9 }} />
+                    <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 9 }} />
                     <Tooltip formatter={(value: any) => [`Bs. ${formatBs(value as number)}`, ""]} />
                     <Legend />
-                    <Line type="monotone" dataKey="ingresos" stroke="#10b981" name="Ingresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-                  </LineChart>
+                    <Bar yAxisId="left" dataKey="ingresos" fill="#10b981" name="Ingresos (Bs.)" radius={[2, 2, 0, 0]} barSize={20} />
+                    <Line yAxisId="right" type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-gray-500 text-center py-8">No hay datos de flujo de caja para este periodo</p>
@@ -2794,17 +2934,60 @@ export default function DashboardPage() {
                <p className="text-[10px] text-gray-500 mt-2 italic font-black uppercase tracking-tighter">Útil para recuperar datos de meses anteriores cerrados en el portal.</p>
             </div>
 
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight">Mantenimiento de la Plataforma</h2>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <div className="flex-1">
+                  <h3 className="text-blue-800 font-bold mb-1">Mantenimiento de Base de Datos Supabase</h3>
+                  <p className="text-xs text-blue-600 leading-relaxed font-medium">
+                    Realiza una operaci&oacute;n de mantenimiento preventivo para optimizar el rendimiento de las tablas, compactar el almacenamiento y reindexar los datos. 
+                    Al finalizar, se enviar&aacute; un reporte detallado a <strong>correojago@gmail.com</strong>.
+                  </p>
+                </div>
+                <div className="flex-shrink-0 flex flex-col items-center gap-2">
+                  <button
+                    onClick={handleMaintenance}
+                    disabled={maintenanceLoading}
+                    className={`px-6 py-2.5 rounded-lg font-black uppercase text-xs shadow-sm transition-all flex items-center gap-2 ${
+                      maintenanceLoading 
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
+                      : "bg-indigo-600 text-white hover:bg-indigo-700 active:transform active:scale-95"
+                    }`}
+                  >
+                    {maintenanceLoading ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                        Ejecutando...
+                      </>
+                    ) : (
+                      "Ejecutar Mantenimiento"
+                    )}
+                  </button>
+                </div>
+              </div>
+              {maintenanceMessage && (
+                <div className={`mt-4 p-3 rounded-lg text-sm font-bold border ${maintenanceMessage.includes("❌") ? "bg-red-50 border-red-100 text-red-700" : "bg-green-50 border-green-100 text-green-700"}`}>
+                  {maintenanceMessage}
+                </div>
+              )}
+            </div>
+
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Detalle de Datos Sincronizados Off-line</h3>
               {sincronizaciones.filter(s => s.estado === 'completado').length === 0 ? (
-                <p className="text-sm text-gray-500 italic">No hay registros detallados de sincronización.</p>
+                <p className="text-sm text-gray-500 italic">No hay registros detallados de sincronización exitosa.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {sincronizaciones.filter(s => s.estado === 'completado').slice(0, 18).map((s, idx) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2">
+                  {sincronizaciones.filter(s => s.estado === 'completado').map((s, idx) => (
+                    <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm relative overflow-hidden">
+                      <div className={`absolute top-0 right-0 px-2 py-0.5 text-[8px] font-black text-white uppercase ${s.tipo === 'sync_historica' ? 'bg-orange-500' : 'bg-green-500'}`}>
+                        {s.tipo === 'sync_historica' ? 'Hist&oacute;rica' : 'Diaria'}
+                      </div>
                       <div className="flex justify-between items-start mb-2">
                         <div className="text-xs font-black text-indigo-600 uppercase">{s.detalles?.mes || 'Actual'}</div>
-                        <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleDateString()}</div>
+                        <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleString("es-VE")}</div>
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-2">
                         <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_recibos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
@@ -2825,7 +3008,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       {(s.detalles?.stats?.recibo_total > 0 || s.movimientos_nuevos > 0) && (
-                        <div className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded mb-1">
+                        <div className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded mb-1 border border-blue-100">
                           {s.detalles?.stats?.recibo_total > 0 ? `TOTAL RECIBO: Bs. ${formatBs(s.detalles.stats.recibo_total)}` : `REGISTROS: ${s.movimientos_nuevos}`}
                         </div>
                       )}

@@ -42,6 +42,23 @@ function formatLabel(mes: string | null | undefined): string {
   return mes;
 }
 
+async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {
+  try {
+    const { data: logs } = await supabase
+      .from(table)
+      .select("id")
+      .eq("edificio_id", edificioId)
+      .order("created_at", { ascending: false });
+
+    if (logs && logs.length > limit) {
+      const idsToDelete = logs.slice(limit).map((l: any) => l.id);
+      await supabase.from(table).delete().in("id", idsToDelete);
+    }
+  } catch (e) {
+    console.error(`Error limiting logs for ${table}:`, e);
+  }
+}
+
 async function logTasaWarning(supabase: any, edificioId: string, targetDate: string, tasa: number, tasaDate: string | null) {
   try {
     const formatDate = (dateStr: string) => {
@@ -59,6 +76,7 @@ async function logTasaWarning(supabase: any, edificioId: string, targetDate: str
       descripcion: `No se encontró tasa BCV para ${targetFormatted}. Se está usando una tasa de Bs. ${tasa} de fecha ${tasaDateFormatted} para los cálculos de USD.`,
       fecha: new Date().toISOString().split('T')[0]
     });
+    await limitLogs(supabase, "alertas", edificioId);
   } catch (e) {
     console.error("Error logging tasa warning:", e);
   }

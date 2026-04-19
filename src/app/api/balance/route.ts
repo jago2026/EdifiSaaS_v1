@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     let query = supabase.from("balances").select("*").eq("edificio_id", edificioId);
     
     if (mes) {
-      query = query.eq("mes", mes);
+      query = query.eq("mes", normalizeMonth(mes));
     } else {
       query = query.order("mes", { ascending: false }).limit(1);
     }
