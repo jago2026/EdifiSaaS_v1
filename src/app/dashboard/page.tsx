@@ -3016,10 +3016,14 @@ export default function DashboardPage() {
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos (Pendientes)</label>
                       <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (?r=4)</label>
-                      <input type="text" value={editConfig.url_recibo_mes} onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
-                    </div>                    <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (?r=4)</label>
+                    <input 
+                      type="text" 
+                      value={editConfig.url_recibo_mes} 
+                      placeholder={editConfig.admin_nombre === "La Ideal C.A." ? "https://admlaideal.com.ve/condlin.php?r=4" : ""}
+                      onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })} 
+                      className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" 
+                    />                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
                       <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>

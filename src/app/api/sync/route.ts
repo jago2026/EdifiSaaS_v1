@@ -240,18 +240,28 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
-  // Limpiar HTML de etiquetas, espacios extra y saltos de línea para búsqueda de texto
-  const rawText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  // ELIMINAR SCRIPTS Y ESTILOS ANTES DE LIMPIAR TEXTO
+  const cleanHtmlOnly = html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+    .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, ' ');
+
+  // Limpiar HTML de etiquetas, entidades y espacios extra
+  const rawText = cleanHtmlOnly
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\s+/g, ' ');
+    
   const text = rawText.toUpperCase();
   
-  console.log(`Balance Text Debug (primeros 500 chars): ${text.substring(0, 500)}`);
+  console.log(`Balance Text Clean (primeros 500 chars): ${text.substring(0, 500)}`);
   
   // Función de extracción por proximidad mejorada
   const extractVal = (keywords: string[]) => {
     for (const kw of keywords) {
       const idx = text.indexOf(kw);
       if (idx !== -1) {
-        // Buscar el primer número que aparezca después de la palabra clave (dentro de los siguientes 100 caracteres)
+        // Buscar el primer número que aparezca después de la palabra clave
         const sub = text.substring(idx + kw.length, idx + kw.length + 100);
         const match = sub.match(/([\d,.]+)/);
         if (match) {
@@ -270,26 +280,6 @@ function parseBalanceFull(html: string): any {
   balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES"]);
   balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR"]);
   balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO"]);
-
-  // Si no encontramos nada por texto, intentamos el método de celdas de tabla (como respaldo)
-  if (!Object.values(balance).some(v => v !== null)) {
-    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
-    for (const t of allTables) {
-       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-       for (const row of rows) {
-          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-          if (!cells || cells.length < 2) continue;
-          const desc = cleanHtml(cells[0]).toUpperCase();
-          const val = parseMonto(cleanHtml(cells[1]));
-          if (val === 0) continue;
-          
-          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
-          else if (desc.includes("COBRANZA")) balance.cobranza_mes = val;
-          else if (desc.includes("GASTOS FACTURADOS")) balance.gastos_facturados = val;
-          else if (desc.includes("SALDO ACTUAL") || desc.includes("DISPONIBLE")) balance.saldo_disponible = val;
-       }
-    }
-  }
 
   const found = Object.values(balance).some(v => v !== null && v !== 0);
   if (found) {
