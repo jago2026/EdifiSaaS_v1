@@ -358,13 +358,23 @@ export async function POST(request: Request) {
     }
 
     const baseUrl = new URL(building.url_login).origin;
-    const comboParam = mes ? `&combo=${mes}` : "";
+    
+    // Convert mes (mm-yyyy) to dd-mm-yyyy (last day of month) for historical months
+    let comboValue = mes;
+    if (mes && mes.includes("-")) {
+      const [mm, yyyy] = mes.split("-");
+      const mmNum = parseInt(mm, 10);
+      const yyyyNum = parseInt(yyyy, 10);
+      const lastDay = new Date(yyyyNum, mmNum - 1, 0).getDate();
+      comboValue = `${lastDay}-${mm}-${yyyy}`;
+    }
+    const comboParam = mes ? `&combo=${comboValue}` : "";
 
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
       doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
-      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
+      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?&r=2${comboParam}`, session) : Promise.resolve(null),
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
     ];
