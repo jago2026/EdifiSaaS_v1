@@ -394,11 +394,10 @@ export async function POST(request: Request) {
     if (hBal) {
       const tables = hBal.split('<table');
       console.log(`[Balance] Total tables in hBal: ${tables.length}`);
-      // Show each table that hasSALDO or COBRANZA
+      // Show ALL tables data
       for (let i = 0; i < Math.min(tables.length, 10); i++) {
-        if (tables[i].toUpperCase().includes('SALDO') || tables[i].toUpperCase().includes('COBRANZA')) {
-          console.log(`[Balance] Table ${i} has data:`, tables[i].substring(0, 300));
-        }
+        const t = tables[i];
+        console.log(`[Balance] Table ${i} (${t.length} chars):`, t.substring(0, 500));
       }
     }
 
