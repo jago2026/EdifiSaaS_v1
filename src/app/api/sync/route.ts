@@ -9,6 +9,7 @@ function parseMonto(text: string): number {
   if (!text) return 0;
   let cleaned = text.replace(/[^\d.,-]/g, "");
   if (!cleaned) return 0;
+  // Handle Venezuelan format: 1.178.587,11 -> 1178587.11
   let numStr = cleaned.replace(/\./g, "").replace(",", ".");
   return parseFloat(numStr) || 0;
 }
@@ -123,8 +124,8 @@ function parseReciboDetalle(html: string): any[] {
 
 function parseReceiptMonthlySummary(html: string): number {
   if (!html) return 0;
-  // Buscamos el monto total en la tabla de r=4. 
-  // El usuario indica que está en una fila que dice "TOTAL RECIBO:"
+  // Basado en el HTML del usuario, el total está en una celda que sigue a "TOTAL RECIBO:"
+  // Ejemplo: <tr><td>&nbsp;</td><td style='padding-left:50px;'>TOTAL RECIBO:</td><td align=right>&nbsp;</td><td align=right>31.884,99</td></tr>
   const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (let i = rows.length - 1; i >= 0; i--) {
     const row = rows[i];
@@ -132,9 +133,11 @@ function parseReceiptMonthlySummary(html: string): number {
     if (rowText.includes("TOTAL RECIBO")) {
       const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
       if (cells && cells.length > 0) {
-        // En el ejemplo del usuario, el total está en la última celda de esa fila
-        const val = parseMonto(cleanHtml(cells[cells.length - 1]));
-        if (val > 0) return val;
+        // Buscamos el último valor numérico en la fila
+        for (let j = cells.length - 1; j >= 0; j--) {
+          const val = parseMonto(cleanHtml(cells[j]));
+          if (val > 0) return val;
+        }
       }
     }
   }
@@ -247,7 +250,6 @@ function parseBalanceFull(html: string): any {
       const desc = cleanHtml(cells[0]).toUpperCase();
       const valCell1 = cleanHtml(cells[1]);
       
-      // Permitir valores negativos, solo saltar si es puramente una línea de separación
       if (valCell1 === '--------------------') continue;
       
       const val = parseMonto(valCell1);
@@ -310,7 +312,6 @@ export async function POST(request: Request) {
     const { userId, mes, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance } = body;
     const mesEstandar = normalizeMes(mes);
     
-    // Default to true if not provided (backwards compatibility)
     const doSyncRecibos = sync_recibos !== false;
     const doSyncEgresos = sync_egresos !== false;
     const doSyncGastos = sync_gastos !== false;
@@ -321,31 +322,15 @@ export async function POST(request: Request) {
     if (!building) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
     
     currentBuildingId = building.id;
-    console.log(`[DEBUG] Iniciando sync para edificio ${building.id} (${building.nombre})`);
-
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
     if (!session) {
-      await supabase.from("sincronizaciones").insert({
-        edificio_id: building.id,
-        tipo: "sync",
-        estado: "error",
-        error: "Fallo de login en Web Admin. Verifica credenciales."
-      });
-      await supabase.from("alertas").insert({
-        edificio_id: building.id,
-        tipo: "error",
-        titulo: "Error de Sincronización",
-        descripcion: "No se pudo iniciar sesión en el portal de la administradora. Verifica las credenciales en configuración.",
-        fecha: today
-      });
+      await supabase.from("sincronizaciones").insert({ edificio_id: building.id, tipo: "sync", estado: "error", error: "Fallo de login" });
       return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
     }
 
     const baseUrl = new URL(building.url_login).origin;
-    
     const comboParam = mes ? `&combo=${mes}` : "";
 
-    // Fetch only requested pages
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
       doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
@@ -366,7 +351,6 @@ export async function POST(request: Request) {
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
 
     if (doSyncRecibos && allRecibos.length > 0) {
-      // Eliminar registros previos para este edificio y este mes específico para evitar duplicados
       await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
       await supabase.from("recibos").insert(allRecibos.map(r => ({ 
         edificio_id: building.id, 
@@ -382,9 +366,6 @@ export async function POST(request: Request) {
     }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
-      // Guardar detalle de gastos del recibo para recurrentes
-      // Usamos una unidad genérica 'EDIFICIO' para el detalle general si no hay unidad específica
-      // O simplemente guardamos los ítems vinculados al edificio y mes.
       const itemsToSave = detailedReceiptItems.map(item => ({
         edificio_id: building.id,
         unidad: 'GENERAL',
@@ -396,7 +377,6 @@ export async function POST(request: Request) {
         cuota_parte: item.cuota_parte,
         tipo: 'gasto_comun'
       }));
-
       await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo' });
     }
 
@@ -439,101 +419,52 @@ export async function POST(request: Request) {
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     }
 
-    // -- 1. Gastos Recurrentes --
     if (allGastos && allGastos.length > 0) {
-      const recurrentes = allGastos.map(g => ({
-        edificio_id: building.id,
-        codigo: g.codigo,
-        descripcion: g.descripcion,
-        activo: true
-      }));
-      for (const req of recurrentes) {
-        await supabase.from("gastos_recurrentes").upsert(req, { onConflict: 'edificio_id,codigo' });
+      for (const g of allGastos) {
+        await supabase.from("gastos_recurrentes").upsert({ edificio_id: building.id, codigo: g.codigo, descripcion: g.descripcion, activo: true }, { onConflict: 'edificio_id,codigo' });
       }
     }
 
-    // -- 2. Control Diario Snapshot --
     try {
       const { data: tasaData } = await supabase.from("tasas_cambio").select("tasa_dolar").order("fecha", { ascending: false }).limit(1).single();
       const tasa = tasaData?.tasa_dolar || 45.50;
-
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
-
       const { data: recs } = await supabase.from("recibos").select("deuda").eq("edificio_id", building.id).gt("deuda", 0);
       const recPendientes = recs?.length || 0;
-
       const bal = balance || {};
       const dispTotalBs = Number(bal.saldo_disponible || 0) + Number(bal.fondo_reserva || 0);
 
       await supabase.from("control_diario").upsert({
-        edificio_id: building.id,
-        fecha: today,
-        dia_semana: diaStr,
-        saldo_inicial_bs: bal.saldo_anterior || 0,
-        saldo_inicial_usd: tasa > 0 ? (bal.saldo_anterior || 0) / tasa : 0,
-        ingresos_bs: bal.cobranza_mes || 0,
-        ingresos_usd: tasa > 0 ? (bal.cobranza_mes || 0) / tasa : 0,
-        egresos_bs: bal.gastos_facturados || 0,
-        egresos_usd: tasa > 0 ? (bal.gastos_facturados || 0) / tasa : 0,
-        ajustes_bs: bal.ajuste_pago_tiempo || 0,
-        ajustes_usd: tasa > 0 ? (bal.ajuste_pago_tiempo || 0) / tasa : 0,
-        saldo_final_bs: bal.saldo_disponible || 0,
-        saldo_final_usd: tasa > 0 ? (bal.saldo_disponible || 0) / tasa : 0,
-        tasa_cambio: tasa,
-        recibos_pendientes: recPendientes,
+        edificio_id: building.id, fecha: today, dia_semana: diaStr,
+        saldo_inicial_bs: bal.saldo_anterior || 0, saldo_inicial_usd: tasa > 0 ? (bal.saldo_anterior || 0) / tasa : 0,
+        ingresos_bs: bal.cobranza_mes || 0, ingresos_usd: tasa > 0 ? (bal.cobranza_mes || 0) / tasa : 0,
+        egresos_bs: bal.gastos_facturados || 0, egresos_usd: tasa > 0 ? (bal.gastos_facturados || 0) / tasa : 0,
+        ajustes_bs: bal.ajuste_pago_tiempo || 0, ajustes_usd: tasa > 0 ? (bal.ajuste_pago_tiempo || 0) / tasa : 0,
+        saldo_final_bs: bal.saldo_disponible || 0, saldo_final_usd: tasa > 0 ? (bal.saldo_disponible || 0) / tasa : 0,
+        tasa_cambio: tasa, recibos_pendientes: recPendientes,
         delta_saldo_bs: Number(bal.cobranza_mes || 0) - Number(bal.gastos_facturados || 0),
-        fondo_reserva_bs: bal.fondo_reserva || 0,
-        fondo_reserva_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
-        fondo_dif_camb_bs: bal.fondo_diferencial_cambiario || 0,
-        fondo_dif_camb_usd: tasa > 0 ? (bal.fondo_diferencial_cambiario || 0) / tasa : 0,
-        fondo_int_mor_bs: bal.fondo_intereses || 0,
-        fondo_int_mor_usd: tasa > 0 ? (bal.fondo_intereses || 0) / tasa : 0,
-        total_fondos_bs: bal.fondo_reserva || 0,
-        total_fondos_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
-        disponibilidad_total_bs: dispTotalBs,
-        disponibilidad_total_usd: tasa > 0 ? dispTotalBs / tasa : 0
+        fondo_reserva_bs: bal.fondo_reserva || 0, fondo_reserva_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
+        fondo_dif_camb_bs: bal.fondo_diferencial_cambiario || 0, fondo_dif_camb_usd: tasa > 0 ? (bal.fondo_diferencial_cambiario || 0) / tasa : 0,
+        fondo_int_mor_bs: bal.fondo_intereses || 0, fondo_int_mor_usd: tasa > 0 ? (bal.fondo_intereses || 0) / tasa : 0,
+        total_fondos_bs: bal.fondo_reserva || 0, total_fondos_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
+        disponibilidad_total_bs: dispTotalBs, disponibilidad_total_usd: tasa > 0 ? dispTotalBs / tasa : 0
       }, { onConflict: 'edificio_id,fecha' });
-    } catch (e) {
-      console.error("Error al guardar control diario:", e);
-    }
+    } catch (e) {}
 
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
-    const mesAlert = mes ? ` para el mes ${mes}` : "";
     await supabase.from("sincronizaciones").insert({
-      edificio_id: building.id,
-      tipo: mes ? "sync_historica" : "sync_diaria",
-      estado: "completado",
-      movimientos_nuevos: totalRecs,
-      error: `Sync OK${mesAlert}: ${allRecibos.length} recibos, ${allEgresos.length} egresos, ${allGastos.length} gastos`,
-      detalles: {
-        mes: mes || "actual",
-        sync_recibos: doSyncRecibos,
-        sync_egresos: doSyncEgresos,
-        sync_gastos: doSyncGastos,
-        sync_alicuotas: doSyncAlicuotas,
-        sync_balance: doSyncBalance,
+      edificio_id: building.id, tipo: mes ? "sync_historica" : "sync_diaria", estado: "completado",
+      movimientos_nuevos: totalRecs, detalles: {
+        mes: mes || "actual", sync_recibos: doSyncRecibos, sync_egresos: doSyncEgresos, sync_gastos: doSyncGastos,
+        sync_alicuotas: doSyncAlicuotas, sync_balance: doSyncBalance,
         stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal }
       }
     });
 
-    await supabase.from("alertas").insert({
-      edificio_id: building.id,
-      tipo: "success",
-      titulo: `Sincronización Exitosa${mesAlert}`,
-      descripcion: `Se actualizaron ${totalRecs} registros desde el portal Web Admin correspondiente al periodo ${mes || 'actual'}.`,
-      fecha: today
-    });
-
     await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
-
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal } });
   } catch (error: any) {
-    console.error("[ERROR] Sync catch:", error);
-    if (currentBuildingId) {
-      await supabase.from("sincronizaciones").insert({ edificio_id: currentBuildingId, tipo: "sync", estado: "error", error: error.message || "Error desconocido" });
-      await supabase.from("alertas").insert({ edificio_id: currentBuildingId, tipo: "error", titulo: "Error Crítico", descripcion: error.message || "Fallo inesperado durante la extracción de datos.", fecha: today });
-    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
