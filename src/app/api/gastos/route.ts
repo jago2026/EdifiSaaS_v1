@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const todayMes = new Date().toISOString().substring(0, 7);
 
     let query = supabase
       .from("gastos")
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     if (mes) {
       query = query.eq("mes", mes);
     } else {
-      query = query.limit(100);
+      query = query.eq("mes", todayMes);
     }
 
     const { data: gastos, error } = await query;

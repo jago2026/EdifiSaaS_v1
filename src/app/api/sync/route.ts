@@ -240,32 +240,59 @@ function parseAlicuotasTable(html: string): any[] {
 function parseBalanceFull(html: string): any {
   const balance: any = {};
   
-  // Limpiar HTML para búsqueda global
-  const text = cleanHtml(html).toUpperCase().replace(/\s+/g, ' ');
+  // Limpiar HTML de etiquetas, espacios extra y saltos de línea para búsqueda de texto
+  const rawText = html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+  const text = rawText.toUpperCase();
   
-  // Función auxiliar para extraer montos siguiendo una etiqueta
-  const extractAfter = (label: string) => {
-    const idx = text.indexOf(label);
-    if (idx === -1) return null;
-    const sub = text.substring(idx + label.length, idx + label.length + 50);
-    const match = sub.match(/[\d,.]+/);
-    return match ? parseMonto(match[0]) : null;
+  console.log(`Balance Text Debug (primeros 500 chars): ${text.substring(0, 500)}`);
+  
+  // Función de extracción por proximidad mejorada
+  const extractVal = (keywords: string[]) => {
+    for (const kw of keywords) {
+      const idx = text.indexOf(kw);
+      if (idx !== -1) {
+        // Buscar el primer número que aparezca después de la palabra clave (dentro de los siguientes 100 caracteres)
+        const sub = text.substring(idx + kw.length, idx + kw.length + 100);
+        const match = sub.match(/([\d,.]+)/);
+        if (match) {
+          const val = parseMonto(match[1]);
+          if (val !== 0) return val;
+        }
+      }
+    }
+    return null;
   };
 
-  // Intentar extracción por palabras clave globales si la tabla falla
-  balance.saldo_anterior = extractAfter("SALDO DE CAJA MES ANTERIOR") || extractAfter("SALDO ANTERIOR");
-  balance.cobranza_mes = extractAfter("COBRANZA DEL MES") || extractAfter("TOTAL COBRADO") || extractAfter("INGRESOS DEL MES");
-  balance.gastos_facturados = extractAfter("GASTOS FACTURADOS EN EL MES") || extractAfter("TOTAL GASTOS") || extractAfter("EGRESOS DEL MES");
-  balance.saldo_disponible = extractAfter("SALDO ACTUAL DISPONIBLE EN CAJA") || extractAfter("SALDO DISPONIBLE") || extractAfter("SALDO EN CAJA");
-  balance.recibos_mes = extractAfter("RECIBOS DE CONDOMINIOS DEL MES") || extractAfter("EMISION DEL MES");
-  balance.total_por_cobrar = extractAfter("TOTAL CONDOMINIOS POR COBRAR") || extractAfter("TOTAL POR COBRAR");
-  balance.fondo_reserva = extractAfter("SALDO FONDO DE RESERVA") || extractAfter("FONDO DE RESERVA SALDO");
+  balance.saldo_anterior = extractVal(["SALDO DE CAJA MES ANTERIOR", "SALDO ANTERIOR", "CAJA ANTERIOR"]);
+  balance.cobranza_mes = extractVal(["COBRANZA DEL MES", "TOTAL COBRADO", "INGRESOS DEL MES", "TOTAL INGRESOS"]);
+  balance.gastos_facturados = extractVal(["GASTOS FACTURADOS", "TOTAL GASTOS", "EGRESOS DEL MES", "TOTAL EGRESOS"]);
+  balance.saldo_disponible = extractVal(["SALDO ACTUAL DISPONIBLE EN CAJA", "SALDO DISPONIBLE", "SALDO EN CAJA", "DISPONIBILIDAD EN CAJA"]);
+  balance.recibos_mes = extractVal(["RECIBOS DE CONDOMINIOS DEL MES", "EMISION DEL MES", "TOTAL RECIBOS DEL MES"]);
+  balance.total_por_cobrar = extractVal(["TOTAL CONDOMINIOS POR COBRAR", "TOTAL POR COBRAR", "SALDO POR COBRAR"]);
+  balance.fondo_reserva = extractVal(["SALDO FONDO DE RESERVA", "FONDO DE RESERVA SALDO", "RESERVA SALDO"]);
 
-  // Validar si encontramos algo
+  // Si no encontramos nada por texto, intentamos el método de celdas de tabla (como respaldo)
+  if (!Object.values(balance).some(v => v !== null)) {
+    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/g) || [];
+    for (const t of allTables) {
+       const rows = t.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+       for (const row of rows) {
+          const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+          if (!cells || cells.length < 2) continue;
+          const desc = cleanHtml(cells[0]).toUpperCase();
+          const val = parseMonto(cleanHtml(cells[1]));
+          if (val === 0) continue;
+          
+          if (desc.includes("SALDO ANTERIOR")) balance.saldo_anterior = val;
+          else if (desc.includes("COBRANZA")) balance.cobranza_mes = val;
+          else if (desc.includes("GASTOS FACTURADOS")) balance.gastos_facturados = val;
+          else if (desc.includes("SALDO ACTUAL") || desc.includes("DISPONIBLE")) balance.saldo_disponible = val;
+       }
+    }
+  }
+
   const found = Object.values(balance).some(v => v !== null && v !== 0);
-  
   if (found) {
-    // Rellenar nulos con 0 para evitar errores en BD
     for (const key in balance) { if (balance[key] === null) balance[key] = 0; }
     return balance;
   }

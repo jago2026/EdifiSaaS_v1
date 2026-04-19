@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const todayMes = new Date().toISOString().substring(0, 7); // "2026-04"
 
     let query = supabase
       .from("egresos")
@@ -43,8 +44,8 @@ export async function GET(request: Request) {
     if (mes) {
       query = query.eq("mes", mes);
     } else {
-      // Exclude total rows from default query - get real data only
-      query = query.not("hash", "eq", "TOTAL-EGRESOS").neq("fecha", "2099-12-31").limit(200);
+      // SI NO HAY MES, FILTRAR ESTRICTAMENTE POR EL MES ACTUAL
+      query = query.eq("mes", todayMes);
     }
 
     const { data: egresos, error } = await query;

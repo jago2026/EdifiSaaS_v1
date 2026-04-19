@@ -15,6 +15,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const todayMes = new Date().toISOString().substring(0, 7);
 
     let query = supabase
       .from("recibos")
@@ -25,8 +26,8 @@ export async function GET(request: Request) {
     if (mes) {
       query = query.eq("mes", mes);
     } else {
-      // Por defecto el mes más reciente
-      query = query.order("mes", { ascending: false }).limit(100);
+      // SI NO HAY MES, FILTRAR ESTRICTAMENTE POR EL MES ACTUAL
+      query = query.eq("mes", todayMes);
     }
 
     const { data: recibos, error } = await query;

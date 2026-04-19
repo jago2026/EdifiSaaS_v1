@@ -21,13 +21,17 @@ export async function GET(request: NextRequest) {
     // 1. Obtener todos los edificios configurados
     const { data: edificios, error: edErr } = await supabase
       .from("edificios")
-      .select("id, usuario_id, nombre");
+      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency");
 
     if (edErr) throw edErr;
 
     const results = [];
 
     for (const edificio of edificios) {
+      if (edificio.cron_enabled === false) {
+        console.log(`Cron: Saltando edificio ${edificio.nombre} (Servicio Desactivado)`);
+        continue;
+      }
       try {
         console.log(`Cron: Procesando edificio ${edificio.nombre} (${edificio.id})`);
 

@@ -102,6 +102,9 @@ export async function POST(request: Request) {
       sync_gastos,
       sync_alicuotas,
       sync_balance,
+      cron_enabled,
+      cron_time,
+      cron_frequency,
       unidades,
       userId: bodyUserId 
     } = body;
@@ -167,6 +170,9 @@ export async function POST(request: Request) {
     if (sync_gastos !== undefined) updateData.sync_gastos = sync_gastos;
     if (sync_alicuotas !== undefined) updateData.sync_alicuotas = sync_alicuotas;
     if (sync_balance !== undefined) updateData.sync_balance = sync_balance;
+    if (cron_enabled !== undefined) updateData.cron_enabled = cron_enabled;
+    if (cron_time) updateData.cron_time = cron_time;
+    if (cron_frequency) updateData.cron_frequency = cron_frequency;
     if (unidades !== undefined) updateData.unidades = unidades;
 
     const { data: building, error } = await supabase

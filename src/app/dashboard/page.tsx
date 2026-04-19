@@ -102,6 +102,9 @@ interface Building {
   url_egresos: string | null;
   url_gastos: string | null;
   url_balance: string | null;
+  cron_enabled?: boolean;
+  cron_time?: string;
+  cron_frequency?: string;
   ultima_sincronizacion: string | null;
   sync_recibos?: boolean;
   sync_egresos?: boolean;
@@ -348,6 +351,9 @@ export default function DashboardPage() {
     url_egresos: "",
     url_gastos: "",
     url_balance: "",
+    cron_enabled: true,
+    cron_time: "05:00",
+    cron_frequency: "diaria",
     email_junta: "",
     sync_recibos: true,
     sync_egresos: true,
@@ -370,6 +376,9 @@ export default function DashboardPage() {
         url_egresos: building.url_egresos || "",
         url_gastos: building.url_gastos || "",
         url_balance: building.url_balance || "",
+        cron_enabled: building.cron_enabled !== false,
+        cron_time: building.cron_time || "05:00",
+        cron_frequency: building.cron_frequency || "diaria",
         email_junta: building.email_junta || "",
         sync_recibos: building.sync_recibos !== false,
         sync_egresos: building.sync_egresos !== false,
@@ -491,6 +500,11 @@ export default function DashboardPage() {
     if (activeTab === "recibos" && building?.id) {
       loadRecibos();
       loadReciboGeneral();
+      if (!selectedMesRecibos) {
+        loadMovimientosDia();
+      } else {
+        setMovimientosDia([]);
+      }
     }
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
@@ -951,12 +965,12 @@ export default function DashboardPage() {
 
   const updateAdminAndUrls = (adminName: string) => {
     let urls = {
-      url_login: editConfig.url_login,
-      url_recibos: editConfig.url_recibos,
-      url_recibo_mes: editConfig.url_recibo_mes,
-      url_egresos: editConfig.url_egresos,
-      url_gastos: editConfig.url_gastos,
-      url_balance: editConfig.url_balance,
+      url_login: '',
+      url_recibos: '',
+      url_recibo_mes: '',
+      url_egresos: '',
+      url_gastos: '',
+      url_balance: '',
     };
 
     if (adminName === "La Ideal C.A.") {
@@ -1033,11 +1047,11 @@ export default function DashboardPage() {
       };
     }
 
-    setEditConfig({
-      ...editConfig,
+    setEditConfig(prev => ({
+      ...prev,
       admin_nombre: adminName,
       ...urls
-    });
+    }));
   };
 
   const handleSaveConfig = async () => {
@@ -3003,7 +3017,7 @@ export default function DashboardPage() {
                       <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (PDF ?r=4)</label>
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (?r=4)</label>
                       <input type="text" value={editConfig.url_recibo_mes} onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
@@ -3166,25 +3180,48 @@ export default function DashboardPage() {
               <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight flex items-center gap-2">
                 <span>⏰</span> Programación de Tareas Automáticas
               </h2>
-              <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
-                <p className="text-xs text-indigo-700 font-medium mb-4 leading-relaxed">
-                  El sistema está preparado para realizar una <strong>Sincronización Automática</strong> diaria a las 05:00 AM (VET) y enviar el reporte por email a la Junta. 
-                  Para activar esta función, debe configurar un "Cron Job" que llame a la siguiente URL:
-                </p>
-                <div className="bg-white p-3 rounded-lg border border-indigo-200 font-mono text-[10px] break-all mb-4 text-indigo-600 select-all">
-                  {window.location.origin}/api/cron
-                </div>
-                <div className="grid md:grid-cols-2 gap-6">
+              <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 space-y-6">
+                <div className="flex items-center justify-between p-4 bg-white rounded-lg border border-indigo-100 shadow-sm">
                   <div>
-                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2">Estado del Servicio</h4>
-                    <div className="flex items-center gap-2">
-                      <span className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                      <span className="text-xs font-bold text-gray-700 uppercase">API de Automatización Activa</span>
-                    </div>
+                    <h3 className="text-sm font-bold text-gray-900">Estado del Reporte Automático</h3>
+                    <p className="text-xs text-gray-500">Activa o desactiva el envío diario del informe por email.</p>
                   </div>
-                  <div>
-                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-2">Frecuencia Recomendada</h4>
-                    <p className="text-xs font-black text-gray-700 uppercase">Diaria (05:00 AM)</p>
+                  <button
+                    onClick={() => setEditConfig({ ...editConfig, cron_enabled: !editConfig.cron_enabled })}
+                    className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all ${editConfig.cron_enabled ? 'bg-green-100 text-green-700 border-2 border-green-200' : 'bg-gray-100 text-gray-400 border-2 border-gray-200'}`}
+                  >
+                    {editConfig.cron_enabled ? '● ACTIVO' : '○ INACTIVO'}
+                  </button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
+                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-3">Hora de Ejecución (VET)</h4>
+                    <input
+                      type="time"
+                      value={editConfig.cron_time}
+                      onChange={(e) => setEditConfig({ ...editConfig, cron_time: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
+                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-3">Frecuencia de Envío</h4>
+                    <select
+                      value={editConfig.cron_frequency}
+                      onChange={(e) => setEditConfig({ ...editConfig, cron_frequency: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    >
+                      <option value="diaria">DIARIA</option>
+                      <option value="semanal">SEMANAL</option>
+                      <option value="mensual">MENSUAL</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-indigo-100/50 rounded-lg">
+                  <p className="text-[10px] text-indigo-700 font-bold mb-2">URL DEL SERVICIO (ENDPOINT CRON):</p>
+                  <div className="bg-white p-2 rounded border border-indigo-200 font-mono text-[9px] break-all text-indigo-600 select-all">
+                    {window.location.origin}/api/cron
                   </div>
                 </div>
               </div>
