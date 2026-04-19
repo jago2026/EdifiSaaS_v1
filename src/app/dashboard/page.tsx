@@ -3304,13 +3304,11 @@ export default function DashboardPage() {
                         <input
                           type="text"
                           value={editConfig.url_recibo_mes}
-                          placeholder={editConfig.admin_nombre === "La Ideal C.A." ? "https://admlaideal.com.ve/condlin.php?r=4" : ""}
+                          placeholder="https://admlaideal.com.ve/condlin.php?r=4"
                           onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}
                           className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
                         />
-                        {editConfig.url_recibo_mes && (
-                          <a href={editConfig.url_recibo_mes} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
+                        <a href={editConfig.url_recibo_mes || "https://admlaideal.com.ve/condlin.php?r=4"} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                       </div>
                     </div>
                     <div className="space-y-1">
