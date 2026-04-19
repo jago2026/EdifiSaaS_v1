@@ -222,6 +222,7 @@ export default function DashboardPage() {
   const [loadingSincronizaciones, setLoadingSincronizaciones] = useState(false);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loadingAlertas, setLoadingAlertas] = useState(false);
+  const [tasaCambio, setTasaCambio] = useState<number>(45.50);
   const [tasaBCV, setTasaBCV] = useState({ dolar: 0, euro: 0, fecha: "" });
   const [loadingTasa, setLoadingTasa] = useState(false);
   const [selectedMes, setSelectedMes] = useState<string>("");
@@ -236,20 +237,28 @@ export default function DashboardPage() {
   const loadReciboGeneral = async () => {
     if (!building?.id) return;
     setLoadingReciboGeneral(true);
-    setReciboGeneral([]); // Limpiar estado previo
+    setReciboGeneral([]);
     try {
       const mes = selectedMesRecibos || "";
       console.log("[UI] loadReciboGeneral called with mes:", mes, "selectedMesRecibos:", selectedMesRecibos);
-      const url = `/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`;
-      console.log("[UI] Fetching URL:", url);
-      const res = await fetch(url);
-      const data = await res.json();
-      console.log("[UI] Response data:", data);
-      if (res.ok) {
-        setReciboGeneral(data.detalles || []);
-        console.log("[UI] Set reciboGeneral:", data.detalles?.length, "items");
+      
+      const [reciboRes, tasaRes] = await Promise.all([
+        fetch(`/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`),
+        fetch('/api/tasa-bcv')
+      ]);
+      
+      const [reciboData, tasaData] = await Promise.all([reciboRes.json(), tasaRes.json()]);
+      
+      if (tasaData?.tasas?.dolar) {
+        setTasaCambio(tasaData.tasas.dolar);
+      }
+      
+      console.log("[UI] Response data:", reciboData);
+      if (reciboRes.ok) {
+        setReciboGeneral(reciboData.detalles || []);
+        console.log("[UI] Set reciboGeneral:", reciboData.detalles?.length, "items");
       } else {
-        console.error("[UI] Error response:", data);
+        console.error("[UI] Error response:", reciboData);
       }
     } catch (error) {
       console.error("[UI] Error loading general receipt:", error);
@@ -1958,14 +1967,18 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
                 </div>
               ) : reciboGeneral.length > 0 ? (
-                <div className="overflow-hidden border border-gray-200 rounded-xl">
+<div className="overflow-hidden border border-gray-200 rounded-xl">
+                  <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
+                    Tasa de cambio: {formatBs(tasaCambio)} Bs/USD
+                  </div>
                   <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
                       <tr>
                         <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
                         <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
                         <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
-                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte ($)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (USD)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1974,7 +1987,8 @@ export default function DashboardPage() {
                           <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
                           <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
                           <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatUsd(item.cuota_parte) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1987,6 +2001,9 @@ export default function DashboardPage() {
                         <td className="py-3 px-4 text-right text-indigo-700 text-lg">
                           Bs. {formatBs(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                         </td>
+                        <td className="py-3 px-4 text-right text-green-700 text-lg font-black">
+                          $ {formatUsd(reciboGeneral.filter(i => i.codigo !== '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0) / tasaCambio)}
+                        </td>
                       </tr>
                       {reciboGeneral.some(i => i.codigo === '00085') && (
                         <tr className="bg-orange-50">
@@ -1997,6 +2014,9 @@ export default function DashboardPage() {
                           <td className="py-2 px-4 text-right text-orange-700 font-bold">
                             Bs. {formatBs(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
                           </td>
+                          <td className="py-2 px-4 text-right text-orange-700 font-bold">
+                            $ {formatUsd(reciboGeneral.filter(i => i.codigo === '00085').reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0) / tasaCambio)}
+                          </td>
                         </tr>
                       )}
                       <tr className="bg-indigo-100">
@@ -2006,6 +2026,9 @@ export default function DashboardPage() {
                         </td>
                         <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
                           Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                        </td>
+                        <td className="py-3 px-4 text-right text-green-800 text-xl font-black">
+                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0) / tasaCambio)}
                         </td>
                       </tr>
                     </tfoot>
