@@ -31,6 +31,7 @@ interface Balance {
   saldo_disponible: number;
   total_por_cobrar: number;
   condominios_atrasados: number;
+  condominios_adelantados: number;
   condominios_sobrantes: number;
   fondo_reserva: number;
   fondo_prestaciones: number;
@@ -2243,6 +2244,9 @@ export default function DashboardPage() {
                     
                     <tr className="bg-orange-50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={3}>CUENTAS POR COBRAR</td></tr>
                     {balance.recibos_mes ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.recibos_mes / tasaBCV.dolar : 0)}</td></tr> : null}
+                    {balance.condominios_atrasados ? <tr><td className="py-2.5 px-4 pl-8 text-gray-600">CONDOMINIOS ATRASADOS</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_atrasados / tasaBCV.dolar : 0)}</td></tr> : null}
+                    {balance.condominios_adelantados ? <tr><td className="py-2.5 px-4 pl-8 text-gray-600">CONDOMINIOS ADELANTADOS</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">{formatBs(balance.condominios_adelantados)}</td><td className="py-2.5 px-4 text-right text-green-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_adelantados / tasaBCV.dolar : 0)}</td></tr> : null}
+                    {balance.condominios_sobrantes ? <tr><td className="py-2.5 px-4 pl-8 text-gray-600">CONDOMINIOS SOBRANTES</td><td className="py-2.5 px-4 text-right text-gray-600 font-medium">{formatBs(balance.condominios_sobrantes)}</td><td className="py-2.5 px-4 text-right text-gray-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_sobrantes / tasaBCV.dolar : 0)}</td></tr> : null}
                     <tr className="bg-gray-100 font-bold"><td className="py-3 px-4 text-orange-700">TOTAL CONDOMINIOS POR COBRAR</td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</td></tr>
                     
                     <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL (CAJA + CONDOMINIOS)</td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(Number(balance.saldo_disponible || 0) + Number(balance.total_por_cobrar || 0))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (Number(balance.saldo_disponible || 0) + Number(balance.total_por_cobrar || 0)) / tasaBCV.dolar : 0)}</td></tr>
@@ -2253,6 +2257,7 @@ export default function DashboardPage() {
                     {balance.fondo_trabajos_varios ? <tr><td className="py-2 px-4 pl-4 text-gray-600">FONDO TRABAJOS VARIOS</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_trabajos_varios)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_trabajos_varios / tasaBCV.dolar : 0)}</td></tr> : null}
                     {balance.fondo_intereses ? <tr><td className="py-2 px-4 pl-4 text-gray-600">FONDO INTERESES MORATORIOS</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_intereses)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_intereses / tasaBCV.dolar : 0)}</td></tr> : null}
                     {balance.fondo_diferencial_cambiario ? <tr><td className="py-2 px-4 pl-4 text-gray-600">FONDO DIFERENCIAL CAMBIARIO</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_diferencial_cambiario)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_diferencial_cambiario / tasaBCV.dolar : 0)}</td></tr> : null}
+                    {balance.ajuste_alicuota ? <tr><td className="py-2 px-4 pl-4 text-gray-600">AJUSTE DIFERENCIA ALICUOTA</td><td className="py-2 px-4 text-right font-medium text-gray-700">{formatBs(balance.ajuste_alicuota)}</td><td className="py-2 px-4 text-right text-gray-500 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.ajuste_alicuota / tasaBCV.dolar : 0)}</td></tr> : null}
                   </tbody>
                 </table>
                 </div>
