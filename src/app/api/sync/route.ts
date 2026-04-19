@@ -247,10 +247,6 @@ function parseBalanceFull(html: string): any {
     return text.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&[a-z]+;/gi, " ").replace(/\s+/g, " ").trim();
   };
   
-  // DEBUG: mostrar texto limpio
-  const cleanText = cleanHtml2(html);
-  console.log("[Balance] Clean text sample:", cleanText.substring(0, 1000));
-  
   // Buscar patrones: Description followed by value
   // Pattern: keyword in one place, number in another nearby
   const extractByPattern = (htmlText: string, keywords: { key: string; terms: string[] }[]): void => {
@@ -378,25 +374,25 @@ export async function POST(request: Request) {
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
       doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
-      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
+      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null),
+      // Also fetch r=21 for balance data as fallback
+      doSyncBalance ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null)
     ];
 
-    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
+    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary, hEgresosForBalance] = await Promise.all(promises);
 
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
+    console.log(`- hEgresosForBalance: ${hEgresosForBalance ? hEgresosForBalance.length : 0} chars`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
-    
-    // DEBUG: mostrar contenido de hBal
-    if (hBal) {
-      console.log("[Balance] hBal sample:", hBal.substring(0, 800));
-    }
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
-    const balance = hBal ? parseBalanceFull(hBal) : null;
+    // Try both hBal (r=2) and hEgresosForBalance (r=21) for balance data
+    const combinedHtml = hBal && hBal.length > hBal.indexOf('<table') ? hBal : (hEgresosForBalance || hBal);
+    const balance = combinedHtml ? parseBalanceFull(combinedHtml) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
