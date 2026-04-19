@@ -434,19 +434,12 @@ export async function POST(request: Request) {
     }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
-      console.log(`Guardando items de detalle para ${mesEstandar}`);
+      console.log(`Guardando ${detailedReceiptItems.length} items de detalle para ${mesEstandar}`);
       
-      // Filtrar duplicados por código para evitar error "ON CONFLICT DO UPDATE command cannot affect row a second time"
-      const uniqueItems: any[] = [];
-      const seenCodigos = new Set();
-      for (const item of detailedReceiptItems) {
-        if (!seenCodigos.has(item.codigo)) {
-          seenCodigos.add(item.codigo);
-          uniqueItems.push(item);
-        }
-      }
-
-      const itemsToSave = uniqueItems.map(item => ({
+      // Borrar registros anteriores del mes y guardar los nuevos
+      await supabase.from("recibos_detalle").delete().match({ edificio_id: building.id, mes: mesEstandar });
+      
+      const itemsToSave = detailedReceiptItems.map(item => ({
         edificio_id: building.id,
         unidad: 'GENERAL',
         propietario: 'EDIFICIO',
@@ -457,8 +450,10 @@ export async function POST(request: Request) {
         cuota_parte: item.cuota_parte,
         tipo: 'gasto_comun'
       }));
-      const { error: detErr } = await supabase.from("recibos_detalle").upsert(itemsToSave, { onConflict: 'edificio_id,unidad,mes,codigo,descripcion' });
+      
+      const { error: detErr } = await supabase.from("recibos_detalle").insert(itemsToSave);
       if (detErr) console.error("Error guardando detalle recibo:", detErr);
+      else console.log(`Guardados ${itemsToSave.length} items en recibos_detalle`);
     }
 
     if (doSyncAlicuotas && allAlicuotas.length > 0) {
