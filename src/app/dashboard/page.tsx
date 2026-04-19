@@ -499,12 +499,12 @@ export default function DashboardPage() {
     }
     if (activeTab === "recibos" && building?.id) {
       loadRecibos();
-      loadReciboGeneral();
-      if (!selectedMesRecibos) {
-        loadMovimientosDia();
+      if (selectedMesRecibos) {
+        loadReciboGeneral();
       } else {
-        setMovimientosDia([]);
+        setReciboGeneral([]);
       }
+      loadMovimientosDia();
     }
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();

@@ -33,7 +33,22 @@ export async function GET(request: NextRequest) {
       query = query.eq("unidad", unidad);
     }
 
-    const { data: detalles, error } = await query;
+    let { data: detalles, error } = await query;
+
+    // Si no hay mes especificado yunidad es GENERAL, obtener el mes más reciente
+    if (!error && (!detalles || detalles.length === 0) && !mes && unidad === "GENERAL") {
+      const fallbackQuery = supabase
+        .from("recibos_detalle")
+        .select("*")
+        .eq("edificio_id", edificioId)
+        .eq("unidad", "GENERAL")
+        .order("mes", { ascending: false })
+        .limit(1);
+      const { data: fallback, error: fallbackError } = await fallbackQuery;
+      if (!fallbackError && fallback && fallback.length > 0) {
+        detalles = fallback;
+      }
+    }
 
     if (error) {
       console.error("Supabase error in recibo-detalle:", error);
@@ -43,7 +58,7 @@ export async function GET(request: NextRequest) {
     // ELIMINAR DUPLICADOS (Evitar filas repetidas si el upsert falló antes)
     const uniqueMap = new Map();
     (detalles || []).forEach((d: any) => {
-      const key = `${d.mes}-${d.codigo}-${d.monto}`;
+      const key = `${d.mes}-${d.codigo}-${d.descripcion}`;
       if (!uniqueMap.has(key)) {
         uniqueMap.set(key, d);
       }
