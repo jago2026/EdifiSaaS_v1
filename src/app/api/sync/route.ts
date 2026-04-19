@@ -426,16 +426,17 @@ export async function POST(request: Request) {
       const lastDay = new Date(yyyyNum, mmNum - 1, 0).getDate();
       comboValue = `${lastDay}-${mm}-${yyyy}`;
     }
+    // Use format: ?&r=2 like the user's working URL
     const comboParam = mes ? `&combo=${comboValue}` : "";
     
     console.log(`[Sync] mes=${mes}, comboValue=${comboValue}, comboParam=${comboParam}`);
-    console.log(`[Sync] Balance URL = ${baseUrl}/condlin.php?r=2${comboParam}`);
+    console.log(`[Sync] Balance URL = ${baseUrl}/condlin.php?&r=2${comboParam}`);
 
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
       doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
       doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
-      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
+      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?&r=2${comboParam}`, session) : Promise.resolve(null),
       doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
     ];
@@ -447,14 +448,18 @@ export async function POST(request: Request) {
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
     
-    // DEBUG: show hBal content that has tables
+    // DEBUG: show full hBal if extraction fails
     if (hBal) {
       const tables = hBal.split('<table');
       console.log(`[Balance] Total tables in hBal: ${tables.length}`);
-      // Show ALL tables data
-      for (let i = 0; i < Math.min(tables.length, 10); i++) {
-        const t = tables[i];
-        console.log(`[Balance] Table ${i} (${t.length} chars):`, t.substring(0, 500));
+      // Search for any text containing SALDO to find where data is
+      const saldoIdx = hBal.toUpperCase().indexOf('SALDO DE CAJA');
+      if (saldoIdx > 0) {
+        console.log(`[Balance] Found SALDO text at position ${saldoIdx}:`, hBal.substring(saldoIdx, saldoIdx + 300));
+      }
+      // Table 8 (the balance table)
+      if (tables[8]) {
+        console.log(`[Balance] Table 8 full:`, tables[8].substring(0, 2000));
       }
     }
 
