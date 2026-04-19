@@ -239,14 +239,20 @@ export default function DashboardPage() {
     setReciboGeneral([]); // Limpiar estado previo
     try {
       const mes = selectedMesRecibos || "";
+      console.log("[UI] loadReciboGeneral called with mes:", mes, "selectedMesRecibos:", selectedMesRecibos);
       const url = `/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`;
+      console.log("[UI] Fetching URL:", url);
       const res = await fetch(url);
       const data = await res.json();
+      console.log("[UI] Response data:", data);
       if (res.ok) {
         setReciboGeneral(data.detalles || []);
+        console.log("[UI] Set reciboGeneral:", data.detalles?.length, "items");
+      } else {
+        console.error("[UI] Error response:", data);
       }
     } catch (error) {
-      console.error("Error loading general receipt:", error);
+      console.error("[UI] Error loading general receipt:", error);
     } finally {
       setLoadingReciboGeneral(false);
     }
@@ -503,7 +509,7 @@ export default function DashboardPage() {
     }
     if (activeTab === "recibo" && building?.id) {
       loadRecibos();
-      loadReciboGeneral();
+      setTimeout(() => loadReciboGeneral(), 100);
     }
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
