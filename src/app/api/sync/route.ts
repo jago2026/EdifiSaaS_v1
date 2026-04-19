@@ -95,12 +95,16 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 // --- EXTRACTORES ---
 
 function parseReciboDetalle(html: string): any[] {
+  console.log("[parseReciboDetalle] Input HTML length:", html?.length);
   const results: any[] = [];
   // Buscamos la tabla que tiene los gastos (C&oacute;digo, Descripci&oacute;n, Monto, Cuota Parte)
   const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+  console.log("[parseReciboDetalle] Table match found:", !!tableMatch);
   if (!tableMatch) return results;
 
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  console.log("[parseReciboDetalle] Total rows found:", rows.length);
+  
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 3) continue;
@@ -110,11 +114,17 @@ function parseReciboDetalle(html: string): any[] {
     const monto = parseMonto(cleanHtml(cells[2]));
     const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
 
-    // Saltamos filas de totales o vacías
+    // Saltamos filas vacías
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
-    if (desc.toUpperCase().includes("TOTAL")) continue;
-    if (code.length > 10) continue; // Probablemente no es un código
+    
+    // Filtrar solo filas que tienen códigos válidos (5 dígitos)
+    if (!code.match(/^\d{5}$/)) continue;
+    
+    // No filtramos por "TOTAL" aquí, lo hacemos después
+    // Las filas con códigos como 00001, 00007, etc. son válidas
 
+    console.log("[parseReciboDetalle] Parsed row:", { code, desc: desc.substring(0, 30), monto, cuotaParte });
+    
     results.push({
       codigo: code,
       descripcion: desc,
@@ -122,6 +132,7 @@ function parseReciboDetalle(html: string): any[] {
       cuota_parte: cuotaParte
     });
   }
+  console.log("[parseReciboDetalle] Total parsed items:", results.length);
   return results;
 }
 function parseReceiptMonthlySummary(html: string): number {
