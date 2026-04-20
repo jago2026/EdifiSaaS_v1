@@ -15,13 +15,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Email y contraseña requeridos" }, { status: 400 });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
     const passwordHash = await hashPassword(password);
 
     // 1. Intentar login como administrador principal
     let { data: users, error: usersError } = await supabase
       .from("usuarios")
       .select("*")
-      .eq("email", email)
+      .ilike("email", cleanEmail)
       .eq("password_hash", passwordHash)
       .limit(1);
 
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
       const { data: members, error: memberError } = await supabase
         .from("junta")
         .select("*")
-        .eq("email", email)
+        .ilike("email", cleanEmail)
         .eq("password_hash", passwordHash)
         .limit(1);
 
