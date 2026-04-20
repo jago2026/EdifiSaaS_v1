@@ -495,16 +495,15 @@ export async function POST(request: Request) {
       return text;
     };
 
-    // Fetches secuenciales - BALANCE PRIMERO para fijar el mes en la sesión
+    // Fetches secuenciales
     let hRec = null, hEgr = null, hGas = null, hBal = null, hAli = null, hRecSummary = null, hIng = null;
     const comboParam = mes ? `&combo=${comboValue}` : "";
 
-    if (doSyncBalance || doSyncEgresos || doSyncGastos) {
-      hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
-      await new Promise(r => setTimeout(r, 500));
-    }
+    // 1. Balance (Fija el mes en la sesión de la administradora)
+    hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
+    await new Promise(r => setTimeout(r, 500));
 
-    // NUEVO: Sync de Ingresos (r=1) siempre disponible para detectar pagos
+    // 2. Ingresos (Cobranza detectada) - SIEMPRE SE EJECUTA
     hIng = await fetchWithRetry(`condlin.php?r=1${comboParam}`);
     await new Promise(r => setTimeout(r, 500));
 
@@ -577,25 +576,12 @@ export async function POST(request: Request) {
         mes: mesEstandar
       }));
       
-      const { error: recErr } = await supabase.from("recibos").upsert(recibosToSave, { onConflict: 'edificio_id,unidad,mes' });
-      if (recErr) {
-        console.error("Error guardando recibos con upsert:", recErr);
-        await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
-        await supabase.from("recibos").insert(recibosToSave);
-      }
-
-      // LIMPIEZA: Eliminar recibos que ya no están en la lista (pagados)
-      const unidadesEnPortal = allRecibos.map(r => r.unidad);
-      if (unidadesEnPortal.length > 0) {
-        const { error: cleanErr } = await supabase
-          .from("recibos")
-          .delete()
-          .eq("edificio_id", building.id)
-          .eq("mes", mesEstandar)
-          .not("unidad", "in", `(${unidadesEnPortal.join(",")})`);
-        
-        if (cleanErr) console.error("Error limpiando recibos pagados:", cleanErr);
-      }
+      // LIMPIEZA RADICAL: Borrar todos los recibos del mes antes de insertar los nuevos
+      // Esto garantiza que si un recibo desapareció del portal, también desaparezca de nuestro sistema.
+      await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
+      
+      const { error: recErr } = await supabase.from("recibos").insert(recibosToSave);
+      if (recErr) console.error("Error guardando recibos:", recErr);
     }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
