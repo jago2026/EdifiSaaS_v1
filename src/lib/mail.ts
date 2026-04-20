@@ -5,6 +5,10 @@ const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
 const SMTP_USER = process.env.SMTP_USER || "";
 const SMTP_PASS = process.env.SMTP_PASS || "";
 
+if (!SMTP_USER || !SMTP_PASS) {
+  console.warn("⚠️ SMTP_USER o SMTP_PASS no están configurados en las variables de entorno.");
+}
+
 export const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,

@@ -19,7 +19,6 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-gray-600 hover:text-blue-600 transition">Funcionalidades</a>
             <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 transition">Cómo funciona</a>
-            <Link href="/login" className="text-gray-600 hover:text-blue-600 transition font-medium">Iniciar Sesión</Link>
             <Link href="/login" className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg hover:bg-blue-200 transition font-bold">Ingresar</Link>
             <Link href="/register" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">Prueba Gratis</Link>
           </nav>
@@ -44,7 +43,6 @@ export default function Home() {
             <nav className="flex flex-col gap-4">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Funcionalidades</a>
               <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Cómo funciona</a>
-              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Iniciar Sesión</Link>
               <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg text-center font-bold">Ingresar</Link>
               <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-center font-bold">Prueba Gratis</Link>
             </nav>
