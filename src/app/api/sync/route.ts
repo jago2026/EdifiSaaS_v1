@@ -406,6 +406,7 @@ export async function POST(request: Request) {
       comboValue = `${lastDay}-${mm}-${yyyy}`;
     }
     const comboParam = mes ? `&combo=${comboValue}` : "";
+    console.log(`Sync Debug [${mesEstandar}]: comboParam=${comboParam}`);
 
     const promises = [
       doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
@@ -421,7 +422,10 @@ export async function POST(request: Request) {
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
+    console.log(`- hGas (Gastos): ${hGas ? hGas.length : 0} chars`);
+    if (hGas) console.log(`- hGas preview: ${hGas.substring(0, 500)}`);
     console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
+    if (hRecSummary) console.log(`- hRecSummary preview: ${hRecSummary.substring(0, 500)}`);
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
@@ -433,8 +437,9 @@ export async function POST(request: Request) {
 
     console.log(`- Parsed Recibos: ${allRecibos.length}`);
     console.log(`- Parsed Balance: ${balance ? "SI" : "NO"}`);
+    console.log(`- Parsed Gastos Table: ${allGastos.length} items`);
     console.log(`- Parsed Recibo Total: ${monthlyReceiptTotal}`);
-    console.log(`- Parsed Detailed Items: ${detailedReceiptItems.length}`);
+    console.log(`- Parsed Detailed Items (Gastos): ${detailedReceiptItems.length}`);
 
     if (doSyncRecibos && allRecibos.length > 0) {
       console.log(`Guardando ${allRecibos.length} recibos para ${mesEstandar}`);
@@ -531,12 +536,63 @@ export async function POST(request: Request) {
     }
 
     if (doSyncGastos) {
-      for (const g of allGastos) {
-        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${today}`);
-        await supabase.from("gastos").upsert({ edificio_id: building.id, mes: mesEstandar, fecha: today, codigo: g.codigo, descripcion: g.descripcion, monto: g.monto, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
-        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+      // Si estamos en un mes histórico, la fecha del gasto debe ser el último día de ese mes
+      // para que aparezca correctamente en los filtros de fecha.
+      let fechaGasto = today;
+      if (mes && mes.includes("-")) {
+        const [mm, yyyy] = mes.split("-");
+        const lastDay = new Date(parseInt(yyyy), parseInt(mm), 0).getDate();
+        fechaGasto = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+      }
+
+      // Combinar gastos de la tabla de gastos con los del detalle del recibo si la tabla viene vacía
+      let finalGastos = [...allGastos];
+      if (finalGastos.length === 0 && detailedReceiptItems.length > 0) {
+        console.log("Gastos table empty, using detailedReceiptItems as fallback");
+        finalGastos = detailedReceiptItems.map(item => ({
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          monto: item.monto
+        }));
+      }
+
+      console.log(`Guardando ${finalGastos.length} gastos para el mes ${mesEstandar} con fecha ${fechaGasto}`);
+      
+      for (const g of finalGastos) {
+        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${mesEstandar}`);
+        const { error: gErr } = await supabase.from("gastos").upsert({ 
+          edificio_id: building.id, 
+          mes: mesEstandar, 
+          fecha: fechaGasto, 
+          codigo: g.codigo, 
+          descripcion: g.descripcion, 
+          monto: g.monto, 
+          hash, 
+          sincronizado: true 
+        }, { onConflict: 'edificio_id,hash' });
+        
+        if (gErr) console.error(`Error guardando gasto ${g.codigo}:`, gErr);
+
+        await supabase.from("movimientos").upsert({ 
+          edificio_id: building.id, 
+          tipo: "gasto", 
+          descripcion: g.descripcion, 
+          monto: g.monto, 
+          fecha: fechaGasto, 
+          hash, 
+          sincronizado: true 
+        }, { onConflict: 'edificio_id,hash' });
+        
         if (mesEstandar === today.substring(0, 7)) {
-          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "gasto", descripcion: g.descripcion, monto: g.monto, fecha: today, fuente: "gastos", detectado_en: today });
+          await supabase.from("movimientos_dia").insert({ 
+            edificio_id: building.id, 
+            tipo: "gasto", 
+            descripcion: g.descripcion, 
+            monto: g.monto, 
+            fecha: today, 
+            fuente: "gastos", 
+            detectado_en: today 
+          });
         }
       }
     }
