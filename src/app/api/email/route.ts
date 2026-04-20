@@ -155,9 +155,10 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1);
     const bal = balance?.[0];
 
-    // Get manual balance
-    const { data: manualBal } = await supabase.from("movimientos_manual").select("*").eq("edificio_id", edificioId).order("fecha_corte", { ascending: false }).limit(1);
-    const mBal = manualBal?.[0];
+    // Get manual balance (Total accumulated)
+    const { data: manualMovs } = await supabase.from("movimientos_manual").select("saldo_inicial, ingresos, egresos").eq("edificio_id", edificioId);
+    const manualTotal = (manualMovs || []).reduce((sum, m) => sum + (Number(m.saldo_inicial) || 0) + (Number(m.ingresos) || 0) - (Number(m.egresos) || 0), 0);
+
 
     // Historical balances
     const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(4);
@@ -186,8 +187,8 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     const disponibilidadTotalUSD = disponibilidadTotal / tasa;
     const saldoAnterior = Number(bal?.saldo_anterior || 0);
     const saldoDisponible = Number(bal?.saldo_disponible || 0);
-    const saldoManual = Number(mBal?.saldo_final || 0);
-    const saldoManualUSD = Number(mBal?.saldo_final_usd || (saldoManual / tasa));
+    const saldoManual = manualTotal;
+    const saldoManualUSD = manualTotal / tasa;
 
     const ajustesDelDia = 0;
     const resultadoDelDia = Number(bal?.cobranza_mes || 0) - Number(bal?.gastos_facturados || 0) + ajustesDelDia;

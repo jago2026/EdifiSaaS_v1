@@ -3034,6 +3034,21 @@ export default function DashboardPage() {
                       </tr>
                     ))}
                   </tbody>
+                  {movimientosManual.length > 0 && (
+                    <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-black text-[10px]">
+                      <tr className="uppercase tracking-tighter text-gray-700">
+                        <td className="py-3 px-2">TOTALES</td>
+                        <td className="bg-gray-100/50"></td>
+                        <td className="py-3 px-2 text-right text-red-600 bg-red-50/20">-{formatBs(movimientosManual.reduce((sum, m) => sum + (Number(m.egresos) || 0), 0))}</td>
+                        <td></td>
+                        <td className="py-3 px-2 text-right text-green-700 bg-green-50/20">+{formatBs(movimientosManual.reduce((sum, m) => sum + (Number(m.ingresos) || 0), 0))}</td>
+                        <td></td>
+                        <td className="py-3 px-2 text-right text-blue-800 bg-blue-50/50"></td>
+                        <td className="py-3 px-2 text-right text-gray-900 bg-gray-200/50">{formatBs(movimientosManual[0]?.saldo_acumulado || 0)}</td>
+                        <td colSpan={2}></td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             )}
