@@ -92,17 +92,32 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 }
 
 function parseReciboDetalle(html: string): any[] {
-  console.log("[parseReciboDetalle] Input HTML length:", html?.length);
+  if (!html) return [];
+  console.log("[parseReciboDetalle] Input HTML length:", html.length);
   const results: any[] = [];
-  // Regex más flexible para encontrar la tabla de detalles
-  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
-                     html.match(/<table[^>]*>([\s\S]*?TOTAL RECIBO[\s\S]*?)<\/table>/i);
   
-  console.log("[parseReciboDetalle] Table match found:", !!tableMatch);
-  if (!tableMatch) return results;
+  // Buscar todas las tablas para depuración
+  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
+  console.log(`[parseReciboDetalle] Found ${allTables.length} tables total.`);
+  
+  let tableContent = "";
+  for (let i = 0; i < allTables.length; i++) {
+    const t = allTables[i];
+    const upperT = t.toUpperCase();
+    if (upperT.includes("TOTAL RECIBO") || (upperT.includes("CONCEPTO") && upperT.includes("MONTO"))) {
+      console.log(`[parseReciboDetalle] Table ${i} matches keywords!`);
+      tableContent = t;
+      break;
+    }
+  }
 
-  const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  console.log("[parseReciboDetalle] Total rows found:", rows.length);
+  if (!tableContent) {
+    console.log("[parseReciboDetalle] No table matched keywords. First 500 chars of HTML:", html.substring(0, 500));
+    return [];
+  }
+
+  const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  console.log("[parseReciboDetalle] Rows in matched table:", rows.length);
   
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -114,7 +129,6 @@ function parseReciboDetalle(html: string): any[] {
     const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
 
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
-    // Aceptar códigos numéricos de cualquier longitud para mayor flexibilidad
     if (!code.match(/^\d+$/)) continue;
 
     results.push({
@@ -124,7 +138,7 @@ function parseReciboDetalle(html: string): any[] {
       cuota_parte: cuotaParte
     });
   }
-  console.log("[parseReciboDetalle] Total parsed items:", results.length);
+  console.log("[parseReciboDetalle] Successfully parsed items:", results.length);
   return results;
 }
 
@@ -195,11 +209,28 @@ function parseEgresosTableAll(html: string): any[] {
 }
 
 function parseGastosTable(html: string): any[] {
+  if (!html) return [];
   const results: any[] = [];
-  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
-                     html.match(/<table[^>]*>([\s\S]*?TOTAL GASTOS COMUNES[\s\S]*?)<\/table>/i);
-  if (!tableMatch) return results;
-  const tableContent = tableMatch[1];
+  
+  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
+  console.log(`[parseGastosTable] Found ${allTables.length} tables total.`);
+  
+  let tableContent = "";
+  for (let i = 0; i < allTables.length; i++) {
+    const t = allTables[i];
+    const upperT = t.toUpperCase();
+    if (upperT.includes("TOTAL GASTOS COMUNES") || (upperT.includes("CONCEPTO") && upperT.includes("C&OACUTE;DIGO"))) {
+      console.log(`[parseGastosTable] Table ${i} matches keywords!`);
+      tableContent = t;
+      break;
+    }
+  }
+
+  if (!tableContent) {
+    console.log("[parseGastosTable] No table matched keywords. First 500 chars of HTML:", html.substring(0, 500));
+    return [];
+  }
+
   const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -221,6 +252,7 @@ function parseGastosTable(html: string): any[] {
       }
     }
   }
+  console.log("[parseGastosTable] Successfully parsed items:", results.length);
   return results;
 }
 
