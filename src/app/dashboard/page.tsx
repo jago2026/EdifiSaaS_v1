@@ -1561,17 +1561,9 @@ export default function DashboardPage() {
             <button onClick={() => setActiveTab("kpis")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "kpis" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 KPIs</button>
             <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🔄 Movimientos</button>
           </div>
-            <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
-            <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
-            <button onClick={() => setActiveTab("informes")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Informes</button>
-            <button onClick={() => setActiveTab("manual")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"}`}>Ing/Egr Manual</button>
-            <button onClick={() => setActiveTab("junta")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Junta</button>
-            <button onClick={() => setActiveTab("configuracion")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Configuración</button>
-          </div>
-        </div>
 
-        {activeTab === "resumen" && (
-          <div className="space-y-6">
+          {activeTab === "resumen" && (
+            <div className="space-y-6">
             <div className="grid md:grid-cols-4 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("balance")}>
                 <div className="text-sm text-gray-500 mb-1">Saldo Disponible seg&uacute;n Web Admin</div>
