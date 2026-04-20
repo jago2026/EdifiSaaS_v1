@@ -1378,126 +1378,189 @@ export default function DashboardPage() {
     );
   }
 
-  const userInitial = user?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || "U";
-  const hasIntegration = building?.admin_secret;
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-sm border-b">
-        <div className="container mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">C</span>
-              </div>
-              <span className="font-bold text-lg text-gray-800">CondominioSaaS</span>
-            </Link>
-            <span className="text-gray-300">|</span>
-            <span className="text-gray-700 font-medium">{building?.nombre || "Mi Edificio"}</span>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* SIDEBAR - Solo Desktop (lg+) */}
+      <aside className="hidden lg:flex flex-col w-72 bg-indigo-950 text-white sticky top-0 h-screen shadow-2xl z-[60]">
+        <div className="p-6 border-b border-indigo-900/50 flex items-center gap-3">
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-indigo-900 font-black text-xl">E</span>
           </div>
-          <div className="hidden md:flex items-center gap-6">
-            <div className="text-sm text-gray-500">
-              {building?.ultima_sincronizacion 
-                ? `Última sincronización: ${new Date(building.ultima_sincronizacion).toLocaleString("es-VE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
-                : "Sin sincronizar"}
-            </div>
-            <div className="text-sm font-medium text-green-700 flex items-center gap-2">
-              {loadingTasa ? (
-                <span className="text-gray-400">Cargando...</span>
-              ) : tasaBCV.dolar > 0 ? (
-                <button onClick={loadTasaBCV} className="hover:bg-gray-100 rounded px-1" title="Actualizar tasa">
-                  🔄 Tasa BCV: Bs. {formatBs(tasaBCV.dolar)}/$ al {tasaBCV.fecha ? new Date(tasaBCV.fecha).toLocaleDateString("es-VE", { day: "2-digit", month: "2-digit" }) : "N/A"}
-                </button>
-              ) : (
-                <button onClick={loadTasaBCV} className="text-gray-400 hover:bg-gray-100 rounded px-1" title="Actualizar tasa">
-                  🔄 Tasa BCV: N/A
-                </button>
-              )}
-            </div>
-            <button onClick={() => setActiveTab("instrucciones")} className="text-sm text-blue-600 hover:text-blue-800">
-              ❓ Ayuda
-            </button>
-            <div className="text-right hidden lg:block">
-              <div className="text-xs font-bold text-gray-900">{user?.first_name} {user?.last_name}</div>
-              <div className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{user?.isMember ? 'Miembro de la Junta' : 'Administrador'}</div>
-            </div>
-            <Link href="/logout" className="text-sm text-gray-600 hover:text-gray-800" title="Cerrar sesión">
-              🚪
-            </Link>
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">{userInitial}</span>
-            </div>
+          <div>
+            <div className="font-black text-lg tracking-tighter leading-none">EdifiSaaS</div>
+            <div className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest mt-1">Control Financiero</div>
           </div>
-
-          <button 
-            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              {mobileMenuOpen ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
         </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg animate-in slide-in-from-top duration-200">
-            <div className="grid grid-cols-2 gap-2 pb-4 border-b border-gray-50 max-h-[40vh] overflow-y-auto">
-              <button onClick={() => { setActiveTab("resumen"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "resumen" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>RESUMEN</button>
-              <button onClick={() => { setActiveTab("ingresos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-gray-50 text-gray-600"}`}>INGRESOS</button>
-              <button onClick={() => { setActiveTab("movimientos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>MOVIMIENTOS</button>
-              <button onClick={() => { setActiveTab("egresos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>EGRESOS</button>
-              <button onClick={() => { setActiveTab("gastos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>GASTOS</button>
-              <button onClick={() => { setActiveTab("recibos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>RECIBOS</button>
-              <button onClick={() => { setActiveTab("recibo"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "recibo" ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-700"}`}>RECIBO</button>
-              <button onClick={() => { setActiveTab("balance"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>BALANCE</button>
-              <button onClick={() => { setActiveTab("alicuotas"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>ALICUOTAS</button>
-              <button onClick={() => { setActiveTab("manual"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-gray-50 text-gray-600"}`}>CONCILIACIÓN</button>
-              <button onClick={() => { setActiveTab("kpis"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>KPIS</button>
-              <button onClick={() => { setActiveTab("informes"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>INFORMES</button>
-              <button onClick={() => { setActiveTab("junta"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>JUNTA</button>
-              <button onClick={() => { setActiveTab("alertas"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>BITÁCORA</button>
-              <button onClick={() => { setActiveTab("configuracion"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>CONFIG</button>
-              <button onClick={() => { setActiveTab("instrucciones"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "instrucciones" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>GUÍA</button>
+        <nav className="flex-1 overflow-y-auto p-4 space-y-8 custom-scrollbar">
+          {/* GRUPO: TABLERO */}
+          <div>
+            <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Tablero Principal</div>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab("resumen")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'resumen' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📊</span> Resumen Ejecutivo
+              </button>
+              <button onClick={() => setActiveTab("kpis")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'kpis' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📈</span> Indicadores (KPIs)
+              </button>
+              <button onClick={() => setActiveTab("alertas")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'alertas' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📢</span> Alertas y Cambios
+              </button>
             </div>
-            <div className="flex flex-col gap-3 pt-2">
-              <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase">
-                <span>Tasa BCV</span>
-                <span className="text-green-600">Bs. {formatBs(tasaBCV.dolar)}</span>
+          </div>
+
+          {/* GRUPO: FINANZAS */}
+          <div>
+            <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Finanzas (Caja/Banco)</div>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab("movimientos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'movimientos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🔄</span> Movimientos Consolidados
+              </button>
+              <button onClick={() => setActiveTab("ingresos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'ingresos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">💰</span> Ingresos (Cobranza)
+              </button>
+              <button onClick={() => setActiveTab("egresos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'egresos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🧾</span> Egresos (Pagos)
+              </button>
+              <button onClick={() => setActiveTab("manual")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'manual' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📝</span> Ing/Egr Manual (Caja)
+              </button>
+              <button onClick={() => setActiveTab("balance")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'balance' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">⚖️</span> Balance Financiero
+              </button>
+            </div>
+          </div>
+
+          {/* GRUPO: COBRANZA */}
+          <div>
+            <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Recibos y Deudas</div>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab("recibos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">👥</span> Deudas por Unidad
+              </button>
+              <button onClick={() => setActiveTab("recibo")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibo' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📄</span> Detalle Recibo Mes
+              </button>
+              <button onClick={() => setActiveTab("gastos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'gastos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🛠️</span> Gastos (Próx. Recibo)
+              </button>
+              <button onClick={() => setActiveTab("alicuotas")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'alicuotas' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📐</span> Alicuotas
+              </button>
+            </div>
+          </div>
+
+          {/* GRUPO: GESTION */}
+          <div>
+            <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Gestión y Reportes</div>
+            <div className="space-y-1">
+              <button onClick={() => setActiveTab("informes")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'informes' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📅</span> Generar Informes
+              </button>
+              <button onClick={() => setActiveTab("junta")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'junta' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🛡️</span> Junta y Permisos
+              </button>
+              <button onClick={() => setActiveTab("configuracion")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'configuracion' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">⚙️</span> Configuración
+              </button>
+              <button onClick={() => setActiveTab("instrucciones")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'instrucciones' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📖</span> Ayuda / Manual
+              </button>
+            </div>
+          </div>
+        </nav>
+
+        <div className="p-4 border-t border-indigo-900/50 bg-indigo-950">
+          <Link href="/logout" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/20 text-red-200 transition-all font-bold text-xs uppercase tracking-widest">
+            <span>🚪</span> Cerrar Sesión
+          </Link>
+        </div>
+      </aside>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <main className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
+          <div className="mx-auto px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {/* Botón de hamburguesa visible solo en mobile (<lg) */}
+              <div className="lg:hidden w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                <span className="text-white font-bold text-sm">E</span>
               </div>
-              <div className="text-[10px] text-gray-400">
-                {building?.ultima_sincronizacion 
-                  ? `Sincro: ${new Date(building.ultima_sincronizacion).toLocaleString("es-VE")}`
-                  : "Sin sincronizar"}
+              <h1 className="text-base font-black text-gray-800 uppercase tracking-tighter truncate max-w-[200px] sm:max-w-md">
+                {building?.nombre || "Cargando..."}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Tasa BCV y Sincro - Solo Desktop */}
+              <div className="hidden xl:flex items-center gap-6 mr-6 border-r pr-6 border-gray-100">
+                <div className="text-[10px] text-gray-500 font-bold uppercase">
+                  {building?.ultima_sincronizacion 
+                    ? `Sincro: ${new Date(building.ultima_sincronizacion).toLocaleString("es-VE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                    : "Sin sincronizar"}
+                </div>
+                <button onClick={loadTasaBCV} className="text-[10px] font-black text-green-700 uppercase bg-green-50 px-2 py-1 rounded border border-green-100 hover:bg-green-100 transition-colors">
+                  Tasa BCV: Bs. {formatBs(tasaBCV.dolar)}
+                </button>
               </div>
-              <div className="flex gap-4 pt-2">
-                <button onClick={() => { setActiveTab("instrucciones"); setMobileMenuOpen(false); }} className="text-sm font-bold text-blue-600">AYUDA</button>
-                <Link href="/logout" className="text-sm font-bold text-red-600 ml-auto">CERRAR SESIÓN</Link>
+
+              <div className="text-right hidden sm:block">
+                <div className="text-xs font-bold text-gray-900">{user?.first_name} {user?.last_name}</div>
+                <div className="text-[9px] font-black text-blue-600 uppercase tracking-widest">
+                   {user?.isAdmin ? '🛠️ Administrador' : user?.nivelAcceso === 'board' ? '📝 Miembro Junta' : '👁️ Copropietario'}
+                </div>
+              </div>
+              
+              <button 
+                className="lg:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  {mobileMenuOpen ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  )}
+                </svg>
+              </button>
+
+              <div className="hidden lg:flex items-center gap-2">
+                <div className="w-8 h-8 bg-indigo-100 text-indigo-700 rounded-full flex items-center justify-center font-bold text-xs border border-indigo-200 shadow-sm">
+                  {userInitial}
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </header>
 
-      <div className="container mx-auto px-6 py-8">
-        <div className="flex flex-wrap gap-2 mb-8">
-          {/* Always visible buttons */}
-          <button onClick={() => setActiveTab("resumen")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "resumen" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Resumen</button>
-          <button onClick={() => setActiveTab("kpis")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>KPIs</button>
-          <button onClick={() => setActiveTab("movimientos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Movimientos</button>
+          {/* Mobile Menu Overlay */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden bg-white border-t p-4 shadow-2xl space-y-2 animate-in slide-in-from-top duration-300">
+              <div className="text-[10px] font-black text-gray-400 uppercase mb-3 px-2 tracking-widest border-b pb-2">Menú Completo</div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => {setActiveTab("resumen"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'resumen' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📊 Resumen</button>
+                <button onClick={() => {setActiveTab("kpis"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'kpis' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📈 KPIs</button>
+                <button onClick={() => {setActiveTab("movimientos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'movimientos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🔄 Movimientos</button>
+                <button onClick={() => {setActiveTab("ingresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'ingresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>💰 Ingresos</button>
+                <button onClick={() => {setActiveTab("egresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'egresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🧾 Egresos</button>
+                <button onClick={() => {setActiveTab("recibos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'recibos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>👥 Recibos</button>
+                <button onClick={() => {setActiveTab("balance"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'balance' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>⚖️ Balance</button>
+                <button onClick={() => {setActiveTab("configuracion"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'configuracion' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-blue-600'}`}>⚙️ Config</button>
+              </div>
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl mt-4">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Tasa BCV: Bs. {formatBs(tasaBCV.dolar)}</span>
+                <Link href="/logout" className="text-red-500 font-black text-[10px] uppercase tracking-widest">Cerrar Sesión</Link>
+              </div>
+            </div>
+          )}
+        </header>
 
-          {/* Hidden on mobile, visible on desktop */}
-          <div className="hidden md:flex flex-wrap gap-2">
-            <button onClick={() => setActiveTab("ingresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Ingresos</button>
-            <button onClick={() => setActiveTab("egresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Egresos</button>
-            <button onClick={() => setActiveTab("gastos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Gastos</button>
-            <button onClick={() => setActiveTab("recibos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Recibos</button>
-            <button onClick={() => setActiveTab("recibo")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibo" ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"}`}>Recibo Condominio</button>
-            <button onClick={() => setActiveTab("balance")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Balance</button>
+        <div className="p-4 lg:p-8 w-full">
+          {/* Botones de navegación móviles simplificados (Solo visibles en < lg) */}
+          <div className="flex gap-2 mb-6 lg:hidden overflow-x-auto pb-2 scrollbar-hide">
+            <button onClick={() => setActiveTab("resumen")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "resumen" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📊 Resumen</button>
+            <button onClick={() => setActiveTab("kpis")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "kpis" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 KPIs</button>
+            <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🔄 Movimientos</button>
+          </div>
             <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
             <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
             <button onClick={() => setActiveTab("informes")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Informes</button>

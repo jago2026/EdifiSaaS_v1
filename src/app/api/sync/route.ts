@@ -569,6 +569,12 @@ export async function POST(request: Request) {
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
     const allIngresos = hIng ? parseIngresosTable(hIng) : [];
+    console.log(`[DEBUG-INGRESOS] Registros encontrados en r=1: ${allIngresos.length}`);
+    if (allIngresos.length > 0) {
+      allIngresos.forEach((ing, i) => {
+        console.log(`[DEBUG-INGRESOS] #${i+1}: ${ing.fecha} | ${ing.beneficiario} | Bs. ${ing.monto}`);
+      });
+    }
     const allGastos = hGas ? parseGastosTable(hGas) : [];
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
