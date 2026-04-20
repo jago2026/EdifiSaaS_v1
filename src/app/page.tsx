@@ -1,6 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 
 export default function Home() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
@@ -14,10 +19,37 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-gray-600 hover:text-blue-600 transition">Funcionalidades</a>
             <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 transition">Cómo funciona</a>
-            <Link href="/login" className="text-gray-600 hover:text-blue-600 transition">Iniciar Sesión</Link>
+            <Link href="/login" className="text-gray-600 hover:text-blue-600 transition font-medium">Iniciar Sesión</Link>
+            <Link href="/login" className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg hover:bg-blue-200 transition font-bold">Ingresar</Link>
             <Link href="/register" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">Prueba Gratis</Link>
           </nav>
+          
+          <button 
+            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg animate-in slide-in-from-top duration-200">
+            <nav className="flex flex-col gap-4">
+              <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Funcionalidades</a>
+              <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Cómo funciona</a>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Iniciar Sesión</Link>
+              <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg text-center font-bold">Ingresar</Link>
+              <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-center font-bold">Prueba Gratis</Link>
+            </nav>
+          </div>
+        )}
       </header>
 
       <section className="container mx-auto px-6 py-20">
@@ -32,7 +64,10 @@ export default function Home() {
             Automatiza el control financiero de tu edificio. Integra datos de tu administradora, detecta movimientos nuevos y mantén tu contabilidad al día sin esfuerzo.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-700 transition shadow-lg hover:shadow-xl">
+            <Link href="/login" className="bg-blue-600 text-white px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-700 transition shadow-lg hover:shadow-xl">
+              Ingresar al Sistema
+            </Link>
+            <Link href="/register" className="bg-white text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-50 transition shadow-lg">
               Comenzar Prueba Gratis
             </Link>
             <Link href="/demo" className="bg-white text-gray-800 px-8 py-4 rounded-xl text-lg font-semibold border-2 border-gray-200 hover:border-blue-600 hover:text-blue-600 transition">

@@ -48,3 +48,48 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const searchParams = request.nextUrl.searchParams;
+  const id = searchParams.get("id");
+  const mes = searchParams.get("mes");
+  const edificioId = searchParams.get("edificioId");
+
+  if (!id || !edificioId) {
+    return NextResponse.json({ error: "id and edificioId required" }, { status: 400 });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  try {
+    // Si se proporciona un mes, eliminar datos de ese mes
+    if (mes && mes !== 'Actual') {
+      console.log(`Deleting all data for month ${mes} and building ${edificioId}`);
+      
+      // Borrar de todas las tablas que tienen columna 'mes'
+      await Promise.all([
+        supabase.from("recibos").delete().eq("edificio_id", edificioId).eq("mes", mes),
+        supabase.from("egresos").delete().eq("edificio_id", edificioId).eq("mes", mes),
+        supabase.from("gastos").delete().eq("edificio_id", edificioId).eq("mes", mes),
+        supabase.from("balances").delete().eq("edificio_id", edificioId).eq("mes", mes),
+        supabase.from("recibos_detalle").delete().eq("edificio_id", edificioId).eq("mes", mes),
+        supabase.from("pagos_recibos").delete().eq("edificio_id", edificioId).eq("mes", mes),
+        supabase.from("fondo_reserva").delete().eq("edificio_id", edificioId).eq("mes", mes)
+      ]);
+    }
+
+    // Borrar el registro de sincronización
+    const { error } = await supabase
+      .from("sincronizaciones")
+      .delete()
+      .eq("id", id)
+      .eq("edificio_id", edificioId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Error deleting sincronizacion:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

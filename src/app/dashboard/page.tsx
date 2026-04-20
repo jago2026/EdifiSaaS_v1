@@ -1249,6 +1249,37 @@ export default function DashboardPage() {
     }
   };
 
+  const deleteSync = async (id: string, mes?: string) => {
+    if (!building?.id) return;
+    const confirmMsg = mes 
+      ? `¿Estás seguro de eliminar todos los datos de ${mes}? Esto borrará recibos, gastos, egresos y balances asociados a este mes.`
+      : "¿Estás seguro de eliminar este registro de sincronización?";
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`/api/sincronizaciones?id=${id}${mes ? `&mes=${mes}` : ""}&edificioId=${building.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(`✅ Datos eliminados correctamente`);
+        loadSincronizaciones();
+        // Opcionalmente recargar otros datos si se borró un mes
+        if (mes) {
+          loadRecibos();
+          loadEgresos();
+          loadGastos();
+          loadBalance();
+        }
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error: any) {
+      alert(`Error de red: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -1454,6 +1485,100 @@ export default function DashboardPage() {
                 </div>
                 <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
                   {movimientosManual.filter((m: any) => !m.comparado).length} Movimientos sin conciliar
+                </div>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Situación Ejecutiva del Condominio</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b">
+                        <th className="text-left py-2 px-3 font-bold text-gray-600 uppercase text-[10px]">Recibos</th>
+                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">Aptos</th>
+                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">% Aptos</th>
+                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">Total Bs.</th>
+                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">Total USD$</th>
+                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">% Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(() => {
+                        const totalDeudaBs = recibos.reduce((sum, r) => sum + Number(r.deuda), 0);
+                        const totalAptos = building?.unidades || 1;
+                        const dist: any = {};
+                        recibos.forEach(r => {
+                          const n = r.num_recibos || 1;
+                          if (!dist[n]) dist[n] = { aptos: 0, bs: 0, usd: 0 };
+                          dist[n].aptos++;
+                          dist[n].bs += Number(r.deuda);
+                          dist[n].usd += Number(r.deuda_usd || 0);
+                        });
+                        return Object.entries(dist).sort((a: any, b: any) => Number(a[0]) - Number(b[0])).map(([n, data]: [string, any]) => (
+                          <tr key={n} className="hover:bg-gray-50">
+                            <td className="py-2 px-3 font-bold text-gray-700">{n}</td>
+                            <td className="py-2 px-3 text-right">{data.aptos}</td>
+                            <td className="py-2 px-3 text-right text-gray-500">{((data.aptos / totalAptos) * 100).toFixed(2)}%</td>
+                            <td className="py-2 px-3 text-right font-medium">{formatBs(data.bs)}</td>
+                            <td className="py-2 px-3 text-right font-medium text-green-600">${formatUsd(data.usd)}</td>
+                            <td className="py-2 px-3 text-right text-gray-500">{totalDeudaBs > 0 ? ((data.bs / totalDeudaBs) * 100).toFixed(2) : "0.00"}%</td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                    <tfoot className="bg-gray-50 font-bold">
+                      <tr>
+                        <td className="py-2 px-3 uppercase text-[10px]">TOTALES:</td>
+                        <td className="py-2 px-3 text-right">{recibos.length}</td>
+                        <td className="py-2 px-3 text-right">{building ? ((recibos.length / building.unidades) * 100).toFixed(2) : 0}%</td>
+                        <td className="py-2 px-3 text-right">{formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}</td>
+                        <td className="py-2 px-3 text-right text-green-700">${formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}</td>
+                        <td className="py-2 px-3 text-right">100.00%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-bold text-gray-900 mb-4">Indicadores Financieros</h2>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
+                    <div className="text-xl font-black text-blue-800">
+                      {balance?.gastos_facturados && balance.gastos_facturados !== 0 
+                        ? (balance.saldo_disponible / Math.abs(balance.gastos_facturados)).toFixed(2) 
+                        : "N/A"}
+                    </div>
+                    <div className="text-[9px] text-blue-500 leading-tight">Veces que el saldo cubre los gastos del mes</div>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <div className="text-[10px] font-bold text-green-600 uppercase mb-1">Índice de Cobranza</div>
+                    <div className="text-xl font-black text-green-800">
+                      {balance?.recibos_mes && balance.recibos_mes !== 0 
+                        ? ((balance.cobranza_mes / balance.recibos_mes) * 100).toFixed(1)
+                        : "0.0"}%
+                    </div>
+                    <div className="text-[9px] text-green-500 leading-tight">Efectividad de recaudación del mes</div>
+                  </div>
+                  <div className="bg-red-50 p-3 rounded-lg">
+                    <div className="text-[10px] font-bold text-red-600 uppercase mb-1">Morosidad Global</div>
+                    <div className="text-xl font-black text-red-800">
+                      {building?.unidades ? ((recibos.length / building.unidades) * 100).toFixed(1) : "0.0"}%
+                    </div>
+                    <div className="text-[9px] text-red-500 leading-tight">Aptos con deuda sobre el total</div>
+                  </div>
+                  <div className="bg-indigo-50 p-3 rounded-lg">
+                    <div className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Carga de Deuda</div>
+                    <div className="text-xl font-black text-indigo-800">
+                      {balance?.total_por_cobrar && balance.recibos_mes && balance.recibos_mes !== 0
+                        ? (balance.total_por_cobrar / balance.recibos_mes).toFixed(1)
+                        : "0.0"}
+                    </div>
+                    <div className="text-[9px] text-indigo-500 leading-tight">Meses de facturación en deuda total</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2509,28 +2634,33 @@ export default function DashboardPage() {
         {activeTab === "kpis" && (
            <div className="space-y-6">
              {/* Tarjetas de Métricas USD */}
-             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("recibos")}>
+                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Recibos Pendientes</div>
+                 <div className="text-lg font-black text-red-600">$ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}</div>
+                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}</div>
+               </div>
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("balance")}>
                  <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Disponible en Caja</div>
                  <div className="text-lg font-black text-blue-600">$ {formatUsd(balance?.saldo_disponible_usd || 0)}</div>
                  <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.saldo_disponible)}</div>
                </div>
-               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("balance")}>
                  <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Cuentas por Cobrar</div>
                  <div className="text-lg font-black text-orange-600">$ {formatUsd(balance?.total_por_cobrar_usd || 0)}</div>
                  <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.total_por_cobrar)}</div>
                </div>
-               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("balance")}>
                  <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Fondo de Reserva</div>
                  <div className="text-lg font-black text-emerald-600">$ {formatUsd(balance?.fondo_reserva_usd || 0)}</div>
                  <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_reserva)}</div>
                </div>
-               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("balance")}>
                  <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Int. Moratorios</div>
                  <div className="text-lg font-black text-pink-600">$ {formatUsd(balance?.fondo_intereses_usd || 0)}</div>
                  <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_intereses)}</div>
                </div>
-               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("balance")}>
                  <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Dif. Cambiario</div>
                  <div className="text-lg font-black text-indigo-600">$ {formatUsd(balance?.fondo_diferencial_cambiario_usd || 0)}</div>
                  <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_diferencial_cambiario)}</div>
@@ -2610,9 +2740,13 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Flujo de Caja Diario (USD)</h2>
               {loadingKpis ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : kpisData.cashFlow?.length > 0 ? (
+              ) : kpisData.cashFlow?.length > 0 ? (() => {
+                const currentMonth = new Date().toISOString().substring(0, 7);
+                const filteredData = kpisData.cashFlow.filter((item: any) => item.fecha.startsWith(currentMonth));
+                if (filteredData.length === 0) return <p className="text-gray-500 text-center py-8">No hay datos de flujo de caja para el mes en curso ({currentMonth})</p>;
+                return (
                 <ResponsiveContainer width="100%" height={400}>
-                  <ComposedChart data={kpisData.cashFlow} margin={{ top: 10, right: 40, left: 10, bottom: 20 }}>
+                  <ComposedChart data={filteredData} margin={{ top: 10, right: 40, left: 10, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       dataKey="fecha"
@@ -2642,10 +2776,11 @@ export default function DashboardPage() {
                     <Line yAxisId="right" type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (USD)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
-              ) : (
+                );
+              })() : (
                 <p className="text-gray-500 text-center py-8">No hay datos de flujo de caja para este periodo</p>
               )}
-              <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Comparativa diaria de ingresos (barras verdes, eje izq) vs egresos (línea roja, eje der) en Dólares</p>
+              <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Datos exclusivos del mes en curso ({new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })})</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
@@ -3735,7 +3870,16 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex justify-between items-start mb-2">
                         <div className="text-xs font-black text-indigo-600 uppercase">{s.detalles?.mes || 'Actual'}</div>
-                        <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleString("es-VE")}</div>
+                        <div className="flex gap-2">
+                          <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleString("es-VE")}</div>
+                          <button 
+                            onClick={() => deleteSync(s.id, s.detalles?.mes)}
+                            className="text-red-400 hover:text-red-600 transition-colors text-[10px]"
+                            title="Eliminar bloque de datos"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-1 mb-2">
                         <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_recibos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
