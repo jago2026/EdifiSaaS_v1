@@ -2638,6 +2638,66 @@ export default function DashboardPage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Efectividad de Recaudación % (Cobranza Mes / Recibos Mes)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `${v}%`} />
+                      <Tooltip formatter={(value: any) => [`${formatCurrency(value, 2)}%`, "Efectividad"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Line type="monotone" dataKey="efectividad_recaudacion" stroke="#10b981" strokeWidth={3} name="Efectividad %" dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Índice de Morosidad % (Deuda Total / 2x Recibos Mes)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `${v}%`} />
+                      <Tooltip formatter={(value: any) => [`${formatCurrency(value, 2)}%`, "Morosidad"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Line type="monotone" dataKey="indice_morosidad" stroke="#ef4444" strokeWidth={3} name="Morosidad %" dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobertura de Gastos % (Cobranza / Gastos)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `${v}%`} />
+                      <Tooltip formatter={(value: any) => [`${formatCurrency(value, 2)}%`, "Cobertura"]} />
+                      <Legend verticalAlign="top" height={36} />
+                      <Line type="monotone" dataKey="cobertura_gastos" stroke="#8b5cf6" strokeWidth={3} name="Cobertura %" dot={{ r: 4 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución de Cobranza Mensual (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
@@ -2678,28 +2738,6 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución Fondos de Reserva (USD)</h2>
-                {loadingKpis ? (
-                  <p className="text-gray-500 text-center py-8">Cargando...</p>
-                ) : kpisData.balances?.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
-                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Monto"]} />
-                      <Legend verticalAlign="top" height={36} />
-                      <Line type="monotone" dataKey="fondo_reserva_usd" stroke="#059669" name="Fondo Reserva ($)" strokeWidth={2} />
-                      <Line type="monotone" dataKey="fondo_intereses_usd" stroke="#d97706" name="Intereses Morat. ($)" strokeWidth={2} />
-                      <Line type="monotone" dataKey="fondo_diferencial_cambiario_usd" stroke="#2563eb" name="Dif. Cambiario ($)" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No hay datos</p>
-                )}
-              </div>
-
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución del Saldo Disponible (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
@@ -2719,6 +2757,7 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobranza vs Gastos (USD)</h2>
               {loadingKpis ? (
@@ -2745,9 +2784,9 @@ export default function DashboardPage() {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución de Gastos (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
-                ) : kpisData.gastos?.length > 0 ? (
+                ) : kpisData.balances?.length > 0 ? (
                   <ResponsiveContainer width="100%" height={250}>
-                    <AreaChart data={kpisData.gastos} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <AreaChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorGastos" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#f97316" stopOpacity={0.8}/>
@@ -2758,7 +2797,7 @@ export default function DashboardPage() {
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
                       <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Gastos"]} />
-                      <Area type="monotone" dataKey="monto_usd" stroke="#f97316" fillOpacity={1} fill="url(#colorGastos)" name="Gastos ($)" />
+                      <Area type="monotone" dataKey="gastos_facturados_usd" stroke="#f97316" fillOpacity={1} fill="url(#colorGastos)" name="Gastos ($)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -2788,7 +2827,7 @@ export default function DashboardPage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Fondo de Reserva (USD)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución Fondo de Reserva (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -2807,28 +2846,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Total Cuentas por Cobrar (USD)</h2>
-                {loadingKpis ? (
-                  <p className="text-gray-500 text-center py-8">Cargando...</p>
-                ) : kpisData.balances?.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
-                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Por Cobrar"]} />
-                      <Bar dataKey="total_por_cobrar_usd" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Por Cobrar ($)" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-gray-500 text-center py-8">No hay datos</p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Fondo Intereses Moratorios (USD)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución Fondo Intereses Moratorios (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -2845,9 +2863,11 @@ export default function DashboardPage() {
                   <p className="text-gray-500 text-center py-8">No hay datos</p>
                 )}
               </div>
+            </div>
 
+            <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Diferencial Cambiario (USD)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución Diferencial Cambiario (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -2864,62 +2884,28 @@ export default function DashboardPage() {
                   <p className="text-gray-500 text-center py-8">No hay datos</p>
                 )}
               </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Monto Total del Recibo de Condominio (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                      <XAxis dataKey="label" tick={{ fontSize: 9 }} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Recibos del Mes"]} />
+                      <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibos Emitidos ($)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Monto Total del Recibo de Condominio (USD)</h2>
-              {loadingKpis ? (
-                <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : kpisData.balances?.length > 0 ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                    <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
-                    <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Recibos del Mes"]} />
-                    <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibos Emitidos ($)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No hay datos</p>
-              )}
             </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Evoluci&oacute;n Mensual de Gesti&oacute;n</h2>
-              {loadingKpis ? (
-                <p className="text-gray-500 text-center py-8">Cargando...</p>
-              ) : kpisData.balances?.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="py-3 px-4 font-bold text-gray-600">Mes de Cierre</th>
-                        <th className="py-3 px-4 font-bold text-gray-600 text-right">Efectividad Recaudaci&oacute;n</th>
-                        <th className="py-3 px-4 font-bold text-gray-600 text-right">Índice Morosidad</th>
-                        <th className="py-3 px-4 font-bold text-gray-600 text-right">Cobertura de Gastos</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kpisData.balances.map((b: any, idx: number) => (
-                        <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="py-3 px-4 text-gray-800 font-medium">{b.mes_normalizado}</td>
-                          <td className="py-3 px-4 text-right text-blue-600 font-bold">{formatCurrency(b.efectividad_recaudacion, 2)}%</td>
-                          <td className="py-3 px-4 text-right text-red-500 font-bold">{formatCurrency(b.indice_morosidad, 2)}%</td>
-                          <td className="py-3 px-4 text-right text-emerald-600 font-bold">{formatCurrency(b.cobertura_gastos, 2)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No hay datos suficientes para calcular la evoluci&oacute;n de gesti&oacute;n.</p>
-              )}
-            </div>
-
-          </div>
-        )}
-
         {activeTab === "manual" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-6">
