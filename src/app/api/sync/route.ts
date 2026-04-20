@@ -636,20 +636,49 @@ export async function POST(request: Request) {
       
       for (const unidadPrevia of deudoresAnterioresUnicos) {
         if (!unidadesAhora.has(unidadPrevia)) {
-          const datosUnidad = deudoresAntes?.find(d => d.unidad === unidadPrevia);
-          console.log(`[PAGO-DETECTADO] La unidad ${unidadPrevia} ya no tiene deuda.`);
-          
-          // Generar alerta de pago asumido
-          await supabase.from("alertas").insert({
-            edificio_id: building.id,
-            tipo: "ingreso",
-            titulo: "✅ Deuda Cancelada",
-            descripcion: `La unidad ${unidadPrevia} (${datosUnidad?.propietario || ""}) ya no aparece en el listado de morosidad. Se asume el pago de sus deudas pendientes.`,
-            fecha: today
-          });
+          // Filtrar todas las deudas de esta unidad que estaban en nuestra DB
+          const deudasUnidad = deudoresAntes?.filter(d => d.unidad === unidadPrevia) || [];
+          const montoTotalPagado = deudasUnidad.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
+          const propietario = deudasUnidad[0]?.propietario || "Copropietario";
 
-          // LIMPIEZA TOTAL: Borrar registros de esta unidad en CUALQUIER mes previo 
-          // (porque si ya no aparece en r=5 del portal, es que está solvente globalmente)
+          if (montoTotalPagado > 0) {
+            console.log(`[PAGO-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
+            
+            // A. Registrar en la tabla histórica pagos_recibos
+            await supabase.from("pagos_recibos").insert({
+              edificio_id: building.id,
+              unidad: unidadPrevia,
+              propietario: propietario,
+              mes: mesEstandar,
+              monto: montoTotalPagado,
+              fecha_pago: today, // Se asume hoy como fecha de proceso
+              source: 'deteccion_automatica',
+              verificado: true
+            });
+
+            // B. Generar alerta de pago asumido
+            await supabase.from("alertas").insert({
+              edificio_id: building.id,
+              tipo: "ingreso",
+              titulo: "✅ Deuda Cancelada (Auto)",
+              descripcion: `La unidad ${unidadPrevia} (${propietario}) ha saldado su deuda total de Bs. ${montoTotalPagado.toLocaleString('es-VE')}. Detectado por conciliación de lista.`,
+              fecha: today
+            });
+
+            // C. Registrar en movimientos general
+            const hashMov = await generateHash(`PAGO_AUTO|${building.id}|${unidadPrevia}|${montoTotalPagado}|${today}`);
+            await supabase.from("movimientos").upsert({
+              edificio_id: building.id,
+              tipo: "ingreso",
+              descripcion: `PAGO DETECTADO - Unidad ${unidadPrevia}`,
+              monto: montoTotalPagado,
+              fecha: today,
+              hash: hashMov,
+              sincronizado: true
+            }, { onConflict: 'edificio_id,hash' });
+          }
+
+          // D. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo 
           await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: unidadPrevia });
         }
       }
