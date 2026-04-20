@@ -39,6 +39,8 @@ export async function POST(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const tempPassword = "123456";
+    const passwordHash = await hashPassword(tempPassword);
 
     const { data, error } = await supabase
       .from("junta")
@@ -48,14 +50,42 @@ export async function POST(request: Request) {
         nombre: nombre || null,
         cargo: cargo || null,
         telefono: telefono || null,
+        password_hash: passwordHash,
+        requiere_cambio_clave: true,
+        es_propietario: false
       })
       .select()
       .single();
 
     if (error) throw error;
+
+    // Disparar email de bienvenida
+    try {
+      await fetch(`${new URL(request.url).origin}/api/email`, {
+        method: "POST",
+        body: JSON.stringify({
+          action: "welcome_invitation",
+          edificioId: edificio_id,
+          recipient: email,
+          nombreMiembro: nombre || "Miembro de la Junta",
+          tempPassword: tempPassword
+        })
+      });
+    } catch (e) {
+      console.error("Error sending welcome email:", e);
+    }
+
     return NextResponse.json({ success: true, miembro: data });
   } catch (error: any) {
     console.error("Create miembro error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 }

@@ -168,6 +168,8 @@ interface User {
   email: string;
   first_name: string;
   last_name: string;
+  isMember?: boolean;
+  requiereCambioClave?: boolean;
 }
 
 export default function DashboardPage() {
@@ -233,6 +235,12 @@ export default function DashboardPage() {
   const [loadingReciboGeneral, setLoadingReciboGeneral] = useState(false);
   const [syncMes, setSyncMes] = useState("");
   const [syncing, setSyncing] = useState(false);
+  
+  // Nuevos estados para gestión de miembros
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   const loadReciboGeneral = async (mesOverride?: string) => {
     if (!building?.id) return;
@@ -527,6 +535,9 @@ export default function DashboardPage() {
         
         setBuilding(data.building);
         setUser(data.user);
+        if (data.user?.requiereCambioClave) {
+          setShowPasswordChange(true);
+        }
       } catch (error) {
         router.push("/login");
       } finally {
@@ -536,6 +547,45 @@ export default function DashboardPage() {
     
     fetchData();
   }, [router]);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError("");
+    
+    if (newPassword.length < 6) {
+      setPasswordError("La clave debe tener al menos 6 caracteres");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Las claves no coinciden");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await fetch("/api/junta/password", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          email: user?.email,
+          newPassword 
+        }),
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setShowPasswordChange(false);
+        setSyncMessage("✅ Clave actualizada correctamente");
+        if (user) setUser({ ...user, requiereCambioClave: false });
+      } else {
+        setPasswordError(data.error || "Error al actualizar");
+      }
+    } catch (error: any) {
+      setPasswordError(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (building?.id) {
@@ -1355,8 +1405,12 @@ export default function DashboardPage() {
             <button onClick={() => setActiveTab("instrucciones")} className="text-sm text-blue-600 hover:text-blue-800">
               ❓ Ayuda
             </button>
-            <Link href="/logout" className="text-sm text-gray-600 hover:text-gray-800">
-              Cerrar sesión
+            <div className="text-right hidden lg:block">
+              <div className="text-xs font-bold text-gray-900">{user?.first_name} {user?.last_name}</div>
+              <div className="text-[9px] font-black text-blue-600 uppercase tracking-widest">{user?.isMember ? 'Miembro de la Junta' : 'Administrador'}</div>
+            </div>
+            <Link href="/logout" className="text-sm text-gray-600 hover:text-gray-800" title="Cerrar sesión">
+              🚪
             </Link>
             <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium">{userInitial}</span>
@@ -3632,8 +3686,9 @@ export default function DashboardPage() {
                   <input 
                     type="number" 
                     value={editConfig.unidades} 
+                    disabled={user?.isMember}
                     onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} 
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'}`}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'} ${user?.isMember ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   />
                   {showUnitsAlert && (
                     <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Suma alícuotas errónea ({alicuotaSum.toFixed(2)}%). Verifica unidades.</p>
@@ -3657,8 +3712,9 @@ export default function DashboardPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Administradora</label>
                     <select
                       value={editConfig.admin_nombre || "La Ideal C.A."}
+                      disabled={user?.isMember}
                       onChange={(e) => updateAdminAndUrls(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white ${user?.isMember ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                     >                      <option value="La Ideal C.A.">La Ideal C.A.</option>
                       <option value="Admastridcarrasquel">Administradora AC. Condominios, C.A.</option>
                       <option value="Administradora Elite">Administradora Elite</option>
@@ -3675,8 +3731,9 @@ export default function DashboardPage() {
                     <input
                       type="password"
                       value={editConfig.admin_secret}
+                      disabled={user?.isMember}
                       onChange={(e) => setEditConfig({ ...editConfig, admin_secret: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${user?.isMember ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                       placeholder="Contraseña del portal"
                     />
                   </div>
@@ -3688,7 +3745,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Login</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_login} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_login && (
                           <a href={editConfig.url_login} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3697,7 +3754,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos (Pendientes)</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_recibos} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_recibos && (
                           <a href={editConfig.url_recibos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3709,6 +3766,7 @@ export default function DashboardPage() {
                         <input
                           type="text"
                           value={editConfig.url_recibo_mes}
+                          disabled={user?.isMember}
                           placeholder="https://[dominio]/condlin.php?r=4"
                           onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}                        className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
                         />
@@ -3719,7 +3777,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-1">                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_egresos} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_egresos && (
                           <a href={editConfig.url_egresos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3728,7 +3786,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Gastos</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_gastos} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_gastos && (
                           <a href={editConfig.url_gastos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3737,7 +3795,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_balance} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_balance && (
                           <a href={editConfig.url_balance} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -4050,6 +4108,69 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Modal Cambio de Clave Obligatorio */}
+      {showPasswordChange && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="bg-indigo-600 p-6 text-center text-white">
+              <div className="text-4xl mb-2">🔒</div>
+              <h2 className="text-xl font-black uppercase tracking-tight">Cambio de Clave Obligatorio</h2>
+              <p className="text-indigo-100 text-xs mt-1">Por seguridad, debes personalizar tu contraseña para acceder al sistema.</p>
+            </div>
+            
+            <form onSubmit={handlePasswordChange} className="p-8 space-y-4">
+              {passwordError && (
+                <div className="p-3 bg-red-50 text-red-600 border border-red-100 rounded-lg text-xs font-bold text-center">
+                  {passwordError}
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Nueva Contraseña</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
+                  placeholder="Mínimo 6 caracteres"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Confirmar Contraseña</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
+                  placeholder="Repite la contraseña"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={saving}
+                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 disabled:opacity-50"
+              >
+                {saving ? "Actualizando..." : "Activar mi Cuenta"}
+              </button>
+            </form>
+            
+            <div className="p-4 bg-gray-50 text-center border-t">
+              <button 
+                onClick={() => router.push('/logout')}
+                className="text-xs font-bold text-gray-400 hover:text-red-500 transition-colors uppercase tracking-widest"
+              >
+                Cancelar y Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -59,6 +59,42 @@ export async function POST(request: Request) {
     const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
 
+    if (action === "welcome_invitation") {
+      const { tempPassword, nombreMiembro } = body;
+      await transporter.sendMail({
+        from: `"EdifiSaaS - Invitación" <${SMTP_USER}>`,
+        to: recipient,
+        subject: `Bienvenido a la Junta de Condominio - ${edificio.nombre}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: #1a73e8; color: white; padding: 24px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px;">¡Hola, ${nombreMiembro}!</h1>
+            </div>
+            <div style="padding: 24px; color: #444; line-height: 1.6;">
+              <p>Has sido invitado a participar como miembro de la junta en el sistema de control financiero del edificio <strong>${edificio.nombre}</strong>.</p>
+              <p>Desde ahora podrás visualizar el estado de las finanzas, recibos pendientes, egresos y generar reportes en tiempo real.</p>
+              
+              <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 24px 0; border: 1px solid #e9ecef;">
+                <p style="margin: 0 0 8px 0;"><strong>Tus credenciales de acceso:</strong></p>
+                <p style="margin: 4px 0;">📧 Email: ${recipient}</p>
+                <p style="margin: 4px 0;">🔑 Clave Inicial: <strong>${tempPassword}</strong></p>
+              </div>
+
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${BASE_URL}/login" style="background: #1a73e8; color: white; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ingresar al Sistema</a>
+              </div>
+
+              <p style="font-size: 13px; color: #666; font-style: italic;">* Por seguridad, el sistema te pedirá cambiar tu clave al ingresar por primera vez.</p>
+            </div>
+            <div style="background: #f8f9fa; padding: 16px; text-align: center; font-size: 12px; color: #999;">
+              EdifiSaaS v1 - Gestión Inteligente de Condominios
+            </div>
+          </div>
+        `
+      });
+      return NextResponse.json({ success: true, message: "Invitación enviada" });
+    }
+
     if (action === "error_notification") {
       await transporter.sendMail({
         from: `"SaaS - Error de Sincronización" <${SMTP_USER}>`,

@@ -17,31 +17,51 @@ export async function POST(request: Request) {
 
     const passwordHash = await hashPassword(password);
 
-    const { data: users, error: usersError } = await supabase
+    // 1. Intentar login como administrador principal
+    let { data: users, error: usersError } = await supabase
       .from("usuarios")
       .select("*")
       .eq("email", email)
       .eq("password_hash", passwordHash)
       .limit(1);
 
-    if (usersError) {
-      throw usersError;
+    let user = users && users.length > 0 ? users[0] : null;
+    let isMember = false;
+    let memberData = null;
+
+    // 2. Si no es admin, intentar login como miembro de junta
+    if (!user) {
+      const { data: members, error: memberError } = await supabase
+        .from("junta")
+        .select("*")
+        .eq("email", email)
+        .eq("password_hash", passwordHash)
+        .limit(1);
+
+      if (members && members.length > 0) {
+        memberData = members[0];
+        user = {
+          id: memberData.id,
+          email: memberData.email,
+          first_name: memberData.nombre?.split(" ")[0] || "Miembro",
+          last_name: memberData.nombre?.split(" ").slice(1).join(" ") || "Junta"
+        };
+        isMember = true;
+      }
     }
 
-    if (!users || users.length === 0) {
+    if (!user) {
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
-    const user = users[0];
-
-    const { data: buildings, error: buildingsError } = await supabase
-      .from("edificios")
-      .select("*")
-      .eq("usuario_id", user.id)
-      .limit(1);
-
-    if (buildingsError) {
-      throw buildingsError;
+    // 3. Obtener edificio
+    let building = null;
+    if (isMember) {
+      const { data: b } = await supabase.from("edificios").select("*").eq("id", memberData.edificio_id).single();
+      building = b;
+    } else {
+      const { data: buildings } = await supabase.from("edificios").select("*").eq("usuario_id", user.id).limit(1);
+      building = buildings && buildings.length > 0 ? buildings[0] : null;
     }
 
     const cookieStore = await cookies();
@@ -51,16 +71,20 @@ export async function POST(request: Request) {
       sameSite: "lax",
       maxAge: 60 * 60 * 24 * 7,
     });
+    
+    if (isMember) {
+      cookieStore.set("is_member", "true", { maxAge: 60 * 60 * 24 * 7 });
+      cookieStore.set("member_building_id", building.id, { maxAge: 60 * 60 * 24 * 7 });
+    }
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
+        ...user,
+        isMember,
+        requiereCambioClave: isMember ? memberData.requiere_cambio_clave : false
       },
-      building: buildings && buildings.length > 0 ? buildings[0] : null,
+      building,
     });
   } catch (error: any) {
     console.error("Login error:", error);
