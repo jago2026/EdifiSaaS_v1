@@ -271,7 +271,63 @@ export default function DashboardPage() {
     }
   };
   const [syncingMes, setSyncingMes] = useState(false);
-  const [informeFecha, setInformeFecha] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [dataSummary, setDataSummary] = useState<any[]>([]);
+  const [loadingDataSummary, setLoadingDataSummary] = useState(false);
+
+  const loadDataSummary = async () => {
+    if (!building?.id) return;
+    setLoadingDataSummary(true);
+    try {
+      const res = await fetch(`/api/config/data-summary?edificioId=${building.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setDataSummary(data.summary || []);
+      }
+    } catch (error) {
+      console.error("Error loading data summary:", error);
+    } finally {
+      setLoadingDataSummary(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "configuracion" && building?.id) {
+      loadDataSummary();
+    }
+  }, [activeTab, building?.id]);
+
+  const deleteSync = async (id: string, mes?: string) => {
+    if (!building?.id) return;
+    const confirmMsg = mes 
+      ? `¿Estás seguro de eliminar TODOS los datos de ${mes}? Esto borrará permanentemente recibos, gastos, egresos y balances de este mes en la base de datos.`
+      : "¿Estás seguro de eliminar este registro?";
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      // Usar id = 'BLOCK' si solo queremos borrar por mes sin un ID de log específico
+      const url = `/api/sincronizaciones?id=${id || 'BLOCK'}${mes ? `&mes=${mes}` : ""}&edificioId=${building.id}`;
+      const res = await fetch(url, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage(`✅ Datos de ${mes || 'bloque'} eliminados correctamente`);
+        loadDataSummary();
+        loadSincronizaciones();
+        if (mes) {
+          loadRecibos();
+          loadEgresos();
+          loadGastos();
+          loadBalance();
+        }
+      } else {
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error: any) {
+      alert(`Error de red: ${error.message}`);
+    }
+  };
   const [informeData, setInformeData] = useState<any>(null);
   const [loadingInforme, setLoadingInforme] = useState(false);
   const [gastosRecurrentes, setGastosRecurrentes] = useState<any[]>([]);
@@ -3858,58 +3914,72 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 uppercase tracking-wider">Detalle de Datos Sincronizados Off-line</h3>
-              {sincronizaciones.filter(s => s.estado === 'completado').length === 0 ? (
-                <p className="text-sm text-gray-500 italic">No hay registros detallados de sincronización exitosa.</p>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Detalle de Datos Almacenados Off-line</h3>
+                <button onClick={loadDataSummary} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar disponibilidad">
+                  <span className={loadingDataSummary ? "animate-spin inline-block" : ""}>🔄</span>
+                </button>
+              </div>
+
+              {loadingDataSummary ? (
+                <p className="text-gray-500 text-center py-8">Analizando tablas de datos...</p>
+              ) : dataSummary.length === 0 ? (
+                <p className="text-sm text-gray-500 italic">No hay datos almacenados en las tablas locales.</p>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2">
-                  {sincronizaciones.filter(s => s.estado === 'completado').map((s, idx) => (
-                    <div key={idx} className="bg-gray-50 border border-gray-200 p-4 rounded-xl shadow-sm relative overflow-hidden">
-                      <div className={`absolute top-0 right-0 px-2 py-0.5 text-[8px] font-black text-white uppercase ${s.tipo === 'sync_historica' ? 'bg-orange-500' : 'bg-green-500'}`}>
-                        {s.tipo === 'sync_historica' ? 'Hist&oacute;rica' : 'Diaria'}
-                      </div>
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="text-xs font-black text-indigo-600 uppercase">{s.detalles?.mes || 'Actual'}</div>
-                        <div className="flex gap-2">
-                          <div className="text-[9px] text-gray-400 font-bold">{new Date(s.created_at).toLocaleString("es-VE")}</div>
-                          <button 
-                            onClick={() => deleteSync(s.id, s.detalles?.mes)}
-                            className="text-red-400 hover:text-red-600 transition-colors text-[10px]"
-                            title="Eliminar bloque de datos"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 mb-2">
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_recibos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
-                          <span>RECIBOS</span>
-                          {s.detalles?.sync_recibos && <span className="ml-1 opacity-70">({s.detalles?.stats?.recibos || 0})</span>}
-                        </div>
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_gastos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
-                          <span>GASTOS</span>
-                          {s.detalles?.sync_gastos && <span className="ml-1 opacity-70">({s.detalles?.stats?.gastos || 0})</span>}
-                        </div>
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_egresos ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
-                          <span>EGRESOS</span>
-                          {s.detalles?.sync_egresos && <span className="ml-1 opacity-70">({s.detalles?.stats?.egresos || 0})</span>}
-                        </div>
-                        <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded flex justify-between ${s.detalles?.sync_balance ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-400'}`}>
-                          <span>BALANCE</span>
-                          {s.detalles?.sync_balance && <span className="ml-1 opacity-70">OK</span>}
-                        </div>
-                      </div>
-                      {(s.detalles?.stats?.recibo_total > 0 || s.movimientos_nuevos > 0) && (
-                        <div className="text-[9px] text-blue-600 font-bold bg-blue-50 px-1.5 py-0.5 rounded mb-1 border border-blue-100">
-                          {s.detalles?.stats?.recibo_total > 0 ? `TOTAL RECIBO: Bs. ${formatBs(s.detalles.stats.recibo_total)}` : `REGISTROS: ${s.movimientos_nuevos}`}
-                        </div>
-                      )}
-                      <div className="text-[10px] text-gray-600 line-clamp-1 italic">{s.error}</div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-50 border-b">
+                      <tr>
+                        <th className="py-2 px-3 font-bold text-gray-600 uppercase text-[10px]">Mes / Bloque</th>
+                        <th className="py-2 px-3 font-bold text-gray-600 uppercase text-[10px] text-center">Recibos</th>
+                        <th className="py-2 px-3 font-bold text-gray-600 uppercase text-[10px] text-center">Gastos</th>
+                        <th className="py-2 px-3 font-bold text-gray-600 uppercase text-[10px] text-center">Egresos</th>
+                        <th className="py-2 px-3 font-bold text-gray-600 uppercase text-[10px] text-center">Balance</th>
+                        <th className="py-2 px-3 font-bold text-gray-600 uppercase text-[10px] text-right">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {dataSummary.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="py-3 px-3 font-black text-indigo-600 uppercase text-xs">{item.mes}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.recibos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                              {item.recibos}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.gastos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                              {item.gastos}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.egresos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>
+                              {item.egresos}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${item.balances > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>
+                              {item.balances > 0 ? 'SÍ' : 'NO'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <button 
+                              onClick={() => deleteSync('', item.mes)}
+                              className="text-red-500 hover:text-red-700 font-bold text-xs uppercase flex items-center justify-end gap-1 ml-auto group"
+                            >
+                              <span className="opacity-0 group-hover:opacity-100 transition-opacity">Eliminar Mes</span>
+                              <span className="text-base">🗑️</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
-              <p className="text-[10px] text-gray-400 mt-4 uppercase font-bold italic">ESTA LISTA MUESTRA EL DETALLE DE LOS ÚLTIMOS ARCHIVOS Y MÓDULOS DESCARGADOS CON ÉXITO.</p>
+              <p className="text-[10px] text-gray-400 mt-6 uppercase font-bold italic">
+                ESTA TABLA REFLEJA LA DATA REAL ALMACENADA EN LA BASE DE DATOS. AL ELIMINAR UN MES, SE BORRAN TODOS LOS REGISTROS ASOCIADOS (RECIBOS, GASTOS, EGRESOS Y BALANCES) DE ESE PERIODO.
+              </p>
             </div>
           </div>
         )}
