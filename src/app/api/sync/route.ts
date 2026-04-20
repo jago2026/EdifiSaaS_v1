@@ -622,14 +622,60 @@ export async function POST(request: Request) {
     }
 
     if (doSyncEgresos) {
+      console.log(`Verificando ${allEgresos.length} egresos para ${mesEstandar}`);
+      
+      // Obtener egresos ya registrados para este mes
+      const { data: egresosExistentes } = await supabase
+        .from("egresos")
+        .select("beneficiario, monto, descripcion")
+        .eq("edificio_id", building.id)
+        .eq("mes", mesEstandar);
+
+      const existingMap = new Set(egresosExistentes?.map(e => `${e.beneficiario}|${e.monto}`) || []);
+
       for (const e of allEgresos) {
+        // Verificar si ya existe (por beneficiario y monto)
+        if (existingMap.has(`${e.beneficiario}|${e.monto}`)) {
+          console.log(`[Sync] Egreso ya existe, saltando: ${e.beneficiario} - ${e.monto}`);
+          continue;
+        }
+
         const fDB = normalizeFecha(e.fecha);
-        const hash = await generateHash(`${fDB}|${e.beneficiario}|${e.monto}`);
-        await supabase.from("egresos").upsert({ edificio_id: building.id, fecha: fDB, beneficiario: e.beneficiario, descripcion: e.operacion, monto: e.monto, hash, sincronizado: true, mes: mesEstandar }, { onConflict: 'edificio_id,hash' });
+        // Hash estable sin la fecha exacta de sincronización si es posible, o simplemente usar upsert con hash único
+        const hash = await generateHash(`${mesEstandar}|${e.beneficiario}|${e.monto}`);
+        
+        await supabase.from("egresos").upsert({ 
+          edificio_id: building.id, 
+          fecha: fDB, 
+          beneficiario: e.beneficiario, 
+          descripcion: e.operacion, 
+          monto: e.monto, 
+          hash, 
+          sincronizado: true, 
+          mes: mesEstandar 
+        }, { onConflict: 'edificio_id,hash' });
+
         const desc = `${e.operacion} - ${e.beneficiario}`;
-        await supabase.from("movimientos").upsert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, hash, sincronizado: true }, { onConflict: 'edificio_id,hash' });
+        await supabase.from("movimientos").upsert({ 
+          edificio_id: building.id, 
+          tipo: "egreso", 
+          descripcion: desc, 
+          monto: e.monto, 
+          fecha: fDB, 
+          hash, 
+          sincronizado: true 
+        }, { onConflict: 'edificio_id,hash' });
+
         if (fDB === today) {
-          await supabase.from("movimientos_dia").insert({ edificio_id: building.id, tipo: "egreso", descripcion: desc, monto: e.monto, fecha: fDB, fuente: "egresos", detectado_en: today });
+          await supabase.from("movimientos_dia").insert({ 
+            edificio_id: building.id, 
+            tipo: "egreso", 
+            descripcion: desc, 
+            monto: e.monto, 
+            fecha: fDB, 
+            fuente: "egresos", 
+            detectado_en: today 
+          });
         }
       }
     }
@@ -661,13 +707,28 @@ export async function POST(request: Request) {
           }));
       }
 
-      console.log(`Guardando ${finalGastos.length} gastos para el mes ${mesEstandar} con fecha ${fechaGasto}`);
+      console.log(`Verificando ${finalGastos.length} gastos para el mes ${mesEstandar}`);
+      
+      // Obtener gastos ya registrados para este mes
+      const { data: gastosExistentes } = await supabase
+        .from("gastos")
+        .select("codigo, monto, descripcion")
+        .eq("edificio_id", building.id)
+        .eq("mes", mesEstandar);
+
+      const existingMap = new Set(gastosExistentes?.map(g => `${g.codigo}|${g.monto}`) || []);
       
       for (const g of finalGastos) {
         // Doble verificación: No guardar fondos si se colaron por algún motivo
         const descUpper = (g.descripcion || "").toUpperCase();
         if (descUpper.includes("FONDO") || g.codigo === "00001") {
           console.log(`[Sync] Saltando guardado de fondo detectado en bucle final: ${g.descripcion}`);
+          continue;
+        }
+
+        // Verificar si ya existe (por código y monto)
+        if (existingMap.has(`${g.codigo}|${g.monto}`)) {
+          console.log(`[Sync] Gasto ya existe, saltando: ${g.codigo} - ${g.monto}`);
           continue;
         }
 
