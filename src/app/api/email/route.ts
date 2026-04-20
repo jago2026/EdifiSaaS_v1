@@ -123,7 +123,16 @@ export async function POST(request: Request) {
 
       // Configurar destinatarios
       let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
-      if (recipients.length === 0) return NextResponse.json({ error: "No hay destinatarios configurados en el edificio" }, { status: 400 });
+      
+      // Si no hay correos manuales, buscar automáticamente a todos los miembros de la junta
+      if (recipients.length === 0) {
+        const { data: miembros } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
+        if (miembros && miembros.length > 0) {
+          recipients = miembros.map(m => m.email);
+        }
+      }
+
+      if (recipients.length === 0) return NextResponse.json({ error: "No hay destinatarios configurados. Agrega correos en Configuración o registra miembros en la pestaña Junta." }, { status: 400 });
 
       await transporter.sendMail({
         from: `"EdifiSaaS - Estimados" <${SMTP_USER}>`,
