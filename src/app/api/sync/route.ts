@@ -208,6 +208,23 @@ function parseEgresosTableAll(html: string): any[] {
   return results;
 }
 
+function parseIngresosTable(html: string): any[] {
+  const results: any[] = [];
+  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch) return results;
+  const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  for (const row of rows) {
+    const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+    if (!cells || cells.length < 4) continue;
+    const texts = cells.map(c => cleanHtml(c));
+    if (texts[0].includes("(G)") || texts[1].includes("TOTAL COBRADO") || texts[1].includes("TOTAL GENERAL")) continue;
+    if (!texts[0].match(/\d{2}-\d{2}-\d{4}/)) continue;
+    const m = parseMonto(texts[3]);
+    results.push({ fecha: texts[0], beneficiario: texts[1], descripcion: texts[2], monto: m });
+  }
+  return results;
+}
+
 function parseGastosTable(html: string): any[] {
   if (!html) return [];
   const results: any[] = [];
@@ -479,13 +496,18 @@ export async function POST(request: Request) {
     };
 
     // Fetches secuenciales - BALANCE PRIMERO para fijar el mes en la sesión
-    let hRec = null, hEgr = null, hGas = null, hBal = null, hAli = null, hRecSummary = null;
+    let hRec = null, hEgr = null, hGas = null, hBal = null, hAli = null, hRecSummary = null, hIng = null;
     const comboParam = mes ? `&combo=${comboValue}` : "";
 
     if (doSyncBalance || doSyncEgresos || doSyncGastos) {
       hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
       await new Promise(r => setTimeout(r, 500));
     }
+
+    // NUEVO: Sync de Ingresos (r=1) siempre disponible para detectar pagos
+    hIng = await fetchWithRetry(`condlin.php?r=1${comboParam}`);
+    await new Promise(r => setTimeout(r, 500));
+
     if (doSyncRecibos) {
       hRec = await fetchWithRetry(`condlin.php?r=5${comboParam}`);
       await new Promise(r => setTimeout(r, 500));
@@ -514,6 +536,7 @@ export async function POST(request: Request) {
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
     const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
+    const allIngresos = hIng ? parseIngresosTable(hIng) : [];
     const allGastos = hGas ? parseGastosTable(hGas) : [];
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
@@ -559,6 +582,19 @@ export async function POST(request: Request) {
         console.error("Error guardando recibos con upsert:", recErr);
         await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
         await supabase.from("recibos").insert(recibosToSave);
+      }
+
+      // LIMPIEZA: Eliminar recibos que ya no están en la lista (pagados)
+      const unidadesEnPortal = allRecibos.map(r => r.unidad);
+      if (unidadesEnPortal.length > 0) {
+        const { error: cleanErr } = await supabase
+          .from("recibos")
+          .delete()
+          .eq("edificio_id", building.id)
+          .eq("mes", mesEstandar)
+          .not("unidad", "in", `(${unidadesEnPortal.join(",")})`);
+        
+        if (cleanErr) console.error("Error limpiando recibos pagados:", cleanErr);
       }
     }
 
@@ -675,6 +711,55 @@ export async function POST(request: Request) {
             fecha: fDB, 
             fuente: "egresos", 
             detectado_en: today 
+          });
+        }
+      }
+    }
+
+    // PROCESAR INGRESOS DETECTADOS (PAGOS DE CONDOMINIO)
+    if (allIngresos.length > 0) {
+      console.log(`Verificando ${allIngresos.length} ingresos para ${mesEstandar}`);
+      const { data: ingresosExistentes } = await supabase
+        .from("ingresos")
+        .select("hash")
+        .eq("edificio_id", building.id)
+        .eq("mes", mesEstandar);
+      
+      const existingHashes = new Set(ingresosExistentes?.map(i => i.hash) || []);
+
+      for (const ing of allIngresos) {
+        const hash = await generateHash(`ING|${mesEstandar}|${ing.beneficiario}|${ing.monto}|${ing.fecha}`);
+        if (!existingHashes.has(hash)) {
+          const fDB = normalizeFecha(ing.fecha);
+          await supabase.from("ingresos").upsert({
+            edificio_id: building.id,
+            fecha: fDB,
+            unidad: ing.beneficiario, // En admlaideal r=1 el beneficiario es la unidad/nombre
+            descripcion: ing.descripcion,
+            monto: ing.monto,
+            hash,
+            sincronizado: true,
+            mes: mesEstandar
+          }, { onConflict: 'edificio_id,hash' });
+
+          // Registrar en movimientos general
+          await supabase.from("movimientos").upsert({
+            edificio_id: building.id,
+            tipo: "ingreso",
+            descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
+            monto: ing.monto,
+            fecha: fDB,
+            hash,
+            sincronizado: true
+          }, { onConflict: 'edificio_id,hash' });
+
+          // Generar alerta de pago detectado
+          await supabase.from("alertas").insert({
+            edificio_id: building.id,
+            tipo: "ingreso",
+            titulo: "💰 Pago Detectado",
+            descripcion: `Se detectó un nuevo ingreso de Bs. ${ing.monto} correspondiente a ${ing.beneficiario}.`,
+            fecha: today
           });
         }
       }
