@@ -252,6 +252,7 @@ export async function GET(request: Request) {
           recibos_mes: b.recibos_mes || 0,
           recibos_mes_usd: recibosMesTotalUsd / totalUnidades, // Promedio por unidad para evitar los 3000 USD
           tasa_bcv: tasa,
+          resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
           efectividad_recaudacion: b.recibos_mes ? ((b.cobranza_mes || 0) / b.recibos_mes) * 100 : 0,
           indice_morosidad: b.recibos_mes ? ((b.total_por_cobrar || 0) / ((b.recibos_mes || 0) * 2)) * 100 : 0,
           cobertura_gastos: b.gastos_facturados ? ((b.cobranza_mes || 0) / Math.abs(b.gastos_facturados)) * 100 : 0,

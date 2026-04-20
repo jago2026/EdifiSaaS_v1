@@ -2635,6 +2635,56 @@ export default function DashboardPage() {
               )}
               <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Comparativa diaria de ingresos (barras verdes, eje izq) vs egresos (línea roja, eje der) en Dólares</p>
             </div>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Evolución Fondos de Reserva Acumulados (USD)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={kpisData.balances} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tick={{fontSize: 10}} />
+                      <YAxis tick={{fontSize: 10}} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip formatter={(value: any) => `$${formatUsd(value as number)}`} />
+                      <Legend verticalAlign="top" height={36}/>
+                      <Area type="monotone" dataKey="fondo_reserva_usd" stackId="1" stroke="#8b5cf6" fill="#c4b5fd" name="F. Reserva" />
+                      <Area type="monotone" dataKey="fondo_intereses_usd" stackId="1" stroke="#ec4899" fill="#fbcfe8" name="Int. Moratorios" />
+                      <Area type="monotone" dataKey="fondo_diferencial_cambiario_usd" stackId="1" stroke="#06b6d4" fill="#cffafe" name="Dif. Cambiario" />
+                      <Area type="monotone" dataKey="fondo_prestaciones_usd" stackId="1" stroke="#f59e0b" fill="#fef3c7" name="Prestaciones" />
+                      <Area type="monotone" dataKey="fondo_trabajos_varios_usd" stackId="1" stroke="#10b981" fill="#d1fae5" name="Trabajos Varios" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos</p>
+                )}
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Resultado Operativo Mensual (USD) (Cobranza - Gastos)</h2>
+                {loadingKpis ? (
+                  <p className="text-gray-500 text-center py-8">Cargando...</p>
+                ) : kpisData.balances?.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={kpisData.balances} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="label" tick={{fontSize: 10}} />
+                      <YAxis tick={{fontSize: 10}} tickFormatter={(v) => `$${v}`} />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Balance"]} />
+                      <Legend verticalAlign="top" height={36}/>
+                      <Bar dataKey="resultado_mensual_usd" name="Superávit / Déficit ($)">
+                        {kpisData.balances.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={entry.resultado_mensual_usd >= 0 ? '#10b981' : '#ef4444'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay datos suficientes</p>
+                )}
+              </div>
+            </div>
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Efectividad de Recaudación % (Cobranza Mes / Recibos Mes)</h2>
