@@ -1419,21 +1419,26 @@ export default function DashboardPage() {
 
       <div className="container mx-auto px-6 py-8">
         <div className="flex flex-wrap gap-2 mb-8">
+          {/* Always visible buttons */}
           <button onClick={() => setActiveTab("resumen")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "resumen" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Resumen</button>
-          <button onClick={() => setActiveTab("ingresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Ingresos</button>
-          <button onClick={() => setActiveTab("movimientos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Movimientos</button>
-          <button onClick={() => setActiveTab("egresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Egresos</button>
-          <button onClick={() => setActiveTab("gastos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Gastos</button>
-          <button onClick={() => setActiveTab("recibos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Recibos</button>
-          <button onClick={() => setActiveTab("recibo")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibo" ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"}`}>Recibo Condominio</button>
-          <button onClick={() => setActiveTab("balance")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Balance</button>
-          <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
-          <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
           <button onClick={() => setActiveTab("kpis")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>KPIs</button>
-          <button onClick={() => setActiveTab("informes")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Informes</button>
-          <button onClick={() => setActiveTab("manual")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"}`}>Ing/Egr Manual</button>
-          <button onClick={() => setActiveTab("junta")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Junta</button>
-          <button onClick={() => setActiveTab("configuracion")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Configuración</button>
+          <button onClick={() => setActiveTab("movimientos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Movimientos</button>
+
+          {/* Hidden on mobile, visible on desktop */}
+          <div className="hidden md:flex flex-wrap gap-2">
+            <button onClick={() => setActiveTab("ingresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Ingresos</button>
+            <button onClick={() => setActiveTab("egresos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Egresos</button>
+            <button onClick={() => setActiveTab("gastos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Gastos</button>
+            <button onClick={() => setActiveTab("recibos")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Recibos</button>
+            <button onClick={() => setActiveTab("recibo")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "recibo" ? "bg-indigo-600 text-white" : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"}`}>Recibo Condominio</button>
+            <button onClick={() => setActiveTab("balance")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Balance</button>
+            <button onClick={() => setActiveTab("alicuotas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alicuotas</button>
+            <button onClick={() => setActiveTab("alertas")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Alertas</button>
+            <button onClick={() => setActiveTab("informes")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Informes</button>
+            <button onClick={() => setActiveTab("manual")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"}`}>Ing/Egr Manual</button>
+            <button onClick={() => setActiveTab("junta")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Junta</button>
+            <button onClick={() => setActiveTab("configuracion")} className={`px-4 py-2 rounded-lg font-medium transition-colors ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"}`}>Configuración</button>
+          </div>
         </div>
 
         {activeTab === "resumen" && (
@@ -1519,59 +1524,76 @@ export default function DashboardPage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Situación Ejecutiva del Condominio</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 border-b">
-                        <th className="text-left py-2 px-3 font-bold text-gray-600 uppercase text-[10px]">Recibos</th>
-                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">Aptos</th>
-                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">% Aptos</th>
-                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">Total Bs.</th>
-                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">Total USD$</th>
-                        <th className="text-right py-2 px-3 font-bold text-gray-500 uppercase text-[10px]">% Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {(() => {
-                        const totalDeudaBs = recibos.reduce((sum, r) => sum + Number(r.deuda), 0);
-                        const totalAptos = building?.unidades || 1;
-                        const dist: any = {};
-                        recibos.forEach(r => {
-                          const n = r.num_recibos || 1;
-                          if (!dist[n]) dist[n] = { aptos: 0, bs: 0, usd: 0 };
-                          dist[n].aptos++;
-                          dist[n].bs += Number(r.deuda);
-                          dist[n].usd += Number(r.deuda_usd || 0);
-                        });
-                        return Object.entries(dist).sort((a: any, b: any) => Number(a[0]) - Number(b[0])).map(([n, data]: [string, any]) => (
-                          <tr key={n} className="hover:bg-gray-50">
-                            <td className="py-2 px-3 font-bold text-gray-700">{n}</td>
-                            <td className="py-2 px-3 text-right">{data.aptos}</td>
-                            <td className="py-2 px-3 text-right text-gray-500">{((data.aptos / totalAptos) * 100).toFixed(2)}%</td>
-                            <td className="py-2 px-3 text-right font-medium">{formatBs(data.bs)}</td>
-                            <td className="py-2 px-3 text-right font-medium text-green-600">${formatUsd(data.usd)}</td>
-                            <td className="py-2 px-3 text-right text-gray-500">{totalDeudaBs > 0 ? ((data.bs / totalDeudaBs) * 100).toFixed(2) : "0.00"}%</td>
-                          </tr>
-                        ));
-                      })()}
-                    </tbody>
-                    <tfoot className="bg-gray-50 font-bold">
-                      <tr>
-                        <td className="py-2 px-3 uppercase text-[10px]">TOTALES:</td>
-                        <td className="py-2 px-3 text-right">{recibos.length}</td>
-                        <td className="py-2 px-3 text-right">{building ? ((recibos.length / building.unidades) * 100).toFixed(2) : 0}%</td>
-                        <td className="py-2 px-3 text-right">{formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}</td>
-                        <td className="py-2 px-3 text-right text-green-700">${formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}</td>
-                        <td className="py-2 px-3 text-right">100.00%</td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n de Unidades con Deuda</h2>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={(() => {
+                          const dist: any = {};
+                          recibos.forEach(r => {
+                            const n = r.num_recibos || 1;
+                            if (!dist[n]) dist[n] = { name: `${n} Recibo${n > 1 ? 's' : ''}`, value: 0 };
+                            dist[n].value++;
+                          });
+                          return Object.values(dist);
+                        })()}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: ${value} aptos`}
+                      >
+                        {recibos.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][index % 7]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
                 </div>
+                <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Cantidad de apartamentos según n&uacute;mero de recibos pendientes</p>
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-bold text-gray-900 mb-4">Indicadores Financieros</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n por Montos Pendientes</h2>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={(() => {
+                          const dist: any = {};
+                          recibos.forEach(r => {
+                            const n = r.num_recibos || 1;
+                            if (!dist[n]) dist[n] = { name: `${n} Recibo${n > 1 ? 's' : ''}`, value: 0 };
+                            dist[n].value += Number(r.deuda);
+                          });
+                          return Object.values(dist);
+                        })()}
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={100}
+                        dataKey="value"
+                        label={({ name, value }) => `${name}: Bs. ${formatBs(value)}`}
+                      >
+                        {recibos.map((_, index) => (
+                          <Cell key={`cell-amt-${index}`} fill={['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'][index % 7]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: any) => `Bs. ${formatBs(value)}`} />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Monto total adeudado (Bs.) distribuido por antig&uuml;edad de deuda</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 mb-4">Indicadores Financieros</h2>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
@@ -2258,16 +2280,6 @@ export default function DashboardPage() {
                         <option key={m} value={m}>{m}</option>
                       ))}
                     </select>
-                  )}
-                  {building?.url_recibo_mes && (
-                    <a
-                      href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
-                    >
-                      <span>📄</span> PDF
-                    </a>
                   )}
                   <button onClick={() => loadReciboGeneral()} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
                     <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
@@ -3473,43 +3485,126 @@ export default function DashboardPage() {
 
         {activeTab === "instrucciones" && (
           <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Guía de Uso del Sistema</h2>
-            
-            <div className="space-y-8">
+            <div className="flex items-center gap-3 mb-8 border-b pb-6">
+              <span className="text-4xl">📖</span>
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Manual de Usuario Integral</h2>
+                <p className="text-blue-600 font-bold text-xs uppercase tracking-widest">EdifiSaaS v1 • Sistema de Control Financiero</p>
+              </div>
+            </div>
+
+            <div className="space-y-10 text-gray-700">
+              <p className="leading-relaxed bg-blue-50 p-4 rounded-lg border-l-4 border-blue-600 font-medium">
+                Este documento es la guía definitiva para entender y operar el sistema de control financiero del edificio. EdifiSaaS actúa como un <strong>espejo inteligente</strong> de la Administradora, organizando la información para que sea útil, visual y auditable.
+              </p>
+
               <section>
-                <h3 className="text-lg font-bold text-blue-700 mb-3 border-b pb-1">1. Sincronización Automática</h3>
-                <p className="text-gray-700 leading-relaxed">
-                  El sistema extrae datos directamente de la web de tu administradora (La Ideal, etc.). Para que funcione:
-                </p>
-                <ul className="list-disc pl-6 mt-2 space-y-2 text-gray-600">
-                  <li>Ve a la pestaña <strong>Configuración</strong>.</li>
-                  <li>Ingresa tu clave de acceso al portal de la administradora.</li>
-                  <li>Usa el botón <strong>&quot;Sincronizar Ahora&quot;</strong> en la pestaña Resumen para actualizar datos.</li>
-                </ul>
+                <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-tight">
+                  <span className="bg-indigo-600 text-white w-8 h-8 rounded flex items-center justify-center text-sm">1</span>
+                  Módulos de Visualización
+                </h3>
+                
+                <div className="grid gap-6">
+                  <div className="border border-gray-100 p-5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <h4 className="font-bold text-indigo-600 mb-2 flex items-center gap-2">🏠 Panel de Control (Dashboard / Resumen)</h4>
+                    <p className="text-sm mb-3">Es el resumen ejecutivo del edificio. Incluye indicadores rápidos de morosidad, total de fondos disponibles y acceso directo a las últimas alertas de sincronización.</p>
+                    <div className="text-[10px] font-black text-gray-400 uppercase">Uso: Revisión rápida de 10 segundos al iniciar sesión.</div>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <h4 className="font-bold text-green-600 mb-2 flex items-center gap-2">💰 Recibos y Deudas</h4>
+                    <p className="text-sm mb-3">Consulta cuánto debe cada apartamento. Identifica quién tiene más de 3 meses de atraso. La Deuda en USD es referencial para facilitar pagos en divisas.</p>
+                    <div className="text-[10px] font-black text-gray-400 uppercase">Instrucción: Usa la columna "Num. Recibos" para medir morosidad.</div>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <h4 className="font-bold text-red-600 mb-2 flex items-center gap-2">🧾 Egresos (Pagos realizados)</h4>
+                    <p className="text-sm mb-3">Ver en qué se gastó el dinero. Cada registro viene de la web de la administradora (r=21). Si un pago no aparece, es porque la administradora aún no lo ha procesado.</p>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <h4 className="font-bold text-orange-600 mb-2 flex items-center gap-2">🛠️ Gastos (Por facturar)</h4>
+                    <p className="text-sm mb-3">Anticipa el monto del próximo recibo. Aquí aparecen las facturas recibidas aún no cobradas a los vecinos. Ideal para avisar si viene un "recibo alto".</p>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <h4 className="font-bold text-blue-600 mb-2 flex items-center gap-2">⚖️ Balance Financiero</h4>
+                    <p className="text-sm mb-3">Auditoría de fondos y flujo de caja. Monitorea la cobranza real, el dinero líquido disponible y los fondos de reserva para emergencias.</p>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl hover:bg-gray-50 transition-colors">
+                    <h4 className="font-bold text-purple-600 mb-2 flex items-center gap-2">📈 Historial de Alícuotas</h4>
+                    <p className="text-sm mb-3">Listado de pesos de cada unidad. Úsalo para validar que el peso de cada unidad en los gastos sea el correcto según el documento de condominio.</p>
+                  </div>
+                </div>
               </section>
 
               <section>
-                <h3 className="text-lg font-bold text-blue-700 mb-3 border-b pb-1">2. Control de Movimientos Manuales</h3>
-                <p className="text-gray-700 leading-relaxed">
-                  A veces hay transferencias o pagos que se reflejan en el banco pero aún no en el portal Web Admin.
-                </p>
-                <ul className="list-disc pl-6 mt-2 space-y-2 text-gray-600">
-                  <li>Usa la pestaña <strong>Ing/Egr Manual</strong> para registrar estos movimientos.</li>
-                  <li>El sistema usará el &quot;Saldo Final&quot; de esta pestaña para la conciliación bancaria real.</li>
-                </ul>
+                <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-tight">
+                  <span className="bg-indigo-600 text-white w-8 h-8 rounded flex items-center justify-center text-sm">2</span>
+                  Módulo de Configuración
+                </h3>
+                <div className="space-y-6 text-sm">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <strong className="block text-indigo-700 mb-1 uppercase text-xs">🌐 Conexión y Credenciales</strong>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Admin ID / Secret:</strong> Usuario y contraseña para entrar a la web de la administradora. Sin esto, el scraping no funciona.</li>
+                      <li><strong>URL de Login:</strong> Dirección técnica para el "sincronismo" inicial.</li>
+                      <li><strong>Rutas (r=5, r=21, etc):</strong> Códigos internos de los reportes. No cambiarlos a menos que el menú de la web cambie.</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <strong className="block text-indigo-700 mb-1 uppercase text-xs">💵 Moneda y Economía</strong>
+                    <p><strong>Valor Tasa BCV:</strong> Precio del dólar oficial. Al actualizarlo, todo el sistema (recibos, egresos, balances) recalcula automáticamente los montos equivalentes.</p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <strong className="block text-indigo-700 mb-1 uppercase text-xs">🏢 Parámetros del Edificio</strong>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Total Unidades:</strong> Necesario para calcular % de morosidad global.</li>
+                      <li><strong>Unidad por Defecto:</strong> La unidad base para las consultas técnicas iniciales.</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <strong className="block text-indigo-700 mb-1 uppercase text-xs">🔄 Gestión de Sincronización</strong>
+                    <p>Usa el botón <strong>"Ejecutar Sincronización Ahora"</strong> para forzar la lectura de datos después de que sepas que la administradora cargó información nueva.</p>
+                  </div>
+                </div>
               </section>
 
-              <section>
-                <h3 className="text-lg font-bold text-blue-700 mb-3 border-b pb-1">3. Informes Automáticos por Email</h3>
-                <p className="text-gray-700 leading-relaxed">
-                  Puedes enviar un informe consolidado a todos los miembros de la junta con un solo clic.
+              <section className="bg-indigo-900 text-white p-6 rounded-2xl shadow-xl shadow-indigo-100">
+                <h3 className="text-xl font-black mb-4 flex items-center gap-2 uppercase tracking-tight">
+                  🚀 Flujo de Trabajo
+                </h3>
+                <div className="grid md:grid-cols-4 gap-4 text-center text-[11px] font-bold uppercase tracking-wider">
+                  <div className="bg-white/10 p-3 rounded-lg border border-white/20">
+                    <div className="text-2xl mb-1">🔑</div>
+                    Sincro
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-lg border border-white/20">
+                    <div className="text-2xl mb-1">📡</div>
+                    Extracción
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-lg border border-white/20">
+                    <div className="text-2xl mb-1">⚙️</div>
+                    Hashing (Detección)
+                  </div>
+                  <div className="bg-white/10 p-3 rounded-lg border border-white/20">
+                    <div className="text-2xl mb-1">📊</div>
+                    Visualización
+                  </div>
+                </div>
+                <p className="mt-6 text-indigo-100 text-sm italic leading-relaxed">
+                  El sistema detecta cambios automáticamente mediante Hashing. Si un movimiento es nuevo (ej: un pago de ayer), lo guarda y genera una Alerta. Si ya existe, lo ignora para evitar duplicados.
                 </p>
-                <ul className="list-disc pl-6 mt-2 space-y-2 text-gray-600">
-                  <li>Configura los correos en la pestaña <strong>Junta</strong>.</li>
-                  <li>En <strong>Configuración</strong>, ingresa la lista de correos destino separados por coma.</li>
-                  <li>Haz clic en <strong>Enviar Informe Financiero</strong> para despachar el reporte PDF/HTML.</li>
-                </ul>
               </section>
+
+              <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase bg-red-50 p-3 rounded-lg border border-red-100">
+                <span className="text-lg">⚠️</span>
+                <span>Nota de Mantenimiento: Si la web de la administradora cambia su estructura, verás errores en la bitácora y deberás ajustar las rutas de reportes.</span>
+              </div>
             </div>
             
             <div className="mt-12 p-4 bg-gray-50 rounded-lg border border-gray-200">
