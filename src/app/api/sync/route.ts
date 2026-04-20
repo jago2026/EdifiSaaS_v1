@@ -627,18 +627,6 @@ export async function POST(request: Request) {
     await limitLogs(supabase, "alertas", building.id);
 
     await supabase.from("edificios").update({ ultima_sincronizacion: new Date().toISOString() }).eq("id", building.id);
-
-    // Trigger KPI recalculation in background
-    try {
-      fetch(`${new URL(request.url).origin}/api/kpis/recalculate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edificioId: building.id })
-      }).catch(err => console.error("Background KPI update failed:", err));
-    } catch (e) {
-      console.error("Error triggering KPI update:", e);
-    }
-
     return NextResponse.json({ success: true, stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -295,37 +295,10 @@ export async function GET(request: Request) {
       ? (alicuotas || []).reduce((sum, a: any) => sum + parseFloat(a.alicuota || 0), 0) / unidadesCount 
       : 0;
 
-    const { data: indicadores } = await supabase
-      .from("indicadores_gestion")
-      .select("*")
-      .eq("edificio_id", edificioId)
-      .order("mes_cierre", { ascending: true });
-
-    // Si hay datos en la tabla de indicadores, usarlos para los balances
-    const balancesData = (indicadores && indicadores.length > 0) 
-      ? indicadores.map(i => ({
-          ...i,
-          mes: i.mes_cierre,
-          label: formatLabel(i.mes_cierre),
-          // Mapear nombres de columnas de la tabla a lo que espera el frontend
-          cobranza_mes_usd: i.ingresos_totales_usd,
-          gastos_facturados_usd: i.egresos_totales_usd,
-          efectividad_recaudacion: i.efectividad_recaudacion_pct,
-          indice_morosidad: i.indice_morosidad_pct,
-          cobertura_gastos: i.cobertura_gastos_pct,
-          recibos_mes_usd: i.monto_recibo_promedio_usd,
-          fondo_reserva_usd: i.f_reserva_usd,
-          fondo_intereses_usd: i.f_intereses_usd,
-          fondo_diferencial_cambiario_usd: i.f_diferencial_usd,
-          fondo_prestaciones_usd: i.f_prestaciones_usd,
-          fondo_trabajos_varios_usd: i.f_otros_fondos_usd
-        }))
-      : balancesWithLabel;
-
     return NextResponse.json({
       egresos: Object.values(egresosAgrupados).sort((a: any, b: any) => a.mes.localeCompare(b.mes)),
       gastos: Object.values(gastosAgrupados).sort((a: any, b: any) => a.mes.localeCompare(b.mes)),
-      balances: balancesData,
+      balances: balancesWithLabel,
       movimientos: movimientos || [],
       cashFlow: cashFlowData,
       deudaTotal,
