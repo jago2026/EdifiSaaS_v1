@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       user: {
         ...user,
         isMember,
+        isAdmin: isMember ? memberData.es_propietario : true,
         requiereCambioClave: isMember ? memberData.requiere_cambio_clave : false
       },
       building,

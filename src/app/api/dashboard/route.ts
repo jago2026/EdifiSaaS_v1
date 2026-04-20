@@ -28,11 +28,12 @@ export async function GET(request: Request) {
 
     let user = null;
     let requiereCambioClave = false;
+    let isAdmin = false;
 
     if (isMember) {
       const { data: member, error: memberError } = await supabase
         .from("junta")
-        .select("id, email, nombre, requiere_cambio_clave")
+        .select("id, email, nombre, requiere_cambio_clave, es_propietario")
         .eq("id", userId)
         .single();
       
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
           last_name: member.nombre?.split(" ").slice(1).join(" ") || "Junta"
         };
         requiereCambioClave = member.requiere_cambio_clave;
+        isAdmin = member.es_propietario;
       }
     } else {
       const { data: admin, error: adminError } = await supabase
@@ -52,6 +54,7 @@ export async function GET(request: Request) {
         .eq("id", userId)
         .single();
       user = admin;
+      isAdmin = true; // El dueño siempre es admin
     }
 
     if (!user) {
@@ -82,6 +85,7 @@ export async function GET(request: Request) {
       user: {
         ...user,
         isMember,
+        isAdmin,
         requiereCambioClave
       },
       building,

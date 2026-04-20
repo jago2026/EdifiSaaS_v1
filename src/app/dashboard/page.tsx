@@ -169,6 +169,7 @@ interface User {
   first_name: string;
   last_name: string;
   isMember?: boolean;
+  isAdmin?: boolean;
   requiereCambioClave?: boolean;
 }
 
@@ -3571,11 +3572,16 @@ export default function DashboardPage() {
                             <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold uppercase">👤 Usuario</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-center">
-                          <button onClick={() => deleteMiembro(m.id)} className="text-red-400 hover:text-red-600 transition-colors" title="Eliminar">
-                            🗑️
-                          </button>
-                        </td>
+                         <td className="py-3 px-4 text-center">
+                           <button 
+                             onClick={() => user?.isAdmin && deleteMiembro(m.id)} 
+                             disabled={!user?.isAdmin}
+                             className={`text-red-400 hover:text-red-600 transition-colors ${!user?.isAdmin ? 'opacity-30 cursor-not-allowed' : ''}`} 
+                             title={user?.isAdmin ? "Eliminar miembro" : "No tienes permisos"}
+                           >
+                             🗑️
+                           </button>
+                         </td>
                       </tr>
                     ))}
                   </tbody>
@@ -3735,9 +3741,9 @@ export default function DashboardPage() {
                   <input 
                     type="number" 
                     value={editConfig.unidades} 
-                    disabled={user?.isMember}
+                    disabled={!user?.isAdmin}
                     onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} 
-                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'} ${user?.isMember ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'} ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   />
                   {showUnitsAlert && (
                     <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Suma alícuotas errónea ({alicuotaSum.toFixed(2)}%). Verifica unidades.</p>
@@ -3761,9 +3767,9 @@ export default function DashboardPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Administradora</label>
                     <select
                       value={editConfig.admin_nombre || "La Ideal C.A."}
-                      disabled={user?.isMember}
+                      disabled={!user?.isAdmin}
                       onChange={(e) => updateAdminAndUrls(e.target.value)}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white ${user?.isMember ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                     >                      <option value="La Ideal C.A.">La Ideal C.A.</option>
                       <option value="Admastridcarrasquel">Administradora AC. Condominios, C.A.</option>
                       <option value="Administradora Elite">Administradora Elite</option>
@@ -3780,9 +3786,9 @@ export default function DashboardPage() {
                     <input
                       type="password"
                       value={editConfig.admin_secret}
-                      disabled={user?.isMember}
+                      disabled={!user?.isAdmin}
                       onChange={(e) => setEditConfig({ ...editConfig, admin_secret: e.target.value })}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${user?.isMember ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                       placeholder="Contraseña del portal"
                     />
                   </div>
@@ -3794,7 +3800,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Login</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_login} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_login} disabled={!user?.isAdmin} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_login && (
                           <a href={editConfig.url_login} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3803,7 +3809,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos (Pendientes)</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_recibos} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_recibos} disabled={!user?.isAdmin} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_recibos && (
                           <a href={editConfig.url_recibos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3815,7 +3821,7 @@ export default function DashboardPage() {
                         <input
                           type="text"
                           value={editConfig.url_recibo_mes}
-                          disabled={user?.isMember}
+                          disabled={!user?.isAdmin}
                           placeholder="https://[dominio]/condlin.php?r=4"
                           onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}                        className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
                         />
@@ -3826,7 +3832,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="space-y-1">                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_egresos} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_egresos} disabled={!user?.isAdmin} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_egresos && (
                           <a href={editConfig.url_egresos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3835,7 +3841,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Gastos</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_gastos} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_gastos} disabled={!user?.isAdmin} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_gastos && (
                           <a href={editConfig.url_gastos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3844,7 +3850,7 @@ export default function DashboardPage() {
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
                       <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_balance} disabled={user?.isMember} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
+                        <input type="text" value={editConfig.url_balance} disabled={!user?.isAdmin} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                         {editConfig.url_balance && (
                           <a href={editConfig.url_balance} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
                         )}
@@ -3856,24 +3862,24 @@ export default function DashboardPage() {
                 <div className="border-t pt-4">
                   <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Opciones de Sincronizaci&oacute;n</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-sm text-gray-700">Recibos</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-sm text-gray-700">Egresos</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-sm text-gray-700">Gastos</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_alicuotas} onChange={(e) => setEditConfig({ ...editConfig, sync_alicuotas: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_alicuotas} onChange={(e) => setEditConfig({ ...editConfig, sync_alicuotas: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-sm text-gray-700">Alicuotas</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-sm text-gray-700">Balance</span>
                     </label>
                   </div>
@@ -3894,8 +3900,9 @@ export default function DashboardPage() {
                     <input
                       type="text"
                       value={editConfig.email_junta}
+                      disabled={!user?.isAdmin}
                       onChange={(e) => setEditConfig({ ...editConfig, email_junta: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                       placeholder="correo1@gmail.com, correo2@gmail.com"
                     />
                     <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">SOPORTA MÚLTIPLES CORREOS SEPARADOS POR COMA (,)</p>
@@ -3909,12 +3916,21 @@ export default function DashboardPage() {
                 )}
 
                 <div className="border-t pt-6 flex flex-wrap gap-4">
-                  <button onClick={handleSaveConfig} disabled={saving} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
-                    {saving ? "Guardando..." : "Guardar Configuración"}
-                  </button>
-                  <button onClick={handleTestConnection} disabled={saving} className="px-6 py-2.5 bg-white text-blue-600 border border-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-colors uppercase text-xs shadow-sm">
-                    Probar Conexión
-                  </button>
+                  {!user?.isAdmin && (
+                    <div className="w-full mb-2 p-3 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[10px] font-black uppercase tracking-widest text-center">
+                      ⚠️ MODO CONSULTA: Solo un Administrador puede modificar los parámetros del sistema.
+                    </div>
+                  )}
+                  {user?.isAdmin && (
+                    <>
+                      <button onClick={handleSaveConfig} disabled={saving} className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
+                        {saving ? "Guardando..." : "Guardar Configuración"}
+                      </button>
+                      <button onClick={handleTestConnection} disabled={saving} className="px-6 py-2.5 bg-white text-blue-600 border border-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-colors uppercase text-xs shadow-sm">
+                        Probar Conexión
+                      </button>
+                    </>
+                  )}
                   <button onClick={sendWhatsAppReport} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
                     {sendingEmail ? "Enviando..." : "Reporte -> Whatsapp"}
                   </button>
@@ -3933,20 +3949,20 @@ export default function DashboardPage() {
                <div className="bg-white p-4 rounded-lg border border-gray-200 mb-4">
                  <h4 className="text-[10px] font-bold text-gray-500 uppercase mb-3 tracking-widest">¿Qué descargar de este mes?</h4>
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-xs font-bold text-gray-700">Recibos</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                      <span className="text-xs font-bold text-gray-700">Egresos</span>
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                      <span className="text-sm text-gray-700 font-bold">Egresos</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-xs font-bold text-gray-700">Gastos</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
+                    <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
+                      <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
                       <span className="text-xs font-bold text-gray-700">Balance</span>
                     </label>
                   </div>
@@ -3957,12 +3973,13 @@ export default function DashboardPage() {
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Seleccionar Mes/Año</label>
                     <div className="flex gap-2">
                       <select 
+                        disabled={!user?.isAdmin}
                         value={syncMes.split('-')[0]} 
                         onChange={(e) => {
                           const year = syncMes.split('-')[1] || new Date().getFullYear().toString();
                           setSyncMes(`${e.target.value}-${year}`);
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                        className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white ${!user?.isAdmin ? 'bg-gray-50 text-gray-400' : ''}`}
                       >
                         <option value="">Mes</option>
                         {["01","02","03","04","05","06","07","08","09","10","11","12"].map(m => (
@@ -3970,12 +3987,13 @@ export default function DashboardPage() {
                         ))}
                       </select>
                       <select 
+                        disabled={!user?.isAdmin}
                         value={syncMes.split('-')[1]} 
                         onChange={(e) => {
                           const month = syncMes.split('-')[0] || "01";
                           setSyncMes(`${month}-${e.target.value}`);
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                        className={`flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white ${!user?.isAdmin ? 'bg-gray-50 text-gray-400' : ''}`}
                       >
                         <option value="">Año</option>
                         {[2024, 2025, 2026].map(y => (
@@ -3986,9 +4004,9 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-[120px]">
                     <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">O escribir (MM-YYYY)</label>
-                    <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500" placeholder="03-2026" />
+                    <input type="text" disabled={!user?.isAdmin} value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 ${!user?.isAdmin ? 'bg-gray-50 text-gray-400' : ''}`} placeholder="03-2026" />
                   </div>
-                  <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors uppercase text-xs h-[38px] shadow-sm">
+                  <button onClick={handleSyncMes} disabled={!user?.isAdmin || syncingMes || !syncMes} className={`px-6 py-2 rounded-lg font-bold transition-colors uppercase text-xs h-[38px] shadow-sm ${!user?.isAdmin ? 'bg-gray-300 text-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700'}`}>
                     {syncingMes ? "Sincronizando..." : "Descargar Mes Histórico"}
                   </button>
                </div>
@@ -4137,8 +4155,9 @@ export default function DashboardPage() {
                           </td>
                           <td className="py-3 px-3 text-right">
                             <button 
-                              onClick={() => deleteSync('', item.mes)}
-                              className="text-red-500 hover:text-red-700 font-bold text-xs uppercase flex items-center justify-end gap-1 ml-auto group"
+                              onClick={() => user?.isAdmin && deleteSync('', item.mes)}
+                              disabled={!user?.isAdmin}
+                              className={`text-red-500 hover:text-red-700 font-bold text-xs uppercase flex items-center justify-end gap-1 ml-auto group ${!user?.isAdmin ? 'opacity-30 cursor-not-allowed' : ''}`}
                             >
                               <span className="opacity-0 group-hover:opacity-100 transition-opacity">Eliminar Mes</span>
                               <span className="text-base">🗑️</span>
