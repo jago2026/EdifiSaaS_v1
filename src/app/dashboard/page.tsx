@@ -1378,6 +1378,9 @@ export default function DashboardPage() {
     );
   }
 
+  const userInitial = user?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || "U";
+  const hasIntegration = building?.admin_secret;
+
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* SIDEBAR - Solo Desktop (lg+) */}
