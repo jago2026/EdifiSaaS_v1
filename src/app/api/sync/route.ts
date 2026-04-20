@@ -242,9 +242,7 @@ function parseGastosTable(html: string): any[] {
     if (desc.includes("TOTAL GASTOS COMUNES:") || desc.includes("TOTAL FONDOS:") || desc.includes("TOTAL FONDOS Y GASTOS") || desc.includes("TOTAL GASTOS:")) {
       continue;
     }
-    if (code === "00001" && desc.includes("FONDO DE RESERVA")) {
-      continue;
-    }
+    // Ya no saltamos el Fondo de Reserva para que el total cuadre con la administradora
     if (code.match(/^\d+$/)) {
       const m = parseMonto(montoCell);
       if (!desc.includes("TOTAL")) {
@@ -655,7 +653,8 @@ export async function POST(request: Request) {
       console.log(`Guardando ${finalGastos.length} gastos para el mes ${mesEstandar} con fecha ${fechaGasto}`);
       
       for (const g of finalGastos) {
-        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${mesEstandar}`);
+        // Incluir la descripción en el hash para evitar colisiones si dos gastos tienen mismo código y monto (ej. ascensores)
+        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${g.descripcion}|${mesEstandar}`);
         const { error: gErr } = await supabase.from("gastos").upsert({ 
           edificio_id: building.id, 
           mes: mesEstandar, 

@@ -54,15 +54,8 @@ export async function GET(request: Request) {
       throw error;
     }
 
-    // ELIMINAR DUPLICADOS (Evitar ver filas repetidas en la tabla)
-    const uniqueGastosMap = new Map();
-    (gastos || []).forEach((g: any) => {
-      const key = `${g.fecha}-${g.codigo}-${g.monto}`;
-      if (!uniqueGastosMap.has(key)) {
-        uniqueGastosMap.set(key, g);
-      }
-    });
-    const uniqueGastos = Array.from(uniqueGastosMap.values());
+    // Ya NO eliminamos duplicados manualmente, confiamos en el hash único de la DB
+    const uniqueGastos = gastos || [];
 
     // Obtener meses disponibles
     const { data: mesesData } = await supabase.from("gastos")
