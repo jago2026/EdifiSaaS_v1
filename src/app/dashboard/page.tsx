@@ -697,11 +697,17 @@ export default function DashboardPage() {
         });
         
         let currentRunningBalance = 0;
-        const processed = sorted.map((m: any, index: number) => {
-          // Si es el primero, empezamos con su saldo inicial
-          // Si no, el saldo final de la fila es inicial - egresos + ingresos
-          const saldoFinalFila = (m.saldo_inicial || 0) - (m.egresos || 0) + (m.ingresos || 0);
-          return { ...m, saldo_acumulado: saldoFinalFila, computed_saldo_final: saldoFinalFila };
+        const processed = sorted.map((m: any) => {
+          // El saldo final de la fila es inicial - egresos + ingresos
+          const saldoFinalFila = (Number(m.saldo_inicial) || 0) - (Number(m.egresos) || 0) + (Number(m.ingresos) || 0);
+          // El saldo acumulado es la suma progresiva de los saldos finales
+          currentRunningBalance += saldoFinalFila;
+          return { 
+            ...m, 
+            saldo_final: saldoFinalFila, 
+            saldo_acumulado: currentRunningBalance, 
+            computed_saldo_final: saldoFinalFila 
+          };
         });
         setMovimientosManual(processed.reverse());
       }
