@@ -2,11 +2,13 @@ import nodemailer from "nodemailer";
 
 const SMTP_HOST = process.env.SMTP_HOST || "smtp.gmail.com";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || "587");
-const SMTP_USER = process.env.SMTP_USER || "";
-const SMTP_PASS = process.env.SMTP_PASS || "";
+const SMTP_USER = process.env.SMTP_USER || "controlfinancierosaas@gmail.com";
+const SMTP_PASS = process.env.SMTP_PASS || "bjedepzgbococwsl";
 
-if (!SMTP_USER || !SMTP_PASS) {
-  console.warn("⚠️ SMTP_USER o SMTP_PASS no están configurados en las variables de entorno.");
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://edifi-saa-s-v1.vercel.app";
+
+if (!process.env.SMTP_USER) {
+  console.log("ℹ️ Usando credenciales de correo por defecto (hardcoded).");
 }
 
 export const transporter = nodemailer.createTransport({
@@ -20,8 +22,6 @@ export const transporter = nodemailer.createTransport({
 });
 
 export const sendInvitationEmail = async (recipient: string, nombreMiembro: string, tempPassword: string, edificioNombre: string) => {
-  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://edifisaas-v1.vercel.app";
-  
   return transporter.sendMail({
     from: `"EdifiSaaS" <${SMTP_USER}>`,
     to: recipient,
