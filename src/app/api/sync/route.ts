@@ -565,7 +565,30 @@ export async function POST(request: Request) {
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
     console.log(`- hIng (Ingresos): ${hIng ? hIng.length : 0} chars`);
     console.log(`- hGas (Gastos): ${hGas ? hGas.length : 0} chars`);
-...
+
+    const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
+    const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
+    const allIngresos = hIng ? parseIngresosTable(hIng) : [];
+    const allGastos = hGas ? parseGastosTable(hGas) : [];
+    const balance = hBal ? parseBalanceFull(hBal) : null;
+    const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
+    const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
+    const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
+
+    // FALLBACK EXTREMO: Si no hay gastos ni detalles, intentar extraer del HTML del Balance (hBal)
+    if (doSyncGastos && allGastos.length === 0 && detailedReceiptItems.length === 0 && hBal) {
+      console.log("Fallback: Intentando extraer gastos desde el HTML del Balance...");
+      const tableMatch = hBal.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
+                         hBal.match(/<table[^>]*>([\s\S]*?TOTAL GASTOS COMUNES[\s\S]*?)<\/table>/i);
+      if (tableMatch) {
+        const fallbackGastos = parseGastosTable(hBal);
+        if (fallbackGastos.length > 0) {
+          console.log(`Fallback exitoso: ${fallbackGastos.length} gastos encontrados en Balance`);
+          allGastos.push(...fallbackGastos);
+        }
+      }
+    }
+
     console.log(`- Parsed Recibos: ${allRecibos.length}`);
     console.log(`- Parsed Ingresos: ${allIngresos.length}`);
     console.log(`- Parsed Balance: ${balance ? "SI" : "NO"}`);
