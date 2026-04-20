@@ -209,18 +209,53 @@ function parseEgresosTableAll(html: string): any[] {
 }
 
 function parseIngresosTable(html: string): any[] {
+  if (!html) return [];
   const results: any[] = [];
+  
+  // Intentar encontrar la tabla por clase primero, luego por contenido
+  let tableContent = "";
   const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i);
-  if (!tableMatch) return results;
-  const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+  
+  if (tableMatch) {
+    tableContent = tableMatch[1];
+  } else {
+    // Fallback: Buscar tabla que contenga "TOTAL COBRADO" o encabezados típicos
+    const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
+    for (const t of allTables) {
+      const upperT = t.toUpperCase();
+      if (upperT.includes("TOTAL COBRADO") || (upperT.includes("FECHA") && upperT.includes("MONTO"))) {
+        tableContent = t;
+        break;
+      }
+    }
+  }
+
+  if (!tableContent) {
+    console.log("[parseIngresosTable] No se encontró la tabla de ingresos en el HTML.");
+    return [];
+  }
+
+  const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
     if (!cells || cells.length < 4) continue;
     const texts = cells.map(c => cleanHtml(c));
-    if (texts[0].includes("(G)") || texts[1].includes("TOTAL COBRADO") || texts[1].includes("TOTAL GENERAL")) continue;
+    
+    // Saltamos encabezados y totales
+    if (texts[1].includes("TOTAL COBRADO") || texts[1].includes("TOTAL GENERAL") || texts[1].toUpperCase().includes("PROPIETARIO") || texts[1].toUpperCase().includes("BENEFICIARIO")) continue;
+    
+    // Validar que la primera celda sea una fecha
     if (!texts[0].match(/\d{2}-\d{2}-\d{4}/)) continue;
+
     const m = parseMonto(texts[3]);
-    results.push({ fecha: texts[0], beneficiario: texts[1], descripcion: texts[2], monto: m });
+    if (m > 0) {
+      results.push({ 
+        fecha: texts[0], 
+        beneficiario: texts[1], 
+        descripcion: texts[2], 
+        monto: m 
+      });
+    }
   }
   return results;
 }
@@ -528,35 +563,11 @@ export async function POST(request: Request) {
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
     console.log(`- hBal: ${hBal ? hBal.length : 0} chars`);
+    console.log(`- hIng (Ingresos): ${hIng ? hIng.length : 0} chars`);
     console.log(`- hGas (Gastos): ${hGas ? hGas.length : 0} chars`);
-    if (hGas) console.log(`- hGas preview: ${hGas.substring(0, 500)}`);
-    console.log(`- hRecSummary: ${hRecSummary ? hRecSummary.length : 0} chars`);
-    if (hRecSummary) console.log(`- hRecSummary preview: ${hRecSummary.substring(0, 500)}`);
-
-    const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
-    const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
-    const allIngresos = hIng ? parseIngresosTable(hIng) : [];
-    const allGastos = hGas ? parseGastosTable(hGas) : [];
-    const balance = hBal ? parseBalanceFull(hBal) : null;
-    const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
-    const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
-    const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
-
-    // FALLBACK EXTREMO: Si no hay gastos ni detalles, intentar extraer del HTML del Balance (hBal)
-    if (doSyncGastos && allGastos.length === 0 && detailedReceiptItems.length === 0 && hBal) {
-      console.log("Fallback: Intentando extraer gastos desde el HTML del Balance...");
-      const tableMatch = hBal.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
-                         hBal.match(/<table[^>]*>([\s\S]*?TOTAL GASTOS COMUNES[\s\S]*?)<\/table>/i);
-      if (tableMatch) {
-        const fallbackGastos = parseGastosTable(hBal);
-        if (fallbackGastos.length > 0) {
-          console.log(`Fallback exitoso: ${fallbackGastos.length} gastos encontrados en Balance`);
-          allGastos.push(...fallbackGastos);
-        }
-      }
-    }
-
+...
     console.log(`- Parsed Recibos: ${allRecibos.length}`);
+    console.log(`- Parsed Ingresos: ${allIngresos.length}`);
     console.log(`- Parsed Balance: ${balance ? "SI" : "NO"}`);
     console.log(`- Parsed Gastos Table: ${allGastos.length} items`);
     console.log(`- Parsed Recibo Total: ${monthlyReceiptTotal}`);
