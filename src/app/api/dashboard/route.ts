@@ -20,35 +20,69 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const cookieStore = await cookies();
+    const isMember = cookieStore.get("is_member")?.value === "true";
+    const memberBuildingId = cookieStore.get("member_building_id")?.value;
 
-    const { data: user, error: userError } = await supabase
-      .from("usuarios")
-      .select("id, email, first_name, last_name")
-      .eq("id", userId)
-      .single();
+    console.log(`[DASHBOARD] Buscando datos para userId: ${userId}. Es Miembro: ${isMember}`);
 
-    if (userError || !user) {
+    let user = null;
+    let requiereCambioClave = false;
+
+    if (isMember) {
+      const { data: member, error: memberError } = await supabase
+        .from("junta")
+        .select("id, email, nombre, requiere_cambio_clave")
+        .eq("id", userId)
+        .single();
+      
+      if (member) {
+        user = {
+          id: member.id,
+          email: member.email,
+          first_name: member.nombre?.split(" ")[0] || "Miembro",
+          last_name: member.nombre?.split(" ").slice(1).join(" ") || "Junta"
+        };
+        requiereCambioClave = member.requiere_cambio_clave;
+      }
+    } else {
+      const { data: admin, error: adminError } = await supabase
+        .from("usuarios")
+        .select("id, email, first_name, last_name")
+        .eq("id", userId)
+        .single();
+      user = admin;
+    }
+
+    if (!user) {
+      console.log(`[DASHBOARD] Error: Usuario ${userId} no encontrado en ninguna tabla.`);
       return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
     }
 
-    const { data: buildings, error: buildingError } = await supabase
+    const buildingQuery = supabase
       .from("edificios")
-      .select("id, nombre, direccion, unidades, plan, activo, admin_id, admin_secret, admin_nombre, url_login, url_recibos, url_recibo_mes, url_egresos, url_gastos, url_balance, ultima_sincronizacion, cron_enabled, cron_time, cron_frequency, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance, email_junta")
-      .eq("usuario_id", userId)
-      .limit(1);
+      .select("id, nombre, direccion, unidades, plan, activo, admin_id, admin_secret, admin_nombre, url_login, url_recibos, url_recibo_mes, url_egresos, url_gastos, url_balance, ultima_sincronizacion, cron_enabled, cron_time, cron_frequency, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance, email_junta");
+
+    if (isMember && memberBuildingId) {
+      buildingQuery.eq("id", memberBuildingId);
+    } else {
+      buildingQuery.eq("usuario_id", user.id);
+    }
+
+    const { data: buildings, error: buildingError } = await buildingQuery.limit(1);
 
     if (buildingError) {
       throw buildingError;
     }
 
     const building = buildings && buildings.length > 0 ? buildings[0] : null;
+    console.log(`[DASHBOARD] Datos cargados para ${user.email}. Edificio: ${building?.nombre || 'Ninguno'}`);
 
     return NextResponse.json({
       user: {
-        id: user.id,
-        email: user.email,
-        first_name: user.first_name,
-        last_name: user.last_name,
+        ...user,
+        isMember,
+        requiereCambioClave
       },
       building,
     });

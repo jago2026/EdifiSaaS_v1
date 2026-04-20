@@ -17,6 +17,7 @@ export async function POST(request: Request) {
 
     const cleanEmail = email.trim().toLowerCase();
     const passwordHash = await hashPassword(password);
+    console.log(`[LOGIN] Intento para: ${cleanEmail}`);
 
     // 1. Intentar login como administrador principal
     let { data: users, error: usersError } = await supabase
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
 
     // 2. Si no es admin, intentar login como miembro de junta
     if (!user) {
+      console.log(`[LOGIN] No es admin, buscando en junta...`);
       const { data: members, error: memberError } = await supabase
         .from("junta")
         .select("*")
@@ -41,6 +43,7 @@ export async function POST(request: Request) {
 
       if (members && members.length > 0) {
         memberData = members[0];
+        console.log(`[LOGIN] Miembro encontrado: ${memberData.id}`);
         user = {
           id: memberData.id,
           email: memberData.email,
@@ -52,6 +55,7 @@ export async function POST(request: Request) {
     }
 
     if (!user) {
+      console.log(`[LOGIN] Error: Credenciales inválidas para ${cleanEmail}`);
       return NextResponse.json({ error: "Credenciales inválidas" }, { status: 401 });
     }
 
@@ -65,6 +69,8 @@ export async function POST(request: Request) {
       building = buildings && buildings.length > 0 ? buildings[0] : null;
     }
 
+    console.log(`[LOGIN] Login exitoso. Edificio: ${building?.nombre || 'Ninguno'}. Miembro: ${isMember}`);
+
     const cookieStore = await cookies();
     cookieStore.set("user_id", user.id, {
       httpOnly: true,
@@ -76,6 +82,10 @@ export async function POST(request: Request) {
     if (isMember) {
       cookieStore.set("is_member", "true", { maxAge: 60 * 60 * 24 * 7 });
       cookieStore.set("member_building_id", building.id, { maxAge: 60 * 60 * 24 * 7 });
+    } else {
+      // Limpiar cookies de miembro si es admin
+      cookieStore.delete("is_member");
+      cookieStore.delete("member_building_id");
     }
 
     return NextResponse.json({
