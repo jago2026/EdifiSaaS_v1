@@ -94,6 +94,7 @@ export async function POST(request: Request) {
         ...user,
         isMember,
         isAdmin: isMember ? memberData.es_propietario : true,
+        nivelAcceso: isMember ? (memberData.nivel_acceso || 'board') : 'admin',
         requiereCambioClave: isMember ? memberData.requiere_cambio_clave : false
       },
       building,

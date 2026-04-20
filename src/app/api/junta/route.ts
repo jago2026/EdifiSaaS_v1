@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { edificio_id, email, nombre, cargo, telefono } = body;
+    const { edificio_id, email, nombre, cargo, telefono, nivel_acceso } = body;
 
     if (!edificio_id || !email) {
       return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
@@ -52,8 +52,10 @@ export async function POST(request: Request) {
         telefono: telefono || null,
         password_hash: passwordHash,
         requiere_cambio_clave: true,
-        es_propietario: false
+        es_propietario: nivel_acceso === 'admin',
+        nivel_acceso: nivel_acceso || 'viewer'
       })
+
       .select()
       .single();
 

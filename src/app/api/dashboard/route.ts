@@ -29,11 +29,12 @@ export async function GET(request: Request) {
     let user = null;
     let requiereCambioClave = false;
     let isAdmin = false;
+    let nivelAcceso = 'viewer';
 
     if (isMember) {
       const { data: member, error: memberError } = await supabase
         .from("junta")
-        .select("id, email, nombre, requiere_cambio_clave, es_propietario")
+        .select("id, email, nombre, requiere_cambio_clave, es_propietario, nivel_acceso")
         .eq("id", userId)
         .single();
       
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
         };
         requiereCambioClave = member.requiere_cambio_clave;
         isAdmin = member.es_propietario;
+        nivelAcceso = member.nivel_acceso || 'board';
       }
     } else {
       const { data: admin, error: adminError } = await supabase
@@ -54,7 +56,8 @@ export async function GET(request: Request) {
         .eq("id", userId)
         .single();
       user = admin;
-      isAdmin = true; // El dueño siempre es admin
+      isAdmin = true; 
+      nivelAcceso = 'admin';
     }
 
     if (!user) {
@@ -86,9 +89,12 @@ export async function GET(request: Request) {
         ...user,
         isMember,
         isAdmin,
+        nivelAcceso,
         requiereCambioClave
       },
       building,
+    });
+
     });
   } catch (error: any) {
     console.error("Dashboard error:", error);

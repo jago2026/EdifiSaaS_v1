@@ -170,6 +170,7 @@ interface User {
   last_name: string;
   isMember?: boolean;
   isAdmin?: boolean;
+  nivelAcceso?: 'admin' | 'board' | 'viewer';
   requiereCambioClave?: boolean;
 }
 
@@ -242,7 +243,7 @@ export default function DashboardPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
-  const [newMiembro, setNewMiembro] = useState({ nombre: "", email: "", cargo: "Presidente", esPropietario: false });
+  const [newMiembro, setNewMiembro] = useState({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
 
   const loadReciboGeneral = async (mesOverride?: string) => {
     if (!building?.id) return;
@@ -1025,13 +1026,13 @@ export default function DashboardPage() {
           email: newMiembro.email, 
           nombre: newMiembro.nombre, 
           cargo: newMiembro.cargo,
-          es_propietario: newMiembro.esPropietario 
+          nivel_acceso: newMiembro.nivelAcceso 
         }),
       });
       
       if (res.ok) {
         setSyncMessage("✅ Miembro invitado exitosamente. Se le ha enviado un email con su clave temporal.");
-        setNewMiembro({ nombre: "", email: "", cargo: "Presidente", esPropietario: false });
+        setNewMiembro({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
         loadJunta();
       } else {
         const data = await res.json();
@@ -3517,16 +3518,19 @@ export default function DashboardPage() {
                   <option value="Secretario">Secretario</option>
                   <option value="Vocal">Vocal</option>
                   <option value="Administrador">Administrador</option>
+                  <option value="Consultor Jurídico">Consultor Jurídico</option>
+                  <option value="Copropietario">Copropietario</option>
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nivel de Acceso</label>
                 <select 
-                  value={newMiembro.esPropietario ? "admin" : "user"}
-                  onChange={(e) => setNewMiembro({...newMiembro, esPropietario: e.target.value === "admin"})}
+                  value={newMiembro.nivelAcceso}
+                  onChange={(e) => setNewMiembro({...newMiembro, nivelAcceso: e.target.value as any})}
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white outline-none font-bold"
                 >
-                  <option value="user">👤 Usuario Normal (Ver)</option>
+                  <option value="viewer">👁️ Solo Visualización</option>
+                  <option value="board">📝 Miembro Junta (Edición)</option>
                   <option value="admin">🛠️ Administrador (Full)</option>
                 </select>
               </div>
@@ -3566,12 +3570,15 @@ export default function DashboardPage() {
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase">{m.cargo}</span>
                         </td>
                         <td className="py-3 px-4">
-                          {m.es_propietario ? (
+                          {m.nivel_acceso === 'admin' ? (
                             <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase">🛠️ Admin</span>
+                          ) : m.nivel_acceso === 'board' ? (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold uppercase">📝 Miembro</span>
                           ) : (
-                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold uppercase">👤 Usuario</span>
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium uppercase">👁️ Viewer</span>
                           )}
                         </td>
+
                          <td className="py-3 px-4 text-center">
                            <button 
                              onClick={() => user?.isAdmin && deleteMiembro(m.id)} 
