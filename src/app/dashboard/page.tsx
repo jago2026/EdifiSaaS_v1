@@ -2550,7 +2550,6 @@ export default function DashboardPage() {
                    </button>
                </div>
              </div>
-             </div>
 
              <div className="grid md:grid-cols-2 gap-6">
                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
