@@ -2904,8 +2904,9 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+          </div>
+        )}
 
-            </div>
         {activeTab === "manual" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-6">
