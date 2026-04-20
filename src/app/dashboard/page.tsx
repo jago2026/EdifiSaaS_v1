@@ -241,6 +241,7 @@ export default function DashboardPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
+  const [newMiembro, setNewMiembro] = useState({ nombre: "", email: "", cargo: "Presidente", esPropietario: false });
 
   const loadReciboGeneral = async (mesOverride?: string) => {
     if (!building?.id) return;
@@ -1008,28 +1009,37 @@ export default function DashboardPage() {
 
   const addMiembro = async () => {
     if (!building?.id) return;
-    const email = (document.getElementById("newEmail") as HTMLInputElement)?.value;
-    const nombre = (document.getElementById("newNombre") as HTMLInputElement)?.value;
-    const cargo = (document.getElementById("newCargo") as HTMLSelectElement)?.value;
-    const telefono = (document.getElementById("newTelefono") as HTMLInputElement)?.value;
-    if (!email) {
-      alert("Ingrese el email");
+    if (!newMiembro.email || !newMiembro.nombre) {
+      alert("Por favor complete nombre y email");
       return;
     }
+
     try {
+      setSaving(true);
       const res = await fetch("/api/junta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edificio_id: building.id, email, nombre, cargo, telefono }),
+        body: JSON.stringify({ 
+          edificio_id: building.id, 
+          email: newMiembro.email, 
+          nombre: newMiembro.nombre, 
+          cargo: newMiembro.cargo,
+          es_propietario: newMiembro.esPropietario 
+        }),
       });
+      
       if (res.ok) {
+        setSyncMessage("✅ Miembro invitado exitosamente. Se le ha enviado un email con su clave temporal.");
+        setNewMiembro({ nombre: "", email: "", cargo: "Presidente", esPropietario: false });
         loadJunta();
-        (document.getElementById("newEmail") as HTMLInputElement).value = "";
-        (document.getElementById("newNombre") as HTMLInputElement).value = "";
-        (document.getElementById("newTelefono") as HTMLInputElement).value = "";
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding miembro:", error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -3472,19 +3482,35 @@ export default function DashboardPage() {
 
         {activeTab === "junta" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6">Miembros de la Junta de Condominio</h2>
-            <div className="grid md:grid-cols-4 gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 uppercase tracking-tighter">Miembros de la Junta de Condominio</h2>
+            <div className="grid md:grid-cols-5 gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre Completo</label>
-                <input type="text" id="newNombre" className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Ej. Juan Perez" />
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nombre Completo</label>
+                <input 
+                  type="text" 
+                  value={newMiembro.nombre}
+                  onChange={(e) => setNewMiembro({...newMiembro, nombre: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                  placeholder="Ej. Juan Perez" 
+                />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email</label>
-                <input type="email" id="newEmail" className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="email@ejemplo.com" />
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Email de Acceso</label>
+                <input 
+                  type="email" 
+                  value={newMiembro.email}
+                  onChange={(e) => setNewMiembro({...newMiembro, email: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none" 
+                  placeholder="email@ejemplo.com" 
+                />
               </div>
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Cargo</label>
-                <select id="newCargo" className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white">
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Cargo</label>
+                <select 
+                  value={newMiembro.cargo}
+                  onChange={(e) => setNewMiembro({...newMiembro, cargo: e.target.value})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white outline-none"
+                >
                   <option value="Presidente">Presidente</option>
                   <option value="Tesorero">Tesorero</option>
                   <option value="Secretario">Secretario</option>
@@ -3492,9 +3518,24 @@ export default function DashboardPage() {
                   <option value="Administrador">Administrador</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nivel de Acceso</label>
+                <select 
+                  value={newMiembro.esPropietario ? "admin" : "user"}
+                  onChange={(e) => setNewMiembro({...newMiembro, esPropietario: e.target.value === "admin"})}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white outline-none font-bold"
+                >
+                  <option value="user">👤 Usuario Normal (Ver)</option>
+                  <option value="admin">🛠️ Administrador (Full)</option>
+                </select>
+              </div>
               <div className="flex items-end">
-                <button onClick={addMiembro} className="w-full py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 transition-colors text-sm">
-                  + AGREGAR MIEMBRO
+                <button 
+                  onClick={addMiembro} 
+                  disabled={saving}
+                  className="w-full py-2 bg-blue-600 text-white rounded font-black uppercase tracking-widest hover:bg-blue-700 transition-all text-[10px] shadow-lg hover:shadow-blue-200 disabled:opacity-50"
+                >
+                  {saving ? "Invitando..." : "+ Agregar Miembro"}
                 </button>
               </div>
             </div>
@@ -3511,16 +3552,24 @@ export default function DashboardPage() {
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Nombre</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Email</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Cargo</th>
+                      <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acceso</th>
                       <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
-                    {junta.map((m) => (
+                    {junta.map((m: any) => (
                       <tr key={m.id} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4 text-gray-900">{m.nombre}</td>
                         <td className="py-3 px-4 text-gray-600">{m.email}</td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase">{m.cargo}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {m.es_propietario ? (
+                            <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-black uppercase">🛠️ Admin</span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold uppercase">👤 Usuario</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-center">
                           <button onClick={() => deleteMiembro(m.id)} className="text-red-400 hover:text-red-600 transition-colors" title="Eliminar">
