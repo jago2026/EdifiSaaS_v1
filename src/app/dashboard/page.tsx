@@ -28,21 +28,16 @@ interface Balance {
   saldo_anterior: number;
   cobranza_mes: number;
   gastos_facturados: number;
-  gastos_comunes?: number;
-  gastos_no_comunes?: number;
   saldo_disponible: number;
   total_por_cobrar: number;
   condominios_atrasados: number;
-  condominios_adelantados: number;
   condominios_sobrantes: number;
   fondo_reserva: number;
-  fondo_reserva_mov?: number;
   fondo_prestaciones: number;
   fondo_trabajos_varios: number;
   ajuste_alicuota: number;
   fondo_intereses: number;
   fondo_diferencial_cambiario: number;
-  fondo_diferencial_mov?: number;
   saldo_reservas: number;
   recibos_mes: number;
   total_caja_y_cobrar: number;
@@ -365,16 +360,17 @@ export default function DashboardPage() {
       // Revertir en caso de error
       setGastosRecurrentes(previousGastos);
     }
-  };  const [editConfig, setEditConfig] = useState({
+  };  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [editConfig, setEditConfig] = useState({
     admin_id: "",
     admin_secret: "",
     admin_nombre: "La Ideal C.A.",
-    url_login: "",
-    url_recibos: "",
-    url_recibo_mes: "",
-    url_egresos: "",
-    url_gastos: "",
-    url_balance: "",
+    url_login: "https://admlaideal.com.ve/condlin.php?r=1",
+    url_recibos: "https://admlaideal.com.ve/condlin.php?r=5",
+    url_recibo_mes: "https://admlaideal.com.ve/condlin.php?r=4",
+    url_egresos: "https://admlaideal.com.ve/condlin.php?r=21",
+    url_gastos: "https://admlaideal.com.ve/condlin.php?r=3",
+    url_balance: "https://admlaideal.com.ve/condlin.php?r=2",
     cron_enabled: true,
     cron_time: "05:00",
     cron_frequency: "diaria",
@@ -396,7 +392,7 @@ export default function DashboardPage() {
         admin_nombre: building.admin_nombre || "La Ideal C.A.",
         url_login: building.url_login || "",
         url_recibos: building.url_recibos || "",
-        url_recibo_mes: building.url_recibo_mes || "",
+        url_recibo_mes: building.url_recibo_mes || (building.admin_nombre === "La Ideal C.A." ? "https://admlaideal.com.ve/condlin.php?r=4" : ""),
         url_egresos: building.url_egresos || "",
         url_gastos: building.url_gastos || "",
         url_balance: building.url_balance || "",
@@ -494,41 +490,6 @@ export default function DashboardPage() {
     }
     loadTasaBCV();
   }, [building?.id]);
-
-  useEffect(() => {
-    if (user?.id && building?.id) {
-      handleAutoSync(user.id);
-    }
-  }, [user?.id]);
-
-  const handleAutoSync = async (userId: string) => {
-    try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          sync_recibos: true,
-          sync_egresos: true,
-          sync_gastos: true,
-          sync_alicuotas: true,
-          sync_balance: true
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.stats) {
-        loadMovements();
-        loadGastosSummary();
-        loadEgresosSummary();
-        loadIngresosSummary();
-        loadRecibos();
-        loadBalance();
-        loadSincronizaciones();
-      }
-    } catch (error) {
-      // Silently ignore auto-sync errors on login
-    }
-  };
 
   const loadMovements = async () => {
     if (!building?.id) return;
@@ -705,11 +666,9 @@ export default function DashboardPage() {
 
       const res = await fetch(url.toString());
       const data = await res.json();
-      console.log("[Balance] API response:", data);
       if (res.ok) {
         setBalance(data.balance || null);
-        // Siempre actualizar los meses disponibles
-        if (data.mesesDisponibles && data.mesesDisponibles.length > 0) {
+        if (data.mesesDisponibles) {
           setMesesBalance(data.mesesDisponibles);
         }
       }
@@ -1032,12 +991,12 @@ export default function DashboardPage() {
 
   const updateAdminAndUrls = (adminName: string) => {
     let urls = {
-      url_login: '',
-      url_recibos: '',
-      url_recibo_mes: '',
-      url_egresos: '',
-      url_gastos: '',
-      url_balance: '',
+      url_login: 'https://[dominio]/control.php',
+      url_recibos: 'https://[dominio]/condlin.php?r=5',
+      url_recibo_mes: 'https://[dominio]/condlin.php?r=4',
+      url_egresos: 'https://[dominio]/condlin.php?r=21',
+      url_gastos: 'https://[dominio]/condlin.php?r=3',
+      url_balance: 'https://[dominio]/condlin.php?r=2',
     };
 
     if (adminName === "La Ideal C.A.") {
@@ -1219,9 +1178,7 @@ export default function DashboardPage() {
         loadRecibos();
         loadReciboGeneral();
         loadSincronizaciones();
-        // Recargar meses disponibles sin filtro para que el nuevo mes aparezca en el combo
-        setSelectedMesBalance("");
-        loadBalance("");
+        loadBalance();
         loadAlicuotas();
       }
     } catch (error: any) {
@@ -1305,7 +1262,7 @@ export default function DashboardPage() {
             <span className="text-gray-300">|</span>
             <span className="text-gray-700 font-medium">{building?.nombre || "Mi Edificio"}</span>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="hidden md:flex items-center gap-6">
             <div className="text-sm text-gray-500">
               {building?.ultima_sincronizacion 
                 ? `Última sincronización: ${new Date(building.ultima_sincronizacion).toLocaleString("es-VE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
@@ -1334,7 +1291,59 @@ export default function DashboardPage() {
               <span className="text-white text-sm font-medium">{userInitial}</span>
             </div>
           </div>
+
+          <button 
+            className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileMenuOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              ) : (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              )}
+            </svg>
+          </button>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg animate-in slide-in-from-top duration-200">
+            <div className="grid grid-cols-2 gap-2 pb-4 border-b border-gray-50 max-h-[40vh] overflow-y-auto">
+              <button onClick={() => { setActiveTab("resumen"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "resumen" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>RESUMEN</button>
+              <button onClick={() => { setActiveTab("ingresos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "ingresos" ? "bg-green-600 text-white" : "bg-gray-50 text-gray-600"}`}>INGRESOS</button>
+              <button onClick={() => { setActiveTab("movimientos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "movimientos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>MOVIMIENTOS</button>
+              <button onClick={() => { setActiveTab("egresos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "egresos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>EGRESOS</button>
+              <button onClick={() => { setActiveTab("gastos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "gastos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>GASTOS</button>
+              <button onClick={() => { setActiveTab("recibos"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "recibos" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>RECIBOS</button>
+              <button onClick={() => { setActiveTab("recibo"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "recibo" ? "bg-indigo-600 text-white" : "bg-indigo-50 text-indigo-700"}`}>RECIBO</button>
+              <button onClick={() => { setActiveTab("balance"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "balance" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>BALANCE</button>
+              <button onClick={() => { setActiveTab("alicuotas"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "alicuotas" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>ALICUOTAS</button>
+              <button onClick={() => { setActiveTab("manual"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "manual" ? "bg-yellow-600 text-white" : "bg-gray-50 text-gray-600"}`}>CONCILIACIÓN</button>
+              <button onClick={() => { setActiveTab("kpis"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "kpis" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>KPIS</button>
+              <button onClick={() => { setActiveTab("informes"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "informes" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>INFORMES</button>
+              <button onClick={() => { setActiveTab("junta"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "junta" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>JUNTA</button>
+              <button onClick={() => { setActiveTab("alertas"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "alertas" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>BITÁCORA</button>
+              <button onClick={() => { setActiveTab("configuracion"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "configuracion" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>CONFIG</button>
+              <button onClick={() => { setActiveTab("instrucciones"); setMobileMenuOpen(false); }} className={`p-2 rounded text-[10px] font-bold text-center ${activeTab === "instrucciones" ? "bg-blue-600 text-white" : "bg-gray-50 text-gray-600"}`}>GUÍA</button>
+            </div>
+            <div className="flex flex-col gap-3 pt-2">
+              <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase">
+                <span>Tasa BCV</span>
+                <span className="text-green-600">Bs. {formatBs(tasaBCV.dolar)}</span>
+              </div>
+              <div className="text-[10px] text-gray-400">
+                {building?.ultima_sincronizacion 
+                  ? `Sincro: ${new Date(building.ultima_sincronizacion).toLocaleString("es-VE")}`
+                  : "Sin sincronizar"}
+              </div>
+              <div className="flex gap-4 pt-2">
+                <button onClick={() => { setActiveTab("instrucciones"); setMobileMenuOpen(false); }} className="text-sm font-bold text-blue-600">AYUDA</button>
+                <Link href="/logout" className="text-sm font-bold text-red-600 ml-auto">CERRAR SESIÓN</Link>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <div className="container mx-auto px-6 py-8">
@@ -1837,11 +1846,28 @@ export default function DashboardPage() {
                   <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Relaci&oacute;n de Recibos Pendientes</h2>
                   <p className="text-xs text-gray-500 font-medium">Detalle de deudas por apartamento</p>
                 </div>
-<div className="flex gap-4 items-center">
+                <div className="flex gap-4 items-center">
+                {mesesRecibos.length > 0 && (
+                  <select
+                    value={selectedMesRecibos}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedMesRecibos(val);
+                      loadRecibos(val);
+                      loadReciboGeneral(val);
+                    }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-bold text-indigo-600"
+                  >
+                    <option value="">Mes Actual</option>
+                    {mesesRecibos.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                )}
                 <button onClick={() => loadRecibos()} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Refrescar">
                   <span className="text-xl">🔄</span>
                 </button>
-                </div>
+              </div>
             </div>
             {loadingRecibos ? (
               <p className="text-gray-500 text-center py-8">Cargando...</p>
@@ -2057,7 +2083,8 @@ export default function DashboardPage() {
                       onChange={(e) => {
                         const newMes = e.target.value;
                         setSelectedMesRecibos(newMes);
-                        loadReciboGeneral(newMes);
+                        if (newMes) loadReciboGeneral();
+                        else setReciboGeneral([]);
                       }}
                       className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                     >
@@ -2248,7 +2275,7 @@ export default function DashboardPage() {
                 No hay datos de balance. Ejecuta una sincronización primero.
               </p>
             ) : (
-<div className="space-y-6">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
                     <p className="text-[10px] text-blue-600 font-bold uppercase mb-1">Disponible en Caja</p>
@@ -2261,9 +2288,9 @@ export default function DashboardPage() {
                     <p className="text-xs text-orange-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</p>
                   </div>
                   <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
-                    <p className="text-[10px] text-emerald-600 font-bold uppercase mb-1">Fondo Reserva</p>
-                    <p className="text-xl font-black text-emerald-900">Bs. {formatBs(balance.fondo_reserva)}</p>
-                    <p className="text-xs text-emerald-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_reserva / tasaBCV.dolar : 0)}</p>
+                    <p className="text-[10px] text-emerald-600 font-bold uppercase mb-1">Reservas Asignadas</p>
+                    <p className="text-xl font-black text-emerald-900">Bs. {formatBs(balance.saldo_reservas)}</p>
+                    <p className="text-xs text-emerald-700 font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</p>
                   </div>
                 </div>
 
@@ -2271,51 +2298,49 @@ export default function DashboardPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b-2 bg-gray-50">
-                      <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Concepto</th>
+                      <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Concepto Detallado</th>
                       <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">Bs.</th>
                       <th className="text-right py-3 px-4 font-bold text-gray-600 uppercase tracking-wider">USD</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {balance.saldo_anterior ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic"></td></tr> : null}
-                    {balance.cobranza_mes ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">COBRANZA DEL MES</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic"></td></tr> : null}
-                    {balance.gastos_comunes ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">GASTOS FACTURADOS EN EL MES COMUNES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_comunes)}</td><td className="py-2.5 px-4 text-right text-red-500 italic"></td></tr> : null}
-                    {balance.gastos_no_comunes ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">GASTOS FACTURADOS EN EL MES NO COMUNES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_no_comunes)}</td><td className="py-2.5 px-4 text-right text-red-500 italic"></td></tr> : null}
+                    <tr className="bg-blue-50/50 font-bold"><td className="py-2.5 px-4 text-blue-800" colSpan={3}>I. DISPONIBILIDAD EN CAJA Y BANCOS</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_anterior / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">COBRANZA DEL MES (INGRESOS)</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">+{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.cobranza_mes / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_facturados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.gastos_facturados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">AJUSTES / DIF. CAMBIARIA / PAGOS A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-500 font-medium">{formatBs(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.ajuste_pago_tiempo || 0) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-gray-50 font-bold"><td className="py-2.5 px-4 text-gray-600" colSpan={2}>OTROS INGRESOS / EGRESOS</td><td className="py-2.5 px-4"></td></tr>
-                    {balance.ajuste_pago_tiempo ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">DESC/DIF/CAMB/PAGO A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-600 font-medium">{formatBs(balance.ajuste_pago_tiempo)}</td><td className="py-2.5 px-4 text-right text-gray-500 italic"></td></tr> : null}
+                    <tr className="bg-orange-50/50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={3}>II. CUENTAS POR COBRAR (CONDOMINIOS)</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES ACTUAL</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.recibos_mes / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">DEUDA DE MESES ATRASADOS</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.condominios_atrasados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDOS A FAVOR (SOBRANTES)</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.condominios_sobrantes || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.condominios_sobrantes || 0) / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-orange-700">TOTAL CUENTAS POR COBRAR</td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.total_por_cobrar / tasaBCV.dolar : 0)}</td></tr>
+                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">CAPITAL TOTAL DEL EDIFICIO (CAJA + CONDOMINIOS)</td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar))}</td><td className="py-3 px-4 text-right text-purple-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.total_caja_y_cobrar || (balance.saldo_disponible + balance.total_por_cobrar)) / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-gray-100 font-bold"><td className="py-3 px-4 text-blue-700">SALDO ACTUAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold"></td></tr>
+                    <tr className="bg-emerald-50/50 font-bold"><td className="py-2.5 px-4 text-emerald-800" colSpan={3}>III. FONDOS DE RESERVA Y PASIVOS</td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO DE RESERVA GENERAL</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_reserva)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_reserva / tasaBCV.dolar : 0)}</td></tr>
                     
-                    <tr className="bg-orange-50 font-bold"><td className="py-2.5 px-4 text-orange-800" colSpan={2}>CUENTAS POR COBRAR</td><td className="py-2.5 px-4"></td></tr>
-                    {balance.recibos_mes ? <tr><td className="py-2.5 px-4 pl-4 text-gray-700">RECIBOS DE CONDOMINIOS DEL MES</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.recibos_mes)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic"></td></tr> : null}
-                    {balance.condominios_atrasados ? <tr><td className="py-2.5 px-4 pl-8 text-gray-600">CONDOMINIOS ATRASADOS</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.condominios_atrasados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic"></td></tr> : null}
-                    {balance.condominios_adelantados ? <tr><td className="py-2.5 px-4 pl-8 text-gray-600">CONDOMINIOS ADELANTADOS</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">{formatBs(balance.condominios_adelantados)}</td><td className="py-2.5 px-4 text-right text-green-500 italic"></td></tr> : null}
-                    {balance.condominios_sobrantes ? <tr><td className="py-2.5 px-4 pl-8 text-gray-600">CONDOMINIOS SOBRANTES</td><td className="py-2.5 px-4 text-right text-gray-600 font-medium">{formatBs(balance.condominios_sobrantes)}</td><td className="py-2.5 px-4 text-right text-gray-500 italic"></td></tr> : null}
-                    <tr className="bg-gray-100 font-bold"><td className="py-3 px-4 text-orange-700">TOTAL CONDOMINIOS POR COBRAR</td><td className="py-3 px-4 text-right text-orange-700 font-extrabold">{formatBs(balance.total_por_cobrar)}</td><td className="py-3 px-4 text-right text-orange-600 font-extrabold"></td></tr>
-                    
-                    <tr className="bg-purple-50 font-bold"><td className="py-3 px-4 text-purple-800">TOTAL CAJA Y POR COBRAR</td><td className="py-3 px-4 text-right text-purple-800 font-black">{formatBs(Number(balance.saldo_disponible || 0) + Number(balance.total_por_cobrar || 0))}</td><td className="py-3 px-4 text-right text-purple-700 font-black"></td></tr>
-                    
-                    <tr className="bg-emerald-50 font-bold"><td className="py-2.5 px-4 text-emerald-800" colSpan={2}>RESERVAS</td><td className="py-2.5 px-4"></td></tr>
-                    
-                    {balance.fondo_reserva_mes_anterior ? <tr><td className="py-2 px-4 pl-4 text-gray-600">FONDO DE RESERVA MES ANTERIOR</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_reserva_mes_anterior)}</td><td className="py-2 px-4 text-right text-emerald-600 italic"></td></tr> : null}
-                    {balance.fondo_reserva ? <tr><td className="py-2 px-4 pl-4 text-gray-600 font-bold">SALDO FONDO DE RESERVA</td><td className="py-2 px-4 text-right font-bold text-emerald-700">{formatBs(balance.fondo_reserva)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-bold"></td></tr> : null}
-                    
-                    {balance.fondo_prestaciones ? <tr><td className="py-2 px-4 pl-4 text-gray-600 font-bold">SALDO FONDO DE PRESTACIONES SOCIALES</td><td className="py-2 px-4 text-right font-bold text-emerald-700">{formatBs(balance.fondo_prestaciones)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-bold"></td></tr> : null}
-                    
-                    {balance.fondo_trabajos_varios ? <tr><td className="py-2 px-4 pl-4 text-gray-600 font-bold">SALDO FONDO TRABAJOS VARIOS</td><td className="py-2 px-4 text-right font-bold text-emerald-700">{formatBs(balance.fondo_trabajos_varios)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-bold"></td></tr> : null}
-                    
-                    {balance.fondo_intereses ? <tr><td className="py-2 px-4 pl-4 text-gray-600 font-bold">SALDO FONDO INTERESES MORATORIOS</td><td className="py-2 px-4 text-right font-bold text-emerald-700">{formatBs(balance.fondo_intereses)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-bold"></td></tr> : null}
-                    
-                    {balance.fondo_diferencial_mes_anterior ? <tr><td className="py-2 px-4 pl-4 text-gray-600">FONDO DIFERENCIAL CAMBIARIO TASA BCV MES ANTERIOR</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_diferencial_mes_anterior)}</td><td className="py-2 px-4 text-right text-emerald-600 italic"></td></tr> : null}
-                    {balance.fondo_diferencial_cambiario ? <tr><td className="py-2 px-4 pl-4 text-gray-600 font-bold">SALDO FONDO DIFERENCIAL CAMBIARIO TASA BCV</td><td className="py-2 px-4 text-right font-bold text-emerald-700">{formatBs(balance.fondo_diferencial_cambiario)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-bold"></td></tr> : null}
-                    
-                    {balance.ajuste_alicuota ? <tr><td className="py-2 px-4 pl-4 text-gray-600 font-bold">SALDO AJUSTE DIFERENCIA ALICUOTA</td><td className="py-2 px-4 text-right font-bold text-gray-700">{formatBs(balance.ajuste_alicuota)}</td><td className="py-2 px-4 text-right text-gray-500 italic font-bold"></td></tr> : null}
-                    
-                    <tr className="bg-emerald-100 font-bold"><td className="py-3 px-4 text-emerald-900">SALDO RESERVAS</td><td className="py-3 px-4 text-right text-emerald-900 font-black">{formatBs(Number(balance.saldo_disponible || 0) + Number(balance.total_por_cobrar || 0))}</td><td className="py-3 px-4 text-right text-emerald-800 font-black"></td></tr>
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>PASIVOS LABORALES (PRESTACIONES SOCIALES)</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado Histórico</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_prestaciones)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_prestaciones / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO TRABAJOS VARIOS / MEJORAS</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Presupuesto Asignado</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_trabajos_varios)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_trabajos_varios / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>AJUSTE DIFERENCIA ALICUOTA</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Diferencia Mensual</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.ajuste_alicuota)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.ajuste_alicuota / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>FONDO INTERESES MORATORIOS</td></tr>                    
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Acumulado por Morosidad</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_intereses)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_intereses / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-gray-50/50"><td className="py-2 px-4 pl-10 font-medium text-gray-600" colSpan={3}>DIFERENCIAL CAMBIARIO (FONDO PROTECCIÓN)</td></tr>
+                    <tr><td className="py-2 px-4 pl-16 text-gray-600">Ajuste por Tasa BCV</td><td className="py-2 px-4 text-right font-medium text-emerald-700">{formatBs(balance.fondo_diferencial_cambiario)}</td><td className="py-2 px-4 text-right text-emerald-600 italic font-medium">$ {formatUsd(tasaBCV.dolar > 0 ? balance.fondo_diferencial_cambiario / tasaBCV.dolar : 0)}</td></tr>
+
+                    <tr className="bg-emerald-100 font-bold border-t-2 border-emerald-200"><td className="py-3 px-4 text-emerald-800">SALDO TOTAL RESERVAS ASIGNADAS</td><td className="py-3 px-4 text-right text-emerald-800 font-black">{formatBs(balance.saldo_reservas)}</td><td className="py-3 px-4 text-right text-emerald-700 font-black">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_reservas / tasaBCV.dolar : 0)}</td></tr>
                   </tbody>
                 </table>
-                </div>
+              </div>
             </div>
             )}
           </div>
@@ -3342,63 +3367,31 @@ export default function DashboardPage() {
                   <div className="grid md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Login</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
-                        {editConfig.url_login && (
-                          <a href={editConfig.url_login} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
-                      </div>
+                      <input type="text" value={editConfig.url_login} onChange={(e) => setEditConfig({ ...editConfig, url_login: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibos (Pendientes)</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
-                        {editConfig.url_recibos && (
-                          <a href={editConfig.url_recibos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
-                      </div>
+                      <input type="text" value={editConfig.url_recibos} onChange={(e) => setEditConfig({ ...editConfig, url_recibos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Recibo del Mes (?r=4)</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={editConfig.url_recibo_mes}
-                          placeholder={editConfig.url_login ? `${(() => { try { return new URL(editConfig.url_login).origin; } catch { return "https://[dominio]"; } })()}/condlin.php?r=4` : "https://[dominio]/condlin.php?r=4"}
-                          onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}
-                          className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
-                        />
-                        {(editConfig.url_recibo_mes || editConfig.url_login) && (
-                          <a href={editConfig.url_recibo_mes || `${(() => { try { return new URL(editConfig.url_login).origin; } catch { return ""; } })()}/condlin.php?r=4`} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
-                      </div>
+                      <input
+                        type="text"
+                        value={editConfig.url_recibo_mes}
+                        placeholder="https://[dominio]/condlin.php?r=4"
+                        onChange={(e) => setEditConfig({ ...editConfig, url_recibo_mes: e.target.value })}                        className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50"
+                      />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
-                        {editConfig.url_egresos && (
-                          <a href={editConfig.url_egresos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
-                      </div>
+                    <div className="space-y-1">                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Egresos</label>
+                      <input type="text" value={editConfig.url_egresos} onChange={(e) => setEditConfig({ ...editConfig, url_egresos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Gastos</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
-                        {editConfig.url_gastos && (
-                          <a href={editConfig.url_gastos} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
-                      </div>
+                      <input type="text" value={editConfig.url_gastos} onChange={(e) => setEditConfig({ ...editConfig, url_gastos: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-500 uppercase">URL Balance</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
-                        {editConfig.url_balance && (
-                          <a href={editConfig.url_balance} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
-                        )}
-                      </div>
+                      <input type="text" value={editConfig.url_balance} onChange={(e) => setEditConfig({ ...editConfig, url_balance: e.target.value })} className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" />
                     </div>
                   </div>
                 </div>
