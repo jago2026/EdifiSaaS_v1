@@ -59,30 +59,16 @@ export async function POST(request: Request) {
 
     if (error) throw error;
 
-    // Disparar email de bienvenida
+    // Obtener nombre del edificio para el email
+    const { data: edif } = await supabase.from("edificios").select("nombre").eq("id", edificio_id).single();
+
+    // Enviar email de invitación directamente sin usar fetch interno
     try {
-      const emailRes = await fetch(`${new URL(request.url).origin}/api/email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          action: "welcome_invitation",
-          edificioId: edificio_id,
-          recipient: email,
-          nombreMiembro: nombre || "Miembro de la Junta",
-          tempPassword: tempPassword
-        })
-      });
-      
-      if (!emailRes.ok) {
-        const errorData = await emailRes.json();
-        console.error("Email service error:", errorData);
-      } else {
-        console.log("Welcome email sent successfully to:", email);
-      }
+      const { sendInvitationEmail } = await import("@/lib/mail");
+      await sendInvitationEmail(email, nombre || "Miembro de la Junta", tempPassword, edif?.nombre || "Tu Edificio");
+      console.log("Welcome email sent directly to:", email);
     } catch (e) {
-      console.error("Error connecting to email service:", e);
+      console.error("Error sending welcome email directly:", e);
     }
 
     return NextResponse.json({ success: true, miembro: data });
