@@ -216,6 +216,7 @@ export default function DashboardPage() {
   const [showUnitsAlert, setShowUnitsAlert] = useState(false);
   const [kpisData, setKpisData] = useState<any>({ egresos: [], gastos: [], balances: [], movimientos: [] });
   const [loadingKpis, setLoadingKpis] = useState(false);
+  const [recalculatingKpis, setRecalculatingKpis] = useState(false);
   const [junta, setJunta] = useState<any[]>([]);
   const [loadingJunta, setLoadingJunta] = useState(false);
   const [sincronizaciones, setSincronizaciones] = useState<any[]>([]);
@@ -709,6 +710,27 @@ export default function DashboardPage() {
       console.error("Error loading manual movements:", error);
     } finally {
       setLoadingManual(false);
+    }
+  };
+
+  const recalculateKpis = async () => {
+    if (!building?.id) return;
+    setRecalculatingKpis(true);
+    try {
+      const res = await fetch(`/api/kpis/recalculate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edificioId: building.id })
+      });
+      if (res.ok) {
+        loadKpis();
+        setSyncMessage("✅ Histórico de KPIs actualizado correctamente.");
+        setTimeout(() => setSyncMessage(""), 3000);
+      }
+    } catch (error) {
+      console.error("Error recalculating KPIs:", error);
+    } finally {
+      setRecalculatingKpis(false);
     }
   };
 
@@ -2518,11 +2540,16 @@ export default function DashboardPage() {
                  <div className="text-lg font-black text-pink-600">$ {formatUsd(balance?.fondo_intereses_usd || 0)}</div>
                  <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_intereses)}</div>
                </div>
-               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
-                 <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Dif. Cambiario</div>
-                 <div className="text-lg font-black text-indigo-600">$ {formatUsd(balance?.fondo_diferencial_cambiario_usd || 0)}</div>
-                 <div className="text-[9px] text-gray-400 font-bold uppercase">Bs. {formatBs(balance?.fondo_diferencial_cambiario)}</div>
+               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center flex flex-col justify-center items-center">
+                   <button 
+                    onClick={recalculateKpis} 
+                    disabled={recalculatingKpis}
+                    className={`w-full h-full text-[10px] font-black uppercase rounded-lg transition-all ${recalculatingKpis ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'}`}
+                   >
+                     {recalculatingKpis ? 'Calculando...' : '🔄 Actualizar Histórico'}
+                   </button>
                </div>
+             </div>
              </div>
 
              <div className="grid md:grid-cols-2 gap-6">
