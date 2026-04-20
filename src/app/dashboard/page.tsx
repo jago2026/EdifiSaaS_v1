@@ -273,6 +273,8 @@ export default function DashboardPage() {
   const [syncingMes, setSyncingMes] = useState(false);
   const [dataSummary, setDataSummary] = useState<any[]>([]);
   const [loadingDataSummary, setLoadingDataSummary] = useState(false);
+  const [informeFecha, setInformeFecha] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [informeData, setInformeData] = useState<any>(null);
 
   const loadDataSummary = async () => {
     if (!building?.id) return;
@@ -301,7 +303,7 @@ export default function DashboardPage() {
     const confirmMsg = mes 
       ? `¿Estás seguro de eliminar TODOS los datos de ${mes}? Esto borrará permanentemente recibos, gastos, egresos y balances de este mes en la base de datos.`
       : "¿Estás seguro de eliminar este registro?";
-    
+
     if (!confirm(confirmMsg)) return;
 
     try {
@@ -328,11 +330,12 @@ export default function DashboardPage() {
       alert(`Error de red: ${error.message}`);
     }
   };
-  const [informeData, setInformeData] = useState<any>(null);
+
   const [loadingInforme, setLoadingInforme] = useState(false);
   const [gastosRecurrentes, setGastosRecurrentes] = useState<any[]>([]);
   const [loadingGastosRecurrentes, setLoadingGastosRecurrentes] = useState(false);
   const [evolucionRecurrentes, setEvolucionRecurrentes] = useState<any[]>([]);
+
 
   const loadInforme = async () => {
     if (!building?.id || !informeFecha) return;
@@ -1302,37 +1305,6 @@ export default function DashboardPage() {
       setSyncMessage(`❌ Error: ${error.message}`);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const deleteSync = async (id: string, mes?: string) => {
-    if (!building?.id) return;
-    const confirmMsg = mes 
-      ? `¿Estás seguro de eliminar todos los datos de ${mes}? Esto borrará recibos, gastos, egresos y balances asociados a este mes.`
-      : "¿Estás seguro de eliminar este registro de sincronización?";
-    
-    if (!confirm(confirmMsg)) return;
-
-    try {
-      const res = await fetch(`/api/sincronizaciones?id=${id}${mes ? `&mes=${mes}` : ""}&edificioId=${building.id}`, {
-        method: "DELETE",
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setSyncMessage(`✅ Datos eliminados correctamente`);
-        loadSincronizaciones();
-        // Opcionalmente recargar otros datos si se borró un mes
-        if (mes) {
-          loadRecibos();
-          loadEgresos();
-          loadGastos();
-          loadBalance();
-        }
-      } else {
-        alert(`Error: ${data.error}`);
-      }
-    } catch (error: any) {
-      alert(`Error de red: ${error.message}`);
     }
   };
 
