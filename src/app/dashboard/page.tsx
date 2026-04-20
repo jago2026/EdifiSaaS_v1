@@ -202,7 +202,7 @@ export default function DashboardPage() {
   const [mesesEgresos, setMesesEgresos] = useState<string[]>([]);
   const [selectedMesEgresos, setSelectedMesEgresos] = useState<string>("");
   const [mesesGastos, setMesesGastos] = useState<string[]>([]);
-  const [selectedMesGastos, setSelectedMesGastos] = useState<string>("");
+  const [selectedMesGastos, setSelectedMesGastos] = useState<string>(new Date().toISOString().substring(0, 7));
   const [mesesRecibos, setMesesRecibos] = useState<string[]>([]);
   const [selectedMesRecibos, setSelectedMesRecibos] = useState<string>("");
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
@@ -605,6 +605,12 @@ export default function DashboardPage() {
       const data = await res.json();
       if (res.ok) {
         setGastosSummary(data);
+        // Pre-cargar los meses disponibles para el combo de gastos
+        const gRes = await fetch(`/api/gastos?edificioId=${building.id}`);
+        const gData = await gRes.json();
+        if (gRes.ok && gData.mesesDisponibles) {
+          setMesesGastos(gData.mesesDisponibles);
+        }
       }
     } catch (error) {
       console.error("Error loading gastos summary:", error);

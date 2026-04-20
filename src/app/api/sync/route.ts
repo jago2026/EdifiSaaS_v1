@@ -94,7 +94,10 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 function parseReciboDetalle(html: string): any[] {
   console.log("[parseReciboDetalle] Input HTML length:", html?.length);
   const results: any[] = [];
-  const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+  // Regex más flexible para encontrar la tabla de detalles
+  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
+                     html.match(/<table[^>]*>([\s\S]*?TOTAL RECIBO[\s\S]*?)<\/table>/i);
+  
   console.log("[parseReciboDetalle] Table match found:", !!tableMatch);
   if (!tableMatch) return results;
 
@@ -111,10 +114,9 @@ function parseReciboDetalle(html: string): any[] {
     const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
 
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
-    if (!code.match(/^\d{5}$/)) continue;
+    // Aceptar códigos numéricos de cualquier longitud para mayor flexibilidad
+    if (!code.match(/^\d+$/)) continue;
 
-    console.log("[parseReciboDetalle] Parsed row:", { code, desc: desc.substring(0, 30), monto, cuotaParte });
-    
     results.push({
       codigo: code,
       descripcion: desc,
@@ -147,7 +149,7 @@ function parseReceiptMonthlySummary(html: string): number {
 
 function parseRecibosTableAll(html: string): any[] {
   const results: any[] = [];
-  const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i) || 
+  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) || 
                      html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
@@ -177,7 +179,7 @@ function parseRecibosTableAll(html: string): any[] {
 
 function parseEgresosTableAll(html: string): any[] {
   const results: any[] = [];
-  const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (const row of rows) {
@@ -194,7 +196,8 @@ function parseEgresosTableAll(html: string): any[] {
 
 function parseGastosTable(html: string): any[] {
   const results: any[] = [];
-  const tableMatch = html.match(/<table[^>]*class="table table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+  const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
+                     html.match(/<table[^>]*>([\s\S]*?TOTAL GASTOS COMUNES[\s\S]*?)<\/table>/i);
   if (!tableMatch) return results;
   const tableContent = tableMatch[1];
   const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
@@ -434,6 +437,20 @@ export async function POST(request: Request) {
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
+
+    // FALLBACK EXTREMO: Si no hay gastos ni detalles, intentar extraer del HTML del Balance (hBal)
+    if (doSyncGastos && allGastos.length === 0 && detailedReceiptItems.length === 0 && hBal) {
+      console.log("Fallback: Intentando extraer gastos desde el HTML del Balance...");
+      const tableMatch = hBal.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) ||
+                         hBal.match(/<table[^>]*>([\s\S]*?TOTAL GASTOS COMUNES[\s\S]*?)<\/table>/i);
+      if (tableMatch) {
+        const fallbackGastos = parseGastosTable(hBal);
+        if (fallbackGastos.length > 0) {
+          console.log(`Fallback exitoso: ${fallbackGastos.length} gastos encontrados en Balance`);
+          allGastos.push(...fallbackGastos);
+        }
+      }
+    }
 
     console.log(`- Parsed Recibos: ${allRecibos.length}`);
     console.log(`- Parsed Balance: ${balance ? "SI" : "NO"}`);
