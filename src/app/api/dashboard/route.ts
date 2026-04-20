@@ -94,8 +94,6 @@ export async function GET(request: Request) {
       },
       building,
     });
-
-    });
   } catch (error: any) {
     console.error("Dashboard error:", error);
     return NextResponse.json({ error: error.message || "Error al cargar datos" }, { status: 500 });
