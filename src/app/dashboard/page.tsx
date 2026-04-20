@@ -2595,47 +2595,46 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Flujo de Caja Diario (Bs.)</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Flujo de Caja Diario (USD)</h2>
               {loadingKpis ? (
                 <p className="text-gray-500 text-center py-8">Cargando...</p>
               ) : kpisData.cashFlow?.length > 0 ? (
                 <ResponsiveContainer width="100%" height={400}>
                   <ComposedChart data={kpisData.cashFlow} margin={{ top: 10, right: 40, left: 10, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis 
-                      dataKey="fecha" 
-                      tick={{ fontSize: 9 }} 
-                      tickFormatter={(v) => v.split("-").slice(1).reverse().join("/")} 
+                    <XAxis
+                      dataKey="fecha"
+                      tick={{ fontSize: 9 }}
+                      tickFormatter={(v) => v.split("-").slice(1).reverse().join("/")}
                       angle={-45}
                       textAnchor="end"
                       height={50}
                     />
-                    <YAxis 
-                      yAxisId="left" 
-                      tick={{ fontSize: 9 }} 
-                      label={{ value: "Ingresos (Bs)", angle: -90, position: "insideLeft", fontSize: 10 }}
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fontSize: 9 }}
+                      label={{ value: "Ingresos (USD)", angle: -90, position: "insideLeft", fontSize: 10 }}
                     />
-                    <YAxis 
-                      yAxisId="right" 
-                      orientation="right" 
-                      tick={{ fontSize: 9 }} 
-                      label={{ value: "Egresos (Bs)", angle: 90, position: "insideRight", fontSize: 10 }}
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 9 }}
+                      label={{ value: "Egresos (USD)", angle: 90, position: "insideRight", fontSize: 10 }}
                     />
-                    <Tooltip 
-                      formatter={(value: any, name: any) => [`Bs. ${formatBs(value as number)}`, name]}
+                    <Tooltip
+                      formatter={(value: any, name: any) => [`$ ${formatUsd(value as number)}`, name]}
                       contentStyle={{ fontSize: "11px", borderRadius: "8px" }}
                     />
                     <Legend verticalAlign="top" wrapperStyle={{ fontSize: "11px", paddingBottom: "10px" }} />
-                    <Bar yAxisId="left" dataKey="ingresos" fill="#10b981" name="Ingresos (Bs.)" radius={[2, 2, 0, 0]} barSize={15} />
-                    <Line yAxisId="right" type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (Bs.)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+                    <Bar yAxisId="left" dataKey="ingresos" fill="#10b981" name="Ingresos (USD)" radius={[2, 2, 0, 0]} barSize={15} />
+                    <Line yAxisId="right" type="monotone" dataKey="egresos" stroke="#ef4444" name="Egresos (USD)" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
                   </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <p className="text-gray-500 text-center py-8">No hay datos de flujo de caja para este periodo</p>
               )}
-              <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Comparativa diaria de ingresos (barras verdes, eje izq) vs egresos (línea roja, eje der)</p>
+              <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Comparativa diaria de ingresos (barras verdes, eje izq) vs egresos (línea roja, eje der) en Dólares</p>
             </div>
-
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Efectividad de Recaudación % (Cobranza Mes / Recibos Mes)</h2>
@@ -2886,7 +2885,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Monto Total del Recibo de Condominio (USD)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Monto del Recibo por Unidad (USD)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -2895,8 +2894,8 @@ export default function DashboardPage() {
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
                       <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
-                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Recibos del Mes"]} />
-                      <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibos Emitidos ($)" />
+                      <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Monto Recibo"]} />
+                      <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibo ($)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (

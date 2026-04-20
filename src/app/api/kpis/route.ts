@@ -188,59 +188,75 @@ export async function GET(request: Request) {
 
     const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
 
-    // Daily cash flow (pagos vs egresos)
+    const today = new Date();
+    const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    // Get building units for averaging
+    const { data: building } = await supabase
+      .from("edificios")
+      .select("unidades")
+      .eq("id", edificioId)
+      .single();
+    const totalUnidades = building?.unidades || 1;
+
+    // Daily cash flow (pagos vs egresos) in USD
     const dailyFlow: any = {};
     (pagos || []).forEach((p: any) => {
       const f = p.fecha_pago;
       if (!f) return;
+      const { tasa } = getTasaBCVParaFecha(f, tasasHistoricas || []);
       if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
-      dailyFlow[f].ingresos += parseFloat(p.monto || 0);
+      dailyFlow[f].ingresos += parseFloat(p.monto || 0) / tasa;
     });
     (egresos || []).forEach((e: any) => {
       const f = e.fecha;
       if (!f) return;
+      const { tasa } = getTasaBCVParaFecha(f, tasasHistoricas || []);
       if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
-      dailyFlow[f].egresos += parseFloat(e.monto || 0);
+      dailyFlow[f].egresos += parseFloat(e.monto || 0) / tasa;
     });
 
     const cashFlowData = Object.values(dailyFlow).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
 
-    const balancesWithLabel = (balances || []).map((b: any) => {
-      const normalized = normalizeMonth(b.mes);
-      const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
+    const balancesWithLabel = (balances || [])
+      .filter((b: any) => normalizeMonth(b.mes) < currentMesNorm) // Excluir mes en curso
+      .map((b: any) => {
+        const normalized = normalizeMonth(b.mes);
+        const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
+        const recibosMesTotalUsd = tasa > 0 ? (b.recibos_mes || 0) / tasa : 0;
 
-      return {
-        ...b,
-        mes_normalizado: normalized,
-        label: formatLabel(b.mes),
-        saldo_disponible: b.saldo_disponible || 0,
-        saldo_disponible_usd: tasa > 0 ? (b.saldo_disponible || 0) / tasa : 0,
-        cobranza_mes: b.cobranza_mes || 0,
-        cobranza_mes_usd: tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0,
-        gastos_facturados: b.gastos_facturados || 0,
-        gastos_facturados_usd: tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0,
-        fondo_reserva: b.fondo_reserva || 0,
-        fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,
-        fondo_prestaciones: b.fondo_prestaciones || 0,
-        fondo_prestaciones_usd: tasa > 0 ? (b.fondo_prestaciones || 0) / tasa : 0,
-        fondo_trabajos_varios: b.fondo_trabajos_varios || 0,
-        fondo_trabajos_varios_usd: tasa > 0 ? (b.fondo_trabajos_varios || 0) / tasa : 0,
-        fondo_intereses: b.fondo_intereses || 0,
-        fondo_intereses_usd: tasa > 0 ? (b.fondo_intereses || 0) / tasa : 0,
-        fondo_diferencial_cambiario: b.fondo_diferencial_cambiario || 0,
-        fondo_diferencial_cambiario_usd: tasa > 0 ? (b.fondo_diferencial_cambiario || 0) / tasa : 0,
-        saldo_anterior: b.saldo_anterior || 0,
-        saldo_anterior_usd: tasa > 0 ? (b.saldo_anterior || 0) / tasa : 0,
-        total_por_cobrar: b.total_por_cobrar || 0,
-        total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
-        recibos_mes: b.recibos_mes || 0,
-        recibos_mes_usd: tasa > 0 ? (b.recibos_mes || 0) / tasa : 0,
-        tasa_bcv: tasa,
-        efectividad_recaudacion: b.recibos_mes ? ((b.cobranza_mes || 0) / b.recibos_mes) * 100 : 0,
-        indice_morosidad: b.recibos_mes ? ((b.total_por_cobrar || 0) / ((b.recibos_mes || 0) * 2)) * 100 : 0,
-        cobertura_gastos: b.gastos_facturados ? ((b.cobranza_mes || 0) / Math.abs(b.gastos_facturados)) * 100 : 0,
-      };
-    }).sort((a, b) => (a.mes_normalizado || "").localeCompare(b.mes_normalizado || ""));
+        return {
+          ...b,
+          mes_normalizado: normalized,
+          label: formatLabel(b.mes),
+          saldo_disponible: b.saldo_disponible || 0,
+          saldo_disponible_usd: tasa > 0 ? (b.saldo_disponible || 0) / tasa : 0,
+          cobranza_mes: b.cobranza_mes || 0,
+          cobranza_mes_usd: tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0,
+          gastos_facturados: b.gastos_facturados || 0,
+          gastos_facturados_usd: tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0,
+          fondo_reserva: b.fondo_reserva || 0,
+          fondo_reserva_usd: tasa > 0 ? (b.fondo_reserva || 0) / tasa : 0,
+          fondo_prestaciones: b.fondo_prestaciones || 0,
+          fondo_prestaciones_usd: tasa > 0 ? (b.fondo_prestaciones || 0) / tasa : 0,
+          fondo_trabajos_varios: b.fondo_trabajos_varios || 0,
+          fondo_trabajos_varios_usd: tasa > 0 ? (b.fondo_trabajos_varios || 0) / tasa : 0,
+          fondo_intereses: b.fondo_intereses || 0,
+          fondo_intereses_usd: tasa > 0 ? (b.fondo_intereses || 0) / tasa : 0,
+          fondo_diferencial_cambiario: b.fondo_diferencial_cambiario || 0,
+          fondo_diferencial_cambiario_usd: tasa > 0 ? (b.fondo_diferencial_cambiario || 0) / tasa : 0,
+          saldo_anterior: b.saldo_anterior || 0,
+          saldo_anterior_usd: tasa > 0 ? (b.saldo_anterior || 0) / tasa : 0,
+          total_por_cobrar: b.total_por_cobrar || 0,
+          total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
+          recibos_mes: b.recibos_mes || 0,
+          recibos_mes_usd: recibosMesTotalUsd / totalUnidades, // Promedio por unidad para evitar los 3000 USD
+          tasa_bcv: tasa,
+          efectividad_recaudacion: b.recibos_mes ? ((b.cobranza_mes || 0) / b.recibos_mes) * 100 : 0,
+          indice_morosidad: b.recibos_mes ? ((b.total_por_cobrar || 0) / ((b.recibos_mes || 0) * 2)) * 100 : 0,
+          cobertura_gastos: b.gastos_facturados ? ((b.cobranza_mes || 0) / Math.abs(b.gastos_facturados)) * 100 : 0,
+        };
+      }).sort((a, b) => (a.mes_normalizado || "").localeCompare(b.mes_normalizado || ""));
 
     const egresosAgrupados = (egresos || []).reduce((acc: any, e: any) => {
       const mesNorm = normalizeMonth(e.mes);
