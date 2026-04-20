@@ -38,13 +38,15 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const currentMes = getCurrentMonth();
 
-    // Query current month from gastos table (excluding TOTAL row)
+    // Query current month from gastos table (excluding TOTAL row and any leftovers of funds)
     const { data: allGastos, error } = await supabase
       .from("gastos")
-      .select("monto, fecha, mes, codigo")
+      .select("monto, fecha, mes, codigo, descripcion")
       .eq("edificio_id", edificioId)
       .like("mes", `${currentMes}%`)
-      .neq("codigo", "TOTAL");
+      .neq("codigo", "TOTAL")
+      .neq("codigo", "00001")
+      .not("descripcion", "ilike", "%FONDO%");
 
     if (error) {
       console.error("Gastos query error:", error);

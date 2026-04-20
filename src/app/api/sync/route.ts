@@ -242,7 +242,12 @@ function parseGastosTable(html: string): any[] {
     if (desc.includes("TOTAL GASTOS COMUNES:") || desc.includes("TOTAL FONDOS:") || desc.includes("TOTAL FONDOS Y GASTOS") || desc.includes("TOTAL GASTOS:")) {
       continue;
     }
-    // Ya no saltamos el Fondo de Reserva para que el total cuadre con la administradora
+    // EXCLUIMOS Fondos de Reserva y cualquier concepto de FONDO de la tabla de gastos comunes
+    if (desc.toUpperCase().includes("FONDO DE RESERVA") || desc.toUpperCase().includes("FONDO RESERVA") || desc.toUpperCase().includes("FONDO")) {
+      console.log(`[parseGastosTable] Saltando concepto de fondo: ${desc}`);
+      continue;
+    }
+    
     if (code.match(/^\d+$/)) {
       const m = parseMonto(montoCell);
       if (!desc.includes("TOTAL")) {
@@ -643,16 +648,29 @@ export async function POST(request: Request) {
       let finalGastos = [...allGastos];
       if (finalGastos.length === 0 && detailedReceiptItems.length > 0) {
         console.log("Gastos table empty, using detailedReceiptItems as fallback");
-        finalGastos = detailedReceiptItems.map(item => ({
-          codigo: item.codigo,
-          descripcion: item.descripcion,
-          monto: item.monto
-        }));
+        finalGastos = detailedReceiptItems
+          .filter(item => {
+             const desc = (item.descripcion || "").toUpperCase();
+             // No incluir fondos en gastos comunes
+             return !desc.includes("FONDO") && item.codigo !== "00001";
+          })
+          .map(item => ({
+            codigo: item.codigo,
+            descripcion: item.descripcion,
+            monto: item.monto
+          }));
       }
 
       console.log(`Guardando ${finalGastos.length} gastos para el mes ${mesEstandar} con fecha ${fechaGasto}`);
       
       for (const g of finalGastos) {
+        // Doble verificación: No guardar fondos si se colaron por algún motivo
+        const descUpper = (g.descripcion || "").toUpperCase();
+        if (descUpper.includes("FONDO") || g.codigo === "00001") {
+          console.log(`[Sync] Saltando guardado de fondo detectado en bucle final: ${g.descripcion}`);
+          continue;
+        }
+
         // Incluir la descripción en el hash para evitar colisiones si dos gastos tienen mismo código y monto (ej. ascensores)
         const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${g.descripcion}|${mesEstandar}`);
         const { error: gErr } = await supabase.from("gastos").upsert({ 

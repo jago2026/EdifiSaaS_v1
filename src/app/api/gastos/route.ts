@@ -40,6 +40,8 @@ export async function GET(request: Request) {
       .select("id, fecha, mes, codigo, descripcion, monto")
       .eq("edificio_id", edificioId)
       .neq("codigo", "TOTAL")
+      .neq("codigo", "00001") // Fondo de reserva del detalle
+      .not("descripcion", "ilike", "%FONDO%") // Cualquier otro fondo
       .order("fecha", { ascending: false });
 
     if (mes) {
