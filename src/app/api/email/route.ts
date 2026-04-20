@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const tasa = await getTasaBCV();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades").eq("id", edificioId).single();
+    const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades, email_junta").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
 
     if (action === "welcome_invitation") {
