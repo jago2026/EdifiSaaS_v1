@@ -455,11 +455,11 @@ export async function POST(request: Request) {
       });
       let text = await res.text();
       
-      // Si la página es muy corta o parece la de login/home y estamos pidiendo histórico, reintentar sin combo o con otro formato
-      if (text.length < 70000 && urlPath.includes("combo=")) {
-        console.log(`Page for ${urlPath} seems too short (${text.length}). Retrying without combo...`);
+      // Si la página es muy corta (página de error/login), intentar con el formato MM-YYYY
+      if (text.length < 70000 && urlPath.includes("combo=") && mes && mes.includes("-")) {
+        console.log(`Page seems too short (${text.length}). Retrying with MM-YYYY format...`);
         const cleanPath = urlPath.split('&combo=')[0];
-        const retryUrl = `${baseUrl}/${cleanPath}${separator}PHPSESSID=${session.sid}`;
+        const retryUrl = `${baseUrl}/${cleanPath}${separator}combo=${mes}&PHPSESSID=${session.sid}`;
         const res2 = await fetch(retryUrl, {
           method: "GET",
           headers: { "Cookie": session.cookie, "User-Agent": USER_AGENT, "Referer": `${baseUrl}/condlin.php?r=1` },
@@ -467,13 +467,22 @@ export async function POST(request: Request) {
         text = await res2.text();
       }
       
+      // Si sigue siendo corta, no usar fallback de "sin combo", simplemente devolver lo que hay o null
+      if (text.length < 70000) {
+        console.log(`Warning: Content for ${urlPath} is still too short (${text.length}). Extraction might fail.`);
+      }
+      
       return text;
     };
 
-    // Fetches secuenciales para evitar problemas de sesión en PHP
+    // Fetches secuenciales - BALANCE PRIMERO para fijar el mes en la sesión
     let hRec = null, hEgr = null, hGas = null, hBal = null, hAli = null, hRecSummary = null;
     const comboParam = mes ? `&combo=${comboValue}` : "";
 
+    if (doSyncBalance || doSyncEgresos || doSyncGastos) {
+      hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
+      await new Promise(r => setTimeout(r, 500));
+    }
     if (doSyncRecibos) {
       hRec = await fetchWithRetry(`condlin.php?r=5${comboParam}`);
       await new Promise(r => setTimeout(r, 500));
@@ -486,10 +495,6 @@ export async function POST(request: Request) {
     }
     if (doSyncGastos) {
       hGas = await fetchWithRetry(`condlin.php?r=3${comboParam}`);
-      await new Promise(r => setTimeout(r, 500));
-    }
-    if (doSyncBalance || doSyncEgresos || doSyncGastos) {
-      hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
       await new Promise(r => setTimeout(r, 500));
     }
     if (doSyncAlicuotas) {
