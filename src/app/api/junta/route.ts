@@ -61,8 +61,11 @@ export async function POST(request: Request) {
 
     // Disparar email de bienvenida
     try {
-      await fetch(`${new URL(request.url).origin}/api/email`, {
+      const emailRes = await fetch(`${new URL(request.url).origin}/api/email`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           action: "welcome_invitation",
           edificioId: edificio_id,
@@ -71,8 +74,15 @@ export async function POST(request: Request) {
           tempPassword: tempPassword
         })
       });
+      
+      if (!emailRes.ok) {
+        const errorData = await emailRes.json();
+        console.error("Email service error:", errorData);
+      } else {
+        console.log("Welcome email sent successfully to:", email);
+      }
     } catch (e) {
-      console.error("Error sending welcome email:", e);
+      console.error("Error connecting to email service:", e);
     }
 
     return NextResponse.json({ success: true, miembro: data });
