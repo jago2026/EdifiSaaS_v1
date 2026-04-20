@@ -428,7 +428,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Fallo Login" }, { status: 400 });
     }
 
-    const baseUrl = new URL(building.url_login).origin;
+    const baseUrl = new URL(building.url_login).origin.replace("http://", "https://");
     
     // Convert mes (mm-yyyy) to dd-mm-yyyy (last day of month) for historical months
     let comboValue = mes;
@@ -436,23 +436,65 @@ export async function POST(request: Request) {
       const [mm, yyyy] = mes.split("-");
       const mmNum = parseInt(mm, 10);
       const yyyyNum = parseInt(yyyy, 10);
-      // new Date(yyyy, mmNum, 0) gives the last day of month mmNum (day 0 of next month = last day of current)
       const lastDay = new Date(yyyyNum, mmNum, 0).getDate();
-      comboValue = `${lastDay}-${mm}-${yyyy}`;
+      comboValue = `${String(lastDay).padStart(2, '0')}-${mm}-${yyyy}`;
     }
+
+    const fetchWithRetry = async (urlPath: string) => {
+      const separator = urlPath.includes('?') ? '&' : '?';
+      const fullUrl = `${baseUrl}/${urlPath}${separator}PHPSESSID=${session.sid}`;
+      console.log(`Fetching: ${fullUrl}`);
+      
+      const res = await fetch(fullUrl, {
+        method: "GET",
+        headers: { 
+          "Cookie": session.cookie, 
+          "User-Agent": USER_AGENT, 
+          "Referer": `${baseUrl}/condlin.php?r=1` 
+        },
+      });
+      let text = await res.text();
+      
+      // Si la página es muy corta o parece la de login/home y estamos pidiendo histórico, reintentar sin combo o con otro formato
+      if (text.length < 70000 && urlPath.includes("combo=")) {
+        console.log(`Page for ${urlPath} seems too short (${text.length}). Retrying without combo...`);
+        const cleanPath = urlPath.split('&combo=')[0];
+        const retryUrl = `${baseUrl}/${cleanPath}${separator}PHPSESSID=${session.sid}`;
+        const res2 = await fetch(retryUrl, {
+          method: "GET",
+          headers: { "Cookie": session.cookie, "User-Agent": USER_AGENT, "Referer": `${baseUrl}/condlin.php?r=1` },
+        });
+        text = await res2.text();
+      }
+      
+      return text;
+    };
+
+    // Fetches secuenciales para evitar problemas de sesión en PHP
+    let hRec = null, hEgr = null, hGas = null, hBal = null, hAli = null, hRecSummary = null;
     const comboParam = mes ? `&combo=${comboValue}` : "";
-    console.log(`Sync Debug [${mesEstandar}]: comboParam=${comboParam}`);
 
-    const promises = [
-      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=5${comboParam}`, session) : Promise.resolve(null),
-      doSyncEgresos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=21${comboParam}`, session) : Promise.resolve(null),
-      doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=3${comboParam}`, session) : Promise.resolve(null),
-      doSyncBalance || doSyncEgresos || doSyncGastos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=2${comboParam}`, session) : Promise.resolve(null),
-      doSyncAlicuotas ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=23${comboParam}`, session) : Promise.resolve(null),
-      doSyncRecibos ? fetchPageWithCookie(`${baseUrl}/condlin.php?r=4${comboParam}`, session) : Promise.resolve(null)
-    ];
-
-    const [hRec, hEgr, hGas, hBal, hAli, hRecSummary] = await Promise.all(promises);
+    if (doSyncRecibos) {
+      hRec = await fetchWithRetry(`condlin.php?r=5${comboParam}`);
+      await new Promise(r => setTimeout(r, 500));
+      hRecSummary = await fetchWithRetry(`condlin.php?r=4${comboParam}`);
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (doSyncEgresos) {
+      hEgr = await fetchWithRetry(`condlin.php?r=21${comboParam}`);
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (doSyncGastos) {
+      hGas = await fetchWithRetry(`condlin.php?r=3${comboParam}`);
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (doSyncBalance || doSyncEgresos || doSyncGastos) {
+      hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
+      await new Promise(r => setTimeout(r, 500));
+    }
+    if (doSyncAlicuotas) {
+      hAli = await fetchWithRetry(`condlin.php?r=23${comboParam}`);
+    }
 
     console.log(`Sync Debug [${mesEstandar}]: Scraping completed.`);
     console.log(`- hRec: ${hRec ? hRec.length : 0} chars`);
