@@ -95,6 +95,95 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Invitación enviada" });
     }
 
+    if (action === "send_pre_receipt") {
+      const { payload } = body;
+      const { mes, items, totalGastosComunes, alicuotas: dist, tasaDolar } = payload;
+      
+      const format = (n: number) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const formatUsd = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      let rowsHtml = items.map((i: any) => `
+        <tr>
+          <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">${i.codigo}</td>
+          <td style="border: 1px solid #ddd; padding: 8px;">${i.descripcion}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${format(i.monto)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #666;">${format(i.monto * 0.022135)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${format((i.monto * 0.022135) * 1.10)}</td>
+        </tr>
+      `).join('');
+
+      let alicuotasHtml = dist.map((g: any) => `
+        <tr>
+          <td style="border-bottom: 1px solid #eee; padding: 6px;">(${g.count}) ${g.alicuota.toFixed(7)}%</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right;">${format(totalGastosComunes * (g.alicuota/100))}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-weight: bold;">${format((totalGastosComunes * (g.alicuota/100)) * 1.10)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #2e7d32;">$${formatUsd(((totalGastosComunes * (g.alicuota/100)) * 1.10) / (tasaDolar || 45))}</td>
+        </tr>
+      `).join('');
+
+      // Configurar destinatarios
+      let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
+      if (recipients.length === 0) return NextResponse.json({ error: "No hay destinatarios configurados en el edificio" }, { status: 400 });
+
+      await transporter.sendMail({
+        from: `"EdifiSaaS - Estimados" <${SMTP_USER}>`,
+        to: recipients,
+        subject: `Borrador Recibo Estimado - ${edificio.nombre} - ${mes}`,
+        html: `
+          <div style="font-family: sans-serif; color: #333; max-width: 800px; margin: 0 auto;">
+            <h2 style="text-align: center; color: #1a73e8; text-transform: uppercase;">Borrador Recibo Estimado (Referencial)</h2>
+            <p style="text-align: center; font-weight: bold;">Período: ${mes} | Edificio: ${edificio.nombre}</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px;">
+              <thead>
+                <tr style="background: #f8f9fa;">
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">CÓDIGO</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">DESCRIPCIÓN</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">MONTO (Bs)</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">CUOTA PARTE (Bs)</th>
+                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">TOTAL RECIBO (Bs)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+                <tr style="background: #f1f3f4; font-weight: bold;">
+                  <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right;">TOTAL GASTOS COMUNES:</td>
+                  <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${format(totalGastosComunes)}</td>
+                  <td colspan="2" style="border: 1px solid #ddd;"></td>
+                </tr>
+                <tr style="background: #e8f0fe; font-weight: bold;">
+                  <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right;">FONDO DE RESERVA (10%):</td>
+                  <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${format(totalGastosComunes * 0.10)}</td>
+                  <td colspan="2" style="border: 1px solid #ddd;"></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+              <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase;">Distribución por Alícuotas</h3>
+              <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid #ccc;">
+                    <th style="text-align: left; padding: 5px;">TIPO / %</th>
+                    <th style="text-align: right; padding: 5px;">CUOTA PARTE (Bs)</th>
+                    <th style="text-align: right; padding: 5px;">TOTAL (Bs.)</th>
+                    <th style="text-align: right; padding: 5px;">TOTAL USD ($)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${alicuotasHtml}
+                </tbody>
+              </table>
+              <p style="font-size: 10px; color: #666; margin-top: 15px; font-style: italic;">
+                * Valores calculados con Tasa BCV: ${format(tasaDolar)} Bs/USD.
+              </p>
+            </div>
+          </div>
+        `
+      });
+      return NextResponse.json({ success: true, message: "Borrador enviado exitosamente" });
+    }
+
     if (action === "error_notification") {
       await transporter.sendMail({
         from: `"SaaS - Error de Sincronización" <${SMTP_USER}>`,

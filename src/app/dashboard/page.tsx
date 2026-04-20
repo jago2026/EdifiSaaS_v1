@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -286,6 +286,65 @@ export default function DashboardPage() {
   const [loadingDataSummary, setLoadingDataSummary] = useState(false);
   const [informeFecha, setInformeFecha] = useState<string>(new Date().toISOString().split('T')[0]);
   const [informeData, setInformeData] = useState<any>(null);
+
+  // Estados para Pre-Recibo Estimado
+  const [preReciboItems, setPreReciboItems] = useState<any[]>([]);
+  const [selectedPreReciboIds, setSelectedPreReciboIds] = useState<Set<string>>(new Set());
+  const [loadingPreRecibo, setLoadingPreRecibo] = useState(false);
+
+  const loadPreReciboData = async () => {
+    if (!building?.id) return;
+    setLoadingPreRecibo(true);
+    try {
+      const currentMonth = new Date().toISOString().substring(0, 7);
+      
+      // Consultar gastos, egresos y movimientos manuales del mes actual
+      const [gastosRes, egresosRes, manualRes] = await Promise.all([
+        fetch(`/api/gastos?edificioId=${building.id}&mes=${currentMonth}`),
+        fetch(`/api/egresos?edificioId=${building.id}&mes=${currentMonth}`),
+        fetch(`/api/movimientos-manual?edificioId=${building.id}`)
+      ]);
+
+      const [gastosD, egresosD, manualD] = await Promise.all([
+        gastosRes.json(), egresosRes.json(), manualRes.json()
+      ]);
+
+      const items: any[] = [];
+      
+      // 1. Procesar Gastos (r=3)
+      if (gastosRes.ok && gastosD.gastos) {
+        gastosD.gastos.forEach((g: any) => {
+          items.push({ id: `gas-${g.id}`, codigo: g.codigo || "999", descripcion: g.descripcion, monto: g.monto, tipo: 'gasto' });
+        });
+      }
+
+      // 2. Procesar Egresos (r=21)
+      if (egresosRes.ok && egresosD.egresos) {
+        egresosD.egresos.forEach((e: any) => {
+          // Solo si no está ya en gastos (para evitar duplicados si se cargan en ambos sitios)
+          if (!items.find(i => i.descripcion === e.descripcion && i.monto === e.monto)) {
+            items.push({ id: `egr-${e.id}`, codigo: e.codigo || "999", descripcion: `${e.beneficiario} - ${e.descripcion || ''}`, monto: e.monto, tipo: 'egreso' });
+          }
+        });
+      }
+
+      // 3. Procesar Manuales (No comparados)
+      if (manualRes.ok && manualD.movimientos) {
+        manualD.movimientos.filter((m: any) => !m.comparado && Number(m.egresos) > 0).forEach((m: any) => {
+          items.push({ id: `man-${m.id}`, codigo: "MANUAL", descripcion: m.obs_egresos || "Gasto Manual", monto: Number(m.egresos), tipo: 'manual' });
+        });
+      }
+
+      setPreReciboItems(items);
+      // Seleccionar todos por defecto
+      setSelectedPreReciboIds(new Set(items.map(i => i.id)));
+
+    } catch (error) {
+      console.error("Error loading pre-recibo data:", error);
+    } finally {
+      setLoadingPreRecibo(false);
+    }
+  };
 
   const loadDataSummary = async () => {
     if (!building?.id) return;
@@ -587,6 +646,61 @@ export default function DashboardPage() {
       setPasswordError(error.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "pre-recibo" && building?.id) {
+      loadPreReciboData();
+      loadAlicuotas();
+    }
+  }, [activeTab, building?.id]);
+
+  const sendPreReciboEmail = async () => {
+    if (!building?.id || preReciboItems.length === 0) return;
+    
+    setSendingEmail(true);
+    setEmailMessage("");
+    
+    // Preparar datos para el borrador
+    const selectedItems = preReciboItems.filter(i => selectedPreReciboIds.has(i.id));
+    const totalGastosComunes = selectedItems.reduce((sum, i) => sum + i.monto, 0);
+    
+    // Agrupar por alícuotas
+    const dist: any = {};
+    alicuotas.forEach(a => {
+      const val = Number(a.alicuota);
+      if (!dist[val]) dist[val] = { alicuota: val, count: 0 };
+      dist[val].count++;
+    });
+
+    try {
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          edificioId: building.id, 
+          action: "send_pre_receipt",
+          payload: {
+            mes: new Date().toISOString().substring(0, 7),
+            items: selectedItems,
+            totalGastosComunes,
+            alicuotas: Object.values(dist),
+            tasaDolar: tasaBCV.dolar
+          }
+        }),
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setEmailMessage("✅ Borrador de recibo enviado por email exitosamente");
+      } else {
+        setEmailMessage(`❌ Error: ${data.error}`);
+      }
+    } catch (error: any) {
+      setEmailMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -1444,6 +1558,9 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("recibo")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibo' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📄</span> Detalle Recibo Mes
               </button>
+              <button onClick={() => setActiveTab("pre-recibo")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'pre-recibo' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📝</span> Pre-Recibo Estimado
+              </button>
               <button onClick={() => setActiveTab("gastos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'gastos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">🛠️</span> Gastos (Próx. Recibo)
               </button>
@@ -1542,6 +1659,7 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button onClick={() => {setActiveTab("resumen"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'resumen' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📊 Resumen</button>
                 <button onClick={() => {setActiveTab("kpis"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'kpis' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📈 KPIs</button>
+                <button onClick={() => {setActiveTab("pre-recibo"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'pre-recibo' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📝 Pre-Recibo</button>
                 <button onClick={() => {setActiveTab("movimientos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'movimientos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🔄 Movimientos</button>
                 <button onClick={() => {setActiveTab("ingresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'ingresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>💰 Ingresos</button>
                 <button onClick={() => {setActiveTab("egresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'egresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🧾 Egresos</button>
@@ -3656,8 +3774,217 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeTab === "instrucciones" && (
-          <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100 max-w-4xl mx-auto">
+        {activeTab === "pre-recibo" && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom duration-500">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Borrador de Recibo Estimado</h2>
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Selecciona los conceptos que integrarán el próximo recibo</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={loadPreReciboData} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-all uppercase tracking-widest">
+                    {loadingPreRecibo ? "Cargando..." : "🔄 Refrescar Items"}
+                  </button>
+                  <button 
+                    onClick={sendPreReciboEmail} 
+                    disabled={sendingEmail || selectedPreReciboIds.size === 0}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {sendingEmail ? "Enviando..." : "📧 Enviar Borrador"}
+                  </button>
+                </div>
+              </div>
+
+              {emailMessage && (
+                <div className={`mb-6 p-4 rounded-xl text-xs font-black uppercase tracking-widest ${emailMessage.includes('✅') ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
+                  {emailMessage}
+                </div>
+              )}
+
+              <div className="grid lg:grid-cols-3 gap-8">
+                {/* Panel de Selección */}
+                <div className="lg:col-span-1 space-y-4">
+                  <div className="flex justify-between items-center px-2">
+                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-mono">Conceptos Disponibles</h3>
+                    <div className="flex gap-3">
+                      <button onClick={() => setSelectedPreReciboIds(new Set(preReciboItems.map(i => i.id)))} className="text-[9px] font-bold text-blue-600 hover:underline uppercase">Todos</button>
+                      <button onClick={() => setSelectedPreReciboIds(new Set())} className="text-[9px] font-bold text-gray-400 hover:underline uppercase">Ninguno</button>
+                    </div>
+                  </div>
+                  <div className="bg-gray-50 rounded-2xl border border-gray-200 p-2 max-h-[600px] overflow-y-auto custom-scrollbar">
+                    {preReciboItems.length === 0 ? (
+                      <p className="text-center py-10 text-gray-400 text-xs italic font-medium">No se encontraron gastos o egresos para el mes actual.</p>
+                    ) : (
+                      <div className="space-y-1">
+                        {preReciboItems.map((item) => (
+                          <label key={item.id} className={`flex items-start gap-3 p-3 rounded-xl border transition-all cursor-pointer ${selectedPreReciboIds.has(item.id) ? 'bg-white border-indigo-200 shadow-sm' : 'bg-transparent border-transparent grayscale opacity-60'}`}>
+                            <input 
+                              type="checkbox" 
+                              className="mt-1 w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" 
+                              checked={selectedPreReciboIds.has(item.id)}
+                              onChange={() => {
+                                const newSet = new Set(selectedPreReciboIds);
+                                if (newSet.has(item.id)) newSet.delete(item.id);
+                                else newSet.add(item.id);
+                                setSelectedPreReciboIds(newSet);
+                              }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex justify-between items-center gap-2 mb-1">
+                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.tipo === 'gasto' ? 'bg-orange-100 text-orange-700' : item.tipo === 'egreso' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                                  {item.tipo}
+                                </span>
+                                <span className="text-[10px] font-black text-gray-900">Bs. {formatBs(item.monto)}</span>
+                              </div>
+                              <p className="text-xs font-bold text-gray-700 leading-tight line-clamp-2">{item.descripcion}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Panel de Vista Previa (Simulando el Formato del Usuario) */}
+                <div className="lg:col-span-2">
+                  <div className="bg-white border-2 border-dashed border-gray-200 rounded-3xl p-8 shadow-inner overflow-x-auto">
+                    <div className="min-w-[700px]">
+                      {/* Cabecera del Reporte */}
+                      <div className="text-center mb-8 border-b pb-6">
+                        <h1 className="text-xl font-black text-gray-900 uppercase tracking-tighter">PRE-RECIBO DE CONDOMINIO ESTIMADO (E)</h1>
+                        <p className="text-indigo-600 font-black text-sm uppercase mt-1">PERÍODO {new Date().toLocaleDateString('es-VE', { month: '2-digit', year: 'numeric' })}</p>
+                        <div className="flex justify-center gap-6 mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          <span>🏢 {building?.nombre}</span>
+                          <span>👥 Total Unidades: {building?.unidades || 43}</span>
+                          <span>📊 Alícuota Base: 2.2135%</span>
+                        </div>
+                      </div>
+
+                      {/* Tabla de Detalle */}
+                      <table className="w-full text-xs mb-8">
+                        <thead className="bg-gray-100 text-gray-600">
+                          <tr>
+                            <th className="py-2 px-3 text-left font-black border uppercase">CÓDIGO</th>
+                            <th className="py-2 px-3 text-left font-black border uppercase">DESCRIPCIÓN</th>
+                            <th className="py-2 px-3 text-right font-black border uppercase">MONTO (Bs)</th>
+                            <th className="py-2 px-3 text-right font-black border uppercase">CUOTA PARTE (Bs)</th>
+                            <th className="py-2 px-3 text-right font-black border uppercase">TOTAL RECIBO (Bs)</th>
+                            <th className="py-2 px-3 text-right font-black border uppercase">USD</th>
+                          </tr>
+                        </thead>
+                        <tbody className="font-medium text-gray-700">
+                          {(() => {
+                            const selected = preReciboItems.filter(i => selectedPreReciboIds.has(i.id));
+                            const subtotal = selected.reduce((sum, i) => sum + i.monto, 0);
+                            
+                            return (
+                              <>
+                                {selected.map((item, idx) => {
+                                  // Asumimos alícuota promedio 2.2135 para la vista previa de una unidad
+                                  const alicuotaRef = 2.2135; 
+                                  const cuotaParte = item.monto * (alicuotaRef / 100);
+                                  const fondoReserva = cuotaParte * 0.10;
+                                  const totalItem = cuotaParte + fondoReserva;
+                                  
+                                  return (
+                                    <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
+                                      <td className="py-2 px-3 border font-mono text-[10px]">{item.codigo}</td>
+                                      <td className="py-2 px-3 border text-[10px] max-w-[200px] truncate">{item.descripcion}</td>
+                                      <td className="py-2 px-3 border text-right font-mono">{formatBs(item.monto)}</td>
+                                      <td className="py-2 px-3 border text-right font-mono text-gray-400">{formatBs(cuotaParte)}</td>
+                                      <td className="py-2 px-3 border text-right font-black text-indigo-700 font-mono">{formatBs(totalItem)}</td>
+                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / (tasaBCV.dolar || 45))}</td>
+                                    </tr>
+                                  );
+                                })}
+                                
+                                {/* Totales */}
+                                <tr className="bg-gray-50">
+                                  <td colSpan={2} className="py-3 px-3 border font-black text-right uppercase">TOTAL GASTOS COMUNES:</td>
+                                  <td className="py-3 px-3 border text-right font-black font-mono text-base">{formatBs(subtotal)}</td>
+                                  <td className="py-3 px-3 border text-right font-bold text-gray-400 font-mono">{formatBs(subtotal * 0.022135)}</td>
+                                  <td colSpan={2} className="border"></td>
+                                </tr>
+                                <tr className="bg-indigo-50/50">
+                                  <td colSpan={2} className="py-3 px-3 border font-black text-right uppercase">FONDO DE RESERVA (10%):</td>
+                                  <td className="py-3 px-3 border text-right font-black font-mono">{formatBs(subtotal * 0.10)}</td>
+                                  <td className="py-3 px-3 border text-right font-bold text-gray-400 font-mono">{formatBs((subtotal * 0.022135) * 0.10)}</td>
+                                  <td colSpan={2} className="border"></td>
+                                </tr>
+                                <tr className="bg-indigo-900 text-white">
+                                  <td colSpan={4} className="py-4 px-6 border-none font-black text-right uppercase tracking-widest text-sm">TOTAL ESTIMADO POR APARTAMENTO (2.2135%):</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono">Bs. {formatBs((subtotal * 0.022135) * 1.10)}</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(((subtotal * 0.022135) * 1.10) / (tasaBCV.dolar || 45))}</td>
+                                </tr>
+                              </>
+                            );
+                          })()}
+                        </tbody>
+                      </table>
+
+                      {/* Desglose por Alícuotas */}
+                      <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                        <h3 className="text-xs font-black text-gray-900 uppercase mb-4 tracking-tighter">CÁLCULOS ADICIONALES POR TIPO DE APARTAMENTO</h3>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-[10px]">
+                            <thead className="border-b-2 border-gray-300">
+                              <tr>
+                                <th className="py-2 text-left font-black uppercase">TIPO / ALÍCUOTA</th>
+                                <th className="py-2 text-right font-black uppercase">CUOTA PARTE (Bs)</th>
+                                <th className="py-2 text-right font-black uppercase">TOTAL (Bs.)</th>
+                                <th className="py-2 text-right font-black uppercase">SUB-TOTAL COMUNES</th>
+                                <th className="py-2 text-right font-black uppercase">TOTAL USD$</th>
+                                <th className="py-2 text-right font-black uppercase">P/APTO USD$</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y font-bold">
+                              {(() => {
+                                const selected = preReciboItems.filter(i => selectedPreReciboIds.has(i.id));
+                                const subtotal = selected.reduce((sum, i) => sum + i.monto, 0);
+                                const tasa = tasaBCV.dolar || 45;
+                                
+                                // Agrupar unidades por alícuota
+                                const groups: any = {};
+                                alicuotas.forEach(a => {
+                                  const val = Number(a.alicuota);
+                                  if (!groups[val]) groups[val] = { val, count: 0 };
+                                  groups[val].count++;
+                                });
+
+                                return Object.values(groups).sort((a:any, b:any) => a.val - b.val).map((group: any) => {
+                                  const cpUnit = subtotal * (group.val / 100);
+                                  const totalBsGroup = (cpUnit * group.count) * 1.10;
+                                  const subTotalComunes = (cpUnit * group.count);
+                                  const totalUsdGroup = totalBsGroup / tasa;
+                                  
+                                  return (
+                                    <tr key={group.val} className="hover:bg-white transition-colors">
+                                      <td className="py-2 uppercase font-black text-indigo-600">({group.count}) {group.val.toFixed(7)}%</td>
+                                      <td className="py-2 text-right font-mono">{formatBs(cpUnit)}</td>
+                                      <td className="py-2 text-right font-mono">{formatBs(cpUnit * 1.10)}</td>
+                                      <td className="py-2 text-right font-mono text-gray-400">{formatBs(subTotalComunes)}</td>
+                                      <td className="py-2 text-right font-mono text-green-600">${formatUsd(totalUsdGroup)}</td>
+                                      <td className="py-2 text-right font-mono text-indigo-900 bg-indigo-50/30 font-black">${formatUsd((cpUnit * 1.10) / tasa)}</td>
+                                    </tr>
+                                  );
+                                });
+                              })()}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="mt-6 flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                          <span>═ Total Apartamentos: {alicuotas.length} ═</span>
+                          <span>═ Tasa USD: {formatBs(tasaBCV.dolar)} Bs/USD ═</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
             <div className="flex items-center gap-3 mb-8 border-b pb-6">
               <span className="text-4xl">📖</span>
               <div>
