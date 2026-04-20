@@ -604,6 +604,13 @@ export async function POST(request: Request) {
 
     if (doSyncRecibos && allRecibos.length > 0) {
       console.log(`Guardando ${allRecibos.length} recibos para ${mesEstandar}`);
+      
+      // 1. Obtener deudores actuales en nuestra DB antes de limpiar
+      const { data: deudoresAntes } = await supabase
+        .from("recibos")
+        .select("unidad, propietario, deuda")
+        .eq("edificio_id", building.id);
+
       const recibosToSave = allRecibos.map(r => ({ 
         edificio_id: building.id, 
         unidad: r.unidad, 
@@ -616,12 +623,36 @@ export async function POST(request: Request) {
         mes: mesEstandar
       }));
       
-      // LIMPIEZA RADICAL: Borrar todos los recibos del mes antes de insertar los nuevos
-      // Esto garantiza que si un recibo desapareció del portal, también desaparezca de nuestro sistema.
+      // 2. Limpieza del mes actual
       await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
       
+      // 3. Insertar nuevos datos
       const { error: recErr } = await supabase.from("recibos").insert(recibosToSave);
       if (recErr) console.error("Error guardando recibos:", recErr);
+
+      // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN
+      const unidadesAhora = new Set(allRecibos.map(r => r.unidad));
+      const deudoresAnterioresUnicos = Array.from(new Set(deudoresAntes?.map(d => d.unidad) || []));
+      
+      for (const unidadPrevia of deudoresAnterioresUnicos) {
+        if (!unidadesAhora.has(unidadPrevia)) {
+          const datosUnidad = deudoresAntes?.find(d => d.unidad === unidadPrevia);
+          console.log(`[PAGO-DETECTADO] La unidad ${unidadPrevia} ya no tiene deuda.`);
+          
+          // Generar alerta de pago asumido
+          await supabase.from("alertas").insert({
+            edificio_id: building.id,
+            tipo: "ingreso",
+            titulo: "✅ Deuda Cancelada",
+            descripcion: `La unidad ${unidadPrevia} (${datosUnidad?.propietario || ""}) ya no aparece en el listado de morosidad. Se asume el pago de sus deudas pendientes.`,
+            fecha: today
+          });
+
+          // LIMPIEZA TOTAL: Borrar registros de esta unidad en CUALQUIER mes previo 
+          // (porque si ya no aparece en r=5 del portal, es que está solvente globalmente)
+          await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: unidadPrevia });
+        }
+      }
     }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
