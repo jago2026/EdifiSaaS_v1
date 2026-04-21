@@ -191,14 +191,20 @@ export async function GET(request: Request) {
     const today = new Date();
     const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // Get building units for averaging - Use alicuotas length as it is more reliable
+    // Get building units for averaging - BE SMART: count unique units in receipts or alicuotas
     const { data: building } = await supabase
       .from("edificios")
       .select("unidades")
       .eq("id", edificioId)
       .single();
     
-    const realUnitsCount = (alicuotas && alicuotas.length > 0) ? alicuotas.length : (building?.unidades || 1);
+    const uniqueReceiptUnits = new Set((recibos || []).map(r => r.unidad)).size;
+    const alicuotasUnits = alicuotas?.length || 0;
+    
+    // Use the most realistic number of units (if building.unidades is 777, it's obviously wrong)
+    let realUnitsCount = uniqueReceiptUnits > 0 ? uniqueReceiptUnits : (alicuotasUnits > 0 ? alicuotasUnits : (building?.unidades || 1));
+    if (realUnitsCount > 500 && alicuotasUnits > 0) realUnitsCount = alicuotasUnits;
+    if (realUnitsCount <= 0) realUnitsCount = 1;
 
     // Daily cash flow (pagos vs egresos) in USD
     const dailyFlow: any = {};
