@@ -101,13 +101,11 @@ export default function AdminPage() {
     loadEdificios();
   }, []);
 
-  const handleToggleStatus = async (building: Edificio) => {
-    const currentStatus = building.status || 'Prueba';
-    const newStatus = STATUS_CYCLE[currentStatus] ?? 'Activo';
-    
+  const handleStatusChange = async (building: Edificio, newStatus: string) => {
     try {
       const res = await fetch('/api/admin/edificios', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update',
           id: building.id,
@@ -132,6 +130,7 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/admin/edificios', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update',
           id: building.id,
@@ -156,6 +155,7 @@ export default function AdminPage() {
     try {
       const res = await fetch('/api/admin/edificios', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'update',
           id: editingBuilding.id,
@@ -350,26 +350,29 @@ export default function AdminPage() {
                               </div>
                             </td>
                             <td className="px-6 py-5">
-                              <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border ${STATUS_COLORS[status] || STATUS_COLORS['Prueba']}`}>
-                                {status}
-                              </span>
+                              <select 
+                                value={status}
+                                onChange={(e) => handleStatusChange(b, e.target.value)}
+                                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border appearance-none cursor-pointer focus:outline-none transition-all ${STATUS_COLORS[status] || STATUS_COLORS['Prueba']}`}
+                              >
+                                {Object.keys(STATUS_CYCLE).map(st => (
+                                  <option key={st} value={st} className="bg-[#1e293b] text-white">{st}</option>
+                                ))}
+                              </select>
                             </td>
                             <td className="px-6 py-5">
                               <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)} className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all">
+                                <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)} className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all" title="Ver detalles">
                                   {expandedId === b.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                 </button>
-                                <button onClick={() => setEditingBuilding(b)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all">
-                                  <Edit className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)} className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all">
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => handleToggleStatus(b)} className={`p-2 rounded-xl transition-all shadow-lg ${GEAR_COLORS[status] || GEAR_COLORS['Prueba']}`} title={GEAR_TITLES[status]}>
+                                <button onClick={() => setEditingBuilding(b)} className="p-2 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all" title="Configuración SaaS">
                                   <Settings className="w-4 h-4" />
                                 </button>
+                                <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)} className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all" title="Ver Dashboard">
+                                  <Eye className="w-4 h-4" />
+                                </button>
                                 {!isInactive && (
-                                  <button onClick={() => handleDeactivate(b)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all">
+                                  <button onClick={() => handleDeactivate(b)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all" title="Desactivar">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 )}
