@@ -44,6 +44,10 @@ export async function POST(request: Request) {
           sameSite: "lax",
           maxAge: 60 * 60 * 24 * 7,
         });
+
+        // Set building ID for dashboard to recognize
+        cookieStore.set("is_member", "true", { maxAge: 60 * 60 * 24 * 7 });
+        cookieStore.set("member_building_id", building.id, { maxAge: 60 * 60 * 24 * 7 });
         
         return NextResponse.json({
           success: true,

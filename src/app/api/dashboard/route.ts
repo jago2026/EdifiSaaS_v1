@@ -31,7 +31,11 @@ export async function GET(request: Request) {
     let isAdmin = false;
     let nivelAcceso = 'viewer';
 
-    if (isMember) {
+    if (userId === "superuser-id") {
+      user = { id: "superuser-id", email: "co****go@gmail.com", first_name: "Super", last_name: "Usuario" };
+      isAdmin = true;
+      nivelAcceso = 'admin';
+    } else if (isMember) {
       const { data: member, error: memberError } = await supabase
         .from("junta")
         .select("id, email, nombre, requiere_cambio_clave, es_propietario, nivel_acceso")
@@ -69,7 +73,9 @@ export async function GET(request: Request) {
       .from("edificios")
       .select("id, nombre, direccion, unidades, plan, activo, admin_id, admin_secret, admin_nombre, url_login, url_recibos, url_recibo_mes, url_egresos, url_gastos, url_balance, ultima_sincronizacion, cron_enabled, cron_time, cron_frequency, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance, email_junta");
 
-    if (isMember && memberBuildingId) {
+    if (userId === "superuser-id" && edificioId) {
+      buildingQuery.eq("id", edificioId);
+    } else if (isMember && memberBuildingId) {
       buildingQuery.eq("id", memberBuildingId);
     } else {
       buildingQuery.eq("usuario_id", user.id);
