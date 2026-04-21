@@ -191,21 +191,21 @@ export async function GET(request: Request) {
     const today = new Date();
     const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // Get building units for averaging - BE SMART: count unique units in alicuotas or active receipts
-    const { data: building } = await supabase
-      .from("edificios")
-      .select("unidades")
-      .eq("id", edificioId)
-      .single();
-    
+    // DETERMINAR NÚMERO DE UNIDADES (APARTAMENTOS) REALES
+    // 1. Prioridad: Tabla de alícuotas (conteo físico de aptos registrados)
     const alicuotasUnits = alicuotas?.length || 0;
-    const uniqueReceiptUnits = new Set((recibos || []).map(r => r.unidad)).size;
     
-    // Sane units count: prioritize alicuotas, then building field if it's not huge, then unique units
-    let realUnitsCount = alicuotasUnits > 0 ? alicuotasUnits : 
-                        (building?.unidades && building.unidades < 300 ? building.unidades : 
-                        (uniqueReceiptUnits > 0 && uniqueReceiptUnits < 300 ? uniqueReceiptUnits : 25));
+    // 2. Segunda opción: Campo 'unidades' del edificio (si es un número lógico < 300)
+    const buildingUnits = (building?.unidades && building.unidades > 0 && building.unidades < 300) ? building.unidades : 0;
     
+    // 3. Tercera opción: Unidades únicas en recibos actuales (evitando duplicados históricos)
+    // Para esto, solo contamos unidades que tienen recibos en la lista cargada
+    const currentUnitsWithDebt = new Set((recibos || []).map(r => r.unidad)).size;
+
+    let realUnitsCount = alicuotasUnits > 0 ? alicuotasUnits : (buildingUnits > 0 ? buildingUnits : (currentUnitsWithDebt > 0 ? currentUnitsWithDebt : 25));
+    
+    // Salvaguarda final: Si sigue siendo un número loco (>300), forzamos a 25 o al conteo de deudores
+    if (realUnitsCount > 300) realUnitsCount = currentUnitsWithDebt > 0 ? currentUnitsWithDebt : 25;
     if (realUnitsCount <= 0) realUnitsCount = 1;
 
     // Daily cash flow (pagos vs egresos) in USD
