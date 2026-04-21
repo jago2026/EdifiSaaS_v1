@@ -22,14 +22,13 @@ async function checkAdmin() {
   return user?.email === "correojago@gmail.com";
 }
 
-// Función para obtener token de Google Drive sin librerías pesadas
 async function getGoogleToken(serviceAccount: any) {
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
   const payload = {
     iss: serviceAccount.client_email,
     sub: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/drive.file",
+    scope: "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly",
     aud: serviceAccount.token_uri,
     exp: now + 3600,
     iat: now,
@@ -56,19 +55,32 @@ async function getGoogleToken(serviceAccount: any) {
   return data.access_token;
 }
 
-async function uploadToDrive(filename: string, content: string) {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "No configurado";
-  
+async function listBackupsFromDrive() {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return [];
   try {
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const token = await getGoogleToken(serviceAccount);
-    
-    const metadata = {
-      name: filename,
-      parents: [DRIVE_FOLDER_ID],
-      mimeType: "application/json",
-    };
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&orderBy=createdTime+desc&fields=files(id,name,createdTime)`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    const data = await res.json();
+    return (data.files || []).map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      date: new Date(f.createdTime).toLocaleDateString('es-VE')
+    }));
+  } catch (e) {
+    console.error("Error listing Drive files:", e);
+    return [];
+  }
+}
 
+async function uploadToDrive(filename: string, content: string) {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "No configurado";
+  try {
+    const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+    const token = await getGoogleToken(serviceAccount);
+    const metadata = { name: filename, parents: [DRIVE_FOLDER_ID], mimeType: "application/json" };
     const form = new FormData();
     form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
     form.append("file", new Blob([content], { type: "application/json" }));
@@ -78,11 +90,9 @@ async function uploadToDrive(filename: string, content: string) {
       headers: { Authorization: `Bearer ${token}` },
       body: form,
     });
-
     const data = await res.json();
     return data.id ? "✅ Sincronizado con Drive" : "❌ Error en subida";
   } catch (e: any) {
-    console.error("Drive Upload Error:", e);
     return "❌ Error: " + e.message;
   }
 }
@@ -90,22 +100,32 @@ async function uploadToDrive(filename: string, content: string) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const action = searchParams.get("action");
     const secret = searchParams.get("secret");
     if (secret !== "cron_secret_key_123") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const { data: maintData, error } = await supabase.rpc('execute_maintenance');
-    const stats = maintData?.records_stats || {};
-    
-    // Enviar email detallado
-    await transporter.sendMail({
-      from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
-      to: "correojago@gmail.com",
-      subject: `🔧 [AUTO] Mantenimiento: ${error ? 'Error' : 'Exitoso'}`,
-      html: `<p>Mantenimiento automático completado. Edificios: ${stats.edificios || 0}.</p>`
-    });
 
-    return NextResponse.json({ success: true });
+    if (action === "maintenance") {
+      const { data: maintData } = await supabase.rpc('execute_maintenance');
+      const stats = maintData?.records_stats || {};
+      await transporter.sendMail({
+        from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
+        to: "correojago@gmail.com",
+        subject: `🔧 [AUTO] Mantenimiento: Sistema Optimizado`,
+        html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #eee;border-radius:10px;">
+                <h2 style="color:#1e293b;">Mantenimiento Automático</h2>
+                <p>Estadísticas: <b>${stats.edificios || 0}</b> edificios, <b>${stats.movimientos || 0}</b> movimientos.</p>
+               </div>`
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "list_backups") {
+      const backups = await listBackupsFromDrive();
+      return NextResponse.json({ backups });
+    }
+    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -114,60 +134,38 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     if (!await checkAdmin()) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
     const { action } = await request.json();
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     if (action === "maintenance") {
       const { data: maintData, error } = await supabase.rpc('execute_maintenance');
       const stats = maintData?.records_stats || {};
-      const isPlaceholder = supabaseUrl.includes("placeholder");
-      
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: `🔧 Reporte de Mantenimiento: ${error ? '⚠️ Error' : '✅ Sistema Optimizado'}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
-            <div style="background: #0f172a; color: white; padding: 32px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Mantenimiento de Base de Datos</h1>
-              <p style="opacity: 0.7; margin-top: 8px;">Estado: ${error ? 'FALLIDO' : 'EXITOSO'}</p>
-            </div>
-            <div style="padding: 32px; color: #334155;">
-              <h3 style="font-size: 14px; text-transform: uppercase; color: #64748b; margin-top: 24px;">Estadísticas de Datos:</h3>
-              <table style="width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px;">
-                <tr style="border-bottom: 1px solid #e2e8f0;"><td>🏢 Edificios en DB:</td><td style="text-align: right; font-weight: bold;">${stats.edificios ?? 'N/A'}</td></tr>
-                <tr style="border-bottom: 1px solid #e2e8f0;"><td>📑 Recibos en DB:</td><td style="text-align: right; font-weight: bold;">${stats.recibos ?? 'N/A'}</td></tr>
-                <tr style="border-bottom: 1px solid #e2e8f0;"><td>📊 Movimientos Auditados:</td><td style="text-align: right; font-weight: bold;">${stats.movimientos ?? 'N/A'}</td></tr>
-              </table>
-              <div style="margin-top: 32px; padding: 16px; background: #f8fafc; border-radius: 8px; font-size: 10px; color: #94a3b8; font-family: monospace;">
-                DEBUG INFO: URL: ${supabaseUrl.substring(0, 25)}... | KEY: ${serviceRoleKey === anonKey ? 'ANON (Limitada)' : 'SERVICE (Full)'}
-              </div>
-            </div>
-          </div>`
+        subject: `🔧 Reporte de Mantenimiento: ${error ? '⚠️ Error' : '✅ Exitoso'}`,
+        html: `<div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
+                <div style="background:#0f172a;color:white;padding:32px;text-align:center;"><h1>Mantenimiento DB</h1></div>
+                <div style="padding:32px;">
+                  <h3>Estadísticas:</h3>
+                  <p>🏢 Edificios: ${stats.edificios ?? 'N/A'}<br>📑 Recibos: ${stats.recibos ?? 'N/A'}<br>📊 Movimientos: ${stats.movimientos ?? 'N/A'}</p>
+                </div>
+              </div>`
       });
-
       return NextResponse.json({ success: true });
     }
 
     if (action === "backup") {
       const tables = ["edificios", "usuarios", "administradoras", "recibos", "egresos", "balances", "gastos", "alicuotas", "junta"];
       const backupData: any = { version: "1.1", timestamp: new Date().toISOString(), tables: {} };
-
       for (const table of tables) {
         const { data } = await supabase.from(table).select("*");
         backupData.tables[table] = data;
       }
-
       const filename = `backup_edifisaas_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-      const fileContent = JSON.stringify(backupData, null, 2);
-
-      // SUBIR A DRIVE
-      const driveStatus = await uploadToDrive(filename, fileContent);
-
+      const driveStatus = await uploadToDrive(filename, JSON.stringify(backupData, null, 2));
       return NextResponse.json({ success: true, data: backupData, filename, driveStatus });
     }
-
     return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
