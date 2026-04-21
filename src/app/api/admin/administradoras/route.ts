@@ -25,10 +25,7 @@ async function checkAdmin() {
 
 export async function GET() {
   try {
-    if (!await checkAdmin()) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    }
-
+    // Permitir GET público para el formulario de registro y dashboard
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data, error } = await supabase
       .from("administradoras")
