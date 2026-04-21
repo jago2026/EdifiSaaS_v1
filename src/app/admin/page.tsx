@@ -172,6 +172,33 @@ export default function AdminPage() {
     }
   };
 
+  const autoFillAdminUrls = (loginUrl: string) => {
+    if (!editingAdmin || editingAdmin.id) return; // Solo autocompletar si es nueva
+    if (!loginUrl.includes('http')) return;
+
+    try {
+      // Extraer la base: ej "https://www.datahouseca.com/condlin.php" o "https://www.datahouseca.com/"
+      let baseUrl = loginUrl.split('?')[0];
+      if (!baseUrl.endsWith('.php')) {
+        // Si pusieron solo el dominio, asumimos condlin.php que es el estándar
+        baseUrl = baseUrl.endsWith('/') ? baseUrl + 'condlin.php' : baseUrl + '/condlin.php';
+      }
+
+      setEditingAdmin({
+        ...editingAdmin,
+        url_login: loginUrl,
+        url_recibos: `${baseUrl}?r=5`,
+        url_recibo_mes: `${baseUrl}?r=4`,
+        url_egresos: `${baseUrl}?r=21`,
+        url_gastos: `${baseUrl}?r=3`,
+        url_balance: `${baseUrl}?r=2`,
+        url_alicuotas: `${baseUrl}?r=23`,
+      });
+    } catch (e) {
+      console.error("Error autofilling URLs", e);
+    }
+  };
+
   const handleDeleteAdmin = async (id: string) => {
     if (!window.confirm("¿Seguro que deseas eliminar esta administradora?")) return;
     
@@ -618,8 +645,18 @@ export default function AdminPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">URL Login (r=1)</label>
+                    <input 
+                      type="text"
+                      value={editingAdmin.url_login || ''}
+                      onChange={(e) => setEditingAdmin({...editingAdmin, url_login: e.target.value})}
+                      onBlur={(e) => autoFillAdminUrls(e.target.value)}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-white font-bold text-xs focus:outline-none focus:border-indigo-500 shadow-inner"
+                      placeholder="https://.../condlin.php?r=1"
+                    />
+                  </div>
                   {[
-                    { key: 'url_login', label: 'URL Login (r=1)', placeholder: 'https://.../condlin.php?r=1' },
                     { key: 'url_recibos', label: 'URL Recibos (r=5)', placeholder: '.../condlin.php?r=5' },
                     { key: 'url_recibo_mes', label: 'URL Recibo del Mes (r=4)', placeholder: '.../condlin.php?r=4' },
                     { key: 'url_egresos', label: 'URL Egresos (r=21)', placeholder: '.../condlin.php?r=21' },
