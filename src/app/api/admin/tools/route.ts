@@ -3,8 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { transporter } from "@/lib/mail";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
+const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
 
 async function checkAdmin() {
   const cookieStore = await cookies();
@@ -12,7 +13,7 @@ async function checkAdmin() {
   if (!userId) return false;
   if (userId === "superuser-id") return true;
 
-  const supabase = createClient(supabaseUrl, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "");
+  const supabase = createClient(supabaseUrl, anonKey);
   const { data: user } = await supabase.from("usuarios").select("email").eq("id", userId).single();
   return user?.email === "correojago@gmail.com";
 }
