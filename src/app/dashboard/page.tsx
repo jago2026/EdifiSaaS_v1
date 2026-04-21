@@ -3268,7 +3268,7 @@ export default function DashboardPage() {
             </div>
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Efectividad de Recaudación % (Cobranza Mes / Recibos Mes)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Efectividad de Recaudaci&oacute;n % (Cobranza / Facturaci&oacute;n Mes)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -3288,7 +3288,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Índice de Morosidad % (Deuda Total / 2x Recibos Mes)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">&Iacute;ndice de Morosidad Patrimonial % (Deuda / Patrimonio Total)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -3308,7 +3308,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobertura de Gastos % (Cobranza / Gastos)</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobertura de Gastos % (Cobranza / Egresos Facturados)</h2>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
