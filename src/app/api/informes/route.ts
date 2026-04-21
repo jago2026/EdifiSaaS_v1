@@ -37,14 +37,32 @@ export async function GET(request: Request) {
     }
 
     if (action === "gastos_recurrentes") {
-      const { data, error } = await supabase
+      const { data: recurrentes, error } = await supabase
         .from("gastos_recurrentes")
         .select("*")
         .eq("edificio_id", edificioId)
         .order("descripcion", { ascending: true });
 
       if (error) throw error;
-      return NextResponse.json({ data: data || [] });
+
+      // Calcular frecuencia desde recibos_detalle
+      const { data: freqData } = await supabase
+        .from("recibos_detalle")
+        .select("codigo")
+        .eq("edificio_id", edificioId);
+      
+      const freqMap = new Map();
+      (freqData || []).forEach((f: any) => {
+        const count = freqMap.get(f.codigo) || 0;
+        freqMap.set(f.codigo, count + 1);
+      });
+
+      const result = (recurrentes || []).map((r: any) => ({
+        ...r,
+        frecuencia: freqMap.get(r.codigo) || 0
+      }));
+
+      return NextResponse.json({ data: result });
     }
 
     if (action === "evolucion_recurrentes") {
@@ -70,18 +88,50 @@ export async function GET(request: Request) {
 
       if (error) throw error;
 
+      // Obtener tasas de cambio históricas desde control_diario para cada mes
+      const { data: tasas } = await supabase
+        .from("control_diario")
+        .select("fecha, tasa_cambio")
+        .eq("edificio_id", edificioId)
+        .order("fecha", { ascending: true });
+
+      // Mapear el último día de cada mes a su tasa
+      const tasaMesMap = new Map();
+      (tasas || []).forEach((t: any) => {
+        const mesStr = t.fecha.substring(0, 7); // YYYY-MM
+        tasaMesMap.set(mesStr, Number(t.tasa_cambio));
+      });
+
       // Agrupar por mes y categoría
       const mapRecurrente = new Map();
       recurrentes.forEach((r: any) => mapRecurrente.set(r.codigo, r.categoria));
 
       const evolucion: any = {};
       (detalles || []).forEach((d: any) => {
-        if (!evolucion[d.mes]) evolucion[d.mes] = { mes: d.mes, total: 0, categorias: {} };
+        if (!evolucion[d.mes]) {
+          evolucion[d.mes] = { 
+            mes: d.mes, 
+            total: 0, 
+            total_usd: 0, 
+            categorias: {}, 
+            categorias_usd: {},
+            tasa: tasaMesMap.get(d.mes) || 0
+          };
+        }
         const cat = mapRecurrente.get(d.codigo) || 'otros';
-        if (!evolucion[d.mes].categorias[cat]) evolucion[d.mes].categorias[cat] = 0;
+        if (!evolucion[d.mes].categorias[cat]) {
+          evolucion[d.mes].categorias[cat] = 0;
+          evolucion[d.mes].categorias_usd[cat] = 0;
+        }
         
-        evolucion[d.mes].total += Number(d.monto);
-        evolucion[d.mes].categorias[cat] += Number(d.monto);
+        const monto = Number(d.monto);
+        const tasa = evolucion[d.mes].tasa;
+        const montoUsd = tasa > 0 ? monto / tasa : 0;
+
+        evolucion[d.mes].total += monto;
+        evolucion[d.mes].total_usd += montoUsd;
+        evolucion[d.mes].categorias[cat] += monto;
+        evolucion[d.mes].categorias_usd[cat] += montoUsd;
       });
 
       return NextResponse.json({ data: Object.values(evolucion) });

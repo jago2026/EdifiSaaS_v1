@@ -405,6 +405,7 @@ export default function DashboardPage() {
   const [gastosRecurrentes, setGastosRecurrentes] = useState<any[]>([]);
   const [loadingGastosRecurrentes, setLoadingGastosRecurrentes] = useState(false);
   const [evolucionRecurrentes, setEvolucionRecurrentes] = useState<any[]>([]);
+  const [currencyRecurrentes, setCurrencyRecurrentes] = useState<"BS" | "USD">("BS");
 
 
   const loadInforme = async () => {
@@ -3663,12 +3664,24 @@ export default function DashboardPage() {
               <div className="grid lg:grid-cols-3 gap-6">
                 {/* Lista de Gestión */}
                 <div className="lg:col-span-1 space-y-4">
-                  <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-b pb-2">Conceptos Detectados</h3>
+                  <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider border-b pb-2 flex justify-between items-center">
+                    <span>Conceptos Detectados</span>
+                    <span className="text-[10px] text-gray-400 normal-case font-normal">Ord. por frecuencia</span>
+                  </h3>
                   <div className="overflow-y-auto max-h-[500px] pr-2 space-y-2">
-                    {gastosRecurrentes.map((g: any, i: number) => (
+                    {[...gastosRecurrentes]
+                      .sort((a, b) => (b.frecuencia || 0) - (a.frecuencia || 0))
+                      .map((g: any, i: number) => (
                       <div key={i} className={`p-3 rounded-lg border transition-all ${g.activo ? 'bg-white border-blue-100 shadow-sm' : 'bg-gray-50 border-gray-200 opacity-60'}`}>
                         <div className="flex justify-between items-start mb-2">
-                          <span className="text-[10px] font-mono font-black text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{g.codigo}</span>
+                          <div className="flex gap-1.5 items-center">
+                            <span className="text-[10px] font-mono font-black text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{g.codigo}</span>
+                            {g.frecuencia > 0 && (
+                              <span className="text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full" title="Frecuencia histórica">
+                                {g.frecuencia} mes{g.frecuencia > 1 ? 'es' : ''}
+                              </span>
+                            )}
+                          </div>
                           <input 
                             type="checkbox" 
                             checked={g.activo} 
@@ -3685,6 +3698,7 @@ export default function DashboardPage() {
                           <option value="servicios">Servicios P&uacute;blicos</option>
                           <option value="seguridad">Vigilancia y Seguridad</option>
                           <option value="mantenimiento">Mantenimientos Contratados</option>
+                          <option value="recurrentes">Gastos Recurrentes Mensuales</option>
                           <option value="otros">Otros Gastos</option>
                         </select>
                       </div>
@@ -3697,7 +3711,23 @@ export default function DashboardPage() {
                 <div className="lg:col-span-2 space-y-6">
                   <div className="flex justify-between items-center border-b pb-2">
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">Evoluci&oacute;n de Gastos Recurrentes</h3>
-                    <button onClick={loadEvolucionRecurrentes} className="text-xs text-blue-600 font-bold hover:underline">Refrescar Gr&aacute;ficos</button>
+                    <div className="flex items-center gap-4">
+                      <div className="flex bg-gray-100 p-0.5 rounded-lg border border-gray-200">
+                        <button 
+                          onClick={() => setCurrencyRecurrentes("BS")}
+                          className={`px-3 py-1 text-[10px] font-black rounded-md transition-all ${currencyRecurrentes === "BS" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                          BS.
+                        </button>
+                        <button 
+                          onClick={() => setCurrencyRecurrentes("USD")}
+                          className={`px-3 py-1 text-[10px] font-black rounded-md transition-all ${currencyRecurrentes === "USD" ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                          USD
+                        </button>
+                      </div>
+                      <button onClick={loadEvolucionRecurrentes} className="text-xs text-blue-600 font-bold hover:underline">Refrescar Gr&aacute;ficos</button>
+                    </div>
                   </div>
                   
                   {evolucionRecurrentes.length === 0 ? (
@@ -3708,31 +3738,42 @@ export default function DashboardPage() {
                   ) : (
                     <div className="space-y-8">
                       <div className="bg-gray-50 p-4 rounded-xl">
-                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4 text-center">Inversi&oacute;n Mensual por Categor&iacute;a (Bs.)</h4>
+                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4 text-center">Inversi&oacute;n Mensual por Categor&iacute;a ({currencyRecurrentes === "BS" ? "Bs." : "USD"})</h4>
                         <ResponsiveContainer width="100%" height={300}>
                           <BarChart data={evolucionRecurrentes} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="mes" tick={{fontSize: 10}} />
                             <YAxis tick={{fontSize: 10}} />
-                            <Tooltip formatter={(value: any) => `Bs. ${formatBs(value as number)}`} />
+                            <Tooltip formatter={(value: any) => currencyRecurrentes === "BS" ? `Bs. ${formatBs(value as number)}` : `$ ${formatUsd(value as number)}`} />
                             <Legend wrapperStyle={{fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase'}} />
-                            <Bar dataKey="categorias.servicios" name="Servicios" stackId="a" fill="#3b82f6" />
-                            <Bar dataKey="categorias.seguridad" name="Seguridad" stackId="a" fill="#10b981" />
-                            <Bar dataKey="categorias.mantenimiento" name="Mantenimiento" stackId="a" fill="#f59e0b" />
-                            <Bar dataKey="categorias.otros" name="Otros" stackId="a" fill="#94a3b8" />
+                            <Bar dataKey={currencyRecurrentes === "BS" ? "categorias.servicios" : "categorias_usd.servicios"} name="Servicios" stackId="a" fill="#3b82f6" />
+                            <Bar dataKey={currencyRecurrentes === "BS" ? "categorias.seguridad" : "categorias_usd.seguridad"} name="Seguridad" stackId="a" fill="#10b981" />
+                            <Bar dataKey={currencyRecurrentes === "BS" ? "categorias.mantenimiento" : "categorias_usd.mantenimiento"} name="Mantenimiento" stackId="a" fill="#f59e0b" />
+                            <Bar dataKey={currencyRecurrentes === "BS" ? "categorias.recurrentes" : "categorias_usd.recurrentes"} name="Recurrentes" stackId="a" fill="#8b5cf6" />
+                            <Bar dataKey={currencyRecurrentes === "BS" ? "categorias.otros" : "categorias_usd.otros"} name="Otros" stackId="a" fill="#94a3b8" />
                           </BarChart>
                         </ResponsiveContainer>
+                        {currencyRecurrentes === "USD" && (
+                          <p className="text-[9px] text-gray-400 mt-2 italic text-center">* Conversión calculada según tasa histórica mensual registrada en sistema.</p>
+                        )}
                       </div>
 
                       <div className="bg-gray-50 p-4 rounded-xl">
-                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4 text-center">Tendencia de Gasto Recurrente Total (Bs.)</h4>
+                        <h4 className="text-xs font-black text-gray-500 uppercase mb-4 text-center">Tendencia de Gasto Recurrente Total ({currencyRecurrentes === "BS" ? "Bs." : "USD"})</h4>
                         <ResponsiveContainer width="100%" height={200}>
                           <LineChart data={evolucionRecurrentes} margin={{ top: 5, right: 20, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                             <XAxis dataKey="mes" tick={{fontSize: 10}} />
                             <YAxis tick={{fontSize: 10}} />
-                            <Tooltip formatter={(value: any) => `Bs. ${formatBs(value as number)}`} />
-                            <Line type="monotone" dataKey="total" stroke="#ef4444" strokeWidth={3} name="Total Recurrente" dot={{ r: 4 }} />
+                            <Tooltip formatter={(value: any) => currencyRecurrentes === "BS" ? `Bs. ${formatBs(value as number)}` : `$ ${formatUsd(value as number)}`} />
+                            <Line 
+                              type="monotone" 
+                              dataKey={currencyRecurrentes === "BS" ? "total" : "total_usd"} 
+                              stroke={currencyRecurrentes === "BS" ? "#ef4444" : "#059669"} 
+                              strokeWidth={3} 
+                              name={`Total (${currencyRecurrentes})`} 
+                              dot={{ r: 4 }} 
+                            />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
