@@ -9,7 +9,18 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 async function checkAdmin() {
   const cookieStore = await cookies();
   const userId = cookieStore.get("user_id")?.value;
-  return userId === "superuser-id";
+  
+  if (!userId) return false;
+  if (userId === "superuser-id") return true;
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  const { data: user } = await supabase
+    .from("usuarios")
+    .select("email")
+    .eq("id", userId)
+    .single();
+
+  return user?.email === "correojago@gmail.com";
 }
 
 export async function GET() {
