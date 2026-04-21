@@ -4042,6 +4042,27 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {activeTab === "pre-recibo" && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom duration-500">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Borrador de Recibo Estimado</h2>
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Selecciona los conceptos que integrarán el próximo recibo</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={loadPreReciboData} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-all uppercase tracking-widest">
+                    {loadingPreRecibo ? "Cargando..." : "🔄 Refrescar Items"}
+                  </button>
+                  <button 
+                    onClick={sendPreReciboEmail} 
+                    disabled={sendingEmail || selectedPreReciboIds.size === 0}
+                    className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 uppercase tracking-widest disabled:opacity-50"
+                  >
+                    {sendingEmail ? "Enviando..." : "📧 Enviar Borrador"}
+                  </button>
+                </div>
               </div>
 
               {emailMessage && (
