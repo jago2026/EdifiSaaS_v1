@@ -406,6 +406,37 @@ export default function DashboardPage() {
   const [loadingGastosRecurrentes, setLoadingGastosRecurrentes] = useState(false);
   const [evolucionRecurrentes, setEvolucionRecurrentes] = useState<any[]>([]);
   const [currencyRecurrentes, setCurrencyRecurrentes] = useState<"BS" | "USD">("BS");
+  const [newRecurrente, setNewRecurrente] = useState({ codigo: "", descripcion: "" });
+  const [addingRecurrente, setAddingRecurrente] = useState(false);
+
+  const addManualRecurrente = async () => {
+    if (!building?.id || !newRecurrente.codigo || !newRecurrente.descripcion) return;
+    setAddingRecurrente(true);
+    try {
+      const res = await fetch("/api/informes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "update_recurrentes",
+          edificioId: building.id,
+          data: { 
+            codigo: newRecurrente.codigo, 
+            descripcion: newRecurrente.descripcion, 
+            activo: true, 
+            categoria: "otros" 
+          }
+        })
+      });
+      if (res.ok) {
+        setNewRecurrente({ codigo: "", descripcion: "" });
+        loadGastosRecurrentes();
+      }
+    } catch (error) {
+      console.error("Error adding manual recurrente:", error);
+    } finally {
+      setAddingRecurrente(false);
+    }
+  };
 
 
   const loadInforme = async () => {
@@ -3668,6 +3699,35 @@ export default function DashboardPage() {
                     <span>Conceptos Detectados</span>
                     <span className="text-[10px] text-gray-400 normal-case font-normal">Ord. por frecuencia</span>
                   </h3>
+                  
+                  {/* Formulario Manual */}
+                  <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100 mb-4">
+                    <p className="text-[10px] font-black text-blue-800 uppercase mb-2">Agregar Gasto Manual</p>
+                    <div className="flex gap-2 mb-2">
+                      <input 
+                        type="text" 
+                        placeholder="Código" 
+                        value={newRecurrente.codigo}
+                        onChange={(e) => setNewRecurrente({...newRecurrente, codigo: e.target.value})}
+                        className="w-1/3 px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                      <input 
+                        type="text" 
+                        placeholder="Descripción del Gasto" 
+                        value={newRecurrente.descripcion}
+                        onChange={(e) => setNewRecurrente({...newRecurrente, descripcion: e.target.value})}
+                        className="w-2/3 px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                    </div>
+                    <button 
+                      onClick={addManualRecurrente}
+                      disabled={addingRecurrente || !newRecurrente.codigo || !newRecurrente.descripcion}
+                      className="w-full py-1.5 bg-blue-600 text-white text-xs font-bold rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {addingRecurrente ? "Agregando..." : "Registrar Concepto"}
+                    </button>
+                  </div>
+
                   <div className="overflow-y-auto max-h-[500px] pr-2 space-y-2">
                     {[...gastosRecurrentes]
                       .sort((a, b) => (b.frecuencia || 0) - (a.frecuencia || 0))
