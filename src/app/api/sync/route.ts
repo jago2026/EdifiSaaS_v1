@@ -104,7 +104,8 @@ function parseReciboDetalle(html: string): any[] {
   for (let i = 0; i < allTables.length; i++) {
     const t = allTables[i];
     const upperT = t.toUpperCase();
-    if (upperT.includes("TOTAL RECIBO") || (upperT.includes("CONCEPTO") && upperT.includes("MONTO"))) {
+    if (upperT.includes("TOTAL RECIBO") || 
+       (upperT.includes("CONCEPTO") && (upperT.includes("MONTO") || upperT.includes("CODIGO") || upperT.includes("C&OACUTE;DIGO")))) {
       console.log(`[parseReciboDetalle] Table ${i} matches keywords!`);
       tableContent = t;
       break;
@@ -129,7 +130,11 @@ function parseReciboDetalle(html: string): any[] {
     const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
 
     if (!code || code === "&nbsp;" || code.trim() === "") continue;
-    if (!code.match(/^\d+$/)) continue;
+    // Relaxed validation: allow alphanumeric codes
+    if (!code.match(/^[A-Za-z0-9\-\.]+$/)) {
+      console.log(`[parseReciboDetalle] Skipping invalid code format: ${code}`);
+      continue;
+    }
 
     results.push({
       codigo: code,
@@ -271,7 +276,8 @@ function parseGastosTable(html: string): any[] {
   for (let i = 0; i < allTables.length; i++) {
     const t = allTables[i];
     const upperT = t.toUpperCase();
-    if (upperT.includes("TOTAL GASTOS COMUNES") || (upperT.includes("CONCEPTO") && upperT.includes("C&OACUTE;DIGO"))) {
+    if (upperT.includes("TOTAL GASTOS COMUNES") || 
+       (upperT.includes("CONCEPTO") && (upperT.includes("CODIGO") || upperT.includes("C&OACUTE;DIGO")))) {
       console.log(`[parseGastosTable] Table ${i} matches keywords!`);
       tableContent = t;
       break;
@@ -300,7 +306,8 @@ function parseGastosTable(html: string): any[] {
       continue;
     }
     
-    if (code.match(/^\d+$/)) {
+    // Relaxed validation: allow alphanumeric codes (e.g., S01, G-1)
+    if (code && code.trim() !== "" && code !== "&nbsp;" && code.match(/^[A-Za-z0-9\-\.]+$/)) {
       const m = parseMonto(montoCell);
       if (!desc.includes("TOTAL")) {
         results.push({ codigo: code, descripcion: desc, monto: m });
