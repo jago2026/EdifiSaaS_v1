@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { 
   Building, Users, BarChart3, Settings, LogOut, Trash2, Edit, 
-  RefreshCw, ChevronDown, ChevronUp, Plus, Save, X, Eye 
+  RefreshCw, ChevronDown, ChevronUp, Plus, Save, X, Eye,
+  Search, ShieldCheck, CreditCard, LayoutDashboard, Database,
+  AlertTriangle, CheckCircle2, Clock
 } from 'lucide-react';
 
 interface Edificio {
@@ -47,62 +49,52 @@ const GEAR_COLORS: Record<string, string> = {
   'Inactivo':   'text-blue-400 hover:bg-blue-500/20',
 };
 
-const GEAR_TITLES: Record<string, string> = {
-  'Prueba':     'Cambiar a Activo',
-  'Activo':     'Cambiar a Suspendido',
-  'Suspendido': 'Volver a Prueba',
-  'Inactivo':   'Reactivar como Prueba',
-};
+// Configuración Supabase
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder"
-  );
-}
+type AdminSection = 'dashboard' | 'edificios' | 'pagos' | 'auditoria';
 
 export default function AdminPage() {
   const router = useRouter();
+  const [activeSection, setActiveSection] = useState<AdminSection>('edificios');
   const [edificios, setEdificios] = useState<Edificio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingBuilding, setEditingBuilding] = useState<Edificio | null>(null);
   const [actionMsg, setActionMsg] = useState('');
   const [stats, setStats] = useState({ 
-    total: 0, 
-    activos: 0, 
-    prueba: 0, 
-    suspendidos: 0,
-    inactivos: 0 
+    total: 0, activos: 0, prueba: 0, suspendidos: 0, inactivos: 0 
   });
 
   const loadEdificios = async () => {
     setLoading(true);
-    const supabase = getSupabase();
-    
-    const { data, error } = await supabase
-      .from('edificios')
-      .select('*')
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('edificios')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error("Error loading edificios:", error);
+      if (error) throw error;
+
+      const blds = (data || []) as Edificio[];
+      setEdificios(blds);
+      
+      setStats({
+        total: blds.length,
+        activos: blds.filter(b => b.status === 'Activo').length,
+        prueba: blds.filter(b => b.status === 'Prueba' || !b.status).length,
+        suspendidos: blds.filter(b => b.status === 'Suspendido').length,
+        inactivos: blds.filter(b => b.status === 'Inactivo').length,
+      });
+    } catch (err) {
+      console.error("Error cargando datos:", err);
+      setActionMsg("❌ Error de conexión con la base de datos");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const blds = (data || []) as Edificio[];
-    setEdificios(blds);
-    
-    setStats({
-      total: blds.length,
-      activos: blds.filter(b => b.status === 'Activo').length,
-      prueba: blds.filter(b => b.status === 'Prueba' || !b.status).length,
-      suspendidos: blds.filter(b => b.status === 'Suspendido').length,
-      inactivos: blds.filter(b => b.status === 'Inactivo').length,
-    });
-    
-    setLoading(false);
   };
 
   useEffect(() => { 
@@ -110,7 +102,6 @@ export default function AdminPage() {
   }, []);
 
   const handleToggleStatus = async (building: Edificio) => {
-    const supabase = getSupabase();
     const currentStatus = building.status || 'Prueba';
     const newStatus = STATUS_CYCLE[currentStatus] ?? 'Activo';
     
@@ -127,26 +118,18 @@ export default function AdminPage() {
   };
 
   const handleDeactivate = async (building: Edificio) => {
-    const confirmed = window.confirm(
-      `¿Desactivar el edificio "${building.nombre}"?\n\n` +
-      `Pasará a estado INACTIVO.\n` +
-      `Los usuarios ya no podrán sincronizar datos.\n` +
-      `El historial de datos se conserva intacto.`
-    );
+    const confirmed = window.confirm(`¿Desactivar "${building.nombre}"?`);
     if (!confirmed) return;
     
-    const supabase = getSupabase();
     const { error } = await supabase
       .from('edificios')
       .update({ status: 'Inactivo' })
       .eq('id', building.id);
       
     if (!error) {
-      setActionMsg(`🚫 "${building.nombre}" marcado como Inactivo`);
+      setActionMsg(`🚫 "${building.nombre}" Inactivo`);
       setTimeout(() => setActionMsg(''), 3000);
       loadEdificios();
-    } else {
-      alert('Error: ' + error.message);
     }
   };
 
@@ -154,7 +137,6 @@ export default function AdminPage() {
     e.preventDefault();
     if (!editingBuilding) return;
     
-    const supabase = getSupabase();
     const { error } = await supabase
       .from('edificios')
       .update({
@@ -167,288 +149,370 @@ export default function AdminPage() {
       .eq('id', editingBuilding.id);
       
     if (!error) {
-      setActionMsg(`✅ Datos de "${editingBuilding.nombre}" actualizados`);
+      setActionMsg(`✅ Datos actualizados`);
       setEditingBuilding(null);
       setTimeout(() => setActionMsg(''), 3000);
       loadEdificios();
-    } else {
-      alert('Error al actualizar: ' + error.message);
     }
   };
 
+  const filteredEdificios = edificios.filter(e => 
+    e.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    e.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-white">
-          <RefreshCw className="w-5 h-5 animate-spin" />
-          Cargando...
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin" />
+          <p className="text-indigo-200 font-bold uppercase tracking-widest text-xs">Accediendo al Core del Sistema...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 font-sans tracking-tight">
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4 shadow-xl">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 rotate-3">
-              <Building className="w-7 h-7 text-white -rotate-3" />
+    <div className="min-h-screen bg-[#0f172a] flex overflow-hidden font-sans">
+      {/* SIDEBAR - Similar a Agua */}
+      <aside className="w-64 bg-[#1e293b] border-r border-slate-700 flex flex-col z-50">
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-black text-white uppercase tracking-tighter">Panel Master SaaS</h1>
-              <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">EdifiSaaS v1.0 — Administrador Principal</p>
+              <h2 className="text-white font-black text-lg tracking-tighter uppercase">Admin Master</h2>
+              <p className="text-[10px] text-indigo-400 font-bold tracking-widest">SaaS CONTROL</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={loadEdificios} className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded-xl transition-all" title="Recargar">
-              <RefreshCw className="w-5 h-5" />
-            </button>
-            <button onClick={() => router.push('/admin/login')} className="flex items-center gap-2 bg-slate-700 text-slate-100 hover:bg-red-600 hover:text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg">
-              <LogOut className="w-4 h-4" />
-              Salir
-            </button>
+
+          <nav className="space-y-1">
+            {[
+              { id: 'dashboard', label: 'Dashboard Global', icon: LayoutDashboard },
+              { id: 'edificios',  label: 'Gestionar Edificios', icon: Building },
+              { id: 'pagos',      label: 'Cobranza y Pagos', icon: CreditCard },
+              { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setActiveSection(item.id as AdminSection)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${
+                  activeSection === item.id 
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' 
+                  : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-200'
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="mt-auto p-6 border-t border-slate-700">
+          <button 
+            onClick={() => router.push('/admin/login')}
+            className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-400 transition-colors font-bold text-sm"
+          >
+            <LogOut className="w-4 h-4" />
+            Cerrar Sesión
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT */}
+      <main className="flex-1 overflow-y-auto relative">
+        {/* HEADER */}
+        <header className="sticky top-0 z-40 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 px-8 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4 bg-slate-800/50 border border-slate-700 rounded-2xl px-4 py-2 w-96">
+            <Search className="w-4 h-4 text-slate-500" />
+            <input 
+              type="text" 
+              placeholder="Buscar edificio por nombre o ID..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent border-none text-white text-sm focus:ring-0 w-full"
+            />
           </div>
-        </div>
-      </header>
+          <div className="flex items-center gap-3">
+             <button onClick={loadEdificios} className="p-2.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all border border-slate-800">
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+             </button>
+             <div className="flex items-center gap-3 bg-slate-800 rounded-full pl-2 pr-4 py-1.5 border border-slate-700">
+                <div className="w-7 h-7 bg-indigo-500 rounded-full flex items-center justify-center font-black text-xs text-white">A</div>
+                <span className="text-white text-xs font-bold uppercase tracking-widest">Admin Master</span>
+             </div>
+          </div>
+        </header>
 
-      {actionMsg && (
-        <div className="fixed top-4 right-4 z-50 bg-indigo-600 border border-indigo-500 text-white px-6 py-4 rounded-2xl shadow-2xl text-sm font-bold animate-bounce">
-          {actionMsg}
-        </div>
-      )}
+        {actionMsg && (
+          <div className="absolute top-20 right-8 z-50 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in slide-in-from-right">
+            <CheckCircle2 className="w-5 h-5" />
+            {actionMsg}
+          </div>
+        )}
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          {[
-            { label: 'Total',       value: stats.total,       bg: 'bg-blue-500/20',   icon_color: 'text-blue-500',   Icon: Building },
-            { label: 'Activos',     value: stats.activos,     bg: 'bg-green-500/20',  icon_color: 'text-green-500',  Icon: Users },
-            { label: 'En Prueba',   value: stats.prueba,      bg: 'bg-amber-500/20',  icon_color: 'text-amber-500',  Icon: BarChart3 },
-            { label: 'Suspendidos', value: stats.suspendidos, bg: 'bg-red-500/20',    icon_color: 'text-red-500',    Icon: Settings },
-            { label: 'Inactivos',   value: stats.inactivos,   bg: 'bg-slate-500/20',  icon_color: 'text-slate-400',  Icon: Trash2 },
-          ].map(({ label, value, bg, icon_color, Icon }) => (
-            <div key={label} className="bg-slate-800 rounded-2xl p-6 border border-slate-700 shadow-xl hover:border-slate-600 transition-all">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 ${bg} rounded-2xl flex items-center justify-center flex-shrink-0 shadow-inner`}>
-                  <Icon className={`w-6 h-6 ${icon_color}`} />
-                </div>
-                <div>
-                  <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">{label}</p>
-                  <p className="text-3xl font-black text-white">{value}</p>
+        <div className="p-8">
+          {/* STATS GRID */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+            {[
+              { label: 'Total',       value: stats.total,       bg: 'bg-blue-500/20',   ic: 'text-blue-500',   Icon: Building },
+              { label: 'Activos',     value: stats.activos,     bg: 'bg-green-500/20',  ic: 'text-green-500',  Icon: CheckCircle2 },
+              { label: 'En Prueba',   value: stats.prueba,      bg: 'bg-amber-500/20',  ic: 'text-amber-400',  Icon: Clock },
+              { label: 'Suspendidos', value: stats.suspendidos, bg: 'bg-red-500/20',    ic: 'text-red-500',    Icon: AlertTriangle },
+              { label: 'Inactivos',   value: stats.inactivos,   bg: 'bg-slate-500/20',  ic: 'text-slate-400',  Icon: Trash2 },
+            ].map((s) => (
+              <div key={s.label} className="bg-[#1e293b] rounded-3xl p-6 border border-slate-700/50 shadow-xl">
+                <div className="flex flex-col gap-4">
+                  <div className={`w-12 h-12 ${s.bg} rounded-2xl flex items-center justify-center shadow-inner`}>
+                    <s.Icon className={`w-6 h-6 ${s.ic}`} />
+                  </div>
+                  <div>
+                    <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">{s.label}</p>
+                    <p className="text-3xl font-black text-white">{s.value}</p>
+                  </div>
                 </div>
               </div>
+            ))}
+          </div>
+
+          {activeSection === 'edificios' && (
+            <div className="bg-[#1e293b] rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
+              <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/20">
+                <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Base de Datos de Clientes</h2>
+                <div className="flex gap-2">
+                  <span className="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                    {filteredEdificios.length} RESULTADOS
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-slate-800/50">
+                    <tr>
+                      {['Edificio', 'Sincronización', 'Tarifa/mes', 'Estado', 'Acciones']
+                        .map(h => (
+                          <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-700">{h}</th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {filteredEdificios.map((b) => {
+                      const status = b.status || 'Prueba';
+                      const isInactive = status === 'Inactivo';
+                      return (
+                        <React.Fragment key={b.id}>
+                          <tr className={`hover:bg-indigo-500/5 transition-all group ${isInactive ? 'opacity-40 grayscale' : ''}`}>
+                            <td className="px-6 py-5">
+                              <p className="text-white font-black text-base tracking-tighter group-hover:text-indigo-300 transition-colors">{b.nombre}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-slate-500 text-[9px] font-mono opacity-50 uppercase tracking-tighter">ID: {b.id.substring(0,8)}...</span>
+                                <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                                <span className="text-slate-500 text-[9px] font-bold uppercase">{b.unidades || 0} UNIDADES</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-5">
+                              {b.ultima_sincronizacion
+                                ? <div className="space-y-0.5">
+                                    <p className="text-slate-200 font-bold text-xs">{new Date(b.ultima_sincronizacion).toLocaleDateString('es-ES')}</p>
+                                    <p className="text-indigo-400 font-black text-[9px] uppercase tracking-widest">{new Date(b.ultima_sincronizacion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
+                                  </div>
+                                : <span className="text-slate-600 italic text-[10px] font-bold uppercase">Sin Actividad</span>}
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-black text-slate-100 text-lg tracking-tighter">${(b.monthly_fee || 0).toLocaleString()}</span>
+                                {b.discount_pct > 0 && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full">-{b.discount_pct}%</span>}
+                              </div>
+                            </td>
+                            <td className="px-6 py-5">
+                              <span className={`px-4 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border ${STATUS_COLORS[status] || STATUS_COLORS['Prueba']}`}>
+                                {status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)}
+                                  className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all" title="Ver Detalles">
+                                  {expandedId === b.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                </button>
+                                <button onClick={() => setEditingBuilding(b)}
+                                  className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all" title="Configurar Suscripción">
+                                  <Edit className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)}
+                                  className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all" title="Entrar como Admin">
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => handleToggleStatus(b)}
+                                  className={`p-2 rounded-xl transition-all shadow-lg ${GEAR_COLORS[status] || GEAR_COLORS['Prueba']}`}
+                                  title={GEAR_TITLES[status] || 'Cambiar estado'}>
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                                {!isInactive && (
+                                  <button onClick={() => handleDeactivate(b)}
+                                    className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all" title="Suspender Cliente">
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                          {expandedId === b.id && (
+                            <tr className="bg-[#0f172a]/50 shadow-inner">
+                              <td colSpan={5} className="px-10 py-10 border-x-4 border-indigo-600/20">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+                                  <div className="space-y-3">
+                                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2">Información del Cliente</p>
+                                    <div className="space-y-1">
+                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Fecha de Registro</p>
+                                      <p className="text-slate-100 font-bold text-sm">{new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                    </div>
+                                    <div className="space-y-1 pt-2">
+                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Día de Facturación</p>
+                                      <p className="text-slate-100 font-bold text-sm">Día {b.payment_day || 5} de cada mes</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest border-b border-emerald-500/10 pb-2">Estatus Financiero</p>
+                                    <div className="space-y-1">
+                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Último Pago</p>
+                                      <div className="flex items-center gap-2">
+                                        <p className="text-slate-100 font-bold text-sm">{b.last_payment_date ? new Date(b.last_payment_date).toLocaleDateString('es-ES') : 'SIN PAGOS'}</p>
+                                        {b.last_payment_amount > 0 && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-lg font-black text-[10px] tracking-tighter">${b.last_payment_amount}</span>}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1 pt-2">
+                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Proyectado Mensual</p>
+                                      <p className="text-slate-100 font-bold text-sm">${((b.monthly_fee || 0) * (1 - (b.discount_pct || 0)/100)).toFixed(2)}</p>
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3 col-span-2">
+                                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2 text-right">Bitácora y Notas del Sistema</p>
+                                    <div className="bg-slate-800/80 p-5 rounded-[1.5rem] border border-slate-700/50 shadow-inner h-24 overflow-y-auto">
+                                      <p className="text-slate-400 text-xs italic leading-relaxed">{b.notes || 'No hay observaciones técnicas o comerciales para este edificio.'}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {filteredEdificios.length === 0 && (
+                <div className="p-20 text-center text-slate-500">
+                  <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 opacity-20">
+                    <Search className="w-10 h-10" />
+                  </div>
+                  <p className="font-black uppercase tracking-[0.4em] text-xs">No se encontraron edificios</p>
+                </div>
+              )}
             </div>
-          ))}
-        </div>
+          )}
 
-        {/* Leyenda ciclo */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-4 mb-6 flex flex-wrap gap-4 items-center text-[10px] uppercase font-black tracking-widest shadow-inner">
-          <span className="text-indigo-400">⚙️ FLUJO DE ESTADOS:</span>
-          {['Prueba', 'Activo', 'Suspendido'].map((s, i, arr) => (
-            <span key={s} className="flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full ${STATUS_COLORS[s]}`}>{s}</span>
-              {i < arr.length - 1 && <span className="text-slate-600 text-lg">→</span>}
-            </span>
-          ))}
-          <span className="text-slate-600 text-lg">→</span>
-          <span className="text-slate-500 ml-4">| 🗑️ MARCAR COMO</span>
-          <span className={`px-3 py-1 rounded-full ${STATUS_COLORS['Inactivo']}`}>INACTIVO</span>
-        </div>
-
-        {/* Tabla */}
-        <div className="bg-slate-800 rounded-3xl border border-slate-700 overflow-hidden shadow-2xl">
-          <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
-            <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Edificios Registrados</h2>
-            <span className="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest">{edificios.length} registrados</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-slate-700/30">
-                <tr>
-                  {['Edificio', 'Admin ID', 'Unidades', 'Sincronización', 'Tarifa/mes', 'Estado', 'Acciones']
-                    .map(h => (
-                      <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap border-b border-slate-700">{h}</th>
-                    ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-700">
-                {edificios.map((b) => {
-                  const status = b.status || 'Prueba';
-                  const isInactive = status === 'Inactivo';
-                  return (
-                    <React.Fragment key={b.id}>
-                      <tr className={`hover:bg-indigo-500/5 transition-colors ${isInactive ? 'opacity-40 grayscale' : ''}`}>
-                        <td className="px-6 py-5">
-                          <p className="text-white font-black text-base tracking-tighter">{b.nombre}</p>
-                          <p className="text-slate-500 text-[10px] font-mono mt-1 opacity-50">{b.id}</p>
-                        </td>
-                        <td className="px-6 py-5 text-slate-400 text-xs font-mono">{b.admin_id || '—'}</td>
-                        <td className="px-6 py-5 text-slate-300 font-black text-center">{b.unidades || 0}</td>
-                        <td className="px-6 py-5 text-xs whitespace-nowrap">
-                          {b.ultima_sincronizacion
-                            ? <div className="space-y-1">
-                                <p className="text-slate-200 font-bold">{new Date(b.ultima_sincronizacion).toLocaleDateString('es-ES')}</p>
-                                <p className="text-indigo-400 font-black text-[10px] uppercase">{new Date(b.ultima_sincronizacion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
-                              </div>
-                            : <span className="text-slate-600 italic font-medium">Nunca</span>}
-                        </td>
-                        <td className="px-6 py-5 text-slate-400 whitespace-nowrap">
-                          {b.monthly_fee != null ? <span className="font-black text-slate-100 text-lg">${b.monthly_fee.toLocaleString()}</span> : <span className="text-slate-600">—</span>}
-                          {b.discount_pct != null && b.discount_pct > 0 && <span className="text-emerald-400 text-[10px] font-black ml-2 bg-emerald-500/10 px-2 py-0.5 rounded-full">-{b.discount_pct}%</span>}
-                        </td>
-                        <td className="px-6 py-5">
-                          <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg ${STATUS_COLORS[status] || STATUS_COLORS['Prueba']}`}>
-                            {status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex items-center gap-2">
-                            <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)}
-                              className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all" title="Detalles">
-                              {expandedId === b.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                            </button>
-                            <button onClick={() => setEditingBuilding(b)}
-                              className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all" title="Editar Suscripción">
-                              <Edit className="w-5 h-5" />
-                            </button>
-                            <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)}
-                              className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all" title="Ver Sistema">
-                              <Eye className="w-5 h-5" />
-                            </button>
-                            <button onClick={() => handleToggleStatus(b)}
-                              className={`p-2 rounded-xl transition-all shadow-lg ${GEAR_COLORS[status] || GEAR_COLORS['Prueba']}`}
-                              title={GEAR_TITLES[status] || 'Cambiar estado'}>
-                              <Settings className="w-5 h-5" />
-                            </button>
-                            {!isInactive && (
-                              <button onClick={() => handleDeactivate(b)}
-                                className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all" title="Suspender Acceso">
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                      {expandedId === b.id && (
-                        <tr className="bg-slate-900/60 shadow-inner">
-                          <td colSpan={7} className="px-8 py-8 border-x-4 border-indigo-600/20">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-10 text-sm">
-                              <div className="space-y-2">
-                                <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">Fecha de Registro</p>
-                                <p className="text-slate-100 font-bold text-base">{new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">Corte de Facturación</p>
-                                <p className="text-slate-100 font-bold text-base">{b.payment_day != null ? `Día ${b.payment_day} de cada mes` : 'Por definir'}</p>
-                              </div>
-                              <div className="space-y-2">
-                                <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">Último Pago Confirmado</p>
-                                <p className="text-slate-100 font-bold text-base flex items-center gap-2">
-                                  {b.last_payment_date ? new Date(b.last_payment_date).toLocaleDateString('es-ES') : 'Sin pagos'}
-                                  {b.last_payment_amount != null && b.last_payment_amount > 0 && <span className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-lg font-black text-xs shadow-inner">${b.last_payment_amount.toLocaleString()}</span>}
-                                </p>
-                              </div>
-                              <div className="space-y-2 col-span-full md:col-span-1">
-                                <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest">Notas del Administrador</p>
-                                <p className="text-slate-400 text-xs italic bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-inner leading-relaxed">{b.notes || 'No se han registrado observaciones para este edificio.'}</p>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {edificios.length === 0 && (
-            <div className="p-16 text-center text-slate-500 bg-slate-800/50">
-              <Building className="w-16 h-16 mx-auto mb-4 opacity-10" />
-              <p className="font-black uppercase tracking-widest text-xs">No hay edificios registrados en la plataforma</p>
+          {activeSection !== 'edificios' && (
+            <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800">
+               <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
+               <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
+               <p className="text-slate-600 text-xs mt-2">Esta facilidad estar&aacute; disponible en la pr&oacute;xima actualizaci&oacute;n del Master SaaS.</p>
             </div>
           )}
         </div>
 
-        {/* Modal Edición */}
+        {/* MODAL CONFIGURACIÓN - EL "MOTOR" DE AGUA */}
         {editingBuilding && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-            <div className="bg-slate-800 w-full max-w-lg rounded-3xl border border-slate-700 shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-              <div className="bg-indigo-600 px-8 py-6 flex justify-between items-center">
-                <div>
-                  <h3 className="text-white font-black uppercase tracking-tighter text-xl">Suscripción SaaS</h3>
-                  <p className="text-indigo-200 text-[10px] font-bold uppercase tracking-widest">Configurar Edificio: {editingBuilding.nombre}</p>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl animate-in fade-in duration-300">
+            <div className="bg-[#1e293b] w-full max-w-xl rounded-[2.5rem] border border-slate-700 shadow-[0_0_100px_rgba(79,70,229,0.15)] overflow-hidden">
+              <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20"></div>
+                <div className="relative z-10">
+                  <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">Suscripción SaaS</h3>
+                  <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.3em] mt-1">CLIENTE: {editingBuilding.nombre}</p>
                 </div>
-                <button onClick={() => setEditingBuilding(null)} className="text-white/50 hover:text-white transition-colors">
+                <button onClick={() => setEditingBuilding(null)} className="relative z-10 text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
                   <X className="w-6 h-6" />
                 </button>
               </div>
               
-              <form onSubmit={handleUpdateBuilding} className="p-8 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Tarifa Mensual ($)</label>
+              <form onSubmit={handleUpdateBuilding} className="p-10 space-y-8">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <CreditCard className="w-3 h-3 text-indigo-500" /> Tarifa Mensual ($)
+                    </label>
                     <input 
-                      type="number" 
+                      type="number" step="0.01"
                       value={editingBuilding.monthly_fee}
                       onChange={(e) => setEditingBuilding({...editingBuilding, monthly_fee: Number(e.target.value)})}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
                       placeholder="0.00"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Descuento (%)</label>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Plus className="w-3 h-3 text-emerald-500" /> Descuento (%)
+                    </label>
                     <input 
                       type="number" 
                       value={editingBuilding.discount_pct}
                       onChange={(e) => setEditingBuilding({...editingBuilding, discount_pct: Number(e.target.value)})}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-inner"
                       placeholder="0"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Día de Facturación</label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Clock className="w-3 h-3 text-indigo-400" /> Día Facturación
+                    </label>
                     <input 
-                      type="number" 
-                      min="1" max="31"
+                      type="number" min="1" max="31"
                       value={editingBuilding.payment_day}
                       onChange={(e) => setEditingBuilding({...editingBuilding, payment_day: Number(e.target.value)})}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Nombre Comercial</label>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Users className="w-3 h-3 text-indigo-400" /> Unidades
+                    </label>
                     <input 
-                      type="text" 
-                      value={editingBuilding.nombre}
-                      onChange={(e) => setEditingBuilding({...editingBuilding, nombre: e.target.value})}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-3.5 text-white font-bold focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                      type="number" readOnly
+                      value={editingBuilding.unidades}
+                      className="w-full bg-[#0f172a]/50 border border-slate-800 rounded-2xl px-6 py-4 text-slate-500 font-black text-lg focus:outline-none cursor-not-allowed shadow-inner"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Notas Administrativas</label>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Database className="w-3 h-3 text-indigo-400" /> Notas Administrativas
+                  </label>
                   <textarea 
                     value={editingBuilding.notes}
                     onChange={(e) => setEditingBuilding({...editingBuilding, notes: e.target.value})}
                     rows={3}
-                    className="w-full bg-slate-900 border border-slate-700 rounded-2xl px-5 py-4 text-white font-medium text-sm focus:outline-none focus:border-indigo-500 transition-all shadow-inner resize-none"
-                    placeholder="Escribe aquí acuerdos especiales o recordatorios..."
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-3xl px-6 py-5 text-white font-medium text-sm focus:outline-none focus:border-indigo-500 transition-all shadow-inner resize-none leading-relaxed"
+                    placeholder="Escribe acuerdos comerciales o recordatorios..."
                   />
                 </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[10px] tracking-widest py-4 rounded-2xl hover:bg-slate-600 transition-all">
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-slate-600 transition-all shadow-xl">
                     Cancelar
                   </button>
-                  <button type="submit" className="flex-2 bg-indigo-600 text-white font-black uppercase text-[10px] tracking-widest py-4 px-10 rounded-2xl hover:bg-indigo-500 transition-all shadow-xl shadow-indigo-600/20 flex items-center gap-2">
+                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-indigo-500 transition-all shadow-[0_10px_30px_rgba(79,70,229,0.3)] flex items-center justify-center gap-3">
                     <Save className="w-4 h-4" />
-                    Guardar Cambios
+                    Actualizar Core
                   </button>
                 </div>
               </form>
@@ -456,10 +520,12 @@ export default function AdminPage() {
           </div>
         )}
 
-        <p className="mt-8 text-[10px] text-slate-600 text-center font-black uppercase tracking-[0.3em] opacity-40">
-          SaaS de Control Financiero de Condominios — Panel Maestro de Operaciones
-        </p>
-      </div>
+        <footer className="p-8 text-center border-t border-slate-800">
+           <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.5em] opacity-30">
+            Control de Operaciones SaaS — EdifiSaaS v1.0 — 2026
+          </p>
+        </footer>
+      </main>
     </div>
   );
 }
