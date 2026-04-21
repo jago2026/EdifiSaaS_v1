@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { 
   Building, Users, BarChart3, Settings, LogOut, Trash2, Edit, 
   RefreshCw, ChevronDown, ChevronUp, Plus, Save, X, Eye,
@@ -56,17 +55,6 @@ const GEAR_TITLES: Record<string, string> = {
   'Inactivo':   'Reactivar como Prueba',
 };
 
-// Función para obtener el cliente de Supabase de forma segura
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-  
-  if (!url || !key) {
-    console.error("CRITICAL: Supabase credentials missing from environment variables!");
-  }
-  return createClient(url, key);
-}
-
 type AdminSection = 'dashboard' | 'edificios' | 'pagos' | 'auditoria';
 
 export default function AdminPage() {
@@ -85,15 +73,13 @@ export default function AdminPage() {
   const loadEdificios = async () => {
     setLoading(true);
     try {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
-        .from('edificios')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Usar la API segura en lugar de conexión directa al cliente
+      const res = await fetch('/api/admin/edificios?action=list');
+      const data = await res.json();
+      
+      if (!res.ok) throw new Error(data.error || "Falla en el túnel de datos");
 
-      if (error) throw error;
-
-      const blds = (data || []) as Edificio[];
+      const blds = (data.data || []) as Edificio[];
       setEdificios(blds);
       
       setStats({
@@ -104,8 +90,8 @@ export default function AdminPage() {
         inactivos: blds.filter(b => b.status === 'Inactivo').length,
       });
     } catch (err: any) {
-      console.error("Error cargando datos:", err);
-      setActionMsg(`❌ Error de conexión: ${err.message || 'Credenciales inválidas'}`);
+      console.error("Admin Load Error:", err);
+      setActionMsg(`❌ Error: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -116,19 +102,26 @@ export default function AdminPage() {
   }, []);
 
   const handleToggleStatus = async (building: Edificio) => {
-    const supabase = getSupabaseClient();
     const currentStatus = building.status || 'Prueba';
     const newStatus = STATUS_CYCLE[currentStatus] ?? 'Activo';
     
-    const { error } = await supabase
-      .from('edificios')
-      .update({ status: newStatus })
-      .eq('id', building.id);
+    try {
+      const res = await fetch('/api/admin/edificios', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'update',
+          id: building.id,
+          data: { status: newStatus }
+        })
+      });
       
-    if (!error) {
-      setActionMsg(`✅ "${building.nombre}" → ${newStatus}`);
-      setTimeout(() => setActionMsg(''), 3000);
-      loadEdificios();
+      if (res.ok) {
+        setActionMsg(`✅ "${building.nombre}" → ${newStatus}`);
+        setTimeout(() => setActionMsg(''), 3000);
+        loadEdificios();
+      }
+    } catch (err) {
+      alert("Error al cambiar estado");
     }
   };
 
@@ -136,16 +129,23 @@ export default function AdminPage() {
     const confirmed = window.confirm(`¿Desactivar "${building.nombre}"?`);
     if (!confirmed) return;
     
-    const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('edificios')
-      .update({ status: 'Inactivo' })
-      .eq('id', building.id);
+    try {
+      const res = await fetch('/api/admin/edificios', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'update',
+          id: building.id,
+          data: { status: 'Inactivo' }
+        })
+      });
       
-    if (!error) {
-      setActionMsg(`🚫 "${building.nombre}" Inactivo`);
-      setTimeout(() => setActionMsg(''), 3000);
-      loadEdificios();
+      if (res.ok) {
+        setActionMsg(`🚫 "${building.nombre}" Inactivo`);
+        setTimeout(() => setActionMsg(''), 3000);
+        loadEdificios();
+      }
+    } catch (err) {
+      alert("Error al desactivar");
     }
   };
 
@@ -153,23 +153,30 @@ export default function AdminPage() {
     e.preventDefault();
     if (!editingBuilding) return;
     
-    const supabase = getSupabaseClient();
-    const { error } = await supabase
-      .from('edificios')
-      .update({
-        nombre: editingBuilding.nombre,
-        monthly_fee: editingBuilding.monthly_fee,
-        discount_pct: editingBuilding.discount_pct,
-        payment_day: editingBuilding.payment_day,
-        notes: editingBuilding.notes
-      })
-      .eq('id', editingBuilding.id);
+    try {
+      const res = await fetch('/api/admin/edificios', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'update',
+          id: editingBuilding.id,
+          data: {
+            nombre: editingBuilding.nombre,
+            monthly_fee: editingBuilding.monthly_fee,
+            discount_pct: editingBuilding.discount_pct,
+            payment_day: editingBuilding.payment_day,
+            notes: editingBuilding.notes
+          }
+        })
+      });
       
-    if (!error) {
-      setActionMsg(`✅ Datos actualizados`);
-      setEditingBuilding(null);
-      setTimeout(() => setActionMsg(''), 3000);
-      loadEdificios();
+      if (res.ok) {
+        setActionMsg(`✅ Datos actualizados`);
+        setEditingBuilding(null);
+        setTimeout(() => setActionMsg(''), 3000);
+        loadEdificios();
+      }
+    } catch (err) {
+      alert("Error al guardar");
     }
   };
 
@@ -194,7 +201,7 @@ export default function AdminPage() {
       <aside className="w-64 bg-[#1e293b] border-r border-slate-700 flex flex-col z-50">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -227,12 +234,8 @@ export default function AdminPage() {
         </div>
 
         <div className="mt-auto p-6 border-t border-slate-700">
-          <button 
-            onClick={() => router.push('/admin/login')}
-            className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-400 transition-colors font-bold text-sm"
-          >
-            <LogOut className="w-4 h-4" />
-            Cerrar Sesión
+          <button onClick={() => router.push('/admin/login')} className="w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:text-red-400 transition-colors font-bold text-sm">
+            <LogOut className="w-4 h-4" /> Cerrar Sesión
           </button>
         </div>
       </aside>
@@ -243,7 +246,7 @@ export default function AdminPage() {
             <Search className="w-4 h-4 text-slate-500" />
             <input 
               type="text" 
-              placeholder="Buscar edificio por nombre o ID..." 
+              placeholder="Buscar edificio..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-transparent border-none text-white text-sm focus:ring-0 w-full outline-none"
@@ -279,7 +282,7 @@ export default function AdminPage() {
               <div key={s.label} className="bg-[#1e293b] rounded-3xl p-6 border border-slate-700/50 shadow-xl">
                 <div className="flex flex-col gap-4">
                   <div className={`w-12 h-12 ${s.bg} rounded-2xl flex items-center justify-center shadow-inner`}>
-                    <s.Icon className={`w-6 h-6 ${s.ic}`} />
+                    <s.Icon className={`w-6 h-6 ${s.ic || (s as any).icon_color}`} />
                   </div>
                   <div>
                     <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">{s.label}</p>
@@ -294,11 +297,9 @@ export default function AdminPage() {
             <div className="bg-[#1e293b] rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
               <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/20">
                 <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Base de Datos de Clientes</h2>
-                <div className="flex gap-2">
-                  <span className="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
-                    {filteredEdificios.length} RESULTADOS
-                  </span>
-                </div>
+                <span className="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                  {filteredEdificios.length} RESULTADOS
+                </span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left border-collapse">
@@ -321,7 +322,6 @@ export default function AdminPage() {
                               <p className="text-white font-black text-base tracking-tighter group-hover:text-indigo-300 transition-colors">{b.nombre}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-slate-500 text-[9px] font-mono opacity-50 uppercase tracking-tighter">ID: {b.id.substring(0,8)}...</span>
-                                <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
                                 <span className="text-slate-500 text-[9px] font-bold uppercase">{b.unidades || 0} UNIDADES</span>
                               </div>
                             </td>
@@ -346,26 +346,20 @@ export default function AdminPage() {
                             </td>
                             <td className="px-6 py-5">
                               <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)}
-                                  className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all" title="Ver Detalles">
+                                <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)} className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all">
                                   {expandedId === b.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                                 </button>
-                                <button onClick={() => setEditingBuilding(b)}
-                                  className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all" title="Configurar Suscripción">
+                                <button onClick={() => setEditingBuilding(b)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all">
                                   <Edit className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)}
-                                  className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all" title="Entrar como Admin">
+                                <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)} className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all">
                                   <Eye className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => handleToggleStatus(b)}
-                                  className={`p-2 rounded-xl transition-all shadow-lg ${GEAR_COLORS[status] || GEAR_COLORS['Prueba']}`}
-                                  title={GEAR_TITLES[status] || 'Cambiar estado'}>
+                                <button onClick={() => handleToggleStatus(b)} className={`p-2 rounded-xl transition-all shadow-lg ${GEAR_COLORS[status] || GEAR_COLORS['Prueba']}`} title={GEAR_TITLES[status]}>
                                   <Settings className="w-4 h-4" />
                                 </button>
                                 {!isInactive && (
-                                  <button onClick={() => handleDeactivate(b)}
-                                    className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all" title="Suspender Cliente">
+                                  <button onClick={() => handleDeactivate(b)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                 )}
@@ -404,9 +398,9 @@ export default function AdminPage() {
                                   </div>
 
                                   <div className="space-y-3 col-span-2">
-                                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2 text-right">Bitácora y Notas del Sistema</p>
-                                    <div className="bg-slate-800/80 p-5 rounded-[1.5rem] border border-slate-700/50 shadow-inner h-24 overflow-y-auto">
-                                      <p className="text-slate-400 text-xs italic leading-relaxed">{b.notes || 'No hay observaciones técnicas o comerciales para este edificio.'}</p>
+                                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2 text-right">Bitácora y Notas</p>
+                                    <div className="bg-slate-800/80 p-5 rounded-[1.5rem] border border-slate-700/50 h-24 overflow-y-auto">
+                                      <p className="text-slate-400 text-xs italic leading-relaxed">{b.notes || 'Sin observaciones.'}</p>
                                     </div>
                                   </div>
                                 </div>
@@ -423,7 +417,7 @@ export default function AdminPage() {
           )}
 
           {activeSection !== 'edificios' && (
-            <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800">
+            <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-center">
                <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
                <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
                <p className="text-slate-600 text-xs mt-2">Esta facilidad estará disponible próximamente.</p>
@@ -435,10 +429,7 @@ export default function AdminPage() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
             <div className="bg-[#1e293b] w-full max-w-xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden">
               <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center">
-                <div>
-                  <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">Suscripción SaaS</h3>
-                  <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.3em] mt-1">CLIENTE: {editingBuilding.nombre}</p>
-                </div>
+                <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">Suscripción SaaS</h3>
                 <button onClick={() => setEditingBuilding(null)} className="text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
                   <X className="w-6 h-6" />
                 </button>
@@ -447,9 +438,7 @@ export default function AdminPage() {
               <form onSubmit={handleUpdateBuilding} className="p-10 space-y-8">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <CreditCard className="w-3 h-3 text-indigo-500" /> Tarifa Mensual ($)
-                    </label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tarifa Mensual ($)</label>
                     <input 
                       type="number" step="0.01"
                       value={editingBuilding.monthly_fee}
@@ -458,9 +447,7 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <Plus className="w-3 h-3 text-emerald-500" /> Descuento (%)
-                    </label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Descuento (%)</label>
                     <input 
                       type="number" 
                       value={editingBuilding.discount_pct}
@@ -469,12 +456,9 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <Clock className="w-3 h-3 text-indigo-400" /> Día Facturación
-                    </label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Día Facturación</label>
                     <input 
                       type="number" min="1" max="31"
                       value={editingBuilding.payment_day}
@@ -483,17 +467,17 @@ export default function AdminPage() {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                      <Users className="w-3 h-3 text-indigo-400" /> Unidades
-                    </label>
-                    <input type="number" readOnly value={editingBuilding.unidades} className="w-full bg-[#0f172a]/50 border border-slate-800 rounded-2xl px-6 py-4 text-slate-500 font-black text-lg cursor-not-allowed" />
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre Comercial</label>
+                    <input 
+                      type="text" 
+                      value={editingBuilding.nombre}
+                      onChange={(e) => setEditingBuilding({...editingBuilding, nombre: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold"
+                    />
                   </div>
                 </div>
-
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <Database className="w-3 h-3 text-indigo-400" /> Notas Administrativas
-                  </label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Notas Administrativas</label>
                   <textarea 
                     value={editingBuilding.notes}
                     onChange={(e) => setEditingBuilding({...editingBuilding, notes: e.target.value})}
@@ -501,10 +485,9 @@ export default function AdminPage() {
                     className="w-full bg-[#0f172a] border border-slate-700 rounded-3xl px-6 py-5 text-white font-medium text-sm focus:outline-none focus:border-indigo-500 transition-all shadow-inner resize-none"
                   />
                 </div>
-
                 <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-slate-600 transition-all">Cancelar</button>
-                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-indigo-500 transition-all flex items-center justify-center gap-3">
+                  <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-slate-600">Cancelar</button>
+                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-indigo-500 flex items-center justify-center gap-3">
                     <Save className="w-4 h-4" /> Actualizar Core
                   </button>
                 </div>
@@ -513,8 +496,8 @@ export default function AdminPage() {
           </div>
         )}
 
-        <footer className="p-8 text-center border-t border-slate-800">
-           <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.5em] opacity-30">Control de Operaciones SaaS — EdifiSaaS v1.0</p>
+        <footer className="p-8 text-center border-t border-slate-800 opacity-30 text-[10px] text-slate-700 font-black uppercase tracking-[0.5em]">
+           Control de Operaciones SaaS — EdifiSaaS v1.0
         </footer>
       </main>
     </div>
