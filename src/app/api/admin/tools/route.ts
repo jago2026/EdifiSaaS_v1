@@ -47,7 +47,7 @@ async function getGoogleToken(serviceAccount: any) {
 }
 
 async function uploadToDrive(filename: string, content: string) {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable no encontrada";
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable GOOGLE_SERVICE_ACCOUNT_JSON no encontrada";
   try {
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const token = await getGoogleToken(serviceAccount);
@@ -55,20 +55,18 @@ async function uploadToDrive(filename: string, content: string) {
     const boundary = "foo_bar_baz";
     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
     
-    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true", {
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
       body,
     });
     const data = await res.json();
-    if (data.error) {
-      if (data.error.message.includes("quota")) {
-        return "❌ Error 403 (Cuota): Google no permite que las Service Accounts ocupen espacio en cuentas personales. Use un 'Shared Drive' o siga usando descarga local.";
-      }
-      return "❌ Google API Error: " + data.error.message;
-    }
-    return data.id ? "✅ Sincronizado con Drive" : "❌ Error desconocido";
+    if (data.error) throw new Error(data.error.message);
+    return data.id ? "✅ Sincronizado con Drive" : "❌ Error desconocido en API";
   } catch (e: any) {
+    if (e.message.includes("quota")) {
+      return "⚠️ Limitación Google: Las cuentas de servicio no tienen espacio propio en cuentas @gmail personales. Respaldo guardado localmente.";
+    }
     return "❌ Error: " + e.message;
   }
 }
@@ -77,17 +75,22 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     if (searchParams.get("secret") !== "cron_secret_key_123") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const action = searchParams.get("action");
     
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const { count: edificios } = await supabase.from('edificios').select('*', { count: 'exact', head: true });
-    
-    await transporter.sendMail({
-      from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
-      to: "correojago@gmail.com",
-      subject: "🔧 [AUTO] Mantenimiento Ejecutado",
-      html: `<p>Mantenimiento automático realizado. Edificios detectados: ${edificios ?? 0}</p>`
-    });
-    return NextResponse.json({ success: true });
+    if (action === "maintenance") {
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      await supabase.rpc('execute_maintenance');
+      const { count } = await supabase.from('edificios').select('*', { count: 'exact', head: true });
+      
+      await transporter.sendMail({
+        from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
+        to: "correojago@gmail.com",
+        subject: "🔧 [AUTO] Mantenimiento Exitoso",
+        html: `<p>Mantenimiento automático completado. Edificios detectados: ${count || 0}</p>`
+      });
+      return NextResponse.json({ success: true });
+    }
+    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }
 }
 
@@ -97,26 +100,33 @@ export async function POST(request: Request) {
     const { action } = await request.json();
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Conteo manual con captura de errores
-    const { count: bCount, error: bErr } = await supabase.from('edificios').select('*', { count: 'exact', head: true });
-    const { count: rCount, error: rErr } = await supabase.from('recibos').select('*', { count: 'exact', head: true });
-    const { count: mCount, error: mErr } = await supabase.from('movimientos').select('*', { count: 'exact', head: true });
+    // Conteo forzado con reporte de error detallado
+    const bReq = await supabase.from('edificios').select('*', { count: 'exact', head: true });
+    const rReq = await supabase.from('recibos').select('*', { count: 'exact', head: true });
+    const mReq = await supabase.from('movimientos').select('*', { count: 'exact', head: true });
 
     if (action === "maintenance") {
       await supabase.rpc('execute_maintenance');
+      
+      const statsHtml = `
+        <ul style="list-style:none;padding:0;">
+          <li>🏢 <b>Edificios:</b> ${bReq.count !== null ? bReq.count : (bReq.error ? 'Error: '+bReq.error.message : '0')}</li>
+          <li>📑 <b>Recibos:</b> ${rReq.count !== null ? rReq.count : (rReq.error ? 'Error: '+rReq.error.message : '0')}</li>
+          <li>📊 <b>Movimientos:</b> ${mReq.count !== null ? mReq.count : (mReq.error ? 'Error: '+mReq.error.message : '0')}</li>
+        </ul>
+      `;
+
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
         subject: `🔧 Reporte de Mantenimiento Detallado`,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:16px;padding:32px;">
-            <h1 style="color:#0f172a;">Estado del Sistema</h1>
+            <h1 style="color:#0f172a;">Mantenimiento Finalizado</h1>
             <div style="background:#f8fafc;padding:20px;border-radius:12px;margin:20px 0;">
-              <p>🏢 <b>Edificios:</b> ${bCount !== null ? bCount : (bErr ? 'Error: '+bErr.message : '0')}</p>
-              <p>📑 <b>Recibos:</b> ${rCount !== null ? rCount : (rErr ? 'Error: '+rErr.message : '0')}</p>
-              <p>📊 <b>Movimientos:</b> ${mCount !== null ? mCount : (mErr ? 'Error: '+mErr.message : '0')}</p>
+              ${statsHtml}
             </div>
-            <p style="font-size:10px;color:#94a3b8;">Acceso: ${serviceRoleKey === anonKey ? 'ANON (Limitado)' : 'SERVICE_ROLE (Completo)'}</p>
+            <p style="font-size:10px;color:#94a3b8;">KEY: ${serviceRoleKey === anonKey ? 'ANON (Limitado)' : 'SERVICE_ROLE (Completo)'}</p>
           </div>`
       });
       return NextResponse.json({ success: true });
