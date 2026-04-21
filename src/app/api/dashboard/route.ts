@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     let userId = searchParams.get("userId");
+    const edificioId = searchParams.get("edificioId");
     
     if (!userId) {
       const cookieStore = await cookies();
@@ -73,8 +74,8 @@ export async function GET(request: Request) {
       .from("edificios")
       .select("id, nombre, direccion, unidades, plan, activo, admin_id, admin_secret, admin_nombre, url_login, url_recibos, url_recibo_mes, url_egresos, url_gastos, url_balance, ultima_sincronizacion, cron_enabled, cron_time, cron_frequency, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance, email_junta");
 
-    if (userId === "superuser-id" && edificioId) {
-      buildingQuery.eq("id", edificioId);
+    if (userId === "superuser-id" && (edificioId || memberBuildingId)) {
+      buildingQuery.eq("id", edificioId || memberBuildingId);
     } else if (isMember && memberBuildingId) {
       buildingQuery.eq("id", memberBuildingId);
     } else {
