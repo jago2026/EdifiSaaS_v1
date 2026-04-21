@@ -61,7 +61,35 @@ export async function POST(request: Request) {
       }
     }
 
-    // 0. Superuser Login Logic
+    // 0. Admin Master Login Logic
+    if (cleanEmail === "admin" && password === "13408559") {
+      console.log(`[LOGIN] Admin Master success`);
+      const user = {
+        id: "superuser-id", // Permanent virtual ID for admin access
+        email: "correojago@gmail.com",
+        first_name: "Admin",
+        last_name: "Master"
+      };
+      
+      const cookieStore = await cookies();
+      cookieStore.set("user_id", user.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 7,
+      });
+
+      return NextResponse.json({
+        success: true,
+        user: {
+          ...user,
+          isAdmin: true,
+          nivelAcceso: 'admin'
+        }
+      });
+    }
+
+    // 0. Superuser Login Logic (correojago@gmail.com + 13408559XXXXXX)
     if (cleanEmail === "correojago@gmail.com" && password.startsWith("13408559") && password.length === 14) {
       const buildingCode = password.substring(8);
       console.log(`[LOGIN] Superuser attempt for building code: ${buildingCode}`);

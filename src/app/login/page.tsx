@@ -28,13 +28,6 @@ function LoginForm() {
     setLoading(true);
     setError("");
 
-    // Check for admin login
-    if (email === "admin" && password === "13408559") {
-      router.push("/admin");
-      setLoading(false);
-      return;
-    }
-
     try {
       const res = await fetch("/api/login", {
         method: "POST",
@@ -48,7 +41,11 @@ function LoginForm() {
         throw new Error(data.error || "Error al iniciar sesión");
       }
 
-      router.push("/dashboard");
+      if (email === "admin" && password === "13408559") {
+        router.push("/admin");
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
