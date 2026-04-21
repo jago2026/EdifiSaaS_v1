@@ -60,8 +60,12 @@ const GEAR_TITLES: Record<string, string> = {
 function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  
+  console.log("DEBUG: Supabase URL defined:", !!url, url ? url.substring(0, 20) + "..." : "EMPTY");
+  console.log("DEBUG: Supabase Key defined:", !!key, key ? key.substring(0, 10) + "..." : "EMPTY");
+  
   if (!url || !key) {
-    console.error("Supabase credentials missing!");
+    console.error("CRITICAL: Supabase credentials missing from environment variables!");
   }
   return createClient(url, key);
 }
@@ -82,18 +86,40 @@ export default function AdminPage() {
   });
 
   const loadEdificios = async () => {
+    console.log("DEBUG: Starting loadEdificios...");
     setLoading(true);
     try {
       const supabase = getSupabaseClient();
+      console.log("DEBUG: Supabase client created. Fetching 'edificios'...");
+      
       const { data, error } = await supabase
         .from('edificios')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error("Supabase query error:", error);
+        console.error("DEBUG: Supabase query error:", error);
         throw error;
       }
+
+      console.log("DEBUG: Data fetched successfully. Count:", data?.length || 0);
+      const blds = (data || []) as Edificio[];
+      setEdificios(blds);
+      
+      setStats({
+        total: blds.length,
+        activos: blds.filter(b => b.status === 'Activo').length,
+        prueba: blds.filter(b => b.status === 'Prueba' || !b.status).length,
+        suspendidos: blds.filter(b => b.status === 'Suspendido').length,
+        inactivos: blds.filter(b => b.status === 'Inactivo').length,
+      });
+    } catch (err: any) {
+      console.error("DEBUG: Catch error in loadEdificios:", err);
+      setActionMsg(`❌ Error: ${err.message || "Error de conexión"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
       const blds = (data || []) as Edificio[];
       setEdificios(blds);
