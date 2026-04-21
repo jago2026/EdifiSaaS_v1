@@ -312,7 +312,17 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
-                    {filteredEdificios.map((b) => {
+                    {filteredEdificios.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-20 text-center">
+                          <div className="flex flex-col items-center gap-2 opacity-30">
+                            <Building className="w-12 h-12 text-slate-500" />
+                            <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No se encontraron edificios</p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredEdificios.map((b) => {
                       const status = b.status || 'Prueba';
                       const isInactive = status === 'Inactivo';
                       return (
@@ -409,7 +419,7 @@ export default function AdminPage() {
                           )}
                         </React.Fragment>
                       );
-                    })}
+                    }))}
                   </tbody>
                 </table>
               </div>
