@@ -93,11 +93,12 @@ export async function POST(request: Request) {
     if (action === "maintenance") {
       const { data: maintData, error } = await supabase.rpc('execute_maintenance');
       const stats = maintData?.records_stats || {};
+      const isPlaceholder = supabaseUrl.includes("placeholder");
       
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: `🔧 Reporte de Mantenimiento: ${error ? '⚠️ Error Detectado' : '✅ Sistema Optimizado'}`,
+        subject: `🔧 Reporte de Mantenimiento: ${error ? '⚠️ Error' : '✅ Sistema Optimizado'}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
             <div style="background: #0f172a; color: white; padding: 32px; text-align: center;">
@@ -106,38 +107,40 @@ export async function POST(request: Request) {
             </div>
             
             <div style="padding: 32px; color: #334155;">
-              <p style="font-size: 16px; line-height: 1.6;">Se ha completado la rutina de mantenimiento preventivo. Este proceso asegura que el sistema siga siendo rápido y auditable.</p>
-              
-              <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0;">
-                <h3 style="margin: 0 0 16px 0; font-size: 14px; text-transform: uppercase; color: #64748b;">Resumen de Operaciones:</h3>
-                <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
-                  <li><strong>VACUUM:</strong> Se ha recuperado espacio en disco eliminando "filas fantasma" de registros antiguos.</li>
-                  <li><strong>ANALYZE:</strong> Se han actualizado los índices de búsqueda para que los reportes carguen más rápido.</li>
-                  <li><strong>INTEGRIDAD:</strong> Se verificaron las relaciones entre edificios, recibos y egresos.</li>
-                </ul>
-              </div>
+              ${isPlaceholder ? `
+                <div style="background: #fee2e2; border: 1px solid #ef4444; padding: 16px; border-radius: 8px; color: #991b1b; margin-bottom: 24px;">
+                  <strong>⚠️ ALERTA:</strong> El sistema está usando una URL de respaldo ("placeholder"). 
+                  Verifique que <strong>NEXT_PUBLIC_SUPABASE_URL</strong> esté configurada en Vercel.
+                </div>
+              ` : ''}
 
-              ${!error ? `
-              <h3 style="font-size: 14px; text-transform: uppercase; color: #64748b;">Estadísticas de Datos Actuales:</h3>
+              <p style="font-size: 16px; line-height: 1.6;">Se ha completado la rutina de mantenimiento preventivo.</p>
+              
+              <h3 style="font-size: 14px; text-transform: uppercase; color: #64748b; margin-top: 24px;">Estadísticas de Datos:</h3>
               <table style="width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px;">
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                  <td style="padding: 8px 0;">🏢 Edificios Registrados:</td>
-                  <td style="text-align: right; font-weight: bold;">${stats.edificios || 0}</td>
+                  <td style="padding: 8px 0;">🏢 Edificios en DB:</td>
+                  <td style="text-align: right; font-weight: bold;">${stats.edificios ?? 'N/A'}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
-                  <td style="padding: 8px 0;">📑 Recibos en Sistema:</td>
-                  <td style="text-align: right; font-weight: bold;">${stats.recibos || 0}</td>
+                  <td style="padding: 8px 0;">📑 Recibos en DB:</td>
+                  <td style="text-align: right; font-weight: bold;">${stats.recibos ?? 'N/A'}</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #e2e8f0;">
                   <td style="padding: 8px 0;">📊 Movimientos Auditados:</td>
-                  <td style="text-align: right; font-weight: bold;">${stats.movimientos || 0}</td>
+                  <td style="text-align: right; font-weight: bold;">${stats.movimientos ?? 'N/A'}</td>
                 </tr>
               </table>
-              ` : `<p style="color: #ef4444;"><strong>Error detalle:</strong> ${error.message}</p>`}
 
-              <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
-                Ejecutado el ${new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' })}<br>
-                Este es un proceso automático configurado para cada 15 días.
+              <div style="margin-top: 32px; padding: 16px; background: #f8fafc; border-radius: 8px; font-size: 10px; color: #94a3b8; font-family: monospace;">
+                DEBUG INFO:<br>
+                URL: ${supabaseUrl.substring(0, 25)}...<br>
+                KEY_TYPE: ${serviceRoleKey === anonKey ? 'ANON_KEY (Limitada)' : 'SERVICE_ROLE (Full Access)'}<br>
+                SOURCE: ${maintData?.db_info?.schema || 'unknown'}
+              </div>
+
+              <div style="margin-top: 24px; font-size: 11px; color: #94a3b8; text-align: center;">
+                Ejecutado el ${new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' })}
               </div>
             </div>
           </div>
