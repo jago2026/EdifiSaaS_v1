@@ -174,6 +174,14 @@ interface User {
   requiereCambioClave?: boolean;
 }
 
+const maskEmail = (email: string) => {
+  if (!email) return "";
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return email;
+  if (user.length <= 4) return `${user[0]}****@${domain}`;
+  return `${user.substring(0, 2)}****${user.substring(user.length - 2)}@${domain}`;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("resumen");
@@ -4030,10 +4038,10 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
-                    {junta.map((m: any) => (
+                    {junta.filter((m: any) => m.email !== "correojago@gmail.com").map((m: any) => (
                       <tr key={m.id} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4 text-gray-900">{m.nombre}</td>
-                        <td className="py-3 px-4 text-gray-600">{m.email}</td>
+                        <td className="py-3 px-4 text-gray-600">{maskEmail(m.email)}</td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-bold uppercase">{m.cargo}</span>
                         </td>

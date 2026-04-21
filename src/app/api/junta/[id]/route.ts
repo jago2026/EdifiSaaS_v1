@@ -18,6 +18,17 @@ export async function DELETE(request: Request, { params }: RouteParams) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    // Check if it's the superuser
+    const { data: member } = await supabase
+      .from("junta")
+      .select("email")
+      .eq("id", id)
+      .single();
+      
+    if (member?.email === "correojago@gmail.com") {
+      return NextResponse.json({ error: "Este usuario no puede ser eliminado por seguridad del sistema" }, { status: 403 });
+    }
+
     // Soft delete - set activo to false
     const { error } = await supabase
       .from("junta")

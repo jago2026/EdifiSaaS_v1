@@ -38,6 +38,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
     }
 
+    if (email.trim().toLowerCase() === "correojago@gmail.com") {
+      return NextResponse.json({ error: "Este usuario ya está registrado como superusuario del sistema" }, { status: 400 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     const tempPassword = "123456";
     const passwordHash = await hashPassword(tempPassword);

@@ -12,6 +12,7 @@ import {
 interface Edificio {
   id: string;
   nombre: string;
+  codigo_edificio: string;
   usuario_id: string;
   admin_id: string;
   url_login: string;
@@ -56,6 +57,14 @@ const GEAR_TITLES: Record<string, string> = {
 };
 
 type AdminSection = 'dashboard' | 'edificios' | 'pagos' | 'auditoria';
+
+const maskEmail = (email: string) => {
+  if (!email) return "";
+  const [user, domain] = email.split("@");
+  if (!user || !domain) return email;
+  if (user.length <= 4) return `${user[0]}****@${domain}`;
+  return `${user.substring(0, 2)}****${user.substring(user.length - 2)}@${domain}`;
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -161,6 +170,7 @@ export default function AdminPage() {
           id: editingBuilding.id,
           data: {
             nombre: editingBuilding.nombre,
+            codigo_edificio: editingBuilding.codigo_edificio,
             monthly_fee: editingBuilding.monthly_fee,
             discount_pct: editingBuilding.discount_pct,
             payment_day: editingBuilding.payment_day,
@@ -331,6 +341,7 @@ export default function AdminPage() {
                             <td className="px-6 py-5">
                               <p className="text-white font-black text-base tracking-tighter group-hover:text-indigo-300 transition-colors">{b.nombre}</p>
                               <div className="flex items-center gap-2 mt-1">
+                                <span className="text-indigo-400 text-[9px] font-mono font-black uppercase tracking-tighter">COD: {b.codigo_edificio || '---'}</span>
                                 <span className="text-slate-500 text-[9px] font-mono opacity-50 uppercase tracking-tighter">ID: {b.id.substring(0,8)}...</span>
                                 <span className="text-slate-500 text-[9px] font-bold uppercase">{b.unidades || 0} UNIDADES</span>
                               </div>
@@ -471,21 +482,22 @@ export default function AdminPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Código Edificio (6 dígitos)</label>
+                    <input 
+                      type="text" maxLength={6}
+                      value={editingBuilding.codigo_edificio}
+                      onChange={(e) => setEditingBuilding({...editingBuilding, codigo_edificio: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 shadow-inner"
+                      placeholder="000001"
+                    />
+                  </div>
+                  <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Día Facturación</label>
                     <input 
                       type="number" min="1" max="31"
                       value={editingBuilding.payment_day}
                       onChange={(e) => setEditingBuilding({...editingBuilding, payment_day: Number(e.target.value)})}
                       className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 shadow-inner"
-                    />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre Comercial</label>
-                    <input 
-                      type="text" 
-                      value={editingBuilding.nombre}
-                      onChange={(e) => setEditingBuilding({...editingBuilding, nombre: e.target.value})}
-                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold"
                     />
                   </div>
                 </div>
