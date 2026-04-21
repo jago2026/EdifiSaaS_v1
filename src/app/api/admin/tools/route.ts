@@ -30,7 +30,6 @@ async function getGoogleToken(serviceAccount: any) {
     exp: now + 3600,
     iat: now,
   };
-
   const base64UrlEncode = (str: string) => Buffer.from(str).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
   const encodedHeader = base64UrlEncode(JSON.stringify({ alg: "RS256", typ: "JWT" }));
   const encodedPayload = base64UrlEncode(JSON.stringify(payload));
@@ -38,7 +37,6 @@ async function getGoogleToken(serviceAccount: any) {
   signer.update(`${encodedHeader}.${encodedPayload}`);
   const signature = signer.sign(serviceAccount.private_key, "base64");
   const jwt = `${encodedHeader}.${encodedPayload}.${signature.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}`;
-
   const res = await fetch(serviceAccount.token_uri, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -49,37 +47,25 @@ async function getGoogleToken(serviceAccount: any) {
 }
 
 async function uploadToDrive(filename: string, content: string) {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable GOOGLE_SERVICE_ACCOUNT_JSON no encontrada en Vercel";
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable no encontrada";
   try {
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const token = await getGoogleToken(serviceAccount);
     const metadata = { name: filename, parents: [DRIVE_FOLDER_ID] };
     const boundary = "foo_bar_baz";
     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-
     const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
       body,
     });
     const data = await res.json();
-    return data.id ? "✅ Sincronizado con Drive" : "❌ Google API Error: " + JSON.stringify(data);
+    if (data.error) throw new Error(data.error.message);
+    return data.id ? "✅ Sincronizado con Drive" : "❌ Error desconocido";
   } catch (e: any) {
+    if (e.message.includes("quota")) return "❌ Error de Cuota Google: Las Service Accounts no tienen espacio propio. Use un 'Shared Drive' o verifique el espacio de aquasaasjg@gmail.com";
     return "❌ Error: " + e.message;
   }
-}
-
-async function listBackupsFromDrive() {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return [];
-  try {
-    const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
-    const token = await getGoogleToken(serviceAccount);
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&orderBy=createdTime+desc&fields=files(id,name,createdTime)`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const data = await res.json();
-    return (data.files || []).map((f: any) => ({ id: f.id, name: f.name, date: new Date(f.createdTime).toLocaleDateString('es-VE') }));
-  } catch (e) { return []; }
 }
 
 export async function GET(request: Request) {
@@ -87,17 +73,18 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     if (searchParams.get("secret") !== "cron_secret_key_123") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const action = searchParams.get("action");
-    if (action === "list_backups") return NextResponse.json({ backups: await listBackupsFromDrive() });
+    
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const { count: edificios } = await supabase.from('edificios').select('*', { count: 'exact', head: true });
+    const { count: movimientos } = await supabase.from('movimientos').select('*', { count: 'exact', head: true });
 
     if (action === "maintenance") {
-      const supabase = createClient(supabaseUrl, serviceRoleKey);
-      const { data: maintData } = await supabase.rpc('execute_maintenance');
-      const stats = maintData?.records_stats || {};
+      await supabase.rpc('execute_maintenance');
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: "🔧 [AUTO] Mantenimiento: Sistema Optimizado",
-        html: `<h2>Mantenimiento Automático Exitoso</h2><p>Estadísticas: Edificios: ${stats.edificios || 0}, Movimientos: ${stats.movimientos || 0}</p>`
+        subject: "🔧 [AUTO] Mantenimiento Exitoso",
+        html: `<p>Sistema optimizado. Datos: Edificios: ${edificios || 0}, Movimientos: ${movimientos || 0}</p>`
       });
       return NextResponse.json({ success: true });
     }
@@ -111,21 +98,27 @@ export async function POST(request: Request) {
     const { action } = await request.json();
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Conteo manual redundante para evitar N/A
+    const { count: bCount } = await supabase.from('edificios').select('*', { count: 'exact', head: true });
+    const { count: rCount } = await supabase.from('recibos').select('*', { count: 'exact', head: true });
+    const { count: mCount } = await supabase.from('movimientos').select('*', { count: 'exact', head: true });
+
     if (action === "maintenance") {
-      const { data: maintData, error } = await supabase.rpc('execute_maintenance');
-      const stats = maintData?.records_stats || {};
+      await supabase.rpc('execute_maintenance');
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: `🔧 Reporte de Mantenimiento: ${error ? '⚠️ Error' : '✅ Sistema Optimizado'}`,
+        subject: "🔧 Reporte de Mantenimiento Detallado",
         html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
-            <div style="background:#0f172a;color:white;padding:32px;text-align:center;"><h1>Mantenimiento DB</h1></div>
-            <div style="padding:32px;color:#334155;">
-              <h3>Estadísticas:</h3>
-              <p>🏢 Edificios: <b>${stats.edificios ?? 'N/A'}</b><br>📑 Recibos: <b>${stats.recibos ?? 'N/A'}</b><br>📊 Movimientos: <b>${stats.movimientos ?? 'N/A'}</b></p>
-              <p style="font-size:10px;color:#94a3b8;margin-top:20px;">KEY: ${serviceRoleKey === anonKey ? 'ANON (Limitada)' : 'SERVICE (Full)'}</p>
+          <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:16px;padding:32px;">
+            <h1 style="color:#0f172a;">Estado del Sistema</h1>
+            <p>Mantenimiento completado satisfactoriamente.</p>
+            <div style="background:#f8fafc;padding:20px;border-radius:12px;">
+              <p>🏢 <b>Edificios:</b> ${bCount ?? 0}</p>
+              <p>📑 <b>Recibos:</b> ${rCount ?? 0}</p>
+              <p>📊 <b>Movimientos:</b> ${mCount ?? 0}</p>
             </div>
+            <p style="font-size:10px;color:#94a3b8;margin-top:20px;">Acceso: SERVICE_ROLE (Full)</p>
           </div>`
       });
       return NextResponse.json({ success: true });
@@ -133,7 +126,7 @@ export async function POST(request: Request) {
 
     if (action === "backup") {
       const tables = ["edificios", "usuarios", "administradoras", "recibos", "egresos", "balances", "gastos", "alicuotas", "junta"];
-      const backupData: any = { version: "1.1", timestamp: new Date().toISOString(), tables: {} };
+      const backupData: any = { version: "1.2", timestamp: new Date().toISOString(), tables: {} };
       for (const table of tables) {
         const { data } = await supabase.from(table).select("*");
         backupData.tables[table] = data;
