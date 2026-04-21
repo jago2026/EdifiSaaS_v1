@@ -194,6 +194,103 @@ export async function GET(request: Request) {
       return NextResponse.json({ data: Object.values(evolucion) });
     }
 
+    if (action === "auditoria") {
+      const alerts: any[] = [];
+
+      // 1. Números de Operación Reutilizados
+      const { data: refsMov } = await supabase.from("movimientos").select("nro_referencia, fecha, descripcion, monto").not("nro_referencia", "is", null);
+      const { data: refsPagos } = await supabase.from("pagos_recibos").select("nro_referencia, fecha_pago, monto").not("nro_referencia", "is", null);
+      
+      const refCounts = new Map();
+      [...(refsMov || []), ...(refsPagos || [])].forEach((r: any) => {
+        if (!r.nro_referencia || r.nro_referencia === '0' || r.nro_referencia === '') return;
+        const existing = refCounts.get(r.nro_referencia) || [];
+        refCounts.set(r.nro_referencia, [...existing, r]);
+      });
+
+      for (const [ref, occurrences] of Array.from(refCounts.entries())) {
+        if (occurrences.length > 1) {
+          alerts.push({
+            tipo: 'Duplicidad',
+            severidad: 'alta',
+            titulo: `Referencia Bancaria Reutilizada: ${ref}`,
+            descripcion: `Se detectaron ${occurrences.length} movimientos con el mismo número de operación en distintas fechas o montos.`,
+            detalles: occurrences
+          });
+        }
+      }
+
+      // 2. Gastos "Huérfanos" (Facturación sin Egreso)
+      const { data: allGastos } = await supabase.from("gastos").select("mes, descripcion, monto").eq("edificio_id", edificioId);
+      const { data: allEgresos } = await supabase.from("egresos").select("mes, beneficiario, monto").eq("edificio_id", edificioId);
+
+      const mesGastoMap = new Map();
+      (allGastos || []).forEach(g => {
+        const key = `${g.mes}_${Number(g.monto).toFixed(2)}`;
+        mesGastoMap.set(key, (mesGastoMap.get(key) || 0) + 1);
+      });
+
+      const egresosHuerfanos = (allEgresos || []).filter(e => {
+        const key = `${e.mes}_${Number(e.monto).toFixed(2)}`;
+        return !mesGastoMap.has(key);
+      });
+
+      if (egresosHuerfanos.length > 0) {
+        alerts.push({
+          tipo: 'Descuadre',
+          severidad: 'media',
+          titulo: 'Egresos sin Gasto Facturado',
+          descripcion: `Hay ${egresosHuerfanos.length} egresos bancarios que no tienen un gasto común equivalente registrado en el mes.`,
+          detalles: egresosHuerfanos.slice(0, 5)
+        });
+      }
+
+      // 3. Análisis de "Caja Negra"
+      const genericKeywords = ['VARIOS', 'AJUSTE', 'TRANSFERENCIA', 'PAGO', 'S/D', 'VARIO'];
+      const cajaNegra = (allEgresos || []).filter(e => 
+        genericKeywords.some(kw => e.beneficiario?.toUpperCase().includes(kw)) || !e.beneficiario
+      );
+
+      if (cajaNegra.length > 0) {
+        alerts.push({
+          tipo: 'Transparencia',
+          severidad: 'baja',
+          titulo: 'Análisis de Caja Negra',
+          descripcion: `Se detectaron ${cajaNegra.length} egresos con descripciones genéricas que dificultan la auditoría.`,
+          detalles: cajaNegra.slice(0, 5)
+        });
+      }
+
+      // 4. Desvío del Gasto Fijo Recurrente (> 15%)
+      const { data: recs } = await supabase.from("gastos_recurrentes").select("codigo, descripcion").eq("edificio_id", edificioId).eq("activo", true);
+      const { data: dets } = await supabase.from("recibos_detalle").select("mes, codigo, monto").eq("edificio_id", edificioId).order("mes", { ascending: false });
+
+      if (recs && recs.length > 0 && dets && dets.length > 0) {
+        recs.forEach(r => {
+          const historial = dets.filter(d => d.codigo === r.codigo).map(d => Number(d.monto));
+          if (historial.length >= 2) {
+            const actual = historial[0];
+            const promedioAnterior = historial.slice(1, 7).reduce((a, b) => a + b, 0) / Math.min(historial.length - 1, 6);
+            if (promedioAnterior > 0) {
+              const desviacion = Math.abs((actual - promedioAnterior) / promedioAnterior);
+              if (desviacion > 0.15) {
+                alerts.push({
+                  tipo: 'Presupuesto',
+                  severidad: 'media',
+                  titulo: `Desvío en Gasto Recurrente: ${r.descripcion}`,
+                  descripcion: `El monto actual (Bs. ${actual.toLocaleString()}) se desvía un ${(desviacion * 100).toFixed(1)}% del promedio histórico.`,
+                  valor_actual: actual,
+                  promedio: promedioAnterior
+                });
+              }
+            }
+          }
+        });
+      }
+
+      return NextResponse.json({ data: alerts });
+    }
+
     return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   } catch (error: any) {
     console.error("Informes API error:", error);

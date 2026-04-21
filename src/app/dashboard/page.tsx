@@ -408,6 +408,24 @@ export default function DashboardPage() {
   const [currencyRecurrentes, setCurrencyRecurrentes] = useState<"BS" | "USD">("BS");
   const [newRecurrente, setNewRecurrente] = useState({ codigo: "", descripcion: "", categoria: "otros" });
   const [addingRecurrente, setAddingRecurrente] = useState(false);
+  const [auditAlerts, setAuditAlerts] = useState<any[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  const loadAudit = async () => {
+    if (!building?.id) return;
+    setLoadingAudit(true);
+    try {
+      const res = await fetch(`/api/informes?action=auditoria&edificioId=${building.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setAuditAlerts(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error loading audit:", error);
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
 
   const addManualRecurrente = async () => {
     if (!building?.id || !newRecurrente.codigo || !newRecurrente.descripcion) return;
@@ -890,6 +908,7 @@ export default function DashboardPage() {
       loadInforme();
       loadGastosRecurrentes();
       loadEvolucionRecurrentes();
+      loadAudit();
     }
     if (activeTab === "junta" && building?.id) {
       loadJunta();
@@ -3854,6 +3873,71 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+                  Auditor&iacute;a e Integridad Financiera
+                </h2>
+                <button onClick={loadAudit} className="text-xs text-indigo-600 font-bold hover:underline flex items-center gap-1">
+                  <svg className={`w-3 h-3 ${loadingAudit ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                  Re-evaluar
+                </button>
+              </div>
+
+              {loadingAudit ? (
+                <div className="text-center py-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-500 font-medium">Escaneando inconsistencias en libros contables...</p>
+                </div>
+              ) : auditAlerts.length === 0 ? (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-6 text-center">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                  </div>
+                  <h3 className="text-emerald-900 font-bold">Sin Inconsistencias Detectadas</h3>
+                  <p className="text-emerald-700 text-xs mt-1">Los registros financieros analizados cumplen con las reglas de integridad b&aacute;sicas.</p>
+                </div>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {auditAlerts.map((alert: any, i: number) => (
+                    <div key={i} className={`p-4 rounded-xl border-l-4 shadow-sm ${
+                      alert.severidad === 'alta' ? 'bg-red-50 border-red-500 border-y border-r border-red-100' :
+                      alert.severidad === 'media' ? 'bg-amber-50 border-amber-500 border-y border-r border-amber-100' :
+                      'bg-blue-50 border-blue-500 border-y border-r border-blue-100'
+                    }`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          alert.severidad === 'alta' ? 'bg-red-100 text-red-700' :
+                          alert.severidad === 'media' ? 'bg-amber-100 text-amber-700' :
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {alert.tipo}
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-400">Severidad: {alert.severidad}</span>
+                      </div>
+                      <h4 className="font-bold text-gray-900 text-sm mb-1">{alert.titulo}</h4>
+                      <p className="text-xs text-gray-600 leading-relaxed mb-3">{alert.descripcion}</p>
+                      
+                      {alert.detalles && (
+                        <div className="bg-white/50 rounded-lg p-2 mt-2">
+                          <p className="text-[9px] font-black text-gray-400 uppercase mb-1">Evidencia Detectada:</p>
+                          <div className="space-y-1">
+                            {alert.detalles.map((d: any, idx: number) => (
+                              <div key={idx} className="flex justify-between text-[10px] border-b border-gray-100 pb-0.5 last:border-0">
+                                <span className="text-gray-500 truncate max-w-[150px]">{d.descripcion || d.beneficiario || 'Sin desc.'}</span>
+                                <span className="font-mono font-bold text-gray-700">Bs. {formatBs(d.monto)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
