@@ -69,7 +69,7 @@ interface Administradora {
   created_at: string;
 }
 
-type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria';
+type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'herramientas';
 
 const maskEmail = (email: string) => {
   if (!email) return "";
@@ -94,6 +94,46 @@ export default function AdminPage() {
   const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
   const [editingAdmin, setEditingAdmin] = useState<Partial<Administradora> | null>(null);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
+  
+  // Herramientas states
+  const [toolLoading, setToolLoading] = useState(false);
+  const [maintFreq, setMaintFreq] = useState(15);
+
+  const handleMaintenance = async () => {
+    if (!window.confirm(`¿Ejecutar mantenimiento de base de datos ahora? (Frecuencia configurada: ${maintFreq} días)`)) return;
+    setToolLoading(true);
+    try {
+      const res = await fetch('/api/admin/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'maintenance' })
+      });
+      if (res.ok) alert("✅ Mantenimiento completado. Reporte enviado a correojago@gmail.com");
+    } catch (e) { alert("❌ Error"); }
+    finally { setToolLoading(false); }
+  };
+
+  const handleBackup = async () => {
+    setToolLoading(true);
+    try {
+      const res = await fetch('/api/admin/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'backup' })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename;
+        a.click();
+        alert("✅ Respaldo descargado. Por favor, súbalo a su carpeta de Google Drive.");
+      }
+    } catch (e) { alert("❌ Error"); }
+    finally { setToolLoading(false); }
+  };
 
   const loadEdificios = async () => {
     setLoading(true);
@@ -339,6 +379,7 @@ export default function AdminPage() {
               { id: 'administradoras', label: 'Administradoras', icon: Settings },
               { id: 'pagos',      label: 'Cobranza y Pagos', icon: CreditCard },
               { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
+              { id: 'herramientas', label: 'Herramientas', icon: ShieldCheck },
             ].map((item) => (
               <button
                 key={item.id}
@@ -613,7 +654,84 @@ export default function AdminPage() {
             </div>
           )}
 
-          {activeSection !== 'edificios' && activeSection !== 'administradoras' && (
+          {activeSection === 'herramientas' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900 border border-indigo-500/20 rounded-[3rem] p-10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-5 text-9xl">⚙️</div>
+                <div className="relative z-10 max-w-2xl">
+                  <h2 className="text-4xl font-black text-white uppercase tracking-tighter italic mb-4">Herramientas & Respaldo</h2>
+                  <p className="text-slate-400 font-medium text-lg leading-relaxed">
+                    Gestione la integridad de su infraestructura de datos. Realice mantenimientos preventivos, copias de seguridad en la nube y restauración del sistema.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                {/* Mantenimiento Card */}
+                <div className="bg-[#1e293b] border border-slate-700 rounded-[2.5rem] p-8 hover:border-indigo-500/50 transition-all group">
+                  <div className="w-16 h-16 bg-indigo-600/10 text-indigo-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <Database className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Mantenimiento SQL</h3>
+                  <p className="text-slate-500 text-sm font-bold mb-8 uppercase tracking-widest leading-tight">Optimización de índices y limpieza de espacio físico.</p>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">Frecuencia de Mantenimiento</label>
+                      <select 
+                        value={maintFreq}
+                        onChange={(e) => setMaintFreq(Number(e.target.value))}
+                        className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-white font-bold text-xs"
+                      >
+                        <option value={7}>Cada 7 días (Semanal)</option>
+                        <option value={15}>Cada 15 días (Recomendado)</option>
+                        <option value={30}>Cada 30 días (Mensual)</option>
+                      </select>
+                    </div>
+                    <button 
+                      onClick={handleMaintenance}
+                      disabled={toolLoading}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black uppercase text-[10px] tracking-widest py-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-3"
+                    >
+                      {toolLoading ? 'Procesando...' : <><Zap className="w-4 h-4" /> Ejecutar Mantenimiento Ahora</>}
+                    </button>
+                    <p className="text-[9px] text-slate-600 font-bold uppercase text-center italic">Un reporte detallado será enviado a correojago@gmail.com</p>
+                  </div>
+                </div>
+
+                {/* Backup & Restore Card */}
+                <div className="bg-[#1e293b] border border-slate-700 rounded-[2.5rem] p-8 hover:border-emerald-500/50 transition-all group">
+                  <div className="w-16 h-16 bg-emerald-600/10 text-emerald-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <Cloud className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tight mb-2">Respaldos en la Nube</h3>
+                  <p className="text-slate-500 text-sm font-bold mb-8 uppercase tracking-widest leading-tight">Copia íntegra de la base de datos (JSON/SQL).</p>
+                  
+                  <div className="space-y-4">
+                    <button 
+                      onClick={handleBackup}
+                      disabled={toolLoading}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black uppercase text-[10px] tracking-widest py-4 rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-3"
+                    >
+                      <Download className="w-4 h-4" /> Generar Respaldo Manual
+                    </button>
+                    <div className="p-4 bg-slate-900/50 rounded-2xl border border-slate-800">
+                       <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">Destino Configurado:</p>
+                       <p className="text-emerald-400 font-mono text-[9px] truncate">Google Drive: .../15UIfIyE78tbRU0zuLs-XDIuTD53OC9gk</p>
+                    </div>
+                    <button 
+                      onClick={handleRestore}
+                      className="w-full border-2 border-slate-700 hover:border-red-500 text-slate-500 hover:text-red-500 font-black uppercase text-[10px] tracking-widest py-4 rounded-xl transition-all flex items-center justify-center gap-3"
+                    >
+                      <RotateCcw className="w-4 h-4" /> Restaurar Sistema
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection !== 'edificios' && activeSection !== 'administradoras' && activeSection !== 'herramientas' && (
             <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-center">
                <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
                <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
