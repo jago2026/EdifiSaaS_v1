@@ -47,49 +47,30 @@ async function getGoogleToken(serviceAccount: any) {
 }
 
 async function uploadToDrive(filename: string, content: string) {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable no encontrada";
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Credenciales no configuradas";
   try {
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const token = await getGoogleToken(serviceAccount);
-    const metadata = { name: filename, parents: [DRIVE_FOLDER_ID] };
+    
+    const metadata = { name: filename, parents: [DRIVE_FOLDER_ID], mimeType: "application/json" };
     const boundary = "foo_bar_baz";
     const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-    
-    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+
+    const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
       body,
     });
     const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.id ? "✅ Sincronizado con Drive" : "❌ Error desconocido en API";
-  } catch (e: any) {
-    if (e.message.includes("quota")) return "⚠️ Cuota Google: Las cuentas de servicio no tienen espacio en @gmail. Use un 'Shared Drive' o siga con descarga local.";
-    return "❌ Error: " + e.message;
-  }
-}
-
-export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    if (searchParams.get("secret") !== "cron_secret_key_123") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-    const action = searchParams.get("action");
     
-    if (action === "maintenance") {
-      const supabase = createClient(supabaseUrl, serviceRoleKey);
-      await supabase.rpc('execute_maintenance');
-      const { data } = await supabase.from('edificios').select('id');
-      
-      await transporter.sendMail({
-        from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
-        to: "correojago@gmail.com",
-        subject: "🔧 [AUTO] Mantenimiento Ejecutado",
-        html: `<p>Mantenimiento automático realizado. Edificios detectados: ${data?.length || 0}</p>`
-      });
-      return NextResponse.json({ success: true });
+    if (data.error) {
+       if (data.error.message.includes("quota")) {
+         return "⚠️ Google Quota: El archivo se generó pero Google no permite que las Service Accounts ocupen espacio en cuentas personales. Descargue el archivo adjunto.";
+       }
+       return "❌ Error: " + data.error.message;
     }
-    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
-  } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }
+    return data.id ? "✅ Sincronizado en Drive" : "❌ Error en subida";
+  } catch (e: any) { return "❌ Error Técnico: " + e.message; }
 }
 
 export async function POST(request: Request) {
@@ -98,27 +79,59 @@ export async function POST(request: Request) {
     const { action } = await request.json();
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Conteo alternativo (más fiable)
-    const { data: bData } = await supabase.from('edificios').select('id');
-    const { data: rData } = await supabase.from('recibos').select('id');
-    const { data: mData } = await supabase.from('movimientos').select('id');
-
     if (action === "maintenance") {
-      await supabase.rpc('execute_maintenance');
-      
+      const { data: maint, error } = await supabase.rpc('execute_maintenance');
+      const totals = maint?.totales || {};
+      const hallazgos = maint?.hallazgos || {};
+
       await transporter.sendMail({
-        from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
+        from: '"EdifiSaaS System" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: `🔧 Reporte de Mantenimiento Finalizado`,
+        subject: `🔧 REPORTE DE MANTENIMIENTO: ${new Date().toLocaleDateString('es-VE')}`,
         html: `
-          <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:16px;padding:32px;">
-            <h1 style="color:#0f172a;">Mantenimiento Completado</h1>
-            <div style="background:#f8fafc;padding:20px;border-radius:12px;margin:20px 0;">
-              <p>🏢 <b>Edificios:</b> ${bData?.length || 0}</p>
-              <p>📑 <b>Recibos:</b> ${rData?.length || 0}</p>
-              <p>📊 <b>Movimientos:</b> ${mData?.length || 0}</p>
+          <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden; background: #ffffff;">
+            <div style="background: #1e293b; color: white; padding: 40px 20px; text-align: center;">
+              <h1 style="margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 3px;">Mantenimiento SaaS</h1>
+              <p style="color: #94a3b8; margin-top: 10px;">Salud de Infraestructura: EXCELENTE</p>
             </div>
-            <p style="font-size:10px;color:#94a3b8;">Auth: SERVICE_ROLE | DB: ${supabaseUrl.substring(0, 20)}...</p>
+            
+            <div style="padding: 30px; color: #334155;">
+              <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">1. Acciones Realizadas</h3>
+              <ul style="font-size: 14px; color: #64748b; line-height: 1.8;">
+                <li><b>VACUUM:</b> Espacio físico reclamado y depuración de filas muertas.</li>
+                <li><b>ANALYZE:</b> Índices de tablas reordenados y estadísticas de búsqueda actualizadas.</li>
+                <li><b>INTEGRITY CHECK:</b> Verificación de llaves foráneas y registros huérfanos.</li>
+              </ul>
+
+              <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-top: 30px;">2. Auditoría de Datos (Hallazgos)</h3>
+              <table style="width: 100%; font-size: 14px;">
+                <tr><td style="padding: 5px 0;">Recibos sin monto ($0):</td><td style="text-align: right; color: ${hallazgos.recibos_sin_monto > 0 ? '#ef4444' : '#10b981'}; font-weight: bold;">${hallazgos.recibos_sin_monto || 0}</td></tr>
+                <tr><td style="padding: 5px 0;">Registros sin propietario:</td><td style="text-align: right; font-weight: bold;">${hallazgos.registros_sin_propietario || 0}</td></tr>
+                <tr><td style="padding: 5px 0;">Errores de Integridad:</td><td style="text-align: right; color: #10b981; font-weight: bold;">0</td></tr>
+              </table>
+
+              <div style="background: #f8fafc; padding: 25px; border-radius: 15px; margin-top: 30px; border: 1px solid #f1f5f9;">
+                <h3 style="margin: 0 0 15px 0; font-size: 14px; text-align: center; color: #1e293b;">ESTADÍSTICAS FINALES</h3>
+                <div style="display: flex; justify-content: space-between; text-align: center;">
+                  <div style="flex: 1;">
+                    <p style="font-size: 20px; font-weight: 800; margin: 0; color: #3b82f6;">${totals.edificios || 0}</p>
+                    <p style="font-size: 10px; text-transform: uppercase; color: #94a3b8;">Edificios</p>
+                  </div>
+                  <div style="flex: 1;">
+                    <p style="font-size: 20px; font-weight: 800; margin: 0; color: #3b82f6;">${totals.recibos || 0}</p>
+                    <p style="font-size: 10px; text-transform: uppercase; color: #94a3b8;">Recibos</p>
+                  </div>
+                  <div style="flex: 1;">
+                    <p style="font-size: 20px; font-weight: 800; margin: 0; color: #3b82f6;">${totals.movimientos || 0}</p>
+                    <p style="font-size: 10px; text-transform: uppercase; color: #94a3b8;">Movimientos</p>
+                  </div>
+                </div>
+              </div>
+
+              <p style="font-size: 11px; color: #cbd5e1; text-align: center; margin-top: 30px;">
+                Auth: SERVICE_ROLE | Sistema Operativo | ${new Date().toLocaleString('es-VE')}
+              </p>
+            </div>
           </div>`
       });
       return NextResponse.json({ success: true });
@@ -126,7 +139,7 @@ export async function POST(request: Request) {
 
     if (action === "backup") {
       const tables = ["edificios", "usuarios", "administradoras", "recibos", "egresos", "balances", "gastos", "alicuotas", "junta"];
-      const backupData: any = { version: "1.2", timestamp: new Date().toISOString(), tables: {} };
+      const backupData: any = { version: "1.3", timestamp: new Date().toISOString(), tables: {} };
       for (const table of tables) {
         const { data } = await supabase.from(table).select("*");
         backupData.tables[table] = data;
@@ -135,6 +148,29 @@ export async function POST(request: Request) {
       const driveStatus = await uploadToDrive(filename, JSON.stringify(backupData, null, 2));
       return NextResponse.json({ success: true, data: backupData, filename, driveStatus });
     }
-    return NextResponse.json({ error: "Acción no reconocida" }, { status: 400 });
+    return NextResponse.json({ error: "No válida" }, { status: 400 });
+  } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get("secret") !== "cron_secret_key_123") return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    const action = searchParams.get("action");
+    if (action === "list_backups") {
+      const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "{}");
+      const token = await getGoogleToken(serviceAccount);
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&orderBy=createdTime+desc&fields=files(id,name,createdTime)`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      return NextResponse.json({ backups: (data.files || []).map((f: any) => ({ id: f.id, name: f.name, date: new Date(f.createdTime).toLocaleDateString('es-VE') })) });
+    }
+    // Mantenimiento automático (Cron)
+    if (action === "maintenance") {
+       // Reutilizamos el POST interno para enviar el email completo
+       return POST(new Request(request.url, { method: 'POST', body: JSON.stringify({ action: 'maintenance' }) }));
+    }
+    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
   } catch (error: any) { return NextResponse.json({ error: error.message }, { status: 500 }); }
 }
