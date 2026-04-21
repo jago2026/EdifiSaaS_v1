@@ -176,6 +176,18 @@ interface User {
   isDemo?: boolean;
 }
 
+interface Administradora {
+  id: string;
+  nombre: string;
+  url_login: string;
+  url_recibos: string;
+  url_recibo_mes: string;
+  url_egresos: string;
+  url_gastos: string;
+  url_balance: string;
+  url_alicuotas: string;
+}
+
 const maskEmail = (email: string) => {
   if (!email) return "";
   const [user, domain] = email.split("@");
@@ -223,6 +235,8 @@ export default function DashboardPage() {
   const [loadingManual, setLoadingManual] = useState(false);
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
   const [loadingAlicuotas, setLoadingAlicuotas] = useState(false);
+  const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
   const [alicuotasCount, setAlicuotasCount] = useState(0);
   const [alicuotaSum, setAlicuotaSum] = useState(0);
   const [alicuotaWarning, setAlicuotaWarning] = useState<any>(null);
@@ -686,7 +700,23 @@ export default function DashboardPage() {
       }
     }
     
+    async function loadAdministradoras() {
+      setLoadingAdmins(true);
+      try {
+        const res = await fetch("/api/admin/administradoras");
+        const data = await res.json();
+        if (res.ok) {
+          setAdministradoras(data.data || []);
+        }
+      } catch (error) {
+        console.error("Error loading administradoras:", error);
+      } finally {
+        setLoadingAdmins(false);
+      }
+    }
+
     fetchData();
+    loadAdministradoras();
   }, [router]);
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -1402,94 +1432,28 @@ export default function DashboardPage() {
   };
 
   const updateAdminAndUrls = (adminName: string) => {
-    let urls = {
-      url_login: 'https://[dominio]/control.php',
-      url_recibos: 'https://[dominio]/condlin.php?r=5',
-      url_recibo_mes: 'https://[dominio]/condlin.php?r=4',
-      url_egresos: 'https://[dominio]/condlin.php?r=21',
-      url_gastos: 'https://[dominio]/condlin.php?r=3',
-      url_balance: 'https://[dominio]/condlin.php?r=2',
-    };
-
-    if (adminName === "La Ideal C.A.") {
-      urls = {
-        url_login: 'https://admlaideal.com.ve/condlin.php?r=1',
-        url_recibos: 'https://admlaideal.com.ve/condlin.php?r=5',
-        url_recibo_mes: 'https://admlaideal.com.ve/condlin.php?r=4',
-        url_egresos: 'https://admlaideal.com.ve/condlin.php?r=21',
-        url_gastos: 'https://admlaideal.com.ve/condlin.php?r=3',
-        url_balance: 'https://admlaideal.com.ve/condlin.php?r=2',
-      };
-    } else if (adminName === "Admastridcarrasquel" || adminName === "Administradora AC. Condominios, C.A.") {
-      urls = {
-        url_login: 'https://www.admastridcarrasquel.com/condlin.php',
-        url_recibos: 'https://www.admastridcarrasquel.com/condlin.php?r=5',
-        url_recibo_mes: 'https://www.admastridcarrasquel.com/condlin.php?r=4',
-        url_egresos: 'https://www.admastridcarrasquel.com/condlin.php?r=21',
-        url_gastos: 'https://www.admastridcarrasquel.com/condlin.php?r=3',
-        url_balance: 'https://www.admastridcarrasquel.com/condlin.php?r=2',
-      };
-    } else if (adminName === "Administradora Elite") {
-      urls = {
-        url_login: 'https://www.administradoraelite.com/control.php',
-        url_recibos: 'https://www.administradoraelite.com/condlin.php?r=5',
-        url_recibo_mes: 'https://www.administradoraelite.com/condlin.php?r=4',
-        url_egresos: 'https://www.administradoraelite.com/condlin.php?r=21',
-        url_gastos: 'https://www.administradoraelite.com/condlin.php?r=3',
-        url_balance: 'https://www.administradoraelite.com/condlin.php?r=2',
-      };
-    } else if (adminName === "Intercanar" || adminName === "Intercanariven") {
-      urls = {
-        url_login: 'https://www.intercanariven.com/control.php',
-        url_recibos: 'https://www.intercanariven.com/condlin.php?r=5',
-        url_recibo_mes: 'https://www.intercanariven.com/condlin.php?r=4',
-        url_egresos: 'https://www.intercanariven.com/condlin.php?r=21',
-        url_gastos: 'https://www.intercanariven.com/condlin.php?r=3',
-        url_balance: 'https://www.intercanariven.com/condlin.php?r=2',
-      };
-    } else if (adminName === "Admactual" || adminName === "Administradora Actual, C.A.") {
-      urls = {
-        url_login: 'https://www.admactual.com/control.php',
-        url_recibos: 'https://www.admactual.com/condlin.php?r=5',
-        url_recibo_mes: 'https://www.admactual.com/condlin.php?r=4',
-        url_egresos: 'https://www.admactual.com/condlin.php?r=21',
-        url_gastos: 'https://www.admactual.com/condlin.php?r=3',
-        url_balance: 'https://www.admactual.com/condlin.php?r=2',
-      };
-    } else if (adminName === "Condominios Chacao") {
-      urls = {
-        url_login: 'https://condominioschacao.com/control.php',
-        url_recibos: 'https://condominioschacao.com/condlin.php?r=5',
-        url_recibo_mes: 'https://condominioschacao.com/condlin.php?r=4',
-        url_egresos: 'https://condominioschacao.com/condlin.php?r=21',
-        url_gastos: 'https://condominioschacao.com/condlin.php?r=3',
-        url_balance: 'https://condominioschacao.com/condlin.php?r=2',
-      };
-    } else if (adminName === "Obelisco") {
-      urls = {
-        url_login: 'https://www.obelisco.com.ve/condlin.php?r=1',
-        url_recibos: 'https://www.obelisco.com.ve/condlin.php?r=5',
-        url_recibo_mes: 'https://www.obelisco.com.ve/condlin.php?r=4',
-        url_egresos: 'https://www.obelisco.com.ve/condlin.php?r=21',
-        url_gastos: 'https://www.obelisco.com.ve/condlin.php?r=3',
-        url_balance: 'https://www.obelisco.com.ve/condlin.php?r=2',
-      };
-    } else if (adminName === "Administradora GCM") {
-      urls = {
-        url_login: 'https://administradoragcm.com/empresa.htm/control.php',
-        url_recibos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=5',
-        url_recibo_mes: 'https://administradoragcm.com/empresa.htm/condlin.php?r=4',
-        url_egresos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=21',
-        url_gastos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=3',
-        url_balance: 'https://administradoragcm.com/empresa.htm/condlin.php?r=2',
-      };
+    if (adminName === "Otra") {
+      setEditConfig(prev => ({ ...prev, admin_nombre: "Otra" }));
+      return;
     }
 
-    setEditConfig(prev => ({
-      ...prev,
-      admin_nombre: adminName,
-      ...urls
-    }));
+    const selected = administradoras.find(a => a.nombre === adminName);
+    
+    if (selected) {
+      setEditConfig(prev => ({
+        ...prev,
+        admin_nombre: selected.nombre,
+        url_login: selected.url_login || prev.url_login,
+        url_recibos: selected.url_recibos || prev.url_recibos,
+        url_recibo_mes: selected.url_recibo_mes || prev.url_recibo_mes,
+        url_egresos: selected.url_egresos || prev.url_egresos,
+        url_gastos: selected.url_gastos || prev.url_gastos,
+        url_balance: selected.url_balance || prev.url_balance,
+        url_alicuotas: selected.url_alicuotas || prev.url_alicuotas,
+      }));
+    } else {
+      setEditConfig(prev => ({ ...prev, admin_nombre: adminName }));
+    }
   };
 
   const handleSaveConfig = async () => {
@@ -4722,15 +4686,27 @@ export default function DashboardPage() {
                       disabled={!user?.isAdmin}
                       onChange={(e) => updateAdminAndUrls(e.target.value)}
                       className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
-                    >                      <option value="La Ideal C.A.">La Ideal C.A.</option>
-                      <option value="Admastridcarrasquel">Administradora AC. Condominios, C.A.</option>
-                      <option value="Administradora Elite">Administradora Elite</option>
-                      <option value="Intercanar">Intercanariven</option>
-                      <option value="Admactual">Administradora Actual, C.A.</option>
-                      <option value="Condominios Chacao">Condominios Chacao</option>
-                      <option value="Obelisco">Obelisco</option>
-                      <option value="Administradora GCM">Administradora GCM</option>
-                      <option value="Otra">Otra (Manual)</option>
+                    >
+                      {administradoras.length > 0 ? (
+                        <>
+                          {administradoras.map(adm => (
+                            <option key={adm.id} value={adm.nombre}>{adm.nombre}</option>
+                          ))}
+                          <option value="Otra">Otra (Manual)</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="La Ideal C.A.">La Ideal C.A.</option>
+                          <option value="Admastridcarrasquel">Administradora AC. Condominios, C.A.</option>
+                          <option value="Administradora Elite">Administradora Elite</option>
+                          <option value="Intercanar">Intercanariven</option>
+                          <option value="Admactual">Administradora Actual, C.A.</option>
+                          <option value="Condominios Chacao">Condominios Chacao</option>
+                          <option value="Obelisco">Obelisco</option>
+                          <option value="Administradora GCM">Administradora GCM</option>
+                          <option value="Otra">Otra (Manual)</option>
+                        </>
+                      )}
                     </select>
                   </div>
                   <div>

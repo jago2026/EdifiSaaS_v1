@@ -56,7 +56,20 @@ const GEAR_TITLES: Record<string, string> = {
   'Inactivo':   'Reactivar como Prueba',
 };
 
-type AdminSection = 'dashboard' | 'edificios' | 'pagos' | 'auditoria';
+interface Administradora {
+  id: string;
+  nombre: string;
+  url_login: string;
+  url_recibos: string;
+  url_recibo_mes: string;
+  url_egresos: string;
+  url_gastos: string;
+  url_balance: string;
+  url_alicuotas: string;
+  created_at: string;
+}
+
+type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria';
 
 const maskEmail = (email: string) => {
   if (!email) return "";
@@ -78,6 +91,9 @@ export default function AdminPage() {
   const [stats, setStats] = useState({ 
     total: 0, activos: 0, prueba: 0, suspendidos: 0, inactivos: 0 
   });
+  const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
+  const [editingAdmin, setEditingAdmin] = useState<Partial<Administradora> | null>(null);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
 
   const loadEdificios = async () => {
     setLoading(true);
@@ -106,9 +122,78 @@ export default function AdminPage() {
     }
   };
 
+  const loadAdministradoras = async () => {
+    setLoadingAdmins(true);
+    try {
+      const res = await fetch('/api/admin/administradoras');
+      const data = await res.json();
+      if (res.ok) {
+        setAdministradoras(data.data || []);
+      }
+    } catch (err) {
+      console.error("Error loading admins:", err);
+    } finally {
+      setLoadingAdmins(false);
+    }
+  };
+
   useEffect(() => { 
     loadEdificios();
+    loadAdministradoras();
   }, []);
+
+  const handleSaveAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAdmin) return;
+    
+    setLoading(true);
+    try {
+      const isNew = !editingAdmin.id;
+      const res = await fetch('/api/admin/administradoras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: isNew ? 'create' : 'update',
+          id: editingAdmin.id,
+          data: editingAdmin
+        })
+      });
+      
+      if (res.ok) {
+        setActionMsg(isNew ? '✅ Administradora agregada' : '✅ Cambios guardados');
+        setEditingAdmin(null);
+        setTimeout(() => setActionMsg(''), 3000);
+        loadAdministradoras();
+      }
+    } catch (err) {
+      alert("Error al guardar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAdmin = async (id: string) => {
+    if (!window.confirm("¿Seguro que deseas eliminar esta administradora?")) return;
+    
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/administradoras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+      
+      if (res.ok) {
+        setActionMsg('🗑️ Administradora eliminada');
+        setTimeout(() => setActionMsg(''), 3000);
+        loadAdministradoras();
+      }
+    } catch (err) {
+      alert("Error al eliminar");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleStatusChange = async (building: Edificio, newStatus: string) => {
     try {
@@ -224,6 +309,7 @@ export default function AdminPage() {
             {[
               { id: 'dashboard', label: 'Dashboard Global', icon: LayoutDashboard },
               { id: 'edificios',  label: 'Gestionar Edificios', icon: Building },
+              { id: 'administradoras', label: 'Administradoras', icon: Settings },
               { id: 'pagos',      label: 'Cobranza y Pagos', icon: CreditCard },
               { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
             ].map((item) => (
@@ -440,7 +526,67 @@ export default function AdminPage() {
             </div>
           )}
 
-          {activeSection !== 'edificios' && (
+          {activeSection === 'administradoras' && (
+            <div className="bg-[#1e293b] rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
+              <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/20">
+                <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Gestión de Administradoras</h2>
+                <button 
+                  onClick={() => setEditingAdmin({ nombre: '', url_login: '', url_recibos: '', url_recibo_mes: '', url_egresos: '', url_gastos: '', url_balance: '', url_alicuotas: '' })}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
+                >
+                  <Plus className="w-4 h-4" /> Nueva Administradora
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-slate-800/50">
+                    <tr>
+                      {['Nombre', 'Links Configurados', 'Fecha Registro', 'Acciones']
+                        .map(h => (
+                          <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-700">{h}</th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-700/50">
+                    {administradoras.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-6 py-20 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No hay administradoras registradas</td>
+                      </tr>
+                    ) : (
+                      administradoras.map((adm) => (
+                        <tr key={adm.id} className="hover:bg-indigo-500/5 transition-all group">
+                          <td className="px-6 py-5">
+                            <p className="text-white font-black text-base tracking-tighter">{adm.nombre}</p>
+                            <p className="text-[9px] text-slate-500 font-mono mt-0.5 uppercase">ID: {adm.id}</p>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex flex-wrap gap-1">
+                              {['url_login', 'url_recibos', 'url_egresos', 'url_gastos', 'url_balance'].map(link => (
+                                <span key={link} className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${adm[link as keyof Administradora] ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-600'}`}>
+                                  {link.split('_')[1]}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <p className="text-slate-400 font-bold text-xs">{new Date(adm.created_at).toLocaleDateString()}</p>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => setEditingAdmin(adm)} className="p-2 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all"><Edit className="w-4 h-4" /></button>
+                              <button onClick={() => handleDeleteAdmin(adm.id)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeSection !== 'edificios' && activeSection !== 'administradoras' && (
             <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-center">
                <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
                <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
@@ -448,6 +594,62 @@ export default function AdminPage() {
             </div>
           )}
         </div>
+
+        {editingAdmin && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
+            <div className="bg-[#1e293b] w-full max-w-2xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden">
+              <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center">
+                <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">{editingAdmin.id ? 'Editar Administradora' : 'Nueva Administradora'}</h3>
+                <button onClick={() => setEditingAdmin(null)} className="text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleSaveAdmin} className="p-10 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre Comercial</label>
+                  <input 
+                    type="text" required
+                    value={editingAdmin.nombre}
+                    onChange={(e) => setEditingAdmin({...editingAdmin, nombre: e.target.value})}
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 shadow-inner"
+                    placeholder="Ej: Datahouse C.A."
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { key: 'url_login', label: 'URL Login (r=1)', placeholder: 'https://.../condlin.php?r=1' },
+                    { key: 'url_recibos', label: 'URL Recibos (r=5)', placeholder: '.../condlin.php?r=5' },
+                    { key: 'url_recibo_mes', label: 'URL Recibo del Mes (r=4)', placeholder: '.../condlin.php?r=4' },
+                    { key: 'url_egresos', label: 'URL Egresos (r=21)', placeholder: '.../condlin.php?r=21' },
+                    { key: 'url_gastos', label: 'URL Gastos (r=3)', placeholder: '.../condlin.php?r=3' },
+                    { key: 'url_balance', label: 'URL Balance (r=2)', placeholder: '.../condlin.php?r=2' },
+                    { key: 'url_alicuotas', label: 'URL Alícuotas (r=23)', placeholder: '.../condlin.php?r=23' },
+                  ].map(field => (
+                    <div key={field.key} className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{field.label}</label>
+                      <input 
+                        type="text"
+                        value={(editingAdmin as any)[field.key] || ''}
+                        onChange={(e) => setEditingAdmin({...editingAdmin, [field.key]: e.target.value})}
+                        className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-white font-bold text-xs focus:outline-none focus:border-indigo-500 shadow-inner"
+                        placeholder={field.placeholder}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-4 pt-6">
+                  <button type="button" onClick={() => setEditingAdmin(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-slate-600 transition-all">Cancelar</button>
+                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-indigo-500 flex items-center justify-center gap-3 transition-all">
+                    <Save className="w-4 h-4" /> {editingAdmin.id ? 'Actualizar Base' : 'Registrar Administradora'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {editingBuilding && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
