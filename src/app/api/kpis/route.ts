@@ -250,7 +250,8 @@ export async function GET(request: Request) {
           total_por_cobrar: b.total_por_cobrar || 0,
           total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
           recibos_mes: b.recibos_mes || 0,
-          recibos_mes_usd: recibosMesTotalUsd / totalUnidades, // Promedio por unidad para evitar los 3000 USD
+          recibos_mes_usd: tasa > 0 ? (b.recibos_mes || 0) / tasa : 0, // Monto total en USD del mes
+          recibo_promedio_usd: (tasa > 0 && totalUnidades > 0) ? ((b.recibos_mes || 0) / tasa) / totalUnidades : 0, // Este es el que debería usarse para el KPI de "monto por unidad"
           tasa_bcv: tasa,
           resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
           efectividad_recaudacion: (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0)) > 0 

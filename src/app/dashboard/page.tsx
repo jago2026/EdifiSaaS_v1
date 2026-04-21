@@ -3532,7 +3532,7 @@ export default function DashboardPage() {
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
                       <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Monto Recibo"]} />
-                      <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibo ($)" />
+                      <Area type="monotone" dataKey="recibo_promedio_usd" stroke="#10b981" fill="#d1fae5" name="Recibo ($)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
