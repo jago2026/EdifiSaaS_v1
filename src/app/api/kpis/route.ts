@@ -83,7 +83,7 @@ async function logTasaWarning(supabase: any, edificioId: string, targetDate: str
 }
 
 function getTasaBCVParaFecha(fechaStr: string, tasasHistoricas: any[]): { tasa: number, fecha: string | null } {
-  if (!tasasHistoricas || tasasHistoricas.length === 0) return { tasa: 45, fecha: null };
+  if (!tasasHistoricas || tasasHistoricas.length === 0) return { tasa: 481.70, fecha: null };
 
   // Try to find exact rate for that day
   const exact = tasasHistoricas.find((t: any) => t.fecha === fechaStr);
@@ -94,13 +94,13 @@ function getTasaBCVParaFecha(fechaStr: string, tasasHistoricas: any[]): { tasa: 
   if (fallbackTasa) return { tasa: parseFloat(fallbackTasa.tasa_dolar), fecha: fallbackTasa.fecha };
 
   // Ultimate fallback: Use the most recent rate we have
-  return { tasa: parseFloat(tasasHistoricas[0]?.tasa_dolar || "45"), fecha: tasasHistoricas[0]?.fecha || null };
+  return { tasa: parseFloat(tasasHistoricas[0]?.tasa_dolar || "481.70"), fecha: tasasHistoricas[0]?.fecha || null };
 }
 
 function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
-  if (!tasasHistoricas || tasasHistoricas.length === 0) return 45;
+  if (!tasasHistoricas || tasasHistoricas.length === 0) return 481.70;
   const normalized = normalizeMonth(mes);
-  if (!normalized) return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
+  if (!normalized) return parseFloat(tasasHistoricas[0]?.tasa_dolar || "481.70");
   
   const [year, month] = normalized.split("-");
   const prefix = `${year}-${month}`;
@@ -120,7 +120,7 @@ function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
   if (fallbackTasa.length > 0) return parseFloat(fallbackTasa[0].tasa_dolar);
 
   // Ultimate fallback: Use the most recent rate we have
-  return parseFloat(tasasHistoricas[0]?.tasa_dolar || "45");
+  return parseFloat(tasasHistoricas[0]?.tasa_dolar || "481.70");
 }
 
 export async function GET(request: Request) {

@@ -251,7 +251,7 @@ export default function DashboardPage() {
   const [loadingSincronizaciones, setLoadingSincronizaciones] = useState(false);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loadingAlertas, setLoadingAlertas] = useState(false);
-  const [tasaCambio, setTasaCambio] = useState<number>(45.50);
+  const [tasaCambio, setTasaCambio] = useState<number>(481.70);
   const [tasaBCV, setTasaBCV] = useState({ dolar: 0, euro: 0, fecha: "" });
   const [loadingTasa, setLoadingTasa] = useState(false);
   const [selectedMes, setSelectedMes] = useState<string>("");
@@ -1263,7 +1263,7 @@ export default function DashboardPage() {
         const saldoInicial = field === "saldo_inicial" ? Number(value) : Number(movimiento.saldo_inicial) || 0;
         const egresos = field === "egresos" ? Number(value) : Number(movimiento.egresos) || 0;
         const ingresos = field === "ingresos" ? Number(value) : Number(movimiento.ingresos) || 0;
-        const tasaBcv = field === "tasa_bcv" ? Number(value) : Number(movimiento.tasa_bcv) || tasaBCV.dolar || 45.50;
+        const tasaBcv = field === "tasa_bcv" ? Number(value) : Number(movimiento.tasa_bcv) || tasaBCV.dolar || 481.70;
         
         newValues.saldo_final = saldoInicial - egresos + ingresos;
         newValues.saldo_final_usd = tasaBcv > 0 ? newValues.saldo_final / tasaBcv : 0;
@@ -1297,7 +1297,7 @@ export default function DashboardPage() {
           egresos: 0,
           ingresos: 0,
           saldo_final: 0,
-          tasa_bcv: tasaBCV.dolar || 45.50,
+          tasa_bcv: tasaBCV.dolar || 481.70,
         }),
       });
       const data = await res.json();
@@ -4380,7 +4380,7 @@ export default function DashboardPage() {
                                       <td className="py-2 px-3 border text-right font-mono">{formatBs(item.monto)}</td>
                                       <td className="py-2 px-3 border text-right font-mono text-gray-400">{formatBs(cuotaParte)}</td>
                                       <td className="py-2 px-3 border text-right font-black text-indigo-700 font-mono">{formatBs(totalItem)}</td>
-                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / (tasaBCV.dolar || 45))}</td>
+                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / (tasaBCV.dolar || 481.70))}</td>
                                     </tr>
                                   );
                                 })}
@@ -4401,7 +4401,7 @@ export default function DashboardPage() {
                                 <tr className="bg-indigo-900 text-white">
                                   <td colSpan={4} className="py-4 px-6 border-none font-black text-right uppercase tracking-widest text-sm">TOTAL ESTIMADO POR APARTAMENTO (2.2135%):</td>
                                   <td className="py-4 px-3 border-none text-right font-black text-lg font-mono">Bs. {formatBs((subtotal * 0.022135) * 1.10)}</td>
-                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(((subtotal * 0.022135) * 1.10) / (tasaBCV.dolar || 45))}</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(((subtotal * 0.022135) * 1.10) / (tasaBCV.dolar || 481.70))}</td>
                                 </tr>
                               </>
                             );

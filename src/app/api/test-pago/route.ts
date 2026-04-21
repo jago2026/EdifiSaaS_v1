@@ -37,7 +37,7 @@ export async function GET(request: Request) {
 
       await supabase.from("recibos").update({ 
         deuda: nuevaDeuda,
-        deuda_usd: nuevaDeuda / 45.50,
+        deuda_usd: nuevaDeuda / 481.70,
         actualizado_en: today 
       }).eq("id", recibo.id);
 
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
 
         await supabase.from("recibos").update({ 
           deuda: nuevaDeuda,
-          deuda_usd: nuevaDeuda / 45.50,
+          deuda_usd: nuevaDeuda / 481.70,
           actualizado_en: today 
         }).eq("id", recibo.id);
 
@@ -133,7 +133,7 @@ export async function GET(request: Request) {
       }
       if (!targetEdificioId) return NextResponse.json({ error: "No hay edificio" }, { status: 400 });
 
-      await supabase.from("recibos").update({ deuda: 25000, deuda_usd: 25000/45.5 }).eq("edificio_id", targetEdificioId);
+      await supabase.from("recibos").update({ deuda: 25000, deuda_usd: 25000/481.7 }).eq("edificio_id", targetEdificioId);
       return NextResponse.json({ success: true, message: "Deudas reseteadas a Bs. 25.000 para pruebas" });
     }
 

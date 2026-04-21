@@ -7,10 +7,26 @@ const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 function parseMonto(text: string): number {
   if (!text) return 0;
-  let cleaned = text.replace(/[^\d.,-]/g, "");
+  // Clean text: remove currency symbols and spaces
+  let cleaned = text.trim().replace(/[^\d.,-]/g, "");
   if (!cleaned) return 0;
-  let numStr = cleaned.replace(/\./g, "").replace(",", ".");
-  return parseFloat(numStr) || 0;
+
+  // Format detection logic:
+  // If it has comma and dot, assume dot as thousands, comma as decimal (e.g., 1.234,56)
+  if (cleaned.includes(",") && cleaned.includes(".")) {
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  } 
+  // If it only has a comma at the end positions (e.g., 32795,34)
+  else if (cleaned.includes(",") && cleaned.indexOf(",") >= cleaned.length - 3) {
+    cleaned = cleaned.replace(",", ".");
+  }
+  // If it has a dot but looks like a thousand separator (e.g., 32.795) and no decimals detected
+  else if (cleaned.includes(".") && cleaned.indexOf(".") <= cleaned.length - 4) {
+    cleaned = cleaned.replace(/\./g, "");
+  }
+
+  const val = parseFloat(cleaned);
+  return isNaN(val) ? 0 : val;
 }
 
 async function generateHash(data: string): Promise<string> {
@@ -990,7 +1006,7 @@ export async function POST(request: Request) {
 
     try {
       const { data: tasaData } = await supabase.from("tasas_cambio").select("tasa_dolar").order("fecha", { ascending: false }).limit(1).single();
-      const tasa = tasaData?.tasa_dolar || 45.50;
+      const tasa = tasaData?.tasa_dolar || 481.70;
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
       const { data: recs } = await supabase.from("recibos").select("deuda").eq("edificio_id", building.id).gt("deuda", 0);

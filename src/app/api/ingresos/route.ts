@@ -35,7 +35,7 @@ const { data: pagos, error } = await supabase
     }
 
     // Transform pagos_recibos data into format expected by UI
-    const tasaDefault = 45.50;
+    const tasaDefault = 481.70;
     const pagosFormatted = (pagos || []).map((p: any) => ({
       id: p.id,
       fecha: p.fecha_pago || new Date().toISOString().split("T")[0],

@@ -45,8 +45,8 @@ async function getTasaBCV(): Promise<number> {
       .order("fecha", { ascending: false })
       .limit(1)
       .single();
-    return data?.tasa_dolar || 45.50;
-  } catch { return 45.50; }
+    return data?.tasa_dolar || 481.70;
+  } catch { return 481.70; }
 }
 
 export async function POST(request: Request) {

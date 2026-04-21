@@ -45,7 +45,7 @@ export async function GET(request: Request) {
           tipo: "pago",
           descripcion: `Pago - ${p.unidad} - ${p.propietario || ""}`,
           monto: p.monto,
-          monto_usd: p.monto / 45, // approximate
+          monto_usd: p.monto / 481.70, // approximate
           unidad: p.unidad,
           propietario: p.propietario,
           fuente: "pagos_recibos",
@@ -70,7 +70,7 @@ export async function GET(request: Request) {
           tipo: "egreso",
           descripcion: `${e.beneficiario} - ${e.descripcion || ""}`,
           monto: e.monto,
-          monto_usd: e.monto_usd || e.monto / 45,
+          monto_usd: e.monto_usd || e.monto / 481.70,
           fuente: "egresos",
         });
       }
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
           tipo: "gasto",
           descripcion: `${g.codigo} - ${g.descripcion}`,
           monto: g.monto,
-          monto_usd: g.monto_usd || g.monto / 45,
+          monto_usd: g.monto_usd || g.monto / 481.70,
           fuente: "gastos",
         });
       }
