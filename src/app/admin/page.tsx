@@ -98,6 +98,22 @@ export default function AdminPage() {
   // Herramientas states
   const [toolLoading, setToolLoading] = useState(false);
   const [maintFreq, setMaintFreq] = useState(15);
+  const [availableBackups, setAvailableBackups] = useState<any[]>([]);
+  const [selectedBackup, setSelectedBackup] = useState('');
+
+  const loadBackups = async () => {
+    try {
+      const res = await fetch('/api/admin/tools?action=list_backups&secret=cron_secret_key_123');
+      const data = await res.json();
+      if (res.ok) setAvailableBackups(data.backups || []);
+    } catch (e) { console.error(e); }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'herramientas') {
+      loadBackups();
+    }
+  }, [activeSection]);
 
   const handleMaintenance = async () => {
     if (!window.confirm(`¿Ejecutar mantenimiento de base de datos ahora? (Frecuencia configurada: ${maintFreq} días)`)) return;
@@ -719,12 +735,26 @@ export default function AdminPage() {
                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-2">Destino Configurado:</p>
                        <p className="text-emerald-400 font-mono text-[9px] truncate">Google Drive: .../15UIfIyE78tbRU0zuLs-XDIuTD53OC9gk</p>
                     </div>
-                    <button 
-                      onClick={handleRestore}
-                      className="w-full border-2 border-slate-700 hover:border-red-500 text-slate-500 hover:text-red-500 font-black uppercase text-[10px] tracking-widest py-4 rounded-xl transition-all flex items-center justify-center gap-3"
-                    >
-                      <RotateCcw className="w-4 h-4" /> Restaurar Sistema
-                    </button>
+                    <div className="pt-4 border-t border-slate-700/50 space-y-3">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">Restauración de Sistema</label>
+                      <select 
+                        value={selectedBackup}
+                        onChange={(e) => setSelectedBackup(e.target.value)}
+                        className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-white font-bold text-[10px]"
+                      >
+                        <option value="">Seleccione un respaldo...</option>
+                        {availableBackups.map(b => (
+                          <option key={b.id} value={b.name}>{b.name} ({b.date})</option>
+                        ))}
+                      </select>
+                      <button 
+                        onClick={handleRestore}
+                        disabled={!selectedBackup || toolLoading}
+                        className="w-full border-2 border-slate-700 hover:border-red-500 text-slate-500 hover:text-red-500 disabled:opacity-30 disabled:hover:border-slate-700 disabled:hover:text-slate-500 font-black uppercase text-[10px] tracking-widest py-4 rounded-xl transition-all flex items-center justify-center gap-3"
+                      >
+                        <RotateCcw className="w-4 h-4" /> Restaurar Punto Seleccionado
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

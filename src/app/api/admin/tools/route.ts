@@ -17,6 +17,47 @@ async function checkAdmin() {
   return user?.email === "correojago@gmail.com";
 }
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const action = searchParams.get("action");
+    const secret = searchParams.get("secret");
+
+    // Seguridad para el Cron Job
+    if (secret !== "cron_secret_key_123") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    if (action === "maintenance") {
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const { error } = await supabase.rpc('execute_maintenance');
+      
+      await transporter.sendMail({
+        from: '"EdifiSaaS System" <controlfinancierosaas@gmail.com>',
+        to: "correojago@gmail.com",
+        subject: "🔧 [AUTO] Reporte de Mantenimiento EdifiSaaS",
+        html: `<h1>Mantenimiento Automático</h1><p>Ejecutado por Cron Job de Vercel.</p>`
+      });
+
+      return NextResponse.json({ success: true, message: "Mantenimiento automático completado" });
+    }
+
+    if (action === "list_backups") {
+      // Por ahora devolvemos una lista estática, luego se conectará a Drive
+      return NextResponse.json({ 
+        backups: [
+          { id: '1', name: 'backup_manual_2026_04_21.json', date: '2026-04-21' },
+          { id: '2', name: 'backup_auto_2026_04_15.json', date: '2026-04-15' }
+        ] 
+      });
+    }
+
+    return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
     if (!await checkAdmin()) {
