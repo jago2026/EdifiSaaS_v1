@@ -49,6 +49,13 @@ const GEAR_COLORS: Record<string, string> = {
   'Inactivo':   'text-blue-400 hover:bg-blue-500/20',
 };
 
+const GEAR_TITLES: Record<string, string> = {
+  'Prueba':     'Cambiar a Activo',
+  'Activo':     'Cambiar a Suspendido',
+  'Suspendido': 'Volver a Prueba',
+  'Inactivo':   'Reactivar como Prueba',
+};
+
 // Configuración Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
