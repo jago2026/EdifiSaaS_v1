@@ -88,21 +88,37 @@ export async function POST(request: Request) {
     }
 
     if (action === "backup") {
-      // Implementación simplificada: Obtenemos los datos clave como JSON para el respaldo
-      const tables = ["edificios", "usuarios", "administradoras", "recibos", "egresos", "balances"];
-      const backupData: any = {};
+      const tables = ["edificios", "usuarios", "administradoras", "recibos", "egresos", "balances", "gastos", "alicuotas", "junta"];
+      const backupData: any = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        tables: {}
+      };
 
       for (const table of tables) {
         const { data } = await supabase.from(table).select("*");
-        backupData[table] = data;
+        backupData.tables[table] = data;
       }
 
-      // TODO: Aquí se integraría la subida a Google Drive con Service Account
-      // Por ahora devolvemos el objeto para descarga manual en el cliente
+      const filename = `backup_edifisaas_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      const fileContent = JSON.stringify(backupData, null, 2);
+
+      // Lógica de subida a Google Drive si existe la credencial
+      let driveStatus = "No configurado (Solo descarga local)";
+      if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+        try {
+          // Aquí se realizaría la llamada a la API de Google Drive
+          // driveStatus = "Sincronizado con Google Drive";
+        } catch (e: any) {
+          driveStatus = "Error en Drive: " + e.message;
+        }
+      }
+
       return NextResponse.json({ 
         success: true, 
         data: backupData,
-        filename: `backup_edifisaas_${new Date().toISOString().split('T')[0]}.json`
+        filename,
+        driveStatus
       });
     }
 
