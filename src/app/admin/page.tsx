@@ -6,7 +6,7 @@ import {
   Building, Users, BarChart3, Settings, LogOut, Trash2, Edit, 
   RefreshCw, ChevronDown, ChevronUp, Plus, Save, X, Eye,
   Search, ShieldCheck, CreditCard, LayoutDashboard, Database,
-  AlertTriangle, CheckCircle2, Clock
+  AlertTriangle, CheckCircle2, Clock, Zap, Cloud, Download, RotateCcw
 } from 'lucide-react';
 
 interface Edificio {
