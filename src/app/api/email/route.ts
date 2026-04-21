@@ -357,8 +357,8 @@ ${deudasTexto}
 
 🏠 *Estadísticas de Cobranza:*
 • Aptos con deuda: ${cantAptosConDeuda} (${formatNumber(Math.min(100, pctAptosConDeuda))}% del total)
-• Recaudado del mes: ${formatNumber(pctRecaudado)}% ${pctRecaudado >= 100 ? "✅ (Incluye cobranza de meses anteriores)" : "⏳"}
-• Pendiente por recaudar: ${formatNumber(pctPendiente)}% ${pctPendiente === 0 ? "✅" : "⏳"}
+• Recaudado este mes: ${formatBs(cobranza)} (${formatNumber(pctRecaudado)}%) ${pctRecaudado >= 100 ? "✅" : "⏳"}
+• Total pendiente por cobrar: ${formatBs(totalGeneralAdeudado)} ⏳
 • Días restantes del mes: ${daysRemaining} 📅
 
 Agradecemos a quienes ya han cumplido con sus pagos.
