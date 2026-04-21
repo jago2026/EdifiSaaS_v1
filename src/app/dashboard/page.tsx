@@ -4336,7 +4336,7 @@ export default function DashboardPage() {
                         <p className="text-indigo-600 font-black text-sm uppercase mt-1">PERÍODO {new Date().toLocaleDateString('es-VE', { month: '2-digit', year: 'numeric' })}</p>
                         <div className="flex justify-center gap-6 mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                           <span>🏢 {building?.nombre}</span>
-                          <span>👥 Total Unidades: {building?.unidades || 43}</span>
+                          <span>👥 Total Unidades: {building?.unidades || 0}</span>
                           <span>📊 Alícuota Base: 2.2135%</span>
                         </div>
                       </div>

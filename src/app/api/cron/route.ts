@@ -73,8 +73,17 @@ export async function GET(request: NextRequest) {
               recipient: ADMIN_EMAIL
             })
           });
+
+          // También insertar en tabla de alertas para que se vea en el dashboard
+          await supabase.from("alertas").insert({
+            edificio_id: edificio.id,
+            tipo: "error",
+            titulo: "⚠️ Error en Cron Diario",
+            descripcion: `El proceso automático falló: ${err.message}`,
+            fecha: new Date().toISOString().split("T")[0]
+          });
         } catch (e) {
-          console.error("Fallo crítico: No se pudo enviar email de error al admin");
+          console.error("Fallo crítico: No se pudo enviar email de error al admin o crear alerta");
         }
 
         results.push({ edificio: edificio.nombre, status: "error", error: err.message });

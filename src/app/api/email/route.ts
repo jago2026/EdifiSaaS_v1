@@ -292,8 +292,22 @@ export async function POST(request: Request) {
     const fechaStr = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
 
     if (action === "whatsapp_report") {
-      // Get all receipts with debt
-      const { data: recibos } = await supabase.from("recibos").select("num_recibos, deuda").eq("edificio_id", edificioId).gt("deuda", 0);
+      // Get the latest month available for this building in recibos
+      const { data: latestMesData } = await supabase
+        .from("recibos")
+        .select("mes")
+        .eq("edificio_id", edificioId)
+        .order("mes", { ascending: false })
+        .limit(1);
+      
+      const latestMes = latestMesData?.[0]?.mes;
+
+      // Get all receipts with debt for the latest month (or all if no mes exists yet)
+      let query = supabase.from("recibos").select("num_recibos, deuda").eq("edificio_id", edificioId).gt("deuda", 0);
+      if (latestMes) {
+        query = query.eq("mes", latestMes);
+      }
+      const { data: recibos } = await query;
       
       const dist: Record<number, { count: number, total: number }> = {};
       (recibos || []).forEach(r => {
@@ -310,8 +324,14 @@ export async function POST(request: Request) {
       
       // Get balance for collection percentage
       const { data: balance } = await supabase.from("balances").select("cobranza_mes, recibos_mes").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(1).single();
-      const pctRecaudado = balance?.recibos_mes ? (Number(balance.cobranza_mes) / Number(balance.recibos_mes)) * 100 : 0;
-      const pctPendiente = 100 - pctRecaudado;
+      
+      // Calculate realistic percentages
+      const cobranza = Number(balance?.cobranza_mes || 0);
+      const facturacion = Number(balance?.recibos_mes || 0);
+      
+      const pctRecaudado = facturacion > 0 ? (cobranza / facturacion) * 100 : 0;
+      // Pendiente cannot be negative, so we cap pctRecaudado at 100 for this specific calculation
+      const pctPendiente = Math.max(0, 100 - Math.min(100, pctRecaudado));
 
       // Days remaining in month
       const lastDay = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
@@ -336,9 +356,9 @@ ${deudasTexto}
 📊 *Total general adeudado: ${formatBs(totalGeneralAdeudado)}*
 
 🏠 *Estadísticas de Cobranza:*
-• Aptos con deuda: ${cantAptosConDeuda} (${formatNumber(pctAptosConDeuda)}% del total)
-• Recaudado del mes: ${formatNumber(pctRecaudado)}% ✅
-• Pendiente por recaudar: ${formatNumber(pctPendiente)}% ⏳
+• Aptos con deuda: ${cantAptosConDeuda} (${formatNumber(Math.min(100, pctAptosConDeuda))}% del total)
+• Recaudado del mes: ${formatNumber(pctRecaudado)}% ${pctRecaudado >= 100 ? "✅ (Incluye cobranza de meses anteriores)" : "⏳"}
+• Pendiente por recaudar: ${formatNumber(pctPendiente)}% ${pctPendiente === 0 ? "✅" : "⏳"}
 • Días restantes del mes: ${daysRemaining} 📅
 
 Agradecemos a quienes ya han cumplido con sus pagos.
@@ -377,10 +397,26 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     // Historical balances
     const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(4);
 
-    // Recibos with debt
-    const { data: recibos } = await supabase.from("recibos").select("unidad, propietario, num_recibos, deuda").eq("edificio_id", edificioId).gt("deuda", 0);
-    const totalDeuda = (recibos || []).reduce((sum, r) => sum + r.deuda, 0);
+    // Get the latest month available for this building in recibos
+    const { data: latestMesDataMain } = await supabase
+      .from("recibos")
+      .select("mes")
+      .eq("edificio_id", edificioId)
+      .order("mes", { ascending: false })
+      .limit(1);
+    
+    const latestMesMain = latestMesDataMain?.[0]?.mes;
+
+    // Recibos with debt (filtered by latest month if available)
+    let recQuery = supabase.from("recibos").select("unidad, propietario, num_recibos, deuda").eq("edificio_id", edificioId).gt("deuda", 0);
+    if (latestMesMain) {
+      recQuery = recQuery.eq("mes", latestMesMain);
+    }
+    const { data: recibos } = await recQuery;
+    
+    const totalDeuda = (recibos || []).reduce((sum, r) => sum + Number(r.deuda), 0);
     const unidadesConDeuda = recibos?.length || 0;
+    const totalAptosMain = edificio.unidades || 43;
 
     // Today's movements
     const { data: movimientosDia } = await supabase.from("movimientos_dia").select("tipo, descripcion, monto, fuente").eq("edificio_id", edificioId).eq("detectado_en", today);
@@ -544,9 +580,9 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         <tr>
           <td>
             <table class="metric-table">
-              <tr><td class="metric-label">Recibos Pendientes:</td><td class="metric-value ${unidadesConDeuda > 25 ? 'negative' : 'positive'}">${unidadesConDeuda} unidades</td></tr>
+              <tr><td class="metric-label">Recibos Pendientes:</td><td class="metric-value ${unidadesConDeuda > (totalAptosMain * 0.5) ? 'negative' : 'positive'}">${unidadesConDeuda} unidades</td></tr>
             </table>
-            <div style="text-align: center; font-size: 10px; color: #5f6368;">(${(unidadesConDeuda/43*100).toFixed(1)}% de 43 unidades totales)</div>
+            <div style="text-align: center; font-size: 10px; color: #5f6368;">(${(unidadesConDeuda/totalAptosMain*100).toFixed(1)}% de ${totalAptosMain} unidades totales)</div>
           </td>
           <td>
             <table class="metric-table">

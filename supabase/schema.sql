@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS recibos (
   deuda_anterior DECIMAL(12, 2) DEFAULT 0,
   pagado DECIMAL(12, 2) DEFAULT 0,
   saldo DECIMAL(12, 2) DEFAULT 0,
+  mes VARCHAR(7),
+  actualizado_en DATE,
   sincronizado BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
