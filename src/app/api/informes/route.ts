@@ -37,13 +37,50 @@ export async function GET(request: Request) {
     }
 
     if (action === "gastos_recurrentes") {
-      const { data: recurrentes, error } = await supabase
+      let { data: recurrentes, error } = await supabase
         .from("gastos_recurrentes")
         .select("*")
         .eq("edificio_id", edificioId)
         .order("descripcion", { ascending: true });
 
       if (error) throw error;
+
+      // AUTO-SANACIÓN: Si no hay registros en gastos_recurrentes, intentar extraer de recibos_detalle
+      if (!recurrentes || recurrentes.length === 0) {
+        console.log("Gastos recurrentes vacíos, intentando auto-sanación desde recibos_detalle...");
+        const { data: fromDetails } = await supabase
+          .from("recibos_detalle")
+          .select("codigo, descripcion")
+          .eq("edificio_id", edificioId);
+        
+        if (fromDetails && fromDetails.length > 0) {
+          const uniqueCodes = new Map();
+          fromDetails.forEach((d: any) => {
+            if (d.codigo && d.codigo !== '&nbsp;' && !uniqueCodes.has(d.codigo)) {
+              uniqueCodes.set(d.codigo, d.descripcion);
+            }
+          });
+
+          // Insertar automáticamente los conceptos encontrados
+          for (const [code, desc] of Array.from(uniqueCodes.entries())) {
+            await supabase.from("gastos_recurrentes").upsert({
+              edificio_id: edificioId,
+              codigo: code,
+              descripcion: desc,
+              activo: true,
+              categoria: 'otros'
+            }, { onConflict: 'edificio_id,codigo' });
+          }
+
+          // Volver a cargar la lista ya poblada
+          const { data: retryData } = await supabase
+            .from("gastos_recurrentes")
+            .select("*")
+            .eq("edificio_id", edificioId)
+            .order("descripcion", { ascending: true });
+          recurrentes = retryData;
+        }
+      }
 
       // Calcular frecuencia desde recibos_detalle
       const { data: freqData } = await supabase

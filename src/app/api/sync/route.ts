@@ -492,7 +492,7 @@ export async function POST(request: Request) {
       let text = await res.text();
       
       // Si la página es muy corta (página de error/login), intentar con el formato MM-YYYY
-      if (text.length < 70000 && urlPath.includes("combo=") && mes && mes.includes("-")) {
+      if (text.length < 5000 && urlPath.includes("combo=") && mes && mes.includes("-")) {
         console.log(`Page seems too short (${text.length}). Retrying with MM-YYYY format...`);
         const cleanPath = urlPath.split('&combo=')[0];
         const retryUrl = `${baseUrl}/${cleanPath}${separator}combo=${mes}&PHPSESSID=${session.sid}`;
@@ -504,7 +504,7 @@ export async function POST(request: Request) {
       }
       
       // Si sigue siendo corta, no usar fallback de "sin combo", simplemente devolver lo que hay o null
-      if (text.length < 70000) {
+      if (text.length < 5000) {
         console.log(`Warning: Content for ${urlPath} is still too short (${text.length}). Extraction might fail.`);
       }
       
