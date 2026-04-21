@@ -34,6 +34,13 @@ CREATE TABLE IF NOT EXISTS edificios (
   plan VARCHAR(50) DEFAULT 'basico',
   activo BOOLEAN DEFAULT true,
   ultima_sincronizacion TIMESTAMP WITH TIME ZONE,
+  status VARCHAR(50) DEFAULT 'Prueba',
+  monthly_fee DECIMAL(12, 2) DEFAULT 0,
+  discount_pct INTEGER DEFAULT 0,
+  payment_day INTEGER DEFAULT 5,
+  last_payment_date DATE,
+  last_payment_amount DECIMAL(12, 2) DEFAULT 0,
+  notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
