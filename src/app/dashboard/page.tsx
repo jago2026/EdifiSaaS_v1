@@ -113,6 +113,7 @@ interface Building {
   sync_balance?: boolean;
   email_junta?: string | null;
   onboarding_completed?: boolean;
+  url_alicuotas?: string;
 }
 
 interface Movement {
@@ -583,6 +584,7 @@ export default function DashboardPage() {
     sync_gastos: true,
     sync_alicuotas: true,
     sync_balance: true,
+    url_alicuotas: "",
     unidades: 0,
   });
 
@@ -599,6 +601,7 @@ export default function DashboardPage() {
         url_egresos: building.url_egresos || "",
         url_gastos: building.url_gastos || "",
         url_balance: building.url_balance || "",
+        url_alicuotas: building.url_alicuotas || "",
         cron_enabled: building.cron_enabled !== false,
         cron_time: building.cron_time || "05:00",
         cron_frequency: building.cron_frequency || "diaria",
