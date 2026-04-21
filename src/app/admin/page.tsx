@@ -118,6 +118,7 @@ export default function AdminPage() {
   }, []);
 
   const handleToggleStatus = async (building: Edificio) => {
+    const supabase = getSupabaseClient();
     const currentStatus = building.status || 'Prueba';
     const newStatus = STATUS_CYCLE[currentStatus] ?? 'Activo';
     
@@ -137,6 +138,7 @@ export default function AdminPage() {
     const confirmed = window.confirm(`¿Desactivar "${building.nombre}"?`);
     if (!confirmed) return;
     
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from('edificios')
       .update({ status: 'Inactivo' })
@@ -153,6 +155,7 @@ export default function AdminPage() {
     e.preventDefault();
     if (!editingBuilding) return;
     
+    const supabase = getSupabaseClient();
     const { error } = await supabase
       .from('edificios')
       .update({
