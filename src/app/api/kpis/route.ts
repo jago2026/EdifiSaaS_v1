@@ -253,7 +253,9 @@ export async function GET(request: Request) {
           recibos_mes_usd: recibosMesTotalUsd / totalUnidades, // Promedio por unidad para evitar los 3000 USD
           tasa_bcv: tasa,
           resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
-          efectividad_recaudacion: b.recibos_mes ? ((b.cobranza_mes || 0) / b.recibos_mes) * 100 : 0,
+          efectividad_recaudacion: (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0)) > 0 
+            ? (Number(b.cobranza_mes || 0) / (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0))) * 100 
+            : 0,
           indice_morosidad: (Number(b.total_por_cobrar || 0) + Number(b.saldo_disponible || 0) + Number(b.fondo_reserva || 0)) > 0 
             ? (Number(b.total_por_cobrar || 0) / (Number(b.total_por_cobrar || 0) + Number(b.saldo_disponible || 0) + Number(b.fondo_reserva || 0))) * 100 
             : 0,
