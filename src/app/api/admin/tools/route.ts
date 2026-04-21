@@ -31,16 +31,38 @@ export async function GET(request: Request) {
 
     if (action === "maintenance") {
       const supabase = createClient(supabaseUrl, serviceRoleKey);
-      const { error } = await supabase.rpc('execute_maintenance');
+      const { data: maintData, error } = await supabase.rpc('execute_maintenance');
+      const stats = maintData?.records_stats || {};
       
       await transporter.sendMail({
-        from: '"EdifiSaaS System" <controlfinancierosaas@gmail.com>',
+        from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: "🔧 [AUTO] Reporte de Mantenimiento EdifiSaaS",
-        html: `<h1>Mantenimiento Automático</h1><p>Ejecutado por Cron Job de Vercel.</p>`
+        subject: `🔧 [AUTO] Reporte de Mantenimiento: ${error ? '⚠️ Error' : '✅ Sistema Optimizado'}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+            <div style="background: #1e293b; color: white; padding: 32px; text-align: center;">
+              <h1 style="margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 2px;">Mantenimiento Automático Programado</h1>
+              <p style="opacity: 0.7; margin-top: 8px;">Estado: ${error ? 'FALLIDO' : 'EXITOSO'}</p>
+            </div>
+            <div style="padding: 32px; color: #334155;">
+              <p>Este es un proceso automático ejecutado por el servidor cada 15 días para garantizar el rendimiento de <strong>EdifiSaaS</strong>.</p>
+              
+              ${!error ? `
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                <h3 style="margin: 0 0 10px 0; color: #166534; font-size: 14px;">Resumen de Salud:</h3>
+                <p style="margin: 0; font-size: 13px;">Se han analizado y optimizado todas las tablas. El sistema cuenta actualmente con <strong>${stats.edificios || 0} edificios</strong> y <strong>${stats.movimientos || 0} movimientos</strong> auditados.</p>
+              </div>
+              ` : `<p style="color: #ef4444;">Error: ${error.message}</p>`}
+
+              <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #eee; font-size: 11px; color: #94a3b8; text-align: center;">
+                Ejecutado automáticamente por Vercel Cron. Siguiente ejecución en 15 días.
+              </div>
+            </div>
+          </div>
+        `
       });
 
-      return NextResponse.json({ success: true, message: "Mantenimiento automático completado" });
+      return NextResponse.json({ success: true, message: "Mantenimiento automático completado y reportado." });
     }
 
     if (action === "list_backups") {
