@@ -125,19 +125,36 @@ export async function GET(request: Request) {
 
       if (error) throw error;
 
-      // Obtener tasas de cambio históricas desde control_diario para cada mes
-      const { data: tasas } = await supabase
+      // 1. Obtener tasas desde control_diario
+      const { data: tasasControl } = await supabase
         .from("control_diario")
         .select("fecha, tasa_cambio")
         .eq("edificio_id", edificioId)
         .order("fecha", { ascending: true });
 
-      // Mapear el último día de cada mes a su tasa
+      // 2. Obtener tasas maestras como respaldo
+      const { data: tasasMaestras } = await supabase
+        .from("tasas_cambio")
+        .select("fecha, tasa_dolar")
+        .order("fecha", { ascending: true });
+
+      // Mapear tasas por mes (YYYY-MM)
       const tasaMesMap = new Map();
-      (tasas || []).forEach((t: any) => {
-        const mesStr = t.fecha.substring(0, 7); // YYYY-MM
+      
+      // Llenar con tasas maestras primero
+      (tasasMaestras || []).forEach((t: any) => {
+        const mesStr = t.fecha.substring(0, 7);
+        tasaMesMap.set(mesStr, Number(t.tasa_dolar));
+      });
+
+      // Sobrescribir con tasas de control_diario si existen (más precisas por edificio)
+      (tasasControl || []).forEach((t: any) => {
+        const mesStr = t.fecha.substring(0, 7);
         tasaMesMap.set(mesStr, Number(t.tasa_cambio));
       });
+
+      // Tasa por defecto (última conocida)
+      const lastTasa = Array.from(tasaMesMap.values()).pop() || 45.50;
 
       // Agrupar por mes y categoría
       const mapRecurrente = new Map();
@@ -146,13 +163,16 @@ export async function GET(request: Request) {
       const evolucion: any = {};
       (detalles || []).forEach((d: any) => {
         if (!evolucion[d.mes]) {
+          const mesKey = d.mes.includes("-") && d.mes.split("-")[0].length === 4 ? d.mes : 
+                         d.mes.includes("-") ? `${d.mes.split("-")[1]}-${d.mes.split("-")[0]}` : d.mes;
+          
           evolucion[d.mes] = { 
             mes: d.mes, 
             total: 0, 
             total_usd: 0, 
             categorias: {}, 
             categorias_usd: {},
-            tasa: tasaMesMap.get(d.mes) || 0
+            tasa: tasaMesMap.get(mesKey) || lastTasa
           };
         }
         const cat = mapRecurrente.get(d.codigo) || 'otros';
