@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Helper to check admin session
 async function checkAdmin() {
@@ -25,16 +26,24 @@ async function checkAdmin() {
 
 export async function GET() {
   try {
-    // Permitir GET público para el formulario de registro y dashboard
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log("API: Fetching administradoras for public access...");
+    
+    // Use serviceRoleKey to bypass RLS if it exists, otherwise fallback to anon key
+    const supabase = createClient(supabaseUrl, serviceRoleKey);
     const { data, error } = await supabase
       .from("administradoras")
       .select("*")
       .order("nombre", { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error("API Error fetching administradoras:", error);
+      throw error;
+    }
+    
+    console.log(`API: Successfully fetched ${data?.length || 0} administradoras using ${serviceRoleKey === process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service role' : 'anon key'}`);
     return NextResponse.json({ data });
   } catch (error: any) {
+    console.error("API Catch error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

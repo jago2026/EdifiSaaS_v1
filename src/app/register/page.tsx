@@ -159,11 +159,16 @@ export default function RegisterPage() {
   useEffect(() => {
     async function loadAdmins() {
       setLoadingAdmins(true);
+      setError("");
       try {
-        const res = await fetch("/api/admin/administradoras");
+        console.log("Fetching administradoras...");
+        const res = await fetch("/api/admin/administradoras", { cache: 'no-store' });
         const data = await res.json();
+        console.log("Administradoras loaded:", data);
         if (res.ok) {
           setAdministradoras(data.data || []);
+        } else {
+          console.error("Error from API:", data.error);
         }
       } catch (e) {
         console.error("Error loading admins", e);
@@ -451,8 +456,11 @@ export default function RegisterPage() {
                   value={integration.admin_nombre}
                   onChange={(e) => handleAdminChange(e.target.value)}
                 >
-                  {administradoras.length > 0 ? (
+                  {loadingAdmins ? (
+                    <option value="">Cargando administradoras...</option>
+                  ) : administradoras.length > 0 ? (
                     <>
+                      <option value="">Seleccione una administradora</option>
                       {administradoras.map(adm => (
                         <option key={adm.id} value={adm.nombre}>{adm.nombre}</option>
                       ))}

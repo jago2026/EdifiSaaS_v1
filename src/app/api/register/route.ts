@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { sendWelcomeEmail } from "@/lib/mail";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -141,6 +142,13 @@ export async function POST(request: Request) {
     if (buildingError) {
       await supabase.from("usuarios").delete().eq("id", user.id);
       throw buildingError;
+    }
+
+    // Enviar email de bienvenida (sin bloquear la respuesta)
+    try {
+      sendWelcomeEmail(email, firstName, nombre).catch(e => console.error("Error sending welcome email:", e));
+    } catch (e) {
+      console.error("Error initiating welcome email:", e);
     }
 
     const cookieStore = await cookies();

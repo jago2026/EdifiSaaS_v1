@@ -50,3 +50,47 @@ export const sendInvitationEmail = async (recipient: string, nombreMiembro: stri
     `
   });
 };
+
+export const sendWelcomeEmail = async (recipient: string, firstName: string, buildingName: string) => {
+  return transporter.sendMail({
+    from: `"EdifiSaaS" <${SMTP_USER}>`,
+    to: recipient,
+    subject: `¡Bienvenido a EdifiSaaS! 🏢 Registro Exitoso: ${buildingName}`,
+    html: `
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; background-color: #ffffff; color: #1a202c;">
+        <div style="background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%); color: white; padding: 40px 24px; text-align: center;">
+          <div style="background: rgba(255,255,255,0.2); width: 64px; height: 64px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 16px; font-size: 32px; font-weight: bold;">E</div>
+          <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; text-transform: uppercase italic;">¡Bienvenido, ${firstName}!</h1>
+          <p style="margin-top: 8px; font-size: 16px; opacity: 0.9; font-weight: 500;">Gracias por confiar en EdifiSaaS para tu edificio.</p>
+        </div>
+        
+        <div style="padding: 32px 24px; line-height: 1.6;">
+          <p style="font-size: 18px; color: #2d3748;">Nos alegra informarte que el registro de <strong>${buildingName}</strong> se ha completado correctamente.</p>
+          
+          <div style="background: #f0f7ff; border-left: 4px solid #2563eb; padding: 20px; border-radius: 8px; margin: 24px 0;">
+            <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em;">🎁 Periodo de Prueba Activado</h3>
+            <p style="margin: 0; color: #4a5568;">Tu cuenta incluye <strong>30 días de prueba gratuita</strong> con acceso a todas las funcionalidades premium del sistema.</p>
+          </div>
+
+          <h3 style="color: #2d3748; font-size: 16px; margin-top: 32px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px;">🚀 Pasos para comenzar:</h3>
+          <ul style="padding-left: 20px; color: #4a5568;">
+            <li style="margin-bottom: 12px;"><strong>Configura tu Administradora:</strong> Asegúrate de que las credenciales (ID y Clave) de tu administradora sean correctas en la sección de configuración.</li>
+            <li style="margin-bottom: 12px;"><strong>Primera Sincronización:</strong> Ve al Dashboard y haz clic en "Sincronizar" para descargar los datos actuales.</li>
+            <li style="margin-bottom: 12px;"><strong>Invita a la Junta:</strong> Agrega a los miembros de la junta en la pestaña correspondiente para que puedan auditar el sistema.</li>
+          </ul>
+
+          <div style="text-align: center; margin: 40px 0;">
+            <a href="${BASE_URL}/login" style="background: #2563eb; color: white; padding: 14px 40px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);">Acceder a mi Dashboard</a>
+          </div>
+
+          <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 32px 0;">
+          
+          <p style="font-size: 14px; color: #718096; text-align: center;">
+            ¿Tienes alguna duda? Responde a este correo y nuestro equipo te ayudará con gusto.<br>
+            <span style="display: block; margin-top: 8px; font-weight: bold; color: #2563eb;">EdifiSaaS - El Espejo Inteligente de tu Condominio</span>
+          </p>
+        </div>
+      </div>
+    `
+  });
+};
