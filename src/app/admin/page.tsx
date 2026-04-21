@@ -56,10 +56,15 @@ const GEAR_TITLES: Record<string, string> = {
   'Inactivo':   'Reactivar como Prueba',
 };
 
-// Configuración Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Función para obtener el cliente de Supabase de forma segura
+function getSupabaseClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+  if (!url || !key) {
+    console.error("Supabase credentials missing!");
+  }
+  return createClient(url, key);
+}
 
 type AdminSection = 'dashboard' | 'edificios' | 'pagos' | 'auditoria';
 
@@ -79,12 +84,16 @@ export default function AdminPage() {
   const loadEdificios = async () => {
     setLoading(true);
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('edificios')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase query error:", error);
+        throw error;
+      }
 
       const blds = (data || []) as Edificio[];
       setEdificios(blds);
