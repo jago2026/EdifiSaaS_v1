@@ -322,16 +322,23 @@ export async function POST(request: Request) {
       const totalAptos = edificio.unidades || 43;
       const pctAptosConDeuda = (cantAptosConDeuda / totalAptos) * 100;
       
-      // Get balance for collection percentage
-      const { data: balance } = await supabase.from("balances").select("cobranza_mes, recibos_mes").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(1).single();
+      // Get balance for collection percentage and morosity index
+      const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(1).single();
       
       // Calculate realistic percentages
       const cobranza = Number(balance?.cobranza_mes || 0);
       const facturacion = Number(balance?.recibos_mes || 0);
+      const saldoDisponible = Number(balance?.saldo_disponible || 0);
+      const fondoReserva = Number(balance?.fondo_reserva || 0);
+      const disponibilidadTotal = saldoDisponible + fondoReserva;
       
+      // Percentage of the current month's collection (Capped at 100%)
       const pctRecaudado = facturacion > 0 ? (cobranza / facturacion) * 100 : 0;
-      // Pendiente cannot be negative, so we cap pctRecaudado at 100 for this specific calculation
-      const pctPendiente = Math.max(0, 100 - Math.min(100, pctRecaudado));
+      const pctRecaudadoDisplay = Math.min(100, pctRecaudado);
+
+      // Financial Morosity Index: (Debt / (Debt + Cash))
+      const totalPatrimonio = totalGeneralAdeudado + disponibilidadTotal;
+      const pctMoraFinanciera = totalPatrimonio > 0 ? (totalGeneralAdeudado / totalPatrimonio) * 100 : 0;
 
       // Days remaining in month
       const lastDay = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
@@ -357,8 +364,8 @@ ${deudasTexto}
 
 🏠 *Estadísticas de Cobranza:*
 • Aptos con deuda: ${cantAptosConDeuda} (${formatNumber(Math.min(100, pctAptosConDeuda))}% del total)
-• Recaudado este mes: ${formatBs(cobranza)} (${formatNumber(pctRecaudado)}%) ${pctRecaudado >= 100 ? "✅" : "⏳"}
-• Total pendiente por cobrar: ${formatBs(totalGeneralAdeudado)} ⏳
+• Recaudado este mes: ${formatBs(cobranza)} (${formatNumber(pctRecaudadoDisplay)}%) ${pctRecaudadoDisplay >= 100 ? "✅" : "⏳"}
+• Total pendiente por cobrar: ${formatBs(totalGeneralAdeudado)} (${formatNumber(pctMoraFinanciera)}% de morosidad) ⏳
 • Días restantes del mes: ${daysRemaining} 📅
 
 Agradecemos a quienes ya han cumplido con sus pagos.
