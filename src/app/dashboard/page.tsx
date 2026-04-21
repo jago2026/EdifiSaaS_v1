@@ -406,7 +406,7 @@ export default function DashboardPage() {
   const [loadingGastosRecurrentes, setLoadingGastosRecurrentes] = useState(false);
   const [evolucionRecurrentes, setEvolucionRecurrentes] = useState<any[]>([]);
   const [currencyRecurrentes, setCurrencyRecurrentes] = useState<"BS" | "USD">("BS");
-  const [newRecurrente, setNewRecurrente] = useState({ codigo: "", descripcion: "" });
+  const [newRecurrente, setNewRecurrente] = useState({ codigo: "", descripcion: "", categoria: "otros" });
   const [addingRecurrente, setAddingRecurrente] = useState(false);
 
   const addManualRecurrente = async () => {
@@ -423,12 +423,12 @@ export default function DashboardPage() {
             codigo: newRecurrente.codigo, 
             descripcion: newRecurrente.descripcion, 
             activo: true, 
-            categoria: "otros" 
+            categoria: newRecurrente.categoria 
           }
         })
       });
       if (res.ok) {
-        setNewRecurrente({ codigo: "", descripcion: "" });
+        setNewRecurrente({ codigo: "", descripcion: "", categoria: "otros" });
         loadGastosRecurrentes();
       }
     } catch (error) {
@@ -3709,15 +3709,28 @@ export default function DashboardPage() {
                         placeholder="Código" 
                         value={newRecurrente.codigo}
                         onChange={(e) => setNewRecurrente({...newRecurrente, codigo: e.target.value})}
-                        className="w-1/3 px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-1/4 px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400"
                       />
                       <input 
                         type="text" 
                         placeholder="Descripción del Gasto" 
                         value={newRecurrente.descripcion}
                         onChange={(e) => setNewRecurrente({...newRecurrente, descripcion: e.target.value})}
-                        className="w-2/3 px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400"
+                        className="w-3/4 px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400"
                       />
+                    </div>
+                    <div className="mb-2">
+                      <select
+                        value={newRecurrente.categoria}
+                        onChange={(e) => setNewRecurrente({...newRecurrente, categoria: e.target.value})}
+                        className="w-full px-2 py-1.5 text-xs border rounded outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                      >
+                        <option value="servicios">Servicios P&uacute;blicos</option>
+                        <option value="seguridad">Vigilancia y Seguridad</option>
+                        <option value="mantenimiento">Mantenimientos Contratados</option>
+                        <option value="recurrentes">Gastos Recurrentes Mensuales</option>
+                        <option value="otros">Otros Gastos</option>
+                      </select>
                     </div>
                     <button 
                       onClick={addManualRecurrente}

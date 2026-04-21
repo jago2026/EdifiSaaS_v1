@@ -932,15 +932,35 @@ export async function POST(request: Request) {
       console.log(`No se pudo extraer balance para ${mesEstandar}`);
     }
 
-    const allConcepts = [...(allGastos || [])];
-    detailedReceiptItems.forEach(item => {
-      if (!allConcepts.find(c => c.codigo === item.codigo)) {
+    const allConcepts: any[] = [];
+    
+    // 1. De Gastos (r=3)
+    (allGastos || []).forEach(g => {
+      if (g.codigo && !allConcepts.find(c => c.codigo === g.codigo)) {
+        allConcepts.push({ codigo: g.codigo, descripcion: g.descripcion });
+      }
+    });
+
+    // 2. De Recibos Detallados (r=4)
+    (detailedReceiptItems || []).forEach(item => {
+      if (item.codigo && !allConcepts.find(c => c.codigo === item.codigo)) {
         allConcepts.push({ codigo: item.codigo, descripcion: item.descripcion });
       }
     });
 
+    // 3. De Egresos (r=21) - Algunos edificios no traen código formal aquí, pero usamos el beneficiario como descripción
+    (allEgresos || []).forEach(egr => {
+      // Si el egreso tiene algo que parezca un código en la operación
+      const possibleCode = egr.operacion?.split(' ')[0] || "";
+      if (possibleCode.match(/^[A-Z0-9\-]+$/) && possibleCode.length > 2) {
+        if (!allConcepts.find(c => c.codigo === possibleCode)) {
+          allConcepts.push({ codigo: possibleCode, descripcion: egr.beneficiario });
+        }
+      }
+    });
+
     if (allConcepts.length > 0) {
-      console.log(`Actualizando ${allConcepts.length} conceptos recurrentes para ${building.id}`);
+      console.log(`Actualizando ${allConcepts.length} conceptos detectados para ${building.id}`);
       const { data: existingRec } = await supabase.from("gastos_recurrentes").select("codigo, activo, categoria").eq("edificio_id", building.id);
       const existingMap = new Map(existingRec?.map(r => [r.codigo, r]) || []);
 
