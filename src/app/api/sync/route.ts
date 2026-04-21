@@ -96,54 +96,42 @@ function parseReciboDetalle(html: string): any[] {
   console.log("[parseReciboDetalle] Input HTML length:", html.length);
   const results: any[] = [];
   
-  // Buscar todas las tablas para depuración
+  // Buscar todas las tablas
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
   console.log(`[parseReciboDetalle] Found ${allTables.length} tables total.`);
   
-  let tableContent = "";
-  for (let i = 0; i < allTables.length; i++) {
-    const t = allTables[i];
-    const upperT = t.toUpperCase();
-    if (upperT.includes("TOTAL RECIBO") || 
-       (upperT.includes("CONCEPTO") && (upperT.includes("MONTO") || upperT.includes("CODIGO") || upperT.includes("C&OACUTE;DIGO")))) {
-      console.log(`[parseReciboDetalle] Table ${i} matches keywords!`);
-      tableContent = t;
-      break;
+  for (const tableContent of allTables) {
+    const upperT = tableContent.toUpperCase();
+    // Si la tabla tiene indicios de ser de gastos o recibo
+    if (upperT.includes("CONCEPTO") || upperT.includes("MONTO") || upperT.includes("DESCRIPCI") || upperT.includes("TOTAL")) {
+      const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+      for (const row of rows) {
+        const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+        if (!cells || cells.length < 2) continue;
+
+        const code = cleanHtml(cells[0]).trim();
+        const desc = cleanHtml(cells[1]).trim();
+        // Intentar buscar monto en la celda 2 o 3
+        const montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
+        const monto = parseMonto(montoRaw);
+
+        if (!code || code === "&nbsp;" || code.length > 15) continue;
+        if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO")) continue;
+        
+        // Si tenemos código y descripción, es un candidato
+        if (code && desc && desc.length > 3 && !results.find(r => r.codigo === code)) {
+          results.push({
+            codigo: code,
+            descripcion: desc,
+            monto: monto,
+            cuota_parte: cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0
+          });
+        }
+      }
     }
   }
-
-  if (!tableContent) {
-    console.log("[parseReciboDetalle] No table matched keywords. First 500 chars of HTML:", html.substring(0, 500));
-    return [];
-  }
-
-  const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  console.log("[parseReciboDetalle] Rows in matched table:", rows.length);
   
-  for (const row of rows) {
-    const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-    if (!cells || cells.length < 3) continue;
-
-    const code = cleanHtml(cells[0]);
-    const desc = cleanHtml(cells[1]);
-    const monto = parseMonto(cleanHtml(cells[2]));
-    const cuotaParte = cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0;
-
-    if (!code || code === "&nbsp;" || code.trim() === "") continue;
-    // Relaxed validation: allow alphanumeric codes
-    if (!code.match(/^[A-Za-z0-9\-\.]+$/)) {
-      console.log(`[parseReciboDetalle] Skipping invalid code format: ${code}`);
-      continue;
-    }
-
-    results.push({
-      codigo: code,
-      descripcion: desc,
-      monto: monto,
-      cuota_parte: cuotaParte
-    });
-  }
-  console.log("[parseReciboDetalle] Successfully parsed items:", results.length);
+  console.log("[parseReciboDetalle] Aggressive parsing found items:", results.length);
   return results;
 }
 
@@ -270,51 +258,37 @@ function parseGastosTable(html: string): any[] {
   const results: any[] = [];
   
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
-  console.log(`[parseGastosTable] Found ${allTables.length} tables total.`);
+  console.log(`[parseGastosTable] Aggressive scan of ${allTables.length} tables.`);
   
-  let tableContent = "";
-  for (let i = 0; i < allTables.length; i++) {
-    const t = allTables[i];
-    const upperT = t.toUpperCase();
-    if (upperT.includes("TOTAL GASTOS COMUNES") || 
-       (upperT.includes("CONCEPTO") && (upperT.includes("CODIGO") || upperT.includes("C&OACUTE;DIGO")))) {
-      console.log(`[parseGastosTable] Table ${i} matches keywords!`);
-      tableContent = t;
-      break;
-    }
-  }
-
-  if (!tableContent) {
-    console.log("[parseGastosTable] No table matched keywords. First 500 chars of HTML:", html.substring(0, 500));
-    return [];
-  }
-
-  const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-  for (const row of rows) {
-    const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-    if (!cells || cells.length < 3) continue;
-    const code = cleanHtml(cells[0]);
-    const desc = cleanHtml(cells[1]);
-    const montoCell = cleanHtml(cells[2]);
-    if (!code || code === '&nbsp;' || code.trim() === '') continue;
-    if (desc.includes("TOTAL GASTOS COMUNES:") || desc.includes("TOTAL FONDOS:") || desc.includes("TOTAL FONDOS Y GASTOS") || desc.includes("TOTAL GASTOS:")) {
-      continue;
-    }
-    // EXCLUIMOS Fondos de Reserva y cualquier concepto de FONDO de la tabla de gastos comunes
-    if (desc.toUpperCase().includes("FONDO DE RESERVA") || desc.toUpperCase().includes("FONDO RESERVA") || desc.toUpperCase().includes("FONDO")) {
-      console.log(`[parseGastosTable] Saltando concepto de fondo: ${desc}`);
-      continue;
-    }
-    
-    // Relaxed validation: allow alphanumeric codes (e.g., S01, G-1)
-    if (code && code.trim() !== "" && code !== "&nbsp;" && code.match(/^[A-Za-z0-9\-\.]+$/)) {
-      const m = parseMonto(montoCell);
-      if (!desc.includes("TOTAL")) {
-        results.push({ codigo: code, descripcion: desc, monto: m });
+  for (const tableContent of allTables) {
+    const upperT = tableContent.toUpperCase();
+    if (upperT.includes("CONCEPTO") || upperT.includes("TOTAL") || upperT.includes("GASTO") || upperT.includes("DETALLE")) {
+      const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
+      for (const row of rows) {
+        const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
+        if (!cells || cells.length < 2) continue;
+        
+        const code = cleanHtml(cells[0]).trim();
+        const desc = cleanHtml(cells[1]).trim();
+        const montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
+        
+        if (!code || code === "&nbsp;" || code.length > 15) continue;
+        if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || code.toUpperCase().includes("FECHA")) continue;
+        
+        if (desc.includes("TOTAL") || desc.includes("TOTAL GASTOS COMUNES") || desc.toUpperCase().includes("FONDO")) continue;
+        
+        if (code && desc && desc.length > 3 && !results.find(r => r.codigo === code)) {
+          results.push({
+            codigo: code,
+            descripcion: desc,
+            monto: parseMonto(montoRaw)
+          });
+        }
       }
     }
   }
-  console.log("[parseGastosTable] Successfully parsed items:", results.length);
+  
+  console.log("[parseGastosTable] Aggressive parsing found items:", results.length);
   return results;
 }
 
