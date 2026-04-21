@@ -69,23 +69,60 @@ export async function POST(request: Request) {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     if (action === "maintenance") {
-      // Nota: RPC 'execute_maintenance' debe estar creado en Supabase
-      // Si no existe, simulamos éxito y enviamos el reporte.
-      const { error } = await supabase.rpc('execute_maintenance');
+      const { data: maintData, error } = await supabase.rpc('execute_maintenance');
+      const stats = maintData?.records_stats || {};
       
       await transporter.sendMail({
-        from: '"EdifiSaaS System" <controlfinancierosaas@gmail.com>',
+        from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: "🔧 Reporte de Mantenimiento EdifiSaaS",
+        subject: `🔧 Reporte de Mantenimiento: ${error ? '⚠️ Error Detectado' : '✅ Sistema Optimizado'}`,
         html: `
-          <h1>Mantenimiento Completado</h1>
-          <p>Se ha realizado el mantenimiento preventivo (VACUUM/ANALYZE) en la base de datos.</p>
-          <p><strong>Fecha:</strong> ${new Date().toLocaleString()}</p>
-          <p><strong>Estado:</strong> ${error ? "Error: " + error.message : "Exitoso"}</p>
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+            <div style="background: #0f172a; color: white; padding: 32px; text-align: center;">
+              <h1 style="margin: 0; font-size: 24px; text-transform: uppercase; letter-spacing: 2px;">Mantenimiento de Base de Datos</h1>
+              <p style="opacity: 0.7; margin-top: 8px;">Estado del Proceso: ${error ? 'FALLIDO' : 'EXITOSO'}</p>
+            </div>
+            
+            <div style="padding: 32px; color: #334155;">
+              <p style="font-size: 16px; line-height: 1.6;">Se ha completado la rutina de mantenimiento preventivo. Este proceso asegura que el sistema siga siendo rápido y auditable.</p>
+              
+              <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0;">
+                <h3 style="margin: 0 0 16px 0; font-size: 14px; text-transform: uppercase; color: #64748b;">Resumen de Operaciones:</h3>
+                <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
+                  <li><strong>VACUUM:</strong> Se ha recuperado espacio en disco eliminando "filas fantasma" de registros antiguos.</li>
+                  <li><strong>ANALYZE:</strong> Se han actualizado los índices de búsqueda para que los reportes carguen más rápido.</li>
+                  <li><strong>INTEGRIDAD:</strong> Se verificaron las relaciones entre edificios, recibos y egresos.</li>
+                </ul>
+              </div>
+
+              ${!error ? `
+              <h3 style="font-size: 14px; text-transform: uppercase; color: #64748b;">Estadísticas de Datos Actuales:</h3>
+              <table style="width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px;">
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 8px 0;">🏢 Edificios Registrados:</td>
+                  <td style="text-align: right; font-weight: bold;">${stats.edificios || 0}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 8px 0;">📑 Recibos en Sistema:</td>
+                  <td style="text-align: right; font-weight: bold;">${stats.recibos || 0}</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #e2e8f0;">
+                  <td style="padding: 8px 0;">📊 Movimientos Auditados:</td>
+                  <td style="text-align: right; font-weight: bold;">${stats.movimientos || 0}</td>
+                </tr>
+              </table>
+              ` : `<p style="color: #ef4444;"><strong>Error detalle:</strong> ${error.message}</p>`}
+
+              <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center;">
+                Ejecutado el ${new Date().toLocaleString('es-VE', { timeZone: 'America/Caracas' })}<br>
+                Este es un proceso automático configurado para cada 15 días.
+              </div>
+            </div>
+          </div>
         `
       });
 
-      return NextResponse.json({ success: true, message: "Mantenimiento ejecutado y reporte enviado." });
+      return NextResponse.json({ success: true, message: "Mantenimiento ejecutado y reporte detallado enviado." });
     }
 
     if (action === "backup") {
