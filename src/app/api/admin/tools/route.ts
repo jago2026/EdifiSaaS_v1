@@ -47,7 +47,7 @@ async function getGoogleToken(serviceAccount: any) {
 }
 
 async function uploadToDrive(filename: string, content: string) {
-  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable GOOGLE_SERVICE_ACCOUNT_JSON no encontrada";
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) return "❌ Error: Variable no encontrada";
   try {
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
     const token = await getGoogleToken(serviceAccount);
@@ -64,9 +64,7 @@ async function uploadToDrive(filename: string, content: string) {
     if (data.error) throw new Error(data.error.message);
     return data.id ? "✅ Sincronizado con Drive" : "❌ Error desconocido en API";
   } catch (e: any) {
-    if (e.message.includes("quota")) {
-      return "⚠️ Limitación Google: Las cuentas de servicio no tienen espacio propio en cuentas @gmail personales. Respaldo guardado localmente.";
-    }
+    if (e.message.includes("quota")) return "⚠️ Cuota Google: Las cuentas de servicio no tienen espacio en @gmail. Use un 'Shared Drive' o siga con descarga local.";
     return "❌ Error: " + e.message;
   }
 }
@@ -80,13 +78,13 @@ export async function GET(request: Request) {
     if (action === "maintenance") {
       const supabase = createClient(supabaseUrl, serviceRoleKey);
       await supabase.rpc('execute_maintenance');
-      const { count } = await supabase.from('edificios').select('*', { count: 'exact', head: true });
+      const { data } = await supabase.from('edificios').select('id');
       
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: "🔧 [AUTO] Mantenimiento Exitoso",
-        html: `<p>Mantenimiento automático completado. Edificios detectados: ${count || 0}</p>`
+        subject: "🔧 [AUTO] Mantenimiento Ejecutado",
+        html: `<p>Mantenimiento automático realizado. Edificios detectados: ${data?.length || 0}</p>`
       });
       return NextResponse.json({ success: true });
     }
@@ -100,33 +98,27 @@ export async function POST(request: Request) {
     const { action } = await request.json();
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Conteo forzado con reporte de error detallado
-    const bReq = await supabase.from('edificios').select('*', { count: 'exact', head: true });
-    const rReq = await supabase.from('recibos').select('*', { count: 'exact', head: true });
-    const mReq = await supabase.from('movimientos').select('*', { count: 'exact', head: true });
+    // Conteo alternativo (más fiable)
+    const { data: bData } = await supabase.from('edificios').select('id');
+    const { data: rData } = await supabase.from('recibos').select('id');
+    const { data: mData } = await supabase.from('movimientos').select('id');
 
     if (action === "maintenance") {
       await supabase.rpc('execute_maintenance');
       
-      const statsHtml = `
-        <ul style="list-style:none;padding:0;">
-          <li>🏢 <b>Edificios:</b> ${bReq.count !== null ? bReq.count : (bReq.error ? 'Error: '+bReq.error.message : '0')}</li>
-          <li>📑 <b>Recibos:</b> ${rReq.count !== null ? rReq.count : (rReq.error ? 'Error: '+rReq.error.message : '0')}</li>
-          <li>📊 <b>Movimientos:</b> ${mReq.count !== null ? mReq.count : (mReq.error ? 'Error: '+mReq.error.message : '0')}</li>
-        </ul>
-      `;
-
       await transporter.sendMail({
         from: '"EdifiSaaS Core" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: `🔧 Reporte de Mantenimiento Detallado`,
+        subject: `🔧 Reporte de Mantenimiento Finalizado`,
         html: `
           <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #e2e8f0;border-radius:16px;padding:32px;">
-            <h1 style="color:#0f172a;">Mantenimiento Finalizado</h1>
+            <h1 style="color:#0f172a;">Mantenimiento Completado</h1>
             <div style="background:#f8fafc;padding:20px;border-radius:12px;margin:20px 0;">
-              ${statsHtml}
+              <p>🏢 <b>Edificios:</b> ${bData?.length || 0}</p>
+              <p>📑 <b>Recibos:</b> ${rData?.length || 0}</p>
+              <p>📊 <b>Movimientos:</b> ${mData?.length || 0}</p>
             </div>
-            <p style="font-size:10px;color:#94a3b8;">KEY: ${serviceRoleKey === anonKey ? 'ANON (Limitado)' : 'SERVICE_ROLE (Completo)'}</p>
+            <p style="font-size:10px;color:#94a3b8;">Auth: SERVICE_ROLE | DB: ${supabaseUrl.substring(0, 20)}...</p>
           </div>`
       });
       return NextResponse.json({ success: true });
