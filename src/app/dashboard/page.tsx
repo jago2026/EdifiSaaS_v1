@@ -3268,7 +3268,10 @@ export default function DashboardPage() {
             </div>
             <div className="grid md:grid-cols-2 gap-6">
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Efectividad de Cobranza % (Recaudado / Total por Cobrar)</h2>
+                <div className="flex items-center gap-2 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Efectividad de Cobranza %</h2>
+                  <span className="text-gray-400 cursor-help text-sm" title="Fórmula: Cobranza Mes / (Cobranza Mes + Deuda Pendiente). Indica qué porcentaje del dinero total por cobrar se recuperó este mes. Sano: >50%">ⓘ</span>
+                </div>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -3288,7 +3291,10 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">&Iacute;ndice de Morosidad Patrimonial %</h2>
+                <div className="flex items-center gap-2 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">&Iacute;ndice de Morosidad Patrimonial %</h2>
+                  <span className="text-gray-400 cursor-help text-sm" title="Fórmula: Deuda Total / (Deuda Total + Caja + Fondos). Indica qué parte del patrimonio del edificio está en deudas. Alarma: >30%">ⓘ</span>
+                </div>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -3308,7 +3314,10 @@ export default function DashboardPage() {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Cobertura de Gastos % (Cobranza / Egresos Facturados)</h2>
+                <div className="flex items-center gap-2 mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Cobertura de Gastos %</h2>
+                  <span className="text-gray-400 cursor-help text-sm" title="Fórmula: Cobranza Mes / Egresos Facturados. Indica si lo que entró alcanza para pagar las facturas. Sano: >100%">ⓘ</span>
+                </div>
                 {loadingKpis ? (
                   <p className="text-gray-500 text-center py-8">Cargando...</p>
                 ) : kpisData.balances?.length > 0 ? (
@@ -4553,6 +4562,44 @@ export default function DashboardPage() {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <strong className="block text-indigo-700 mb-1 uppercase text-xs">🔄 Gestión de Sincronización</strong>
                     <p>Usa el botón <strong>"Ejecutar Sincronización Ahora"</strong> para forzar la lectura de datos después de que sepas que la administradora cargó información nueva.</p>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-2 uppercase tracking-tight">
+                  <span className="bg-indigo-600 text-white w-8 h-8 rounded flex items-center justify-center text-sm">3</span>
+                  Gu&iacute;a de KPIs e &Iacute;ndices Financieros
+                </h3>
+                <div className="grid gap-6">
+                  <div className="border border-gray-100 p-5 rounded-xl bg-green-50/30">
+                    <h4 className="font-bold text-green-700 mb-2 flex items-center gap-2">📊 Efectividad de Cobranza %</h4>
+                    <p className="text-sm mb-2"><strong>F&oacute;rmula:</strong> Cobranza Mes / (Cobranza Mes + Deuda Pendiente)</p>
+                    <p className="text-xs text-gray-600">Mide qué porcentaje del dinero total que el edificio pod&iacute;a cobrar este mes (morosos + facturaci&oacute;n nueva) logr&oacute; efectivamente ingresar al banco.</p>
+                    <div className="mt-2 flex gap-4 text-[10px] font-black uppercase">
+                      <span className="text-green-600">Sano: &gt; 50%</span>
+                      <span className="text-orange-600">Alarma: &lt; 30%</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl bg-red-50/30">
+                    <h4 className="font-bold text-red-700 mb-2 flex items-center gap-2">📉 &Iacute;ndice de Morosidad Patrimonial %</h4>
+                    <p className="text-sm mb-2"><strong>F&oacute;rmula:</strong> Deuda Total / (Deuda Total + Dinero en Banco + Fondos)</p>
+                    <p className="text-xs text-gray-600">Indica qué parte del patrimonio total del edificio est&aacute; retenida en deudas de copropietarios. Es el indicador m&aacute;s real de salud financiera.</p>
+                    <div className="mt-2 flex gap-4 text-[10px] font-black uppercase">
+                      <span className="text-green-600">Sano: &lt; 15%</span>
+                      <span className="text-orange-600">Alarma: &gt; 30%</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-100 p-5 rounded-xl bg-purple-50/30">
+                    <h4 className="font-bold text-purple-700 mb-2 flex items-center gap-2">⚖️ Cobertura de Gastos %</h4>
+                    <p className="text-sm mb-2"><strong>F&oacute;rmula:</strong> Cobranza Mes / Egresos Facturados Mes</p>
+                    <p className="text-xs text-gray-600">Mide si el dinero que entr&oacute; este mes alcanza para pagar las facturas que llegaron. Si es menor al 100%, el edificio est&aacute; consumiendo sus ahorros o fondos de reserva.</p>
+                    <div className="mt-2 flex gap-4 text-[10px] font-black uppercase">
+                      <span className="text-green-600">Sano: &gt; 100%</span>
+                      <span className="text-red-600">Cr&iacute;tico: &lt; 90%</span>
+                    </div>
                   </div>
                 </div>
               </section>
