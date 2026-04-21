@@ -33,7 +33,6 @@ export async function GET(request: Request) {
     const edificioId = searchParams.get("edificioId");
     if (!edificioId) return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
 
-    // IMPORTANTE: Usar Service Role para que el conteo de unidades no falle por RLS
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // 1. Obtener Datos
@@ -42,20 +41,16 @@ export async function GET(request: Request) {
     const { data: recibos } = await supabase.from("recibos").select("unidad, deuda").eq("edificio_id", edificioId);
     const { data: balances } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("mes", { ascending: true });
     
-    // 2. LÓGICA DE UNIDADES (PARA EVITAR EL ERROR DE 1-2$)
+    // 2. DETERMINAR UNIDADES REALES
     const countAlicuotas = alicuotas?.length || 0;
-    // Contar unidades únicas que tienen deudas (evita contar deudas viejas como unidades nuevas)
-    const countRecibosActivos = new Set((recibos || []).filter(r => (r.deuda || 0) > 0).map(r => r.unidad)).size;
+    const countRecibosUnicos = new Set((recibos || []).map(r => r.unidad)).size;
     
-    let realUnits = countAlicuotas > 0 ? countAlicuotas : (countRecibosActivos > 0 ? countRecibosActivos : (building?.unidades || 25));
-    
-    // Si el número detectado es absurdo (>300), forzamos a una base lógica basada en deudores o fallback
-    if (realUnits > 300) realUnits = countRecibosActivos > 0 ? countRecibosActivos : 25;
+    // Si alicuotas > 0 usamos eso, sino deudores unicos, sino campo manual (max 200)
+    let realUnits = countAlicuotas > 0 ? countAlicuotas : (countRecibosUnicos > 0 ? countRecibosUnicos : (building?.unidades || 25));
+    if (realUnits > 200) realUnits = countRecibosUnicos > 0 ? countRecibosUnicos : 25;
     if (realUnits <= 0) realUnits = 1;
 
-    console.log(`[KPIs DEBUG] Edificio: ${edificioId} | Alicuotas: ${countAlicuotas} | Deudores: ${countRecibosActivos} | Unidades Usadas: ${realUnits}`);
-
-    // 3. Procesar Balances
+    // 3. Procesar Balances con LÓGICA DE AUTOCURACIÓN
     const today = new Date();
     const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
@@ -66,19 +61,31 @@ export async function GET(request: Request) {
         const tasa = await getSmartTasa(normalized + "-01");
         const totalMesUsd = (b.recibos_mes || 0) / tasa;
         
+        // INTELIGENCIA: ¿Es total o es ya un promedio?
+        // Si el total del mes en USD es menor a $150 para todo un edificio, 
+        // probablemente ya es el monto de un solo recibo.
+        let reciboPromedio = totalMesUsd / realUnits;
+        
+        if (reciboPromedio < 10 && totalMesUsd > 0) {
+          // Si el promedio da < $10 pero el monto base es razonable como recibo individual ($30-$150),
+          // entonces asumimos que b.recibos_mes ya era el promedio.
+          if (totalMesUsd > 20) {
+            reciboPromedio = totalMesUsd;
+          }
+        }
+
         return {
           ...b,
           label: formatLabel(b.mes),
           saldo_disponible_usd: (b.saldo_disponible || 0) / tasa,
           cobranza_mes_usd: (b.cobranza_mes || 0) / tasa,
           recibos_mes_usd: totalMesUsd,
-          // EL CÁLCULO CORREGIDO
-          recibo_promedio_usd: totalMesUsd / realUnits,
+          recibo_promedio_usd: reciboPromedio,
           tasa_bcv: tasa
         };
       }));
 
-    // 4. Egresos y Gastos
+    // 4. Egresos
     const { data: egresos } = await supabase.from("egresos").select("monto, mes").eq("edificio_id", edificioId).not("descripcion", "ilike", "%TOTAL%");
     const egresosGrouped: any = {};
     for (const e of (egresos || [])) {
