@@ -61,9 +61,6 @@ function getSupabaseClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
   
-  console.log("DEBUG: Supabase URL defined:", !!url, url ? url.substring(0, 20) + "..." : "EMPTY");
-  console.log("DEBUG: Supabase Key defined:", !!key, key ? key.substring(0, 10) + "..." : "EMPTY");
-  
   if (!url || !key) {
     console.error("CRITICAL: Supabase credentials missing from environment variables!");
   }
@@ -86,23 +83,16 @@ export default function AdminPage() {
   });
 
   const loadEdificios = async () => {
-    console.log("DEBUG: Starting loadEdificios...");
     setLoading(true);
     try {
       const supabase = getSupabaseClient();
-      console.log("DEBUG: Supabase client created. Fetching 'edificios'...");
-      
       const { data, error } = await supabase
         .from('edificios')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("DEBUG: Supabase query error:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log("DEBUG: Data fetched successfully. Count:", data?.length || 0);
       const blds = (data || []) as Edificio[];
       setEdificios(blds);
       
@@ -114,26 +104,8 @@ export default function AdminPage() {
         inactivos: blds.filter(b => b.status === 'Inactivo').length,
       });
     } catch (err: any) {
-      console.error("DEBUG: Catch error in loadEdificios:", err);
-      setActionMsg(`❌ Error: ${err.message || "Error de conexión"}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-      const blds = (data || []) as Edificio[];
-      setEdificios(blds);
-      
-      setStats({
-        total: blds.length,
-        activos: blds.filter(b => b.status === 'Activo').length,
-        prueba: blds.filter(b => b.status === 'Prueba' || !b.status).length,
-        suspendidos: blds.filter(b => b.status === 'Suspendido').length,
-        inactivos: blds.filter(b => b.status === 'Inactivo').length,
-      });
-    } catch (err) {
       console.error("Error cargando datos:", err);
-      setActionMsg("❌ Error de conexión con la base de datos");
+      setActionMsg(`❌ Error de conexión: ${err.message || 'Credenciales inválidas'}`);
     } finally {
       setLoading(false);
     }
@@ -219,7 +191,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] flex overflow-hidden font-sans">
-      {/* SIDEBAR - Similar a Agua */}
       <aside className="w-64 bg-[#1e293b] border-r border-slate-700 flex flex-col z-50">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-8">
@@ -266,9 +237,7 @@ export default function AdminPage() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 overflow-y-auto relative">
-        {/* HEADER */}
         <header className="sticky top-0 z-40 bg-[#0f172a]/80 backdrop-blur-md border-b border-slate-800 px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4 bg-slate-800/50 border border-slate-700 rounded-2xl px-4 py-2 w-96">
             <Search className="w-4 h-4 text-slate-500" />
@@ -277,7 +246,7 @@ export default function AdminPage() {
               placeholder="Buscar edificio por nombre o ID..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="bg-transparent border-none text-white text-sm focus:ring-0 w-full"
+              className="bg-transparent border-none text-white text-sm focus:ring-0 w-full outline-none"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -292,14 +261,13 @@ export default function AdminPage() {
         </header>
 
         {actionMsg && (
-          <div className="absolute top-20 right-8 z-50 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in slide-in-from-right">
+          <div className="fixed top-20 right-8 z-50 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold flex items-center gap-3 animate-in slide-in-from-right">
             <CheckCircle2 className="w-5 h-5" />
             {actionMsg}
           </div>
         )}
 
         <div className="p-8">
-          {/* STATS GRID */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
             {[
               { label: 'Total',       value: stats.total,       bg: 'bg-blue-500/20',   ic: 'text-blue-500',   Icon: Building },
@@ -451,14 +419,6 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
-              {filteredEdificios.length === 0 && (
-                <div className="p-20 text-center text-slate-500">
-                  <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 opacity-20">
-                    <Search className="w-10 h-10" />
-                  </div>
-                  <p className="font-black uppercase tracking-[0.4em] text-xs">No se encontraron edificios</p>
-                </div>
-              )}
             </div>
           )}
 
@@ -466,22 +426,20 @@ export default function AdminPage() {
             <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800">
                <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
                <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
-               <p className="text-slate-600 text-xs mt-2">Esta facilidad estar&aacute; disponible en la pr&oacute;xima actualizaci&oacute;n del Master SaaS.</p>
+               <p className="text-slate-600 text-xs mt-2">Esta facilidad estará disponible próximamente.</p>
             </div>
           )}
         </div>
 
-        {/* MODAL CONFIGURACIÓN - EL "MOTOR" DE AGUA */}
         {editingBuilding && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl animate-in fade-in duration-300">
-            <div className="bg-[#1e293b] w-full max-w-xl rounded-[2.5rem] border border-slate-700 shadow-[0_0_100px_rgba(79,70,229,0.15)] overflow-hidden">
-              <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20"></div>
-                <div className="relative z-10">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
+            <div className="bg-[#1e293b] w-full max-w-xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden">
+              <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center">
+                <div>
                   <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">Suscripción SaaS</h3>
                   <p className="text-indigo-200 text-[10px] font-black uppercase tracking-[0.3em] mt-1">CLIENTE: {editingBuilding.nombre}</p>
                 </div>
-                <button onClick={() => setEditingBuilding(null)} className="relative z-10 text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
+                <button onClick={() => setEditingBuilding(null)} className="text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
                   <X className="w-6 h-6" />
                 </button>
               </div>
@@ -496,8 +454,7 @@ export default function AdminPage() {
                       type="number" step="0.01"
                       value={editingBuilding.monthly_fee}
                       onChange={(e) => setEditingBuilding({...editingBuilding, monthly_fee: Number(e.target.value)})}
-                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-inner"
-                      placeholder="0.00"
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
                     />
                   </div>
                   <div className="space-y-3">
@@ -508,8 +465,7 @@ export default function AdminPage() {
                       type="number" 
                       value={editingBuilding.discount_pct}
                       onChange={(e) => setEditingBuilding({...editingBuilding, discount_pct: Number(e.target.value)})}
-                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all shadow-inner"
-                      placeholder="0"
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-emerald-500 transition-all shadow-inner"
                     />
                   </div>
                 </div>
@@ -523,18 +479,14 @@ export default function AdminPage() {
                       type="number" min="1" max="31"
                       value={editingBuilding.payment_day}
                       onChange={(e) => setEditingBuilding({...editingBuilding, payment_day: Number(e.target.value)})}
-                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 shadow-inner"
                     />
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                       <Users className="w-3 h-3 text-indigo-400" /> Unidades
                     </label>
-                    <input 
-                      type="number" readOnly
-                      value={editingBuilding.unidades}
-                      className="w-full bg-[#0f172a]/50 border border-slate-800 rounded-2xl px-6 py-4 text-slate-500 font-black text-lg focus:outline-none cursor-not-allowed shadow-inner"
-                    />
+                    <input type="number" readOnly value={editingBuilding.unidades} className="w-full bg-[#0f172a]/50 border border-slate-800 rounded-2xl px-6 py-4 text-slate-500 font-black text-lg cursor-not-allowed" />
                   </div>
                 </div>
 
@@ -546,18 +498,14 @@ export default function AdminPage() {
                     value={editingBuilding.notes}
                     onChange={(e) => setEditingBuilding({...editingBuilding, notes: e.target.value})}
                     rows={3}
-                    className="w-full bg-[#0f172a] border border-slate-700 rounded-3xl px-6 py-5 text-white font-medium text-sm focus:outline-none focus:border-indigo-500 transition-all shadow-inner resize-none leading-relaxed"
-                    placeholder="Escribe acuerdos comerciales o recordatorios..."
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-3xl px-6 py-5 text-white font-medium text-sm focus:outline-none focus:border-indigo-500 transition-all shadow-inner resize-none"
                   />
                 </div>
 
                 <div className="flex gap-4 pt-4">
-                  <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-slate-600 transition-all shadow-xl">
-                    Cancelar
-                  </button>
-                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-indigo-500 transition-all shadow-[0_10px_30px_rgba(79,70,229,0.3)] flex items-center justify-center gap-3">
-                    <Save className="w-4 h-4" />
-                    Actualizar Core
+                  <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-slate-600 transition-all">Cancelar</button>
+                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] tracking-[0.2em] py-5 rounded-[1.5rem] hover:bg-indigo-500 transition-all flex items-center justify-center gap-3">
+                    <Save className="w-4 h-4" /> Actualizar Core
                   </button>
                 </div>
               </form>
@@ -566,9 +514,7 @@ export default function AdminPage() {
         )}
 
         <footer className="p-8 text-center border-t border-slate-800">
-           <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.5em] opacity-30">
-            Control de Operaciones SaaS — EdifiSaaS v1.0 — 2026
-          </p>
+           <p className="text-[10px] text-slate-700 font-black uppercase tracking-[0.5em] opacity-30">Control de Operaciones SaaS — EdifiSaaS v1.0</p>
         </footer>
       </main>
     </div>
