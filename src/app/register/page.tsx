@@ -27,6 +27,18 @@ interface IntegrationData {
   custom_domain?: string;
 }
 
+interface Administradora {
+  id: string;
+  nombre: string;
+  url_login: string;
+  url_recibos: string;
+  url_recibo_mes: string;
+  url_egresos: string;
+  url_gastos: string;
+  url_balance: string;
+  url_alicuotas: string;
+}
+
 const ADMIN_URLS: Record<string, any> = {
   "La Ideal C.A.": {
     url_login: "https://admlaideal.com.ve/condlin.php?r=1",
@@ -125,6 +137,9 @@ export default function RegisterPage() {
     admin_secret: "",
     custom_domain: "",
   });
+  
+  const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
+  const [loadingAdmins, setLoadingAdmins] = useState(false);
 
   const handleAdminChange = (nombre: string) => {
     setIntegration({
@@ -133,6 +148,24 @@ export default function RegisterPage() {
       custom_domain: nombre === "Otra" ? integration.custom_domain : "",
     });
   };
+
+  useEffect(() => {
+    async function loadAdmins() {
+      setLoadingAdmins(true);
+      try {
+        const res = await fetch("/api/admin/administradoras");
+        const data = await res.json();
+        if (res.ok) {
+          setAdministradoras(data.data || []);
+        }
+      } catch (e) {
+        console.error("Error loading admins", e);
+      } finally {
+        setLoadingAdmins(false);
+      }
+    }
+    loadAdmins();
+  }, []);
 
   const handleAccountSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,11 +203,32 @@ export default function RegisterPage() {
     
     // Build integration data with proper URLs
     let integrationData = { ...integration };
+    
     if (integration.admin_nombre === "Otra" && integration.custom_domain) {
       integrationData = {
         ...integration,
         ...buildUrlsFromDomain(integration.custom_domain),
       };
+    } else {
+      // Intentar buscar en las administradoras dinámicas
+      const selected = administradoras.find(a => a.nombre === integration.admin_nombre);
+      if (selected) {
+        integrationData = {
+          ...integration,
+          url_login: selected.url_login,
+          url_recibos: selected.url_recibos,
+          url_recibo_mes: selected.url_recibo_mes,
+          url_egresos: selected.url_egresos,
+          url_gastos: selected.url_gastos,
+          url_balance: selected.url_balance,
+        };
+      } else if (ADMIN_URLS[integration.admin_nombre]) {
+        // Fallback a las hardcoded por si acaso
+        integrationData = {
+          ...integration,
+          ...ADMIN_URLS[integration.admin_nombre],
+        };
+      }
     }
     
     try {
@@ -390,17 +444,28 @@ export default function RegisterPage() {
                   value={integration.admin_nombre}
                   onChange={(e) => handleAdminChange(e.target.value)}
                 >
-                  <option value="La Ideal C.A.">La Ideal C.A.</option>
-                  <option value="Administradora AC. Condominios, C.A.">Administradora AC. Condominios, C.A.</option>
-                  <option value="Administradora Elite">Administradora Elite</option>
-                  <option value="Intercanariven">Intercanariven</option>
-                  <option value="Administradora Actual, C.A.">Administradora Actual, C.A.</option>
-                  <option value="Condominios Chacao">Condominios Chacao</option>
-                  <option value="Obelisco">Obelisco</option>
-                  <option value="Administradora GCM">Administradora GCM</option>
-                  <option value="Otra">Otra (Manual)</option>
+                  {administradoras.length > 0 ? (
+                    <>
+                      {administradoras.map(adm => (
+                        <option key={adm.id} value={adm.nombre}>{adm.nombre}</option>
+                      ))}
+                      <option value="Otra">Otra (Manual)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="La Ideal C.A.">La Ideal C.A.</option>
+                      <option value="Administradora AC. Condominios, C.A.">Administradora AC. Condominios, C.A.</option>
+                      <option value="Administradora Elite">Administradora Elite</option>
+                      <option value="Intercanariven">Intercanariven</option>
+                      <option value="Administradora Actual, C.A.">Administradora Actual, C.A.</option>
+                      <option value="Condominios Chacao">Condominios Chacao</option>
+                      <option value="Obelisco">Obelisco</option>
+                      <option value="Administradora GCM">Administradora GCM</option>
+                      <option value="Otra">Otra (Manual)</option>
+                    </>
+                  )}
                 </select>
-                {integration.admin_nombre !== "Otra" && ADMIN_URLS[integration.admin_nombre] && (
+                {(integration.admin_nombre === "Otra" || administradoras.some(a => a.nombre === integration.admin_nombre) || ADMIN_URLS[integration.admin_nombre]) && (
                   <p className="text-xs text-green-600 mt-1">✓ URLs pre-configuradas para {integration.admin_nombre}</p>
                 )}
               </div>
