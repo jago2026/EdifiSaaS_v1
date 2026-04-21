@@ -112,6 +112,7 @@ interface Building {
   sync_alicuotas?: boolean;
   sync_balance?: boolean;
   email_junta?: string | null;
+  onboarding_completed?: boolean;
 }
 
 interface Movement {
@@ -599,6 +600,22 @@ export default function DashboardPage() {
   }, [building]);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  const completeOnboarding = async () => {
+    if (!building?.id) return;
+    try {
+      await fetch("/api/config/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edificioId: building.id }),
+      });
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error("Error completing onboarding:", error);
+      setShowOnboarding(false);
+    }
+  };
 
   const sendEmailToJunta = async (testMode: boolean = false) => {
     if (!building?.id) return;
@@ -658,6 +675,9 @@ export default function DashboardPage() {
         setUser(data.user);
         if (data.user?.requiereCambioClave) {
           setShowPasswordChange(true);
+        }
+        if (data.building && !data.building.onboarding_completed && data.user?.isAdmin && !data.user?.isDemo) {
+          setShowOnboarding(true);
         }
       } catch (error) {
         router.push("/login");
@@ -5108,6 +5128,57 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Modal de Bienvenida e Instrucciones */}
+      {showOnboarding && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-500 border-4 border-white">
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 p-10 text-center text-white relative">
+              <div className="absolute top-0 right-0 p-6 opacity-10 text-8xl">🏢</div>
+              <div className="text-6xl mb-4 drop-shadow-lg">👋</div>
+              <h2 className="text-3xl font-black uppercase tracking-tighter leading-none mb-2">¡Bienvenido al Sistema!</h2>
+              <p className="text-indigo-100 font-bold text-sm uppercase tracking-widest">Su edificio ha sido registrado satisfactoriamente</p>
+            </div>
+            
+            <div className="p-10 space-y-8">
+              <div className="space-y-6">
+                <div className="flex gap-6 items-start group">
+                  <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center font-black text-2xl flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform">1</div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-1">Primer Paso: Sincronización</h3>
+                    <p className="text-gray-600 text-sm leading-relaxed">Pulse el botón <span className="font-black text-indigo-600">SINCRONIZAR</span> para descargar los datos actuales en línea disponibles en la página web de su administradora.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-6 items-start group">
+                  <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center font-black text-2xl flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform">2</div>
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-1">Segundo Paso: Miembros de Junta</h3>
+                    <p className="text-gray-600 text-sm leading-relaxed">Para agregar miembros de la Junta de Condominio, simplemente agréguelos en la pestaña <span className="font-black text-blue-600">JUNTA</span>. Recibirán un email para crear su propia clave de acceso.</p>
+                  </div>
+                </div>
+
+                <div className="p-6 bg-amber-50 rounded-3xl border-2 border-amber-100 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 text-6xl">⚠️</div>
+                  <h4 className="text-xs font-black text-amber-700 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <span>📢</span> IMPORTANTE
+                  </h4>
+                  <p className="text-amber-800 text-xs leading-relaxed font-medium">
+                    Toda la información mostrada proviene de la página web de su administradora. La disponibilidad y actualización de los datos depende de la eficacia con la que su administradora actualice su portal web.
+                  </p>
+                </div>
+              </div>
+
+              <button 
+                onClick={completeOnboarding}
+                className="w-full bg-indigo-600 text-white py-5 rounded-2xl text-xl font-black hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 active:scale-95 uppercase tracking-tighter"
+              >
+                ¡Entendido, comencemos! 🚀
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </main>
 

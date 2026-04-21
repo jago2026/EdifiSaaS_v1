@@ -55,11 +55,11 @@ export default function DemoPage() {
             Haz clic abajo para entrar directamente al panel de control con el usuario de prueba. Podrás ver gráficos, balances, egresos y recibos en tiempo real.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="flex justify-center">
             <button 
               onClick={handleDemoLogin}
               disabled={loading}
-              className={`w-full sm:w-auto bg-indigo-600 text-white px-8 py-5 rounded-2xl text-xl font-black hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 active:scale-95 flex items-center justify-center gap-3 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`w-full sm:w-auto bg-indigo-600 text-white px-12 py-5 rounded-2xl text-xl font-black hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 active:scale-95 flex items-center justify-center gap-3 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {loading ? (
                 <>
@@ -68,17 +68,10 @@ export default function DemoPage() {
                 </>
               ) : (
                 <>
-                  🚀 Acceso Directo
+                  🚀 Acceso Directo a la Demo
                 </>
               )}
             </button>
-
-            <Link 
-              href="/login?email=demo&password=demo"
-              className="w-full sm:w-auto bg-white border-4 border-indigo-600 text-indigo-600 px-8 py-5 rounded-2xl text-xl font-black hover:bg-indigo-50 transition-all shadow-xl shadow-indigo-100 active:scale-95 flex items-center justify-center gap-3"
-            >
-              🔑 Ingresar a Demo
-            </Link>
           </div>
           
           {error && <p className="text-red-600 mt-4 font-bold">{error}</p>}
