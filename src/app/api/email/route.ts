@@ -332,9 +332,10 @@ export async function POST(request: Request) {
       const fondoReserva = Number(balance?.fondo_reserva || 0);
       const disponibilidadTotal = saldoDisponible + fondoReserva;
       
-      // Percentage of the current month's collection (Capped at 100%)
-      const pctRecaudado = facturacion > 0 ? (cobranza / facturacion) * 100 : 0;
-      const pctRecaudadoDisplay = Math.min(100, pctRecaudado);
+      // Collection Effectiveness: (Collected / (Debt + Collected))
+      // This shows how much of the total "receivable" money was actually recovered
+      const totalACobrar = totalGeneralAdeudado + cobranza;
+      const pctEfectividad = totalACobrar > 0 ? (cobranza / totalACobrar) * 100 : 0;
 
       // Financial Morosity Index: (Debt / (Debt + Cash))
       const totalPatrimonio = totalGeneralAdeudado + disponibilidadTotal;
@@ -364,7 +365,7 @@ ${deudasTexto}
 
 🏠 *Estadísticas de Cobranza:*
 • Aptos con deuda: ${cantAptosConDeuda} (${formatNumber(Math.min(100, pctAptosConDeuda))}% del total)
-• Recaudado este mes: ${formatBs(cobranza)} (${formatNumber(pctRecaudadoDisplay)}%) ${pctRecaudadoDisplay >= 100 ? "✅" : "⏳"}
+• Recaudado este mes: ${formatBs(cobranza)} (${formatNumber(pctEfectividad)}% de efectividad) ✅
 • Total pendiente por cobrar: ${formatBs(totalGeneralAdeudado)} (${formatNumber(pctMoraFinanciera)}% de morosidad) ⏳
 • Días restantes del mes: ${daysRemaining} 📅
 
