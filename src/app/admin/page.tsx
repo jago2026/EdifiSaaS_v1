@@ -151,6 +151,10 @@ export default function AdminPage() {
     finally { setToolLoading(false); }
   };
 
+  const handleRestore = () => {
+    alert("⚠️ La restauración automática está deshabilitada por seguridad. Contacte al desarrollador para restaurar un archivo SQL manualmente.");
+  };
+
   const loadEdificios = async () => {
     setLoading(true);
     try {
