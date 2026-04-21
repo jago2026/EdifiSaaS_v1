@@ -198,19 +198,14 @@ export async function GET(request: Request) {
       .eq("id", edificioId)
       .single();
     
-    // Contar cuántos apartamentos únicos existen en la tabla de alícuotas (lo más fiable)
     const alicuotasUnits = alicuotas?.length || 0;
-    
-    // Si no hay alícuotas, contar cuántos apartamentos únicos tienen deudas actualmente
     const uniqueReceiptUnits = new Set((recibos || []).map(r => r.unidad)).size;
     
-    // Determinar el número real de apartamentos del edificio
-    let realUnitsCount = alicuotasUnits > 0 ? alicuotasUnits : (uniqueReceiptUnits > 0 ? uniqueReceiptUnits : (building?.unidades || 1));
+    // Sane units count: prioritize alicuotas, then building field if it's not huge, then unique units
+    let realUnitsCount = alicuotasUnits > 0 ? alicuotasUnits : 
+                        (building?.unidades && building.unidades < 300 ? building.unidades : 
+                        (uniqueReceiptUnits > 0 && uniqueReceiptUnits < 300 ? uniqueReceiptUnits : 25));
     
-    // FILTRO DE REALIDAD: Si el número es mayor a 500, probablemente es un error de conteo de registros totales
-    if (realUnitsCount > 500) {
-      realUnitsCount = uniqueReceiptUnits > 0 ? uniqueReceiptUnits : (alicuotasUnits > 0 ? alicuotasUnits : 40); // Fallback a un edificio promedio si todo falla
-    }
     if (realUnitsCount <= 0) realUnitsCount = 1;
 
     // Daily cash flow (pagos vs egresos) in USD
