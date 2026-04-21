@@ -193,6 +193,86 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Borrador enviado exitosamente" });
     }
 
+    if (action === "send_cash_flow") {
+      const { payload } = body;
+      const { mes, rows, summary } = payload;
+      
+      const format = (n: number) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      let tableRowsHtml = rows.map((r: any) => `
+        <tr style="background: ${r.dia % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: center;">${r.dia}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; color: #888;">${format(r.saldoInicial)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; color: #2e7d32;">${format(r.cobranza)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; color: #4caf50;">${format(r.otrosIng)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; background: #e8f5e9; font-weight: bold;">${format(r.totalIng)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; color: #c62828;">${format(r.operativos)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; color: #ef5350;">${format(r.otrosEgr)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; background: #ffeeee; font-weight: bold;">${format(r.totalEgr)}</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; color: #aaa;">0,00</td>
+          <td style="border: 1px solid #ddd; padding: 5px; text-align: right; font-family: monospace; background: #f3f4f6; font-weight: bold;">${format(r.saldoFinal)}</td>
+        </tr>
+      `).join('');
+
+      let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
+      if (recipients.length === 0) {
+        const { data: miembros } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
+        if (miembros) recipients = miembros.map(m => m.email);
+      }
+
+      await transporter.sendMail({
+        from: `"EdifiSaaS - Reportes" <${SMTP_USER}>`,
+        to: recipients,
+        subject: `Estado de Flujo de Efectivo - ${edificio.nombre} - ${mes}`,
+        html: `
+          <div style="font-family: sans-serif; color: #333; max-width: 900px; margin: 0 auto;">
+            <h2 style="text-align: center; color: #1a73e8; text-transform: uppercase; margin-bottom: 5px;">Estado de Flujo de Efectivo</h2>
+            <p style="text-align: center; font-weight: bold; margin-top: 0;">Edificio: ${edificio.nombre} | Período: ${mes}</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10px;">
+              <thead>
+                <tr style="background: #1a237e; color: white;">
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Día</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Saldo Inicial</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Cobranza</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Otros Ing.</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a; background: #004d40;">Total Ing.</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Egr. Operat.</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Otros Egr.</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a; background: #b71c1c;">Total Egr.</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a;">Ajustes</th>
+                  <th style="padding: 8px; border: 1px solid #0d125a; background: #0d125a;">Saldo Final</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRowsHtml}
+              </tbody>
+            </table>
+
+            <div style="display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-top: 30px;">
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase; color: #1a237e;">Resumen Ejecutivo</h3>
+                <p style="margin: 5px 0; font-size: 12px;">Días con movimiento: <strong>${summary.daysWithMovement}</strong></p>
+                <p style="margin: 5px 0; font-size: 12px;">Total Ingresos: <strong style="color: #2e7d32;">Bs. ${format(summary.totalIng)}</strong></p>
+                <p style="margin: 5px 0; font-size: 12px;">Total Egresos: <strong style="color: #c62828;">Bs. ${format(summary.totalEgr)}</strong></p>
+                <p style="margin: 5px 0; font-size: 12px;">Balance del Mes: <strong>Bs. ${format(summary.balance)}</strong></p>
+              </div>
+              <div style="background: #1a237e; padding: 15px; border-radius: 8px; color: white;">
+                <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase; color: #8c9eff;">Análisis de Tendencia</h3>
+                <p style="margin: 5px 0; font-size: 12px;">Día Mayor Ingreso: <strong>Día ${summary.maxIngDia}</strong> (Bs. ${format(summary.maxIngMonto)})</p>
+                <p style="margin: 5px 0; font-size: 12px;">Día Mayor Egreso: <strong>Día ${summary.maxEgrDia}</strong> (Bs. ${format(summary.maxEgrMonto)})</p>
+              </div>
+            </div>
+            
+            <p style="font-size: 10px; color: #999; text-align: center; margin-top: 40px; font-style: italic;">
+              Reporte generado automáticamente por EdifiSaaS v1.0 el ${new Date().toLocaleString('es-VE')}.
+            </p>
+          </div>
+        `
+      });
+      return NextResponse.json({ success: true, message: "Reporte de flujo enviado exitosamente" });
+    }
+
     if (action === "error_notification") {
       await transporter.sendMail({
         from: `"SaaS - Error de Sincronización" <${SMTP_USER}>`,

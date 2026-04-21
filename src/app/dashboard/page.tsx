@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -697,6 +697,91 @@ export default function DashboardPage() {
       } else {
         setEmailMessage(`❌ Error: ${data.error}`);
       }
+    } catch (error: any) {
+      setEmailMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const sendCashFlowEmail = async () => {
+    if (!building?.id) return;
+    setSendingEmail(true);
+    setEmailMessage("");
+    
+    try {
+      const today = new Date();
+      const monthStr = today.toISOString().substring(0, 7);
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      
+      const rows = [];
+      let currentSaldo = balance?.saldo_anterior || 0;
+      let grandTotalIng = 0;
+      let grandTotalEgr = 0;
+      let daysWithMovement = 0;
+      let maxIng = { dia: 0, monto: 0 };
+      let maxEgr = { dia: 0, monto: 0 };
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
+        const dayMovs = kpisData.movimientos?.filter((m: any) => m.fecha === dateStr) || [];
+        const dayIng = dayMovs.filter((m: any) => m.tipo === 'ingreso').reduce((sum: number, m: any) => sum + m.monto, 0);
+        const dayEgr = dayMovs.filter((m: any) => m.tipo === 'egreso').reduce((sum: number, m: any) => sum + m.monto, 0);
+        
+        const cobranza = dayMovs.filter((m: any) => m.tipo === 'ingreso' && m.fuente !== 'manual').reduce((sum: number, m: any) => sum + m.monto, 0);
+        const operativos = dayMovs.filter((m: any) => m.tipo === 'egreso' && m.fuente !== 'manual').reduce((sum: number, m: any) => sum + m.monto, 0);
+
+        const saldoInicial = currentSaldo;
+        currentSaldo = saldoInicial + dayIng - dayEgr;
+        
+        if (dayIng > 0 || dayEgr > 0) {
+           daysWithMovement++;
+           if (dayIng > maxIng.monto) maxIng = { dia: d, monto: dayIng };
+           if (dayEgr > maxEgr.monto) maxEgr = { dia: d, monto: dayEgr };
+        }
+        
+        grandTotalIng += dayIng;
+        grandTotalEgr += dayEgr;
+
+        rows.push({
+          dia: d,
+          saldoInicial,
+          cobranza,
+          otrosIng: dayIng - cobranza,
+          totalIng: dayIng,
+          operativos,
+          otrosEgr: dayEgr - operativos,
+          totalEgr: dayEgr,
+          saldoFinal: currentSaldo
+        });
+      }
+
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          edificioId: building.id, 
+          action: "send_cash_flow",
+          payload: {
+            mes: new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' }),
+            rows,
+            summary: {
+              daysWithMovement,
+              totalIng: grandTotalIng,
+              totalEgr: grandTotalEgr,
+              balance: grandTotalIng - grandTotalEgr,
+              maxIngDia: maxIng.dia,
+              maxIngMonto: maxIng.monto,
+              maxEgrDia: maxEgr.dia,
+              maxEgrMonto: maxEgr.monto
+            }
+          }
+        }),
+      });
+      
+      const data = await res.json();
+      if (res.ok) setEmailMessage("✅ Reporte de Flujo de Efectivo enviado con éxito");
+      else throw new Error(data.error);
     } catch (error: any) {
       setEmailMessage(`❌ Error: ${error.message}`);
     } finally {
@@ -1533,6 +1618,9 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("movimientos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'movimientos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">🔄</span> Movimientos Consolidados
               </button>
+              <button onClick={() => setActiveTab("flujo-caja")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'flujo-caja' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📊</span> Flujo de Caja Diario
+              </button>
               <button onClick={() => setActiveTab("ingresos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'ingresos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">💰</span> Ingresos (Cobranza)
               </button>
@@ -1661,6 +1749,7 @@ export default function DashboardPage() {
                 <button onClick={() => {setActiveTab("kpis"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'kpis' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📈 KPIs</button>
                 <button onClick={() => {setActiveTab("pre-recibo"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'pre-recibo' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📝 Pre-Recibo</button>
                 <button onClick={() => {setActiveTab("movimientos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'movimientos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🔄 Movimientos</button>
+                <button onClick={() => {setActiveTab("flujo-caja"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'flujo-caja' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📊 Flujo Caja</button>
                 <button onClick={() => {setActiveTab("ingresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'ingresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>💰 Ingresos</button>
                 <button onClick={() => {setActiveTab("egresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'egresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🧾 Egresos</button>
                 <button onClick={() => {setActiveTab("recibos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'recibos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>👥 Recibos</button>
@@ -3774,26 +3863,185 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {activeTab === "pre-recibo" && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        {activeTab === "flujo-caja" && (
+          <div className="space-y-8 animate-in fade-in duration-500">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Borrador de Recibo Estimado</h2>
-                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Selecciona los conceptos que integrarán el próximo recibo</p>
+                  <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Estado de Flujo de Efectivo</h2>
+                  <p className="text-xs text-indigo-600 font-bold uppercase tracking-widest mt-1">
+                    Mes: {new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })} | Generado el: {new Date().toLocaleDateString('es-VE')}
+                  </p>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={loadPreReciboData} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-200 transition-all uppercase tracking-widest">
-                    {loadingPreRecibo ? "Cargando..." : "🔄 Refrescar Items"}
-                  </button>
-                  <button 
-                    onClick={sendPreReciboEmail} 
-                    disabled={sendingEmail || selectedPreReciboIds.size === 0}
-                    className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 uppercase tracking-widest disabled:opacity-50"
-                  >
-                    {sendingEmail ? "Enviando..." : "📧 Enviar Borrador"}
-                  </button>
+                <button 
+                  onClick={sendCashFlowEmail} 
+                  disabled={sendingEmail}
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 uppercase tracking-widest disabled:opacity-50"
+                >
+                  {sendingEmail ? "Enviando..." : "📧 Enviar a la Junta"}
+                </button>
+              </div>
+
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-[10px] border-collapse">
+                  <thead>
+                    <tr className="bg-indigo-900 text-white uppercase tracking-tighter">
+                      <th className="py-2 px-1 border border-indigo-800">Día</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right">Saldo Inicial</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right">Cobranza</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right">Otros Ing.</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right bg-green-800/50">Total Ing.</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right">Egr. Operat.</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right">Otros Egr.</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right bg-red-800/50">Total Egr.</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right">Ajustes</th>
+                      <th className="py-2 px-1 border border-indigo-800 text-right bg-indigo-800">Saldo Final</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-bold text-gray-700">
+                    {(() => {
+                      const today = new Date();
+                      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                      const rows = [];
+                      let currentSaldo = balance?.saldo_anterior || 0;
+                      
+                      const monthStr = today.toISOString().substring(0, 7);
+                      
+                      // Totales para el resumen
+                      let grandTotalIng = 0;
+                      let grandTotalEgr = 0;
+                      let daysWithMovement = 0;
+                      let maxIng = { dia: 0, monto: 0 };
+                      let maxEgr = { dia: 0, monto: 0 };
+
+                      for (let d = 1; d <= daysInMonth; d++) {
+                        const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
+                        
+                        // Filtrar movimientos del día
+                        const dayMovs = kpisData.movimientos?.filter((m: any) => m.fecha === dateStr) || [];
+                        const dayIngresos = dayMovs.filter((m: any) => m.tipo === 'ingreso').reduce((sum: number, m: any) => sum + m.monto, 0);
+                        const dayEgresos = dayMovs.filter((m: any) => m.tipo === 'egreso').reduce((sum: number, m: any) => sum + m.monto, 0);
+                        
+                        // Simular "Otros" basado en fuente (manual vs scraping)
+                        const cobranza = dayMovs.filter((m: any) => m.tipo === 'ingreso' && m.fuente !== 'manual').reduce((sum: number, m: any) => sum + m.monto, 0);
+                        const otrosIng = dayIngresos - cobranza;
+                        
+                        const operativos = dayMovs.filter((m: any) => m.tipo === 'egreso' && m.fuente !== 'manual').reduce((sum: number, m: any) => sum + m.monto, 0);
+                        const otrosEgr = dayEgresos - operativos;
+
+                        const saldoInicial = currentSaldo;
+                        currentSaldo = saldoInicial + dayIngresos - dayEgresos;
+                        
+                        if (dayIngresos > 0 || dayEgresos > 0) {
+                          daysWithMovement++;
+                          if (dayIngresos > maxIng.monto) maxIng = { dia: d, monto: dayIngresos };
+                          if (dayEgresos > maxEgr.monto) maxEgr = { dia: d, monto: dayEgresos };
+                        }
+                        
+                        grandTotalIng += dayIngresos;
+                        grandTotalEgr += dayEgresos;
+
+                        rows.push(
+                          <tr key={d} className={`${d % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-indigo-50 transition-colors`}>
+                            <td className="py-1 px-1 border text-center font-black text-indigo-900">{d}</td>
+                            <td className="py-1 px-1 border text-right font-mono text-gray-400">{formatBs(saldoInicial)}</td>
+                            <td className="py-1 px-1 border text-right font-mono text-green-600">{formatBs(cobranza)}</td>
+                            <td className="py-1 px-1 border text-right font-mono text-green-400">{formatBs(otrosIng)}</td>
+                            <td className="py-1 px-1 border text-right font-mono bg-green-50 text-green-800">{formatBs(dayIngresos)}</td>
+                            <td className="py-1 px-1 border text-right font-mono text-red-600">{formatBs(operativos)}</td>
+                            <td className="py-1 px-1 border text-right font-mono text-red-400">{formatBs(otrosEgr)}</td>
+                            <td className="py-1 px-1 border text-right font-mono bg-red-50 text-red-800">{formatBs(dayEgresos)}</td>
+                            <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
+                            <td className="py-1 px-1 border text-right font-mono bg-indigo-50 text-indigo-900">{formatBs(currentSaldo)}</td>
+                          </tr>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {rows}
+                          <tr className="bg-indigo-900 text-white uppercase text-[11px]">
+                            <td className="py-2 px-2 font-black">TOTAL</td>
+                            <td className="border border-indigo-800"></td>
+                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono">...</td>
+                            <td className="border border-indigo-800"></td>
+                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-green-700">{formatBs(grandTotalIng)}</td>
+                            <td className="border border-indigo-800"></td>
+                            <td className="border border-indigo-800"></td>
+                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-red-700">{formatBs(grandTotalEgr)}</td>
+                            <td className="border border-indigo-800"></td>
+                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-indigo-950">{formatBs(currentSaldo)}</td>
+                          </tr>
+                        </>
+                      );
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Bloques de Resumen Inferiores */}
+              <div className="grid md:grid-cols-2 gap-8 mt-8">
+                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+                  <h3 className="text-xs font-black text-gray-400 uppercase mb-4 tracking-widest">Resumen Ejecutivo</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white p-3 rounded-xl border shadow-sm">
+                      <div className="text-[9px] font-bold text-gray-400 uppercase">Días con Movimiento</div>
+                      <div className="text-lg font-black text-indigo-900">
+                        {(() => {
+                          const today = new Date();
+                          const monthStr = today.toISOString().substring(0, 7);
+                          const dayMovs = kpisData.movimientos?.filter((m: any) => m.fecha.startsWith(monthStr)) || [];
+                          const uniqueDays = new Set(dayMovs.map((m: any) => m.fecha));
+                          return uniqueDays.size;
+                        })()}
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-xl border shadow-sm">
+                      <div className="text-[9px] font-bold text-gray-400 uppercase">Balance del Mes</div>
+                      <div className="text-lg font-black text-blue-600">
+                        Bs. {formatBs((kpisData.movimientos?.filter((m: any) => m.tipo === 'ingreso').reduce((s:number, m:any) => s+m.monto, 0) || 0) - (kpisData.movimientos?.filter((m: any) => m.tipo === 'egreso').reduce((s:number, m:any) => s+m.monto, 0) || 0))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                <div className="bg-indigo-900 p-6 rounded-2xl text-white">
+                  <h3 className="text-xs font-black text-indigo-300 uppercase mb-4 tracking-widest">Análisis de Tendencia</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-indigo-200 font-bold">Día Mayor Ingreso:</span>
+                      <span className="font-black text-green-400">Día {(() => {
+                        let max = { dia: 0, monto: 0 };
+                        const today = new Date();
+                        const monthStr = today.toISOString().substring(0, 7);
+                        for(let d=1; d<=31; d++) {
+                          const date = `${monthStr}-${d.toString().padStart(2, '0')}`;
+                          const m = kpisData.movimientos?.filter((x:any) => x.fecha === date && x.tipo === 'ingreso').reduce((s:number, x:any) => s+x.monto, 0) || 0;
+                          if (m > max.monto) max = { dia: d, monto: m };
+                        }
+                        return max.dia;
+                      })()}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-indigo-200 font-bold">Día Mayor Egreso:</span>
+                      <span className="font-black text-red-400">Día {(() => {
+                        let max = { dia: 0, monto: 0 };
+                        const today = new Date();
+                        const monthStr = today.toISOString().substring(0, 7);
+                        for(let d=1; d<=31; d++) {
+                          const date = `${monthStr}-${d.toString().padStart(2, '0')}`;
+                          const m = kpisData.movimientos?.filter((x:any) => x.fecha === date && x.tipo === 'egreso').reduce((s:number, x:any) => s+x.monto, 0) || 0;
+                          if (m > max.monto) max = { dia: d, monto: m };
+                        }
+                        return max.dia;
+                      })()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
               </div>
 
               {emailMessage && (
