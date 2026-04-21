@@ -191,13 +191,14 @@ export async function GET(request: Request) {
     const today = new Date();
     const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // Get building units for averaging
+    // Get building units for averaging - Use alicuotas length as it is more reliable
     const { data: building } = await supabase
       .from("edificios")
       .select("unidades")
       .eq("id", edificioId)
       .single();
-    const totalUnidades = building?.unidades || 1;
+    
+    const realUnitsCount = (alicuotas && alicuotas.length > 0) ? alicuotas.length : (building?.unidades || 1);
 
     // Daily cash flow (pagos vs egresos) in USD
     const dailyFlow: any = {};
@@ -250,8 +251,8 @@ export async function GET(request: Request) {
           total_por_cobrar: b.total_por_cobrar || 0,
           total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
           recibos_mes: b.recibos_mes || 0,
-          recibos_mes_usd: tasa > 0 ? (b.recibos_mes || 0) / tasa : 0, // Monto total en USD del mes
-          recibo_promedio_usd: (tasa > 0 && totalUnidades > 0) ? ((b.recibos_mes || 0) / tasa) / totalUnidades : 0, // Este es el que debería usarse para el KPI de "monto por unidad"
+          recibos_mes_usd: tasa > 0 ? (b.recibos_mes || 0) / tasa : 0, 
+          recibo_promedio_usd: (tasa > 0 && realUnitsCount > 0) ? ((b.recibos_mes || 0) / tasa) / realUnitsCount : 0, 
           tasa_bcv: tasa,
           resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
           efectividad_recaudacion: (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0)) > 0 
