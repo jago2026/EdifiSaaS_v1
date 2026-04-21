@@ -445,6 +445,18 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { userId, mes, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance } = body;
+
+    // PROTECTION FOR DEMO MODE
+    if (userId === "00000000-0000-0000-0000-000000000000") {
+      console.log("[SYNC] Simulated sync for demo user");
+      return NextResponse.json({ 
+        success: true, 
+        isDemo: true,
+        message: "Sincronización simulada exitosa en modo demo",
+        stats: { recibos: 42, egresos: 12, gastos: 8, alicuotas: 40, recibo_total: 2500.50 } 
+      });
+    }
+
     const mesEstandar = normalizeMes(mes);
     
     const doSyncRecibos = sync_recibos !== false;

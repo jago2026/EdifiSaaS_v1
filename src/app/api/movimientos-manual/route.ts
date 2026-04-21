@@ -37,6 +37,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Faltan datos requeridos" }, { status: 400 });
     }
 
+    // PROTECTION FOR DEMO MODE
+    if (edificio_id === "d0000000-0000-0000-0000-000000000001") {
+      return NextResponse.json({ error: "No se permite registrar movimientos en modo demo" }, { status: 403 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseKey);
     const saldoFinal = (saldo_inicial || 0) - (egresos || 0) + (ingresos || 0);
     const saldoFinalUSD = tasa_bcv ? saldoFinal / tasa_bcv : 0;

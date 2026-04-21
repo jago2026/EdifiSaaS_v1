@@ -31,8 +31,14 @@ export async function GET(request: Request) {
     let requiereCambioClave = false;
     let isAdmin = false;
     let nivelAcceso = 'viewer';
+    let isDemo = false;
 
-    if (userId === "superuser-id") {
+    if (userId === "00000000-0000-0000-0000-000000000000") {
+      user = { id: "00000000-0000-0000-0000-000000000000", email: "demo@edifisaas.com", first_name: "Usuario", last_name: "Demostración" };
+      isAdmin = false;
+      nivelAcceso = 'observador';
+      isDemo = true;
+    } else if (userId === "superuser-id") {
       user = { id: "superuser-id", email: "co****go@gmail.com", first_name: "Super", last_name: "Usuario" };
       isAdmin = true;
       nivelAcceso = 'admin';
@@ -97,7 +103,8 @@ export async function GET(request: Request) {
         isMember,
         isAdmin,
         nivelAcceso,
-        requiereCambioClave
+        requiereCambioClave,
+        isDemo
       },
       building,
     });

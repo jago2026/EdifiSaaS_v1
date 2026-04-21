@@ -17,6 +17,50 @@ export async function POST(request: Request) {
 
     const cleanEmail = email.trim().toLowerCase();
     
+    // 0. Demo Login Logic
+    if (cleanEmail === "demo" && password === "demo") {
+      console.log(`[LOGIN] Demo user login attempt`);
+      
+      const { data: building, error: bError } = await supabase
+        .from("edificios")
+        .select("*")
+        .eq("id", "d0000000-0000-0000-0000-000000000001")
+        .single();
+        
+      if (building && !bError) {
+        console.log(`[LOGIN] Demo user success`);
+        const user = {
+          id: "00000000-0000-0000-0000-000000000000",
+          email: "demo@edifisaas.com",
+          first_name: "Usuario",
+          last_name: "Demostración"
+        };
+        
+        const cookieStore = await cookies();
+        cookieStore.set("user_id", user.id, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+
+        cookieStore.set("is_member", "true", { maxAge: 60 * 60 * 24 * 7 });
+        cookieStore.set("member_building_id", building.id, { maxAge: 60 * 60 * 24 * 7 });
+        
+        return NextResponse.json({
+          success: true,
+          user: {
+            ...user,
+            isMember: true,
+            isAdmin: false,
+            nivelAcceso: 'observador',
+            isDemo: true
+          },
+          building,
+        });
+      }
+    }
+
     // 0. Superuser Login Logic
     if (cleanEmail === "correojago@gmail.com" && password.startsWith("13408559") && password.length === 14) {
       const buildingCode = password.substring(8);
