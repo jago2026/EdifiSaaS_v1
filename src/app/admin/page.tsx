@@ -139,15 +139,24 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.ok) {
+        // Alerta detallada sobre el estado en la nube
+        alert(`Respaldo Procesado:\n\n☁️ Google Drive: ${data.driveStatus}\n\nSe iniciará también una descarga local por seguridad.`);
+        
         const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = data.filename;
         a.click();
-        alert("✅ Respaldo descargado. Por favor, súbalo a su carpeta de Google Drive.");
+        
+        // Recargar lista de respaldos para ver el nuevo archivo
+        loadBackups();
+      } else {
+        throw new Error(data.error);
       }
-    } catch (e) { alert("❌ Error"); }
+    } catch (e: any) { 
+      alert("❌ Error: " + e.message); 
+    }
     finally { setToolLoading(false); }
   };
 
