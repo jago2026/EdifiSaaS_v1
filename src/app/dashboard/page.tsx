@@ -1710,6 +1710,18 @@ export default function DashboardPage() {
                 <button onClick={loadTasaBCV} className="text-[10px] font-black text-green-700 uppercase bg-green-50 px-2 py-1 rounded border border-green-100 hover:bg-green-100 transition-colors">
                   Tasa BCV: Bs. {formatBs(tasaBCV.dolar)}
                 </button>
+                <button
+                  onClick={handleSync}
+                  disabled={syncing || !hasIntegration}
+                  className={`px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2 shadow-sm ${
+                    syncing 
+                    ? "bg-indigo-100 text-indigo-400 cursor-not-allowed" 
+                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100 active:transform active:scale-95"
+                  }`}
+                >
+                  <span className={syncing ? "animate-spin" : ""}>🔄</span>
+                  {syncing ? "Sincronizando..." : "Sincronizar Ahora"}
+                </button>
               </div>
 
               <div className="text-right hidden sm:block">
@@ -1966,13 +1978,6 @@ export default function DashboardPage() {
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-gray-900">Movimientos de Hoy ({new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })})</h2>
-                <button
-                  onClick={handleSync}
-                  disabled={syncing || !hasIntegration}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
-                >
-                  {syncing ? "Sincronizando..." : "Sincronizar Ahora"}
-                </button>
               </div>
               {syncMessage && (
                 <div className={`mb-4 p-3 rounded-lg border ${syncMessage.includes("Error") ? "bg-red-50 text-red-600 border-red-100" : "bg-green-50 text-green-600 border-green-100"}`}>
