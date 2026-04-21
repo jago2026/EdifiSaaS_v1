@@ -25,6 +25,13 @@ interface IntegrationData {
   admin_id: string;
   admin_secret: string;
   custom_domain?: string;
+  url_login?: string;
+  url_recibos?: string;
+  url_recibo_mes?: string;
+  url_egresos?: string;
+  url_gastos?: string;
+  url_balance?: string;
+  url_alicuotas?: string;
 }
 
 interface Administradora {
