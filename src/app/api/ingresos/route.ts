@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
     // Get current month
     const today = new Date();
-    const currentMes = ;
+    const currentMes = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
     // Get pagos from pagos_recibos table
     const { data: pagos, error } = await supabase

@@ -106,7 +106,7 @@ function getTasaBCVParaFecha(fechaStr: string, tasasHistoricas: any[]): { tasa: 
   const year = targetDate.getFullYear();
   const month = String(targetDate.getMonth() + 1).padStart(2, '0');
   const lastDayOfMonth = new Date(year, parseInt(month), 0).getDate();
-  const monthEndDate = ;
+  const monthEndDate = year + '-' + month + '-' + String(lastDayOfMonth).padStart(2, '0');
   const monthEnd = sortedTasas.find((t: any) => t.fecha && t.fecha <= monthEndDate && t.fecha.substring(0, 7) === );
   if (monthEnd) return { tasa: parseFloat(monthEnd.tasa_dolar), fecha: monthEnd.fecha };
 
