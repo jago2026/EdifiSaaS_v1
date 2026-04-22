@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       
       // Tasa para el mes (última del mes o anterior)
       const tasaObj = tasas?.find(t => t.fecha <= `${mesNorm}-31`) || tasas?.[0];
-      const tasa = tasaObj ? parseFloat(tasaObj.tasa_dolar) : 481.70;
+      const tasa = tasaObj ? parseFloat(tasaObj.tasa_dolar) : 45;
 
       // Agrupar ingresos y egresos por mes
       const ingresosMes = (pagos || [])

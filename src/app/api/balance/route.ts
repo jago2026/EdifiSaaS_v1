@@ -25,7 +25,7 @@ function normalizeMonth(mes: string | null | undefined): string {
 async function getTasaBCVParaMes(mes: string, supabase: any): Promise<number> {
   if (!mes) {
     const { data } = await supabase.from("tasas_cambio").select("tasa_dolar").order("fecha", { ascending: false }).limit(1).single();
-    return data?.tasa_dolar || 481.70;
+    return data?.tasa_dolar || 45.50;
   }
   const prefix = normalizeMonth(mes);
   const { data } = await supabase.from("tasas_cambio")
@@ -41,7 +41,7 @@ async function getTasaBCVParaMes(mes: string, supabase: any): Promise<number> {
     .lt("fecha", `${prefix}-01`)
     .order("fecha", { ascending: false }).limit(1).single();
   
-  return fallback?.tasa_dolar || 481.70;
+  return fallback?.tasa_dolar || 45.50;
 }
 
 export async function GET(request: Request) {

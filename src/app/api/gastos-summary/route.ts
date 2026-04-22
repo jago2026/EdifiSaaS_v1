@@ -20,11 +20,11 @@ async function getLatestTasa(): Promise<number> {
       .order("fecha", { ascending: false })
       .limit(1)
       .single();
-    return data?.tasa_dolar || 481.70;
-    } catch (error) {
-    return 481.70;
-    }
-    }
+    return data?.tasa_dolar || 45.50;
+  } catch {
+    return 45.50;
+  }
+}
 
 export async function GET(request: Request) {
   try {

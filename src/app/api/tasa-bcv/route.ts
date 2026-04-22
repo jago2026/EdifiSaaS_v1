@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-const FALLBACK_TASA = parseFloat(process.env.BCV_FALLBACK_TASA || "481.70");
+const FALLBACK_TASA = parseFloat(process.env.BCV_FALLBACK_TASA || "45.50");
 
 async function getLastStoredTasa() {
   try {
