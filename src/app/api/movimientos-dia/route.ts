@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - dias);
     const startDateStr = startDate.toISOString().split('T')[0];
+    console.log("[movimientos-dia] edificioId:", edificioId, "startDate:", startDateStr);
     
     // Get movements from last N days
     const { data: movimientosDia, error } = await supabase
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
       .order("detectado_en", { ascending: true });
 
     if (error) throw error;
+    console.log("[movimientos-dia] movimientosDia:", movimientosDia?.length || 0);
 
     // Also get pagos_recibos for the same period
     const { data: pagos } = await supabase
@@ -38,10 +40,31 @@ export async function GET(request: NextRequest) {
       .eq("edificio_id", edificioId)
       .gte("fecha_pago", startDateStr)
       .order("fecha_pago", { ascending: true });
+    console.log("[movimientos-dia] pagos:", pagos?.length || 0);
+
+    // Also get egresos (historical)
+    const { data: egresos } = await supabase
+      .from("egresos")
+      .select("fecha, monto")
+      .eq("edificio_id", edificioId)
+      .gte("fecha", startDateStr)
+      .order("fecha", { ascending: true });
+    console.log("[movimientos-dia] egresos:", egresos?.length || 0);
+
+    // Also get gastos (historical)
+    const { data: gastos } = await supabase
+      .from("gastos")
+      .select("fecha, monto")
+      .eq("edificio_id", edificioId)
+      .gte("fecha", startDateStr)
+      .order("fecha", { ascending: true });
+    console.log("[movimientos-dia] gastos:", gastos?.length || 0);
 
     return NextResponse.json({ 
       movimientos: movimientosDia || [],
       pagos: pagos || [],
+      egresos: egresos || [],
+      gastos: gastos || [],
       fechaInicio: startDateStr
     });
   } catch (error: any) {

@@ -1014,7 +1014,7 @@ export default function DashboardPage() {
       const data = await res.json();
       if (res.ok) {
         setMovimientosDia(data.movimientos || []);
-        // Combine movimientos_dia and pagos into cashFlow format
+        // Combine all movements into cashFlow format
         const cashFlowMap = new Map();
         
         // Add movimientos_dia
@@ -1029,12 +1029,33 @@ export default function DashboardPage() {
           }
         });
         
-        // Add pagos_recibos
+        // Add pagos_recibos (payments received)
         (data.pagos || []).forEach((p: any) => {
           const f = p.fecha_pago;
           if (!f) return;
           if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
           cashFlowMap.get(f).ingresos += Number(p.monto || 0);
+        });
+        
+        // Add egresos (expenses paid)
+        (data.egresos || []).forEach((e: any) => {
+          const f = e.fecha;
+          if (!f) return;
+          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+          cashFlowMap.get(f).egresos += Number(e.monto || 0);
+        });
+        
+        // Add gastos (building expenses)
+        (data.gastos || []).forEach((g: any) => {
+          const f = g.fecha;
+          if (!f) return;
+          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+          cashFlowMap.get(f).egresos += Number(g.monto || 0);
+        });
+        
+        console.log("[Dashboard] cashFlowMap entries:", cashFlowMap.size);
+        cashFlowMap.forEach((v, k) => {
+          console.log("[Dashboard] Fecha:", k, "Ingresos:", v.ingresos, "Egresos:", v.egresos);
         });
         
         // Update kpisData.cashFlow with combined data
