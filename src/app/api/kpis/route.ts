@@ -83,18 +83,35 @@ async function logTasaWarning(supabase: any, edificioId: string, targetDate: str
 }
 
 function getTasaBCVParaFecha(fechaStr: string, tasasHistoricas: any[]): { tasa: number, fecha: string | null } {
-  if (!tasasHistoricas || tasasHistoricas.length === 0) return { tasa: 45, fecha: null };
+  const FALLBACK_TASA = 45;
+  if (!tasasHistoricas || tasasHistoricas.length === 0) return { tasa: FALLBACK_TASA, fecha: null };
 
-  // Try to find exact rate for that day
-  const exact = tasasHistoricas.find((t: any) => t.fecha === fechaStr);
+  // Sort tasas by date ascending for easier searching
+  const sortedTasas = [...tasasHistoricas].sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
+
+  // 1. Try exact date match
+  const exact = sortedTasas.find((t: any) => t.fecha === fechaStr);
   if (exact) return { tasa: parseFloat(exact.tasa_dolar), fecha: exact.fecha };
 
-  // Fallback: Find closest rate BEFORE that day
-  const fallbackTasa = tasasHistoricas.find((t: any) => t.fecha && t.fecha < fechaStr);
-  if (fallbackTasa) return { tasa: parseFloat(fallbackTasa.tasa_dolar), fecha: fallbackTasa.fecha };
+  // 2. Find closest rate BEFORE that day
+  const before = sortedTasas.find((t: any) => t.fecha && t.fecha < fechaStr);
+  if (before) return { tasa: parseFloat(before.tasa_dolar), fecha: before.fecha };
+
+  // 3. Find closest rate AFTER that day (future rate not yet available)
+  const after = sortedTasas.find((t: any) => t.fecha && t.fecha > fechaStr);
+  if (after) return { tasa: parseFloat(after.tasa_dolar), fecha: after.fecha };
+
+  // 4. Try to get rate from last day of the same month
+  const targetDate = new Date(fechaStr);
+  const year = targetDate.getFullYear();
+  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const lastDayOfMonth = new Date(year, parseInt(month), 0).getDate();
+  const monthEndDate = ;
+  const monthEnd = sortedTasas.find((t: any) => t.fecha && t.fecha <= monthEndDate && t.fecha.substring(0, 7) === );
+  if (monthEnd) return { tasa: parseFloat(monthEnd.tasa_dolar), fecha: monthEnd.fecha };
 
   // Ultimate fallback: Use the most recent rate we have
-  return { tasa: parseFloat(tasasHistoricas[0]?.tasa_dolar || "45"), fecha: tasasHistoricas[0]?.fecha || null };
+  return { tasa: parseFloat(sortedTasas[sortedTasas.length - 1]?.tasa_dolar || String(FALLBACK_TASA)), fecha: sortedTasas[sortedTasas.length - 1]?.fecha || null };
 }
 
 function getTasaBCVParaMes(mes: string, tasasHistoricas: any[]): number {
@@ -250,7 +267,7 @@ export async function GET(request: Request) {
           total_por_cobrar: b.total_por_cobrar || 0,
           total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
           recibos_mes: b.recibos_mes || 0,
-          recibos_mes_usd: recibosMesTotalUsd / totalUnidades, // Promedio por unidad para evitar los 3000 USD
+          recibos_mes_usd: recibosMesTotalUsd, // Promedio por unidad para evitar los 3000 USD
           tasa_bcv: tasa,
           resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
           efectividad_recaudacion: (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0)) > 0 
