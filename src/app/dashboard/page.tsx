@@ -1013,11 +1013,23 @@ export default function DashboardPage() {
       const res = await fetch(`/api/movimientos-dia?edificioId=${building.id}&dias=30`);
       const data = await res.json();
       if (res.ok) {
-        // Use cashFlow from API response instead of movimientos
-        const cashFlowData = data.cashFlow || [];
-        setMovimientosDia(cashFlowData);
-        // Update kpisData.cashFlow for the rest of the dashboard
-        setKpisData((prev: any) => ({ ...prev, cashFlow: cashFlowData }));
+        // Usar los campos que devuelve la API
+        const movimientos = data.movimientos || [];
+        const pagos = data.pagos || [];
+        const egresos = data.egresos || [];
+        const gastos = data.gastos || [];
+        
+        // Combinar todo en un solo array de flujo
+        const flujo = [
+          ...movimientos.map(m => ({ ...m, tipo: 'movimiento' })),
+          ...pagos.map(p => ({ ...p, tipo: 'pago' })),
+          ...egresos.map(e => ({ ...e, tipo: 'egreso' })),
+          ...gastos.map(g => ({ ...g, tipo: 'gasto' }))
+        ];
+        
+        setMovimientosDia(flujo);
+        // Actualizar cashFlow para el resto del dashboard
+        setKpisData((prev: any) => ({ ...prev, cashFlow: flujo }));
       }
     } catch (error) {
       console.error("Error loading movimientos dia:", error);
