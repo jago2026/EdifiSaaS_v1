@@ -35,68 +35,52 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // 1. Obtener Datos
-    const { data: building } = await supabase.from("edificios").select("unidades").eq("id", edificioId).single();
-    const { data: alicuotas } = await supabase.from("alicuotas").select("unidad").eq("edificio_id", edificioId);
-    const { data: recibos } = await supabase.from("recibos").select("unidad, deuda").eq("edificio_id", edificioId);
-    const { data: balances } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("mes", { ascending: true });
+    // 1. Obtener Datos Base y Tasa Actual en una sola ráfaga
+    const [
+      { data: building },
+      { data: alicuotas },
+      { data: recibos },
+      { data: balances },
+      { data: egresosRaw },
+      currentTasa
+    ] = await Promise.all([
+      supabase.from("edificios").select("unidades").eq("id", edificioId).single(),
+      supabase.from("alicuotas").select("unidad").eq("edificio_id", edificioId),
+      supabase.from("recibos").select("unidad, deuda").eq("edificio_id", edificioId),
+      supabase.from("balances").select("*").eq("edificio_id", edificioId).order("mes", { ascending: true }),
+      supabase.from("egresos").select("monto, monto_usd, mes").eq("edificio_id", edificioId).not("descripcion", "ilike", "%TOTAL%"),
+      getSmartTasa(new Date().toISOString().split('T')[0])
+    ]);
     
     // 2. DETERMINAR UNIDADES REALES
     const countAlicuotas = alicuotas?.length || 0;
     const countRecibosUnicos = new Set((recibos || []).map(r => r.unidad)).size;
-    
-    // Si alicuotas > 0 usamos eso, sino deudores unicos, sino campo manual (max 200)
     let realUnits = countAlicuotas > 0 ? countAlicuotas : (countRecibosUnicos > 0 ? countRecibosUnicos : (building?.unidades || 25));
-    if (realUnits > 200) realUnits = countRecibosUnicos > 0 ? countRecibosUnicos : 25;
     if (realUnits <= 0) realUnits = 1;
 
-    // 3. Procesar Balances con LÓGICA DE AUTOCURACIÓN
-    const today = new Date();
-    const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    // 3. Procesar Balances (SIN llamadas a getSmartTasa dentro de bucles)
+    const balancesProcessed = (balances || []).map((b: any) => {
+      // Usamos el campo balance_usd si existe, o calculamos con la tasa actual (fallback)
+      const tasaFallback = currentTasa || 36.5;
+      return {
+        ...b,
+        label: formatLabel(b.mes),
+        saldo_disponible_usd: (b.saldo_disponible_usd || (b.saldo_disponible || 0) / tasaFallback),
+        cobranza_mes_usd: (b.cobranza_mes_usd || (b.cobranza_mes || 0) / tasaFallback),
+        recibos_mes_usd: (b.recibos_mes_usd || (b.recibos_mes || 0) / tasaFallback),
+        recibo_promedio_usd: (b.recibos_mes_usd || (b.recibos_mes || 0) / tasaFallback) / realUnits
+      };
+    });
 
-    const balancesProcessed = await Promise.all((balances || [])
-      .filter((b: any) => normalizeMonth(b.mes) < currentMesNorm)
-      .map(async (b: any) => {
-        const normalized = normalizeMonth(b.mes);
-        const tasa = await getSmartTasa(normalized + "-01");
-        const totalMesUsd = (b.recibos_mes || 0) / tasa;
-        
-        // INTELIGENCIA: ¿Es total o es ya un promedio?
-        // Si el total del mes en USD es menor a $150 para todo un edificio, 
-        // probablemente ya es el monto de un solo recibo.
-        let reciboPromedio = totalMesUsd / realUnits;
-        
-        if (reciboPromedio < 10 && totalMesUsd > 0) {
-          // Si el promedio da < $10 pero el monto base es razonable como recibo individual ($30-$150),
-          // entonces asumimos que b.recibos_mes ya era el promedio.
-          if (totalMesUsd > 20) {
-            reciboPromedio = totalMesUsd;
-          }
-        }
-
-        return {
-          ...b,
-          label: formatLabel(b.mes),
-          saldo_disponible_usd: (b.saldo_disponible || 0) / tasa,
-          cobranza_mes_usd: (b.cobranza_mes || 0) / tasa,
-          recibos_mes_usd: totalMesUsd,
-          recibo_promedio_usd: reciboPromedio,
-          tasa_bcv: tasa
-        };
-      }));
-
-    // 4. Egresos
-    const { data: egresos } = await supabase.from("egresos").select("monto, mes").eq("edificio_id", edificioId).not("descripcion", "ilike", "%TOTAL%");
+    // 4. Egresos Agrupados (YA TIENEN monto_usd en la DB)
     const egresosGrouped: any = {};
-    for (const e of (egresos || [])) {
+    for (const e of (egresosRaw || [])) {
       const m = normalizeMonth(e.mes);
       if (!egresosGrouped[m]) egresosGrouped[m] = { mes: m, label: formatLabel(e.mes), monto: 0, monto_usd: 0 };
-      const t = await getSmartTasa(m + "-01");
-      egresosGrouped[m].monto += e.monto;
-      egresosGrouped[m].monto_usd += e.monto / t;
+      egresosGrouped[m].monto += (e.monto || 0);
+      egresosGrouped[m].monto_usd += (e.monto_usd || (e.monto || 0) / currentTasa); // Fallback si monto_usd es null
     }
 
-    const currentTasa = await getSmartTasa(new Date().toISOString().split('T')[0]);
     const dTotal = (recibos || []).reduce((sum, r) => sum + (r.deuda || 0), 0);
 
     return NextResponse.json({
