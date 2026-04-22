@@ -4149,174 +4149,286 @@ export default function DashboardPage() {
 
         {activeTab === "flujo-caja" && (
           <div className="space-y-8 animate-in fade-in duration-500">
-             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Estado de Flujo de Efectivo</h2>
-                  <p className="text-xs text-indigo-600 font-bold uppercase tracking-widest mt-1">
-                    Mes: {new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })} | Generado el: {new Date().toLocaleDateString('es-VE')}
-                  </p>
-                </div>
-               </div>
+            {/* RESUMEN EJECUTIVO MEJORADO - Arriba */}
+            {(() => {
+              const today = new Date();
+              const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+              const monthStr = today.toISOString().substring(0, 7);
 
-               <div className="overflow-x-auto custom-scrollbar">
-                <table className="w-full text-[10px] border-collapse">
-                  <thead>
-                    <tr className="bg-indigo-900 text-white uppercase tracking-tighter">
-                      <th className="py-2 px-1 border border-indigo-800">Día</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right">Saldo Inicial</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right">Cobranza</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right">Otros Ing.</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right bg-green-800/50">Total Ing.</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right">Egr. Operat.</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right">Otros Egr.</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right bg-red-800/50">Total Egr.</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right">Ajustes</th>
-                      <th className="py-2 px-1 border border-indigo-800 text-right bg-indigo-800">Saldo Final</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-bold text-gray-700">
-                    {(() => {
-                      const today = new Date();
-                      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                      const rows = [];
-                      let currentSaldo = balance?.saldo_anterior || 0;
-                      
-const monthStr = today.toISOString().substring(0, 7);
-                       
-                       // Crear mapa de movimientos por fecha desde cashFlow
-                       const cashFlowMap = new Map();
-                       (kpisData.cashFlow || []).forEach((item: any) => {
-                         if (item.fecha) cashFlowMap.set(item.fecha, item);
-                       });
-                       
-                       // Totales para el resumen
-                      let grandTotalIng = 0;
-                      let grandTotalEgr = 0;
-                      let daysWithMovement = 0;
-                      let maxIng = { dia: 0, monto: 0 };
-                      let maxEgr = { dia: 0, monto: 0 };
+              // Crear mapa de movimientos por fecha
+              const cashFlowMap = new Map();
+              (kpisData.cashFlow || []).forEach((item: any) => {
+                if (item.fecha) cashFlowMap.set(item.fecha, item);
+              });
 
-                      for (let d = 1; d <= daysInMonth; d++) {
-                        const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
-                        
-                        // Buscar en cashFlow map
-                        const cashFlowItem = cashFlowMap.get(dateStr);
-                        const dayIngresos = cashFlowItem?.ingresos || 0;
-                        const dayEgresos = cashFlowItem?.egresos || 0;
-                        
-                        // Simular "Otros" basado en cobranza vs otros ingresos
-                        const cobranza = dayIngresos; // Usar el total de ingresos como cobranza
-                        const otrosIng = 0;
-                        
-                        const operativos = dayEgresos; // Usar el total de egresos
-                        const otrosEgr = 0;
+              // Calcular totales y estadísticas
+              let grandTotalIng = 0;
+              let grandTotalEgr = 0;
+              let maxIng = { dia: 0, monto: 0 };
+              let maxEgr = { dia: 0, monto: 0 };
+              let week1Ing = 0, week2Ing = 0, week3Ing = 0, week4Ing = 0;
+              let week1Egr = 0, week2Egr = 0, week3Egr = 0, week4Egr = 0;
 
-                        const saldoInicial = currentSaldo;
-                        currentSaldo = saldoInicial + dayIngresos - dayEgresos;
-                        
-                        if (dayIngresos > 0 || dayEgresos > 0) {
-                          daysWithMovement++;
-                          if (dayIngresos > maxIng.monto) maxIng = { dia: d, monto: dayIngresos };
-                          if (dayEgresos > maxEgr.monto) maxEgr = { dia: d, monto: dayEgresos };
-                        }
-                        
-                        grandTotalIng += dayIngresos;
-                        grandTotalEgr += dayEgresos;
+              for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
+                const cashFlowItem = cashFlowMap.get(dateStr);
+                const dayIngresos = cashFlowItem?.ingresos || 0;
+                const dayEgresos = cashFlowItem?.egresos || 0;
 
-                        rows.push(
-                          <tr key={d} className={`${d % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-indigo-50 transition-colors`}>
-                            <td className="py-1 px-1 border text-center font-black text-indigo-900">{d}</td>
-                            <td className="py-1 px-1 border text-right font-mono text-gray-400">{formatBs(saldoInicial)}</td>
-                            <td className="py-1 px-1 border text-right font-mono text-green-600">{formatBs(cobranza)}</td>
-                            <td className="py-1 px-1 border text-right font-mono text-green-400">{formatBs(otrosIng)}</td>
-                            <td className="py-1 px-1 border text-right font-mono bg-green-50 text-green-800">{formatBs(dayIngresos)}</td>
-                            <td className="py-1 px-1 border text-right font-mono text-red-600">{formatBs(operativos)}</td>
-                            <td className="py-1 px-1 border text-right font-mono text-red-400">{formatBs(otrosEgr)}</td>
-                            <td className="py-1 px-1 border text-right font-mono bg-red-50 text-red-800">{formatBs(dayEgresos)}</td>
-                            <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
-                            <td className="py-1 px-1 border text-right font-mono bg-indigo-50 text-indigo-900">{formatBs(currentSaldo)}</td>
-                          </tr>
-                        );
-                      }
+                grandTotalIng += dayIngresos;
+                grandTotalEgr += dayEgresos;
 
-                      return (
-                        <>
-                          {rows}
-                          <tr className="bg-indigo-900 text-white uppercase text-[11px]">
-                            <td className="py-2 px-2 font-black">TOTAL</td>
-                            <td className="border border-indigo-800"></td>
-                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono">...</td>
-                            <td className="border border-indigo-800"></td>
-                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-green-700">{formatBs(grandTotalIng)}</td>
-                            <td className="border border-indigo-800"></td>
-                            <td className="border border-indigo-800"></td>
-                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-red-700">{formatBs(grandTotalEgr)}</td>
-                            <td className="border border-indigo-800"></td>
-                            <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-indigo-950">{formatBs(currentSaldo)}</td>
-                          </tr>
-                        </>
-                      );
-                    })()}
-                  </tbody>
-                </table>
-              </div>
+                if (dayIngresos > maxIng.monto) maxIng = { dia: d, monto: dayIngresos };
+                if (dayEgresos > maxEgr.monto) maxEgr = { dia: d, monto: dayEgresos };
 
-              {/* Bloques de Resumen Inferiores */}
-              <div className="grid md:grid-cols-2 gap-8 mt-8">
-                <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
-                  <h3 className="text-xs font-black text-gray-400 uppercase mb-4 tracking-widest">Resumen Ejecutivo</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white p-3 rounded-xl border shadow-sm">
-                      <div className="text-[9px] font-bold text-gray-400 uppercase">Días con Movimiento</div>
-                      <div className="text-lg font-black text-indigo-900">
-                        {kpisData.cashFlow?.length || 0}
+                // Distribución semanal
+                if (d <= 7) week1Ing += dayIngresos;
+                else if (d <= 15) week2Ing += dayIngresos;
+                else if (d <= 22) week3Ing += dayIngresos;
+                else week4Ing += dayIngresos;
+
+                if (d <= 7) week1Egr += dayEgresos;
+                else if (d <= 15) week2Egr += dayEgresos;
+                else if (d <= 22) week3Egr += dayEgresos;
+                else week4Egr += dayEgresos;
+              }
+
+              const balanceMes = grandTotalIng - grandTotalEgr;
+              const pct = (v: number) => grandTotalIng > 0 ? ((v / grandTotalIng) * 100).toFixed(1) : "0.0";
+              const pctEgr = (v: number) => grandTotalEgr > 0 ? ((v / grandTotalEgr) * 100).toFixed(1) : "0.0";
+
+              // Preparar datos para gráfico
+              const chartData = [];
+              for (let d = 1; d <= daysInMonth; d++) {
+                const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
+                const cashFlowItem = cashFlowMap.get(dateStr);
+                chartData.push({
+                  dia: d,
+                  ingresos: cashFlowItem?.ingresos || 0,
+                  egresos: cashFlowItem?.egresos || 0
+                });
+              }
+
+              return (
+                <>
+                  {/* Encabezado */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-6">
+                      <div>
+                        <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Estado de Flujo de Efectivo</h2>
+                        <p className="text-xs text-indigo-600 font-bold uppercase tracking-widest mt-1">
+                          Mes: {new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })} | Generado el: {new Date().toLocaleDateString('es-VE')}
+                        </p>
                       </div>
                     </div>
-                    <div className="bg-white p-3 rounded-xl border shadow-sm">
-                      <div className="text-[9px] font-bold text-gray-400 uppercase">Balance del Mes</div>
-                      <div className="text-lg font-black text-blue-600">
-                        Bs. {formatBs((kpisData.cashFlow || []).reduce((sum: number, item: any) => sum + (item.ingresos || 0) - (item.egresos || 0), 0))}
+
+                    {/* Resumen Ejecutivo Superior */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                      <div className="bg-gradient-to-br from-green-500 to-green-600 p-4 rounded-xl text-white shadow-sm">
+                        <div className="text-[9px] font-bold uppercase opacity-80">Total Ingresos</div>
+                        <div className="text-lg font-black mt-1">Bs. {formatBs(grandTotalIng)}</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-red-500 to-red-600 p-4 rounded-xl text-white shadow-sm">
+                        <div className="text-[9px] font-bold uppercase opacity-80">Total Egresos</div>
+                        <div className="text-lg font-black mt-1">Bs. {formatBs(grandTotalEgr)}</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl text-white shadow-sm">
+                        <div className="text-[9px] font-bold uppercase opacity-80">Balance del Mes</div>
+                        <div className={`text-lg font-black mt-1 ${balanceMes >= 0 ? 'text-green-200' : 'text-red-200'}`}>
+                          Bs. {formatBs(balanceMes)}
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-xl text-white shadow-sm">
+                        <div className="text-[9px] font-bold uppercase opacity-80">Saldo Final</div>
+                        <div className="text-lg font-black mt-1">Bs. {formatBs((balance?.saldo_anterior || 0) + balanceMes)}</div>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="bg-indigo-900 p-6 rounded-2xl text-white">
-                  <h3 className="text-xs font-black text-indigo-300 uppercase mb-4 tracking-widest">Análisis de Tendencia</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-indigo-200 font-bold">Día Mayor Ingreso:</span>
-                      <span className="font-black text-green-400">Día {(() => {
-                        let max = { dia: 0, monto: 0 };
-                        const today = new Date();
-                        const monthStr = today.toISOString().substring(0, 7);
-                        for(let d=1; d<=31; d++) {
-                          const date = `${monthStr}-${d.toString().padStart(2, '0')}`;
-                          const m = kpisData.movimientos?.filter((x:any) => x.fecha === date && x.tipo === 'ingreso').reduce((s:number, x:any) => s+x.monto, 0) || 0;
-                          if (m > max.monto) max = { dia: d, monto: m };
-                        }
-                        return max.dia;
-                      })()}</span>
+                    {/* Distribución Semanal */}
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+                      <h3 className="text-xs font-black text-gray-500 uppercase mb-3 tracking-widest">Distribución Semanal</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-white p-3 rounded-lg border">
+                          <div className="text-[9px] text-gray-400 uppercase font-bold">Días 1-7</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-green-600 text-xs font-bold">Ing: {pct(week1Ing)}%</span>
+                            <span className="text-red-600 text-xs font-bold">Egr: {pctEgr(week1Egr)}%</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-1">Bs. {formatBs(week1Ing)} / {formatBs(week1Egr)}</div>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg border">
+                          <div className="text-[9px] text-gray-400 uppercase font-bold">Días 8-15</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-green-600 text-xs font-bold">Ing: {pct(week2Ing)}%</span>
+                            <span className="text-red-600 text-xs font-bold">Egr: {pctEgr(week2Egr)}%</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-1">Bs. {formatBs(week2Ing)} / {formatBs(week2Egr)}</div>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg border">
+                          <div className="text-[9px] text-gray-400 uppercase font-bold">Días 16-22</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-green-600 text-xs font-bold">Ing: {pct(week3Ing)}%</span>
+                            <span className="text-red-600 text-xs font-bold">Egr: {pctEgr(week3Egr)}%</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-1">Bs. {formatBs(week3Ing)} / {formatBs(week3Egr)}</div>
+                        </div>
+                        <div className="bg-white p-3 rounded-lg border">
+                          <div className="text-[9px] text-gray-400 uppercase font-bold">Días 23-{daysInMonth}</div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-green-600 text-xs font-bold">Ing: {pct(week4Ing)}%</span>
+                            <span className="text-red-600 text-xs font-bold">Egr: {pctEgr(week4Egr)}%</span>
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-1">Bs. {formatBs(week4Ing)} / {formatBs(week4Egr)}</div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-indigo-200 font-bold">Día Mayor Egreso:</span>
-                      <span className="font-black text-red-400">Día {(() => {
-                        let max = { dia: 0, monto: 0 };
-                        const today = new Date();
-                        const monthStr = today.toISOString().substring(0, 7);
-                        for(let d=1; d<=31; d++) {
-                          const date = `${monthStr}-${d.toString().padStart(2, '0')}`;
-                          const m = kpisData.movimientos?.filter((x:any) => x.fecha === date && x.tipo === 'egreso').reduce((s:number, x:any) => s+x.monto, 0) || 0;
-                          if (m > max.monto) max = { dia: d, monto: m };
-                        }
-                        return max.dia;
-                      })()}</span>
+
+                    {/* Análisis de Tendencia y Día pico */}
+                    <div className="grid md:grid-cols-2 gap-4 mb-6">
+                      <div className="bg-indigo-900 p-4 rounded-xl text-white">
+                        <h3 className="text-xs font-black text-indigo-300 uppercase mb-3 tracking-widest">Análisis de Tendencia</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-green-500/30 rounded-lg flex items-center justify-center text-xl">📈</div>
+                            <div>
+                              <div className="text-[9px] text-indigo-300 uppercase">Mayor Ingreso</div>
+                              <div className="font-black text-green-400 text-lg">Día {maxIng.dia}</div>
+                              <div className="text-[10px] text-indigo-300">Bs. {formatBs(maxIng.monto)}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-red-500/30 rounded-lg flex items-center justify-center text-xl">📉</div>
+                            <div>
+                              <div className="text-[9px] text-indigo-300 uppercase">Mayor Egreso</div>
+                              <div className="font-black text-red-400 text-lg">Día {maxEgr.dia}</div>
+                              <div className="text-[10px] text-indigo-300">Bs. {formatBs(maxEgr.monto)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white">
+                        <h3 className="text-xs font-black text-purple-200 uppercase mb-3 tracking-widest">Resumen Rápido</h3>
+                        <div className="flex items-center gap-4">
+                          <div className="text-center">
+                            <div className="text-2xl font-black">{cashFlowMap.size}</div>
+                            <div className="text-[9px] uppercase opacity-80">Días c/Movimiento</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-black text-green-300">{grandTotalIng > 0 ? ((grandTotalIng / (grandTotalIng + grandTotalEgr)) * 100).toFixed(0) : 0}%</div>
+                            <div className="text-[9px] uppercase opacity-80">% Ingresos</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-2xl font-black text-red-300">{grandTotalEgr > 0 ? ((grandTotalEgr / (grandTotalIng + grandTotalEgr)) * 100).toFixed(0) : 0}%</div>
+                            <div className="text-[9px] uppercase opacity-80">% Egresos</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Gráfico de Barras por Día */}
+                    {chartData.some(d => d.ingresos > 0 || d.egresos > 0) ? (
+                      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6">
+                        <h3 className="text-sm font-black text-gray-700 uppercase mb-4 tracking-widest">Flujo de Caja por Día</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                          <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="dia" tick={{ fontSize: 9 }} stroke="#9ca3af" />
+                            <YAxis tick={{ fontSize: 9 }} stroke="#9ca3af" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                            <Tooltip
+                              formatter={(value: any, name: string) => [`Bs. ${formatBs(value)}`, name === 'ingresos' ? 'Ingresos' : 'Egresos']}
+                              contentStyle={{ fontSize: 11, borderRadius: 8 }}
+                              labelFormatter={(d) => `Día ${d}`}
+                            />
+                            <Legend wrapperStyle={{ fontSize: 11 }} />
+                            <Bar dataKey="ingresos" name="Ingresos" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="egresos" name="Egresos" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center mb-6">
+                        <div className="text-4xl mb-2">📊</div>
+                        <p className="text-gray-500 text-sm font-medium">No hay datos de flujo de caja para este mes</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* TABLA DE FLUJO DE CAJA - Abajo */}
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <h3 className="text-lg font-black text-gray-900 uppercase mb-4 tracking-tight">Detalle Diario</h3>
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-[10px] border-collapse">
+                        <thead>
+                          <tr className="bg-indigo-900 text-white uppercase tracking-tighter">
+                            <th className="py-2 px-1 border border-indigo-800">Día</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right">Saldo Inicial</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right">Cobranza</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right">Otros Ing.</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right bg-green-800/50">Total Ing.</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right">Egr. Operat.</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right">Otros Egr.</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right bg-red-800/50">Total Egr.</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right">Ajustes</th>
+                            <th className="py-2 px-1 border border-indigo-800 text-right bg-indigo-800">Saldo Final</th>
+                          </tr>
+                        </thead>
+                        <tbody className="font-bold text-gray-700">
+                          {(() => {
+                            const rows = [];
+                            let currentSaldo = balance?.saldo_anterior || 0;
+
+                            for (let d = 1; d <= daysInMonth; d++) {
+                              const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
+                              const cashFlowItem = cashFlowMap.get(dateStr);
+                              const dayIngresos = cashFlowItem?.ingresos || 0;
+                              const dayEgresos = cashFlowItem?.egresos || 0;
+
+                              const saldoInicial = currentSaldo;
+                              currentSaldo = saldoInicial + dayIngresos - dayEgresos;
+
+                              const hasMovement = dayIngresos > 0 || dayEgresos > 0;
+
+                              rows.push(
+                                <tr key={d} className={`${d % 2 === 0 ? 'bg-gray-50' : 'bg-white'} ${hasMovement ? 'hover:bg-indigo-50' : 'text-gray-300'} transition-colors`}>
+                                  <td className="py-1 px-1 border text-center font-black text-indigo-900">{d}</td>
+                                  <td className="py-1 px-1 border text-right font-mono text-gray-400">{formatBs(saldoInicial)}</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayIngresos > 0 ? 'text-green-600' : 'text-gray-300'}`}>{formatBs(dayIngresos)}</td>
+                                  <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayIngresos > 0 ? 'bg-green-50 text-green-800' : ''}`}>{formatBs(dayIngresos)}</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayEgresos > 0 ? 'text-red-600' : 'text-gray-300'}`}>{formatBs(dayEgresos)}</td>
+                                  <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayEgresos > 0 ? 'bg-red-50 text-red-800' : ''}`}>{formatBs(dayEgresos)}</td>
+                                  <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${currentSaldo >= 0 ? 'bg-indigo-50 text-indigo-900' : 'bg-red-50 text-red-700'}`}>{formatBs(currentSaldo)}</td>
+                                </tr>
+                              );
+                            }
+
+                            return (
+                              <>
+                                {rows}
+                                <tr className="bg-indigo-900 text-white uppercase text-[11px]">
+                                  <td className="py-2 px-2 font-black">TOTAL</td>
+                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">...</td>
+                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-green-700">{formatBs(grandTotalIng)}</td>
+                                  <td className="border border-indigo-800"></td>
+                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-red-700">{formatBs(grandTotalEgr)}</td>
+                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-indigo-950">{formatBs(currentSaldo)}</td>
+                                </tr>
+                              </>
+                            );
+                          })()}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
+                </>
+              );
+            })()}
           </div>
         )}
 
