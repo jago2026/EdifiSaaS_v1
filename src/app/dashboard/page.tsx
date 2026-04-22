@@ -1013,54 +1013,11 @@ export default function DashboardPage() {
       const res = await fetch(`/api/movimientos-dia?edificioId=${building.id}&dias=30`);
       const data = await res.json();
       if (res.ok) {
-        setMovimientosDia(data.movimientos || []);
-        // Combine all movements into cashFlow format
-        const cashFlowMap = new Map();
-        
-        // Add movimientos_dia
-        (data.movimientos || []).forEach((m: any) => {
-          const f = m.detectado_en;
-          if (!f) return;
-          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-          if (m.tipo === 'recibo') {
-            cashFlowMap.get(f).ingresos += Number(m.monto || 0);
-          } else {
-            cashFlowMap.get(f).egresos += Number(m.monto || 0);
-          }
-        });
-        
-        // Add pagos_recibos (payments received)
-        (data.pagos || []).forEach((p: any) => {
-          const f = p.fecha_pago;
-          if (!f) return;
-          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-          cashFlowMap.get(f).ingresos += Number(p.monto || 0);
-        });
-        
-        // Add egresos (expenses paid)
-        (data.egresos || []).forEach((e: any) => {
-          const f = e.fecha;
-          if (!f) return;
-          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-          cashFlowMap.get(f).egresos += Number(e.monto || 0);
-        });
-        
-        // Add gastos (building expenses)
-        (data.gastos || []).forEach((g: any) => {
-          const f = g.fecha;
-          if (!f) return;
-          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-          cashFlowMap.get(f).egresos += Number(g.monto || 0);
-        });
-        
-        console.log("[Dashboard] cashFlowMap entries:", cashFlowMap.size);
-        cashFlowMap.forEach((v, k) => {
-          console.log("[Dashboard] Fecha:", k, "Ingresos:", v.ingresos, "Egresos:", v.egresos);
-        });
-        
-        // Update kpisData.cashFlow with combined data
-        const cashFlowArray = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
-        setKpisData((prev: any) => ({ ...prev, cashFlow: cashFlowArray }));
+        // Use cashFlow from API response instead of movimientos
+        const cashFlowData = data.cashFlow || [];
+        setMovimientosDia(cashFlowData);
+        // Update kpisData.cashFlow for the rest of the dashboard
+        setKpisData((prev: any) => ({ ...prev, cashFlow: cashFlowData }));
       }
     } catch (error) {
       console.error("Error loading movimientos dia:", error);
@@ -1202,7 +1159,10 @@ export default function DashboardPage() {
       const res = await fetch(`/api/kpis?edificioId=${building.id}`);
       const data = await res.json();
       if (res.ok) {
+        // Update kpisData with cashFlow for the dashboard
         setKpisData(data);
+        // Also load movimientos_dia data
+        await loadMovimientosDia();
       }
     } catch (error) {
       console.error("Error loading KPIs:", error);
