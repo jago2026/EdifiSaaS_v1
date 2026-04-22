@@ -275,7 +275,10 @@ export async function GET(request: Request) {
       .map((b: any) => {
         const normalized = normalizeMonth(b.mes);
         const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
-        const recibosMesTotalUsd = tasa > 0 ? (b.recibos_mes || 0) / tasa : 0;
+        // Calcular monto por unidad: Gastos facturados del mes / número de apartamentos
+    const gastoPorUnidadUsd = totalUnidades > 0 && b.gastos_facturados 
+      ? (Math.abs(b.gastos_facturados) / totalUnidades) / tasa 
+      : 0;
 
         return {
           ...b,
@@ -302,7 +305,7 @@ export async function GET(request: Request) {
           total_por_cobrar: b.total_por_cobrar || 0,
           total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
           recibos_mes: b.recibos_mes || 0,
-          recibos_mes_usd: recibosMesTotalUsd, // Promedio por unidad para evitar los 3000 USD
+          recibos_mes_usd: gastoPorUnidadUsd, // Gastos facturados por unidad en USD
           tasa_bcv: tasa,
           resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
           efectividad_recaudacion: (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0)) > 0 

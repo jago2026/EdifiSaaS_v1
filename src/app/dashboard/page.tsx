@@ -1843,17 +1843,17 @@ export default function DashboardPage() {
           {activeTab === "resumen" && (
             <div className="space-y-6">
             <div className="grid md:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("balance")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Saldo actual según el portal de la administradora. Puedes hacer clic para ver más detalles.">
                 <div className="text-sm text-gray-500 mb-1">Saldo Disponible seg&uacute;n Web Admin</div>
                 <div className="text-2xl font-bold text-blue-600">Bs.{(balance?.saldo_disponible || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
                 {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.saldo_disponible || 0) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("balance")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
                 <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>
                 <div className="text-2xl font-bold text-green-600">Bs.{(balance?.cobranza_mes || ingresosSummary.monto).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
                 {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.cobranza_mes || ingresosSummary.monto) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("gastos")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
                 <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
                 <div className="text-2xl font-bold text-orange-600">Bs.{Math.abs(balance?.gastos_facturados || gastosSummary.monto).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
                 {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {Math.abs((balance?.gastos_facturados || gastosSummary.monto) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
@@ -1861,7 +1861,7 @@ export default function DashboardPage() {
                   {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("balance")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado para emergencias y mantenimiento mayor.">
                 <div className="text-sm text-gray-500 mb-1">Fondo Reserva</div>
                 <div className="text-2xl font-bold text-purple-600">Bs.{(balance?.fondo_reserva || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
                 {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.fondo_reserva || 0) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
@@ -1869,7 +1869,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid md:grid-cols-4 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("egresos")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("egresos")} title="Pagos a proveedores y servicios externos realizados en el mes actual.">
                 <div className="text-sm text-gray-500 mb-1">Egresos del Mes</div>
                 <div className="text-2xl font-bold text-red-600">
                   Bs.{formatBs(egresosSummary.monto)}
@@ -1879,7 +1879,7 @@ export default function DashboardPage() {
                   {egresosSummary.cantidad} movimiento{egresosSummary.cantidad !== 1 ? "s" : ""}
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("recibos")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total de apartamentos con deuda pendiente y monto total por cobrar.">
                 <div className="text-sm text-gray-500 mb-1">Recibos Pendientes</div>
                 <div className="text-2xl font-bold text-orange-600">
                   {recibos.reduce((sum, r) => sum + r.num_recibos, 0)}
@@ -1894,7 +1894,7 @@ export default function DashboardPage() {
                   $ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("manual")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente, último corte registrado.">
                 <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
                 <div className="text-2xl font-bold text-indigo-600">
                   Bs. {formatBs(movimientosManual.length > 0 ? (movimientosManual[0]?.saldo_acumulado || 0) : 0)}
@@ -1907,7 +1907,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               
-              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100" onClick={() => setActiveTab("manual")}>
+              <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Movimientos bancarios que aún no han sido conciliados con el estado de cuenta de la administradora.">
                 <div className="text-sm text-gray-500 mb-1">Por Conciliar (Manual)</div>
                 <div className="text-2xl font-bold text-amber-600">
                   Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0))}
@@ -1922,7 +1922,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 group" title="Gráfico circular que muestra la distribución de apartamentos según la cantidad de recibos pendientes. Haz clic en las secciones para ver los detalles.">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n de Unidades con Deuda</h2>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1957,7 +1957,7 @@ export default function DashboardPage() {
                 <p className="text-[10px] text-gray-400 mt-2 text-center uppercase font-bold">Cantidad de apartamentos según n&uacute;mero de recibos pendientes</p>
               </div>
 
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 group" title="Gráfico circular que muestra la distribución del monto total adeudado por antigüedad de deuda. Los colores más claros representan deudas más recientes.">
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Distribuci&oacute;n por Montos Pendientes</h2>
                 <div className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
@@ -1991,10 +1991,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 group" title="Indicadores clave de rendimiento financiero del edificio. Cada indicador muestra la salud financiera del condominio.">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Indicadores Financieros</h2>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-blue-50 p-3 rounded-lg">
+                  <div className="bg-blue-50 p-3 rounded-lg group" title="Indica cuántas veces el saldo disponible puede cubrir los gastos mensuales. Valores superiores a 1 son saludables.">
                     <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
                     <div className="text-xl font-black text-blue-800">
                       {balance?.gastos_facturados && balance.gastos_facturados !== 0 
@@ -2003,7 +2003,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-[9px] text-blue-500 leading-tight">Veces que el saldo cubre los gastos del mes</div>
                   </div>
-                  <div className="bg-green-50 p-3 rounded-lg">
+                  <div className="bg-green-50 p-3 rounded-lg group" title="Porcentaje de efectividad en la cobranza del mes actual. Por encima de 80% se considera bueno.">
                     <div className="text-[10px] font-bold text-green-600 uppercase mb-1">Índice de Cobranza</div>
                     <div className="text-xl font-black text-green-800">
                       {balance?.recibos_mes && balance.recibos_mes !== 0 
@@ -2012,14 +2012,14 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-[9px] text-green-500 leading-tight">Efectividad de recaudación del mes</div>
                   </div>
-                  <div className="bg-red-50 p-3 rounded-lg">
+                  <div className="bg-red-50 p-3 rounded-lg group" title="Porcentaje de apartamentos que tienen deuda pendiente. Por debajo del 20% es saludable.">
                     <div className="text-[10px] font-bold text-red-600 uppercase mb-1">Morosidad Global</div>
                     <div className="text-xl font-black text-red-800">
                       {building?.unidades ? ((recibos.length / building.unidades) * 100).toFixed(1) : "0.0"}%
                     </div>
                     <div className="text-[9px] text-red-500 leading-tight">Aptos con deuda sobre el total</div>
                   </div>
-                  <div className="bg-indigo-50 p-3 rounded-lg">
+                  <div className="bg-indigo-50 p-3 rounded-lg group" title="Cantidad promedio de meses de facturación que representan la deuda total. Valores iguales o menores a 3 meses son saludables.">
                     <div className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Carga de Deuda</div>
                     <div className="text-xl font-black text-indigo-800">
                       {balance?.total_por_cobrar && balance.recibos_mes && balance.recibos_mes !== 0
@@ -4134,17 +4134,17 @@ export default function DashboardPage() {
                       for (let d = 1; d <= daysInMonth; d++) {
                         const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
                         
-                        // Filtrar movimientos del día
-                        const dayMovs = kpisData.movimientos?.filter((m: any) => m.fecha === dateStr) || [];
-                        const dayIngresos = dayMovs.filter((m: any) => m.tipo === 'ingreso').reduce((sum: number, m: any) => sum + m.monto, 0);
-                        const dayEgresos = dayMovs.filter((m: any) => m.tipo === 'egreso').reduce((sum: number, m: any) => sum + m.monto, 0);
+                        // Usar cashFlow que tiene los ingresos y egresos por día
+                        const cashFlowItem = kpisData.cashFlow?.find((item: any) => item.fecha === dateStr);
+                        const dayIngresos = cashFlowItem?.ingresos || 0;
+                        const dayEgresos = cashFlowItem?.egresos || 0;
                         
-                        // Simular "Otros" basado en fuente (manual vs scraping)
-                        const cobranza = dayMovs.filter((m: any) => m.tipo === 'ingreso' && m.fuente !== 'manual').reduce((sum: number, m: any) => sum + m.monto, 0);
-                        const otrosIng = dayIngresos - cobranza;
+                        // Simular "Otros" basado en cobranza vs otros ingresos
+                        const cobranza = dayIngresos; // Usar el total de ingresos como cobranza
+                        const otrosIng = 0;
                         
-                        const operativos = dayMovs.filter((m: any) => m.tipo === 'egreso' && m.fuente !== 'manual').reduce((sum: number, m: any) => sum + m.monto, 0);
-                        const otrosEgr = dayEgresos - operativos;
+                        const operativos = dayEgresos; // Usar el total de egresos
+                        const otrosEgr = 0;
 
                         const saldoInicial = currentSaldo;
                         currentSaldo = saldoInicial + dayIngresos - dayEgresos;
