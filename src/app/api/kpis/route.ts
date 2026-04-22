@@ -228,16 +228,16 @@ export async function GET(request: Request) {
     (movimientosDia || []).forEach((m: any) => {
       const f = m.detectado_en;
       if (!f) return;
-      const { tasa } = getTasaBCVParaFecha(f, tasasHistoricas || []);
-      const montoUSD = parseFloat(m.monto || 0) / tasa;
       
-      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
+      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0, ingresos_bs: 0, egresos_bs: 0 };
       
       if (m.tipo === 'recibo') {
-        dailyFlow[f].ingresos += montoUSD;
+        dailyFlow[f].ingresos_bs += parseFloat(m.monto || 0);
+        dailyFlow[f].ingresos += parseFloat(m.monto || 0); // Keep BS value
       } else {
         // egreso or gasto
-        dailyFlow[f].egresos += montoUSD;
+        dailyFlow[f].egresos_bs += parseFloat(m.monto || 0);
+        dailyFlow[f].egresos += parseFloat(m.monto || 0); // Keep BS value
       }
     });
 
@@ -245,27 +245,27 @@ export async function GET(request: Request) {
     (pagos || []).forEach((p: any) => {
       const f = p.fecha_pago;
       if (!f) return;
-      const { tasa } = getTasaBCVParaFecha(f, tasasHistoricas || []);
-      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
-      dailyFlow[f].ingresos += parseFloat(p.monto || 0) / tasa;
+      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0, ingresos_bs: 0, egresos_bs: 0 };
+      dailyFlow[f].ingresos_bs += parseFloat(p.monto || 0);
+      dailyFlow[f].ingresos += parseFloat(p.monto || 0); // Keep BS value
     });
 
     // Add historical egresos
     (egresos || []).forEach((e: any) => {
       const f = e.fecha;
       if (!f) return;
-      const { tasa } = getTasaBCVParaFecha(f, tasasHistoricas || []);
-      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
-      dailyFlow[f].egresos += parseFloat(e.monto || 0) / tasa;
+      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0, ingresos_bs: 0, egresos_bs: 0 };
+      dailyFlow[f].egresos_bs += parseFloat(e.monto || 0);
+      dailyFlow[f].egresos += parseFloat(e.monto || 0); // Keep BS value
     });
 
     // Add historical gastos
     (gastos || []).forEach((g: any) => {
       const f = g.fecha;
       if (!f) return;
-      const { tasa } = getTasaBCVParaFecha(f, tasasHistoricas || []);
-      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0 };
-      dailyFlow[f].egresos += parseFloat(g.monto || 0) / tasa;
+      if (!dailyFlow[f]) dailyFlow[f] = { fecha: f, ingresos: 0, egresos: 0, ingresos_bs: 0, egresos_bs: 0 };
+      dailyFlow[f].egresos_bs += parseFloat(g.monto || 0);
+      dailyFlow[f].egresos += parseFloat(g.monto || 0); // Keep BS value
     });
 
     const cashFlowData = Object.values(dailyFlow).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));

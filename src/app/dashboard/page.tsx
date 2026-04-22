@@ -1010,10 +1010,36 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingMovimientosDia(true);
     try {
-      const res = await fetch(`/api/movimientos-dia?edificioId=${building.id}`);
+      const res = await fetch(`/api/movimientos-dia?edificioId=${building.id}&dias=30`);
       const data = await res.json();
-      if (res.ok && data.movimientos) {
-        setMovimientosDia(data.movimientos);
+      if (res.ok) {
+        setMovimientosDia(data.movimientos || []);
+        // Combine movimientos_dia and pagos into cashFlow format
+        const cashFlowMap = new Map();
+        
+        // Add movimientos_dia
+        (data.movimientos || []).forEach((m: any) => {
+          const f = m.detectado_en;
+          if (!f) return;
+          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+          if (m.tipo === 'recibo') {
+            cashFlowMap.get(f).ingresos += Number(m.monto || 0);
+          } else {
+            cashFlowMap.get(f).egresos += Number(m.monto || 0);
+          }
+        });
+        
+        // Add pagos_recibos
+        (data.pagos || []).forEach((p: any) => {
+          const f = p.fecha_pago;
+          if (!f) return;
+          if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+          cashFlowMap.get(f).ingresos += Number(p.monto || 0);
+        });
+        
+        // Update kpisData.cashFlow with combined data
+        const cashFlowArray = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
+        setKpisData((prev: any) => ({ ...prev, cashFlow: cashFlowArray }));
       }
     } catch (error) {
       console.error("Error loading movimientos dia:", error);
@@ -4122,9 +4148,15 @@ export default function DashboardPage() {
                       const rows = [];
                       let currentSaldo = balance?.saldo_anterior || 0;
                       
-                      const monthStr = today.toISOString().substring(0, 7);
-                      
-                      // Totales para el resumen
+const monthStr = today.toISOString().substring(0, 7);
+                       
+                       // Crear mapa de movimientos por fecha desde cashFlow
+                       const cashFlowMap = new Map();
+                       (kpisData.cashFlow || []).forEach((item: any) => {
+                         if (item.fecha) cashFlowMap.set(item.fecha, item);
+                       });
+                       
+                       // Totales para el resumen
                       let grandTotalIng = 0;
                       let grandTotalEgr = 0;
                       let daysWithMovement = 0;
@@ -4134,8 +4166,8 @@ export default function DashboardPage() {
                       for (let d = 1; d <= daysInMonth; d++) {
                         const dateStr = `${monthStr}-${d.toString().padStart(2, '0')}`;
                         
-                        // Usar cashFlow que tiene los ingresos y egresos por día
-                        const cashFlowItem = kpisData.cashFlow?.find((item: any) => item.fecha === dateStr);
+                        // Buscar en cashFlow map
+                        const cashFlowItem = cashFlowMap.get(dateStr);
                         const dayIngresos = cashFlowItem?.ingresos || 0;
                         const dayEgresos = cashFlowItem?.egresos || 0;
                         
