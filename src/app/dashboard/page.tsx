@@ -4267,7 +4267,7 @@ const monthStr = today.toISOString().substring(0, 7);
                     <div className="bg-white p-3 rounded-xl border shadow-sm">
                       <div className="text-[9px] font-bold text-gray-400 uppercase">Balance del Mes</div>
                       <div className="text-lg font-black text-blue-600">
-                        Bs. {formatBs((kpisData.cashFlow || []).reduce((sum, item) => sum + item.ingresos - item.egresos, 0))}
+                        Bs. {formatBs((kpisData.cashFlow || []).reduce((sum: number, item: any) => sum + (item.ingresos || 0) - (item.egresos || 0), 0))}
                       </div>
                     </div>
                   </div>
