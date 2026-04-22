@@ -976,6 +976,9 @@ export default function DashboardPage() {
     if (activeTab === "junta" && building?.id) {
       loadJunta();
     }
+    if (activeTab === "flujo-caja" && building?.id) {
+      loadMovimientosDia();
+    }
     if (activeTab === "alertas" && building?.id) {
       loadSincronizaciones();
     }
@@ -1019,18 +1022,61 @@ export default function DashboardPage() {
         const pagos = data.pagos || [];
         const egresos = data.egresos || [];
         const gastos = data.gastos || [];
-        
-        // Combinar todo en un solo array de flujo
+
+        // Crear mapa para agrupar movimientos por fecha (para la tabla)
+        const cashFlowMap = new Map();
+
+        // Procesar movimientos_dia
+        (movimientos || []).forEach((m: any) => {
+          const fecha = m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha;
+          if (!fecha) return;
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
+          const entry = cashFlowMap.get(fecha);
+          if (m.tipo === 'recibo') {
+            entry.ingresos += Number(m.monto || 0);
+          } else {
+            entry.egresos += Number(m.monto || 0);
+          }
+        });
+
+        // Procesar pagos_recibos (ingresos)
+        (pagos || []).forEach((p: any) => {
+          const fecha = p.fecha_pago;
+          if (!fecha) return;
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
+          cashFlowMap.get(fecha).ingresos += Number(p.monto || 0);
+        });
+
+        // Procesar egresos (egresos)
+        (egresos || []).forEach((e: any) => {
+          const fecha = e.fecha;
+          if (!fecha) return;
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
+          cashFlowMap.get(fecha).egresos += Number(e.monto || 0);
+        });
+
+        // Procesar gastos (egresos)
+        (gastos || []).forEach((g: any) => {
+          const fecha = g.fecha;
+          if (!fecha) return;
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
+          cashFlowMap.get(fecha).egresos += Number(g.monto || 0);
+        });
+
+        // Convertir mapa a array ordenado por fecha
+        const cashFlow = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
+
+        // Combinar todo en un solo array de flujo (para otros usos)
         const flujo = [
           ...movimientos.map((m: any) => ({ ...m, tipo: 'movimiento' })),
           ...pagos.map((p: any) => ({ ...p, tipo: 'pago' })),
           ...egresos.map((e: any) => ({ ...e, tipo: 'egreso' })),
           ...gastos.map((g: any) => ({ ...g, tipo: 'gasto' }))
         ];
-        
+
         setMovimientosDia(flujo);
-        // Actualizar cashFlow para el resto del dashboard
-        setKpisData((prev: any) => ({ ...prev, cashFlow: flujo }));
+        // Actualizar cashFlow con formato correcto para la tabla
+        setKpisData((prev: any) => ({ ...prev, cashFlow: cashFlow }));
       }
     } catch (error) {
       console.error("Error loading movimientos dia:", error);
@@ -4111,47 +4157,6 @@ export default function DashboardPage() {
                     Mes: {new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })} | Generado el: {new Date().toLocaleDateString('es-VE')}
                   </p>
                 </div>
-                <button 
-                  onClick={async () => {
-                    setLoadingMovimientosDia(true);
-                    await loadKpis();
-                    await loadMovimientosDia();
-                    setLoadingMovimientosDia(false);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700"
-                >
-                  {loadingMovimientosDia ? "Cargando..." : "🔄 Recargar Datos"}
-                </button>
-               </div>
-
-               {/* PANEL DEBUG - VISIBLE */}
-               <div className="bg-red-50 border border-red-200 p-4 rounded-lg mb-4">
-                 <h3 className="text-sm font-bold text-red-800 uppercase mb-2">🔍 DEBUG - Datos de Flujo de Caja</h3>
-                 <div className="grid grid-cols-2 gap-4 text-xs">
-                   <div>
-                     <span className="font-bold">cashFlow length:</span> {kpisData.cashFlow?.length || 0}
-                   </div>
-                   <div>
-                     <span className="font-bold">movimientosDia length:</span> {movimientosDia.length}
-                   </div>
-                   <div>
-                     <span className="font-bold">Edificio ID:</span> {building?.id?.substring(0,8)}...
-                   </div>
-                   <div>
-                     <span className="font-bold">loadingMovimientosDia:</span> {loadingMovimientosDia ? "SÍ" : "NO"}
-                   </div>
-                 </div>
-                 {kpisData.cashFlow?.length > 0 && (
-                   <div className="mt-2">
-                     <span className="text-xs font-bold text-red-700 uppercase">Primeros 3 registros de cashFlow:</span>
-                     <pre className="text-[10px] bg-red-100 p-2 rounded mt-1 overflow-auto">
-                       {JSON.stringify(kpisData.cashFlow.slice(0, 3), null, 2)}
-                     </pre>
-                   </div>
-                 )}
-                 {kpisData.cashFlow?.length === 0 && (
-                   <p className="text-xs text-red-600 mt-2 font-bold">⚠️ cashFlow está VACÍO. Revisa la consola (F12) para ver los logs de loadMovimientosDia()</p>
-                 )}
                </div>
 
                <div className="overflow-x-auto custom-scrollbar">
