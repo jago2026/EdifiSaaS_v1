@@ -4335,7 +4335,7 @@ export default function DashboardPage() {
                             <XAxis dataKey="dia" tick={{ fontSize: 9 }} stroke="#9ca3af" />
                             <YAxis tick={{ fontSize: 9 }} stroke="#9ca3af" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
                             <Tooltip
-                              formatter={(value: any, name: any) => [`Bs. ${formatBs(value)}`, name === 'ingresos' ? 'Ingresos' : 'Egresos']}
+                              formatter={(value: any, name: any) => [`Bs. ${formatBs(value as number)}`, name === 'ingresos' ? 'Ingresos' : 'Egresos']}
                               contentStyle={{ fontSize: 11, borderRadius: 8 }}
                               labelFormatter={(d) => `Día ${d}`}
                             />
