@@ -1021,10 +1021,10 @@ export default function DashboardPage() {
         
         // Combinar todo en un solo array de flujo
         const flujo = [
-          ...movimientos.map(m => ({ ...m, tipo: 'movimiento' })),
-          ...pagos.map(p => ({ ...p, tipo: 'pago' })),
-          ...egresos.map(e => ({ ...e, tipo: 'egreso' })),
-          ...gastos.map(g => ({ ...g, tipo: 'gasto' }))
+          ...movimientos.map((m: any) => ({ ...m, tipo: 'movimiento' })),
+          ...pagos.map((p: any) => ({ ...p, tipo: 'pago' })),
+          ...egresos.map((e: any) => ({ ...e, tipo: 'egreso' })),
+          ...gastos.map((g: any) => ({ ...g, tipo: 'gasto' }))
         ];
         
         setMovimientosDia(flujo);
