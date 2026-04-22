@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - dias);
     const startDateStr = startDate.toISOString().split('T')[0];
-    console.log("[movimientos-dia] edificioId:", edificioId, "startDate:", startDateStr);
     
     // Get movements from last N days
     const { data: movimientosDia, error } = await supabase
@@ -31,7 +30,6 @@ export async function GET(request: NextRequest) {
       .order("detectado_en", { ascending: true });
 
     if (error) throw error;
-    console.log("[movimientos-dia] movimientosDia:", movimientosDia?.length || 0);
 
     // Also get pagos_recibos for the same period
     const { data: pagos } = await supabase
@@ -40,7 +38,6 @@ export async function GET(request: NextRequest) {
       .eq("edificio_id", edificioId)
       .gte("fecha_pago", startDateStr)
       .order("fecha_pago", { ascending: true });
-    console.log("[movimientos-dia] pagos:", pagos?.length || 0);
 
     // Also get egresos (historical)
     const { data: egresos } = await supabase
@@ -49,7 +46,6 @@ export async function GET(request: NextRequest) {
       .eq("edificio_id", edificioId)
       .gte("fecha", startDateStr)
       .order("fecha", { ascending: true });
-    console.log("[movimientos-dia] egresos:", egresos?.length || 0);
 
     // Also get gastos (historical)
     const { data: gastos } = await supabase
@@ -58,13 +54,54 @@ export async function GET(request: NextRequest) {
       .eq("edificio_id", edificioId)
       .gte("fecha", startDateStr)
       .order("fecha", { ascending: true });
-    console.log("[movimientos-dia] gastos:", gastos?.length || 0);
+
+    // Build cashFlow format expected by frontend
+    const cashFlowMap = new Map();
+    
+    // Add movimientos_dia
+    (movimientosDia || []).forEach((m: any) => {
+      const f = m.detectado_en;
+      if (!f) return;
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+      if (m.tipo === 'recibo') {
+        cashFlowMap.get(f).ingresos += Number(m.monto || 0);
+      } else {
+        cashFlowMap.get(f).egresos += Number(m.monto || 0);
+      }
+    });
+    
+    // Add pagos_recibos
+    (pagos || []).forEach((p: any) => {
+      const f = p.fecha_pago;
+      if (!f) return;
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+      cashFlowMap.get(f).ingresos += Number(p.monto || 0);
+    });
+    
+    // Add egresos
+    (egresos || []).forEach((e: any) => {
+      const f = e.fecha;
+      if (!f) return;
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+      cashFlowMap.get(f).egresos += Number(e.monto || 0);
+    });
+    
+    // Add gastos
+    (gastos || []).forEach((g: any) => {
+      const f = g.fecha;
+      if (!f) return;
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+      cashFlowMap.get(f).egresos += Number(g.monto || 0);
+    });
+
+    const cashFlow = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
 
     return NextResponse.json({ 
       movimientos: movimientosDia || [],
       pagos: pagos || [],
       egresos: egresos || [],
       gastos: gastos || [],
+      cashFlow: cashFlow,
       fechaInicio: startDateStr
     });
   } catch (error: any) {
