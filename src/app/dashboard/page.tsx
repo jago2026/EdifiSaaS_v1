@@ -1171,9 +1171,10 @@ export default function DashboardPage() {
       const res = await fetch(`/api/kpis?edificioId=${building.id}`);
       const data = await res.json();
       if (res.ok) {
-        // Update kpisData with cashFlow for the dashboard
-        setKpisData(data);
-        // Also load movimientos_dia data
+        // Actualizar solo los campos KPI que no afectan el flujo de caja
+        const { cashFlow, movimientos, ...kpiData } = data;
+        setKpisData((prev: any) => ({ ...prev, ...kpiData }));
+        // Cargar movimientos que también actualiza cashFlow
         await loadMovimientosDia();
       }
     } catch (error) {
