@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
     // Also get egresos (historical)
     const { data: egresos } = await supabase
       .from("egresos")
-      .select("fecha, monto")
+      .select("*")
       .eq("edificio_id", edificioId)
       .gte("fecha", startDateStr)
       .order("fecha", { ascending: true });
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // Also get gastos (historical)
     const { data: gastos } = await supabase
       .from("gastos")
-      .select("fecha, monto")
+      .select("*")
       .eq("edificio_id", edificioId)
       .gte("fecha", startDateStr)
       .order("fecha", { ascending: true });

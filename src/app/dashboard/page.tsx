@@ -902,6 +902,11 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (activeTab === "resumen" && building?.id) {
+      loadRecibos();
+      loadMovimientosDia();
+      loadBalance();
+    }
     if (building?.id) {
       loadMovements();
       loadGastosSummary();
@@ -934,6 +939,11 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
+    if (activeTab === "resumen" && building?.id) {
+      loadRecibos();
+      loadMovimientosDia();
+      loadBalance();
+    }
     if (activeTab === "ingresos" && building?.id) {
       loadIngresosData();
     }
@@ -1066,13 +1076,36 @@ export default function DashboardPage() {
         // Convertir mapa a array ordenado por fecha
         const cashFlow = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
 
-        // Combinar todo en un solo array de flujo (para otros usos)
+        // FILTRAR ESTRICTAMENTE PARA EL DÍA DE HOY (Local del sistema)
+        const now = new Date();
+        const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
+
         const flujo = [
-          ...movimientos.map((m: any) => ({ ...m, tipo: 'movimiento' })),
-          ...pagos.map((p: any) => ({ ...p, tipo: 'pago' })),
-          ...egresos.map((e: any) => ({ ...e, tipo: 'egreso' })),
-          ...gastos.map((g: any) => ({ ...g, tipo: 'gasto' }))
-        ];
+          ...movimientos.map((m: any) => ({ 
+            ...m, 
+            tipo: m.tipo === 'recibo' ? 'recibo' : 'egreso',
+            descripcion: (m.descripcion || (m.tipo === 'recibo' ? 'Pago Detectado' : 'Egreso Detectado')) + (m.referencia ? ` (Ref: ${m.referencia})` : ''),
+            fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha
+          })),
+          ...pagos.map((p: any) => ({ 
+            ...p, 
+            tipo: 'recibo', 
+            descripcion: `Apto. ${p.unidad || 'S/N'} - Pago Recibo ${p.mes || ''}`.trim(),
+            fecha_iso: p.fecha_pago
+          })),
+          ...egresos.map((e: any) => ({ 
+            ...e, 
+            tipo: 'egreso', 
+            descripcion: `${e.beneficiario || ''} - ${e.descripcion || 'Egreso'} ${e.nro_documento ? `(Doc: ${e.nro_documento})` : ''}`.trim().replace(/^ - /, ''),
+            fecha_iso: e.fecha
+          })),
+          ...gastos.map((g: any) => ({ 
+            ...g, 
+            tipo: 'gasto', 
+            descripcion: g.descripcion || 'Gasto registrado',
+            fecha_iso: g.fecha
+          }))
+        ].filter(item => item.fecha_iso === todayStr);
 
         setMovimientosDia(flujo);
         // Actualizar cashFlow con formato correcto para la tabla
