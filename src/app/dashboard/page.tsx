@@ -4285,7 +4285,7 @@ export default function DashboardPage() {
 
                     {/* Análisis de Tendencia y Día pico */}
                     <div className="grid md:grid-cols-2 gap-4 mb-6">
-                      <div className="bg-indigo-900 p-4 rounded-xl text-white">
+                      <div className="bg-indigo-900 hover:bg-indigo-800 transition-colors shadow-lg p-4 rounded-xl text-white">
                         <h3 className="text-xs font-black text-indigo-300 uppercase mb-3 tracking-widest">Análisis de Tendencia</h3>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="flex items-center gap-3">
@@ -4306,7 +4306,7 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white">
+                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl text-white hover:from-purple-600 hover:to-purple-700 transition-all shadow-lg">
                         <h3 className="text-xs font-black text-purple-200 uppercase mb-3 tracking-widest">Resumen Rápido</h3>
                         <div className="flex items-center gap-4">
                           <div className="text-center">
@@ -4410,13 +4410,13 @@ export default function DashboardPage() {
                                 <tr className="bg-indigo-900 text-white uppercase text-[11px]">
                                   <td className="py-2 px-2 font-black">TOTAL</td>
                                   <td className="border border-indigo-800"></td>
-                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">...</td>
-                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">{formatBs(grandTotalIng)}</td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">0,00</td>
                                   <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-green-700">{formatBs(grandTotalIng)}</td>
-                                  <td className="border border-indigo-800"></td>
-                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">{formatBs(grandTotalEgr)}</td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">0,00</td>
                                   <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-red-700">{formatBs(grandTotalEgr)}</td>
-                                  <td className="border border-indigo-800"></td>
+                                  <td className="py-2 px-1 border border-indigo-800 text-right font-mono">0,00</td>
                                   <td className="py-2 px-1 border border-indigo-800 text-right font-mono bg-indigo-950">{formatBs(currentSaldo)}</td>
                                 </tr>
                               </>
