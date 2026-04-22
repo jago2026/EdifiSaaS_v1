@@ -4129,7 +4129,7 @@ export default function DashboardPage() {
 
         {activeTab === "flujo-caja" && (
           <div className="space-y-8 animate-in fade-in duration-500">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Estado de Flujo de Efectivo</h2>
@@ -4138,11 +4138,15 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <button 
-                  onClick={sendCashFlowEmail} 
-                  disabled={sendingEmail}
-                  className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs hover:bg-indigo-700 transition-all shadow-lg hover:shadow-indigo-200 uppercase tracking-widest disabled:opacity-50"
+                  onClick={async () => {
+                    setLoadingMovimientosDia(true);
+                    await loadKpis();
+                    await loadMovimientosDia();
+                    setLoadingMovimientosDia(false);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700"
                 >
-                  {sendingEmail ? "Enviando..." : "📧 Enviar a la Junta"}
+                  {loadingMovimientosDia ? "Cargando..." : "🔄 Recargar Datos"}
                 </button>
               </div>
 
