@@ -910,6 +910,7 @@ export default function DashboardPage() {
       loadRecibos();
       loadBalance();
       loadAlicuotas();
+      loadMovimientosDia();
     }
     loadTasaBCV();
   }, [building?.id]);
