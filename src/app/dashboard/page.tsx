@@ -4148,9 +4148,39 @@ export default function DashboardPage() {
                 >
                   {loadingMovimientosDia ? "Cargando..." : "🔄 Recargar Datos"}
                 </button>
-              </div>
+               </div>
 
-              <div className="overflow-x-auto custom-scrollbar">
+               {/* PANEL DEBUG - VISIBLE */}
+               <div className="bg-red-50 border border-red-200 p-4 rounded-lg mb-4">
+                 <h3 className="text-sm font-bold text-red-800 uppercase mb-2">🔍 DEBUG - Datos de Flujo de Caja</h3>
+                 <div className="grid grid-cols-2 gap-4 text-xs">
+                   <div>
+                     <span className="font-bold">cashFlow length:</span> {kpisData.cashFlow?.length || 0}
+                   </div>
+                   <div>
+                     <span className="font-bold">movimientosDia length:</span> {movimientosDia.length}
+                   </div>
+                   <div>
+                     <span className="font-bold">Edificio ID:</span> {building?.id?.substring(0,8)}...
+                   </div>
+                   <div>
+                     <span className="font-bold">loadingMovimientosDia:</span> {loadingMovimientosDia ? "SÍ" : "NO"}
+                   </div>
+                 </div>
+                 {kpisData.cashFlow?.length > 0 && (
+                   <div className="mt-2">
+                     <span className="text-xs font-bold text-red-700 uppercase">Primeros 3 registros de cashFlow:</span>
+                     <pre className="text-[10px] bg-red-100 p-2 rounded mt-1 overflow-auto">
+                       {JSON.stringify(kpisData.cashFlow.slice(0, 3), null, 2)}
+                     </pre>
+                   </div>
+                 )}
+                 {kpisData.cashFlow?.length === 0 && (
+                   <p className="text-xs text-red-600 mt-2 font-bold">⚠️ cashFlow está VACÍO. Revisa la consola (F12) para ver los logs de loadMovimientosDia()</p>
+                 )}
+               </div>
+
+               <div className="overflow-x-auto custom-scrollbar">
                 <table className="w-full text-[10px] border-collapse">
                   <thead>
                     <tr className="bg-indigo-900 text-white uppercase tracking-tighter">
