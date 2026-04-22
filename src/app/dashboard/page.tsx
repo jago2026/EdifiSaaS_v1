@@ -4261,19 +4261,13 @@ const monthStr = today.toISOString().substring(0, 7);
                     <div className="bg-white p-3 rounded-xl border shadow-sm">
                       <div className="text-[9px] font-bold text-gray-400 uppercase">Días con Movimiento</div>
                       <div className="text-lg font-black text-indigo-900">
-                        {(() => {
-                          const today = new Date();
-                          const monthStr = today.toISOString().substring(0, 7);
-                          const dayMovs = kpisData.movimientos?.filter((m: any) => m.fecha.startsWith(monthStr)) || [];
-                          const uniqueDays = new Set(dayMovs.map((m: any) => m.fecha));
-                          return uniqueDays.size;
-                        })()}
+                        {kpisData.cashFlow?.length || 0}
                       </div>
                     </div>
                     <div className="bg-white p-3 rounded-xl border shadow-sm">
                       <div className="text-[9px] font-bold text-gray-400 uppercase">Balance del Mes</div>
                       <div className="text-lg font-black text-blue-600">
-                        Bs. {formatBs((kpisData.movimientos?.filter((m: any) => m.tipo === 'ingreso').reduce((s:number, m:any) => s+m.monto, 0) || 0) - (kpisData.movimientos?.filter((m: any) => m.tipo === 'egreso').reduce((s:number, m:any) => s+m.monto, 0) || 0))}
+                        Bs. {formatBs((kpisData.cashFlow || []).reduce((sum, item) => sum + item.ingresos - item.egresos, 0))}
                       </div>
                     </div>
                   </div>
