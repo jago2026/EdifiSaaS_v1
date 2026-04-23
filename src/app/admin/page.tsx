@@ -62,6 +62,14 @@ const PLAN_BADGES: Record<string, any> = {
   'IA':          { icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
 };
 
+const getPlanBadge = (planName: string) => {
+  const name = (planName || 'Básico').toLowerCase();
+  if (name.includes('ia')) return { label: 'IA', ...PLAN_BADGES['IA'] };
+  if (name.includes('empresarial') || name.includes('premium')) return { label: 'Empresarial', ...PLAN_BADGES['Empresarial'] };
+  if (name.includes('profesional')) return { label: 'Profesional', ...PLAN_BADGES['Profesional'] };
+  return { label: 'Básico', ...PLAN_BADGES['Básico'] };
+};
+
 interface Administradora {
   id: string;
   nombre: string;
@@ -387,8 +395,8 @@ export default function AdminPage() {
                         filteredEdificios.map((b) => {
                         const status = b.status || 'Prueba';
                         const isInactive = status === 'Inactivo';
-                        const plan = b.plan || 'Básico';
-                        const PlanIcon = PLAN_BADGES[plan]?.icon || Zap;
+                        const planBadge = getPlanBadge(b.plan);
+                        const PlanIcon = planBadge.icon;
                         
                         return (
                           <React.Fragment key={b.id}>
@@ -410,9 +418,9 @@ export default function AdminPage() {
                                   : <span className="text-slate-600 italic text-[10px] font-bold uppercase">Sin Actividad</span>}
                               </td>
                               <td className="px-6 py-5">
-                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/50 ${PLAN_BADGES[plan]?.bg || 'bg-slate-500/10'}`}>
-                                  <PlanIcon className={`w-3 h-3 ${PLAN_BADGES[plan]?.color || 'text-slate-400'}`} />
-                                  <span className={`text-[10px] font-black uppercase tracking-widest ${PLAN_BADGES[plan]?.color || 'text-slate-400'}`}>{plan}</span>
+                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/50 ${planBadge.bg}`}>
+                                  <PlanIcon className={`w-3 h-3 ${planBadge.color}`} />
+                                  <span className={`text-[10px] font-black uppercase tracking-widest ${planBadge.color}`}>{planBadge.label}</span>
                                 </div>
                               </td>
                               <td className="px-6 py-5">
