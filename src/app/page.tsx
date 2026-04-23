@@ -76,10 +76,43 @@ export default function Home() {
         } else {
           // Fallback plans if none in DB
           setPlanes([
-            { name: "Básico", price_monthly: 19, price_yearly: 190, features: ["Hasta 30 unidades", "Control financiero básico", "Reporte diario automatico", "Historial de 3 meses", "Soporte por email"], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
-            { name: "Profesional", price_monthly: 29, price_yearly: 290, features: ["Hasta 50 unidades", "Control financiero avanzado", "Reporte diario automatico", "Historial de 12 meses", "Soporte", "Exportación de reportes"], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
-            { name: "Empresarial", price_monthly: 0, price_yearly: 0, features: ["Unidades ilimitadas", "Todo incluido", "Actualizaciones y mejoras incluidas", "Soporte", "Formación in situ"], is_popular: false, show_contact: true, badge_text: "", display_order: 2 },
-            { name: "Inteligencia Artificial (IA)", price_monthly: 0, price_yearly: 0, features: ["Reportes inteligentes automatizados", "Todo incluido", "Análisis y recomendaciones", "Análisis de morosidad, de gastos, proyecciones y estimaciones, y mucho mas.", "Soporte", "Formación in situ"], is_popular: false, show_contact: true, badge_text: "En Desarrollo", display_order: 3 }
+            { name: "Básico", price_monthly: 19, price_yearly: 190, features: [
+              "Sincronización Diaria",
+              "Reporte diario automatico a los miembros de la Junta de Condominio con la situacion financiera",
+              "Reportes Básicos",
+              "Historial de 3 meses",
+              "Soporte por email",
+              "Hasta 30 Unidades"
+            ], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
+            { name: "Profesional", price_monthly: 29, price_yearly: 290, features: [
+              "Todo lo de Básico",
+              "Control financiero avanzado",
+              "Reporte diario automatico a los miembros de la Junta de Condominio con la situacion financiera",
+              "Historial de 12 meses",
+              "Exportación de reportes",
+              "Auditoría Financiera",
+              "Reportes Avanzados",
+              "Hasta 50 Unidades"
+            ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
+            { name: "Empresarial", price_monthly: 59, price_yearly: 0, features: [
+              "Todo lo de Profesional",
+              "Unidades Ilimitadas",
+              "Soporte Prioritario",
+              "Actualizaciones y mejoras incluidas",
+              "Formación in situ",
+              "Custom Branding"
+            ], is_popular: false, show_contact: true, badge_text: "", display_order: 2 },
+            { name: "Inteligencia Artificial (IA)", price_monthly: 79, price_yearly: 0, features: [
+              "Todo lo de Empresarial",
+              "Asistente de IA",
+              "Análisis Predictivo",
+              "Reportes inteligentes automatizados",
+              "Todo incluido",
+              "Análisis y recomendaciones",
+              "Análisis de morosidad, de gastos, proyecciones y estimaciones, y mucho mas.",
+              "Soporte",
+              "Formación in situ"
+            ], is_popular: false, show_contact: true, badge_text: "En Desarrollo", display_order: 3 }
           ]);
         }
       } catch (error) {
@@ -433,7 +466,7 @@ export default function Home() {
                         </div>
                         {billingPeriod === 'yearly' && (
                           <div className="text-xs font-bold text-green-600 mt-1">
-                            Billed ${plan.price_yearly} yearly
+                            Pago anual único de USD${plan.price_yearly}
                           </div>
                         )}
                       </>
