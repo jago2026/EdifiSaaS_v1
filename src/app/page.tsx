@@ -8,6 +8,34 @@ export default function Home() {
   const [planes, setPlanes] = useState<any[]>([]);
   const [loadingPlanes, setLoadingPlanes] = useState(true);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      q: "¿Es compatible con mi administradora?",
+      a: "EdifiSaaS está optimizado para funcionar con administradoras que utilizan el portal Rascacielo. Si tus recibos se ven como los ejemplos mostrados, somos 100% compatibles."
+    },
+    {
+      q: "¿Cómo se actualizan los datos?",
+      a: "El sistema se sincroniza diariamente de forma automática con el portal de tu administradora, detectando nuevos pagos, gastos y variaciones en saldos sin que tengas que hacer nada manual."
+    },
+    {
+      q: "¿Mis datos están seguros?",
+      a: "Absolutamente. Utilizamos encriptación de nivel bancario para proteger toda la información. Los datos son privados de tu junta de condominio y no se comparten con terceros."
+    },
+    {
+      q: "¿Tengo que instalar algún software?",
+      a: "No. EdifiSaaS es una plataforma 100% en la nube. Puedes acceder desde cualquier navegador en tu computadora, tablet o teléfono móvil."
+    },
+    {
+      q: "¿Puedo cancelar en cualquier momento?",
+      a: "Sí, no hay contratos de permanencia a largo plazo. Si decides cancelar, tu servicio se mantendrá activo hasta el final del periodo pagado y no se realizarán más cobros."
+    },
+    {
+      q: "¿Ofrecen soporte técnico?",
+      a: "Contamos con un equipo de soporte dedicado para ayudarte en la configuración inicial y resolver cualquier duda operativa que surja durante el uso del sistema."
+    }
+  ];
 
   const [contactForm, setContactForm] = useState({
     nombre: '',
@@ -210,14 +238,14 @@ export default function Home() {
             <div className="relative">
               <div className="bg-gray-200 rounded-[3.5rem] p-3 rotate-2 shadow-2xl">
                 <img 
-                  src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/pantallarascacielo1.jpg?raw=true" 
+                  src="/pantallarascacielo1.jpg" 
                   alt="Portal Rascacielo" 
                   className="rounded-[3rem] shadow-inner"
                 />
               </div>
               <div className="absolute -bottom-10 -left-10 w-72 bg-blue-600 p-3 rounded-[2rem] shadow-2xl -rotate-3 border border-blue-400 hidden lg:block">
                 <img 
-                  src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/EjemploPantallaPpalEdifiSaaS.jpg?raw=true" 
+                  src="/EjemploPantallaPpalEdifiSaaS.jpg" 
                   alt="Dashboard EdifiSaaS" 
                   className="rounded-2xl"
                 />
@@ -231,14 +259,14 @@ export default function Home() {
                 <div className="relative">
                   <div className="bg-white rounded-[4rem] p-3 -rotate-2 shadow-2xl border border-gray-100">
                     <img 
-                      src="https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/refs/heads/main/pantallarascacielo2.jpg" 
+                      src="/pantallarascacielo2.jpg" 
                       alt="Portal Rascacielo Detalle" 
                       className="rounded-[3.5rem]"
                     />
                   </div>
                   <div className="absolute -top-10 -right-10 w-64 bg-white p-3 rounded-[2rem] shadow-2xl rotate-3 border border-gray-100 hidden lg:block">
                     <img 
-                      src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/EjemplopantallaKPIs.jpg?raw=true" 
+                      src="/EjemplopantallaKPIs.jpg" 
                       alt="KPIs EdifiSaaS" 
                       className="rounded-2xl"
                     />
@@ -438,31 +466,32 @@ export default function Home() {
       <section id="faq" className="container mx-auto px-6 py-20 bg-gray-50 border-y border-gray-100">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-4xl font-black text-center text-gray-900 mb-12 uppercase tracking-tighter italic">Preguntas Frecuentes</h2>
-          <div className="space-y-6">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Es compatible con mi administradora?</h3>
-              <p className="text-gray-600 font-medium">EdifiSaaS está optimizado para funcionar con administradoras que utilizan el portal Rascacielo. Si tus recibos se ven como los ejemplos mostrados, somos 100% compatibles.</p>
-            </div>
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Cómo se actualizan los datos?</h3>
-              <p className="text-gray-600 font-medium">El sistema se sincroniza diariamente de forma automática con el portal de tu administradora, detectando nuevos pagos, gastos y variaciones en saldos sin que tengas que hacer nada manual.</p>
-            </div>
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Mis datos están seguros?</h3>
-              <p className="text-gray-600 font-medium">Absolutamente. Utilizamos encriptación de nivel bancario para proteger toda la información. Los datos son privados de tu junta de condominio y no se comparten con terceros.</p>
-            </div>
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Tengo que instalar algún software?</h3>
-              <p className="text-gray-600 font-medium">No. EdifiSaaS es una plataforma 100% en la nube. Puedes acceder desde cualquier navegador en tu computadora, tablet o teléfono móvil.</p>
-            </div>
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Puedo cancelar en cualquier momento?</h3>
-              <p className="text-gray-600 font-medium">Sí, no hay contratos de permanencia a largo plazo. Si decides cancelar, tu servicio se mantendrá activo hasta el final del periodo pagado y no se realizarán más cobros.</p>
-            </div>
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
-              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Ofrecen soporte técnico?</h3>
-              <p className="text-gray-600 font-medium">Contamos con un equipo de soporte dedicado para ayudarte en la configuración inicial y resolver cualquier duda operativa que surja durante el uso del sistema.</p>
-            </div>
+          <div className="grid md:grid-cols-1 gap-4">
+            {faqs.map((faq, index) => (
+              <div 
+                key={index} 
+                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300"
+              >
+                <button 
+                  onClick={() => setOpenFaq(openFaq === index ? null : index)}
+                  className="w-full px-8 py-6 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-lg font-black text-gray-900 uppercase tracking-tight">{faq.q}</span>
+                  <div className={`w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center transition-transform duration-300 ${openFaq === index ? 'rotate-180' : ''}`}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
+                <div 
+                  className={`px-8 transition-all duration-300 ease-in-out ${openFaq === index ? 'max-h-96 py-6 border-t border-gray-50 opacity-100' : 'max-h-0 opacity-0'}`}
+                >
+                  <p className="text-gray-600 font-medium leading-relaxed">
+                    {faq.a}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
