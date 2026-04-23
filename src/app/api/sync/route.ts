@@ -7,10 +7,36 @@ const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 function parseMonto(text: string): number {
   if (!text) return 0;
+  // Limpiar caracteres no numéricos excepto los separadores
   let cleaned = text.replace(/[^\d.,-]/g, "");
   if (!cleaned) return 0;
-  let numStr = cleaned.replace(/\./g, "").replace(",", ".");
-  return parseFloat(numStr) || 0;
+
+  // Caso 1: Tiene puntos y comas (Formato VE: 1.234,56)
+  if (cleaned.includes(".") && cleaned.includes(",")) {
+    return parseFloat(cleaned.replace(/\./g, "").replace(",", ".")) || 0;
+  }
+
+  // Caso 2: Tiene solo comas (Formato VE simple: 1234,56)
+  if (cleaned.includes(",")) {
+    return parseFloat(cleaned.replace(",", ".")) || 0;
+  }
+
+  // Caso 3: Tiene solo puntos
+  if (cleaned.includes(".")) {
+    const parts = cleaned.split(".");
+    const lastPart = parts[parts.length - 1];
+    // Si la última parte tiene 2 dígitos, es muy probable que sea decimal (Formato US: 1234.56)
+    // O si tiene 3 dígitos y no hay más puntos (Formato US: 1.234 - improbable para moneda pero posible)
+    if (lastPart.length === 2 || (lastPart.length === 3 && parts.length === 1)) {
+      return parseFloat(cleaned) || 0;
+    }
+    // Si tiene 3 dígitos y es un separador de miles (Formato VE: 1.234)
+    if (lastPart.length === 3) {
+      return parseFloat(cleaned.replace(/\./g, "")) || 0;
+    }
+  }
+
+  return parseFloat(cleaned) || 0;
 }
 
 async function generateHash(data: string): Promise<string> {
@@ -604,18 +630,26 @@ export async function POST(request: Request) {
         .select("unidad, propietario, deuda")
         .eq("edificio_id", building.id);
 
-      const recibosToSave = allRecibos.map(r => ({ 
-        edificio_id: building.id, 
-        unidad: r.unidad, 
-        propietario: r.propietario, 
-        num_recibos: r.num_recibos, 
-        deuda: r.deuda, 
-        deuda_usd: r.deuda_usd, 
-        sincronizado: true, 
+      // Deduplicar allRecibos antes de guardar para evitar inconsistencias
+      const uniqueRecibosMap = new Map();
+      allRecibos.forEach(r => {
+        const key = `${r.unidad}-${Math.round(r.deuda * 100) / 100}`;
+        if (!uniqueRecibosMap.has(key)) uniqueRecibosMap.set(key, r);
+      });
+      const deduplicatedRecibos = Array.from(uniqueRecibosMap.values());
+
+      const recibosToSave = deduplicatedRecibos.map(r => ({
+        edificio_id: building.id,
+        unidad: r.unidad,
+        propietario: r.propietario,
+        num_recibos: r.num_recibos,
+        deuda: r.deuda,
+        deuda_usd: r.deuda_usd,
+        sincronizado: true,
         actualizado_en: today,
         mes: mesEstandar
       }));
-      
+
       // 2. Limpieza del mes actual
       await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
       
@@ -630,7 +664,16 @@ export async function POST(request: Request) {
       for (const unidadPrevia of deudoresAnterioresUnicos) {
         if (!unidadesAhora.has(unidadPrevia)) {
           // Filtrar todas las deudas de esta unidad que estaban en nuestra DB
-          const deudasUnidad = deudoresAntes?.filter(d => d.unidad === unidadPrevia) || [];
+          const rawDeudasUnidad = deudoresAntes?.filter(d => d.unidad === unidadPrevia) || [];
+          
+          // DEDUPLICAR deudas locales antes de sumar (evita multiplicación por duplicidad en DB)
+          const uniqueDeudasMap = new Map();
+          rawDeudasUnidad.forEach(d => {
+            const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
+            if (!uniqueDeudasMap.has(key)) uniqueDeudasMap.set(key, d);
+          });
+          const deudasUnidad = Array.from(uniqueDeudasMap.values());
+
           const montoTotalPagado = deudasUnidad.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
           const propietario = deudasUnidad[0]?.propietario || "Copropietario";
 

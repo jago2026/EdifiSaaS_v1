@@ -109,9 +109,15 @@ export async function GET(request: Request) {
     // Deduplicate by type, date, description and amount to avoid repeating rows
     const uniqueMovementsMap = new Map();
     allMovements.forEach((m: any) => {
-      // Normalize description: trim extra spaces and convert to uppercase for robust matching
-      const normalizedDesc = (m.descripcion || "").replace(/\s+/g, ' ').trim().toUpperCase();
-      const key = `${m.tipo}-${m.fecha}-${normalizedDesc}-${Math.round(m.monto * 100) / 100}`;
+      // Normalize description: trim extra spaces, remove non-alphanumeric and convert to uppercase
+      const normalizedDesc = (m.descripcion || "")
+        .replace(/[^\w\s]/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
+      
+      // Use toFixed(2) for amount to avoid floating point precision issues in keys
+      const key = `${m.tipo}_${m.fecha}_${normalizedDesc}_${Number(m.monto || 0).toFixed(2)}`;
       
       if (!uniqueMovementsMap.has(key)) {
         uniqueMovementsMap.set(key, m);
