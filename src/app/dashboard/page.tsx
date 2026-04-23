@@ -232,6 +232,7 @@ export default function DashboardPage() {
   const [selectedMesGastos, setSelectedMesGastos] = useState<string>(new Date().toISOString().substring(0, 7));
   const [mesesRecibos, setMesesRecibos] = useState<string[]>([]);
   const [selectedMesRecibos, setSelectedMesRecibos] = useState<string>("");
+  const [movementTypeFilter, setMovementTypeFilter] = useState<"todos" | "egresos" | "gastos" | "pagos">("todos");
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
   const [manualFilter, setManualFilter] = useState<"todos" | "pendientes" | "ingresos" | "egresos" | "ambos">("todos");
   const [loadingManual, setLoadingManual] = useState(false);
@@ -2310,9 +2311,44 @@ export default function DashboardPage() {
                 </p>
               ) : (
                 <div className="overflow-x-auto">
-                  <div className="text-xs text-gray-400 mb-3 uppercase tracking-wider font-bold">
-                    Registros encontrados: {movements.length}
-                  </div>
+                  {(() => {
+                    const filteredMovements = movements
+                      .filter((mov) => {
+                        if (movementTypeFilter === "todos") return true;
+                        if (movementTypeFilter === "egresos") return mov.tipo === "egreso";
+                        if (movementTypeFilter === "gastos") return mov.tipo === "gasto";
+                        if (movementTypeFilter === "pagos") return mov.tipo === "pago" || mov.tipo === "recibo";
+                        return true;
+                      })
+                      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                          <div className="text-xs text-gray-400 uppercase tracking-wider font-bold">
+                            Registros encontrados: {filteredMovements.length}
+                          </div>
+                          <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+                            {[
+                              { id: "todos", label: "Todos" },
+                              { id: "egresos", label: "Egresos" },
+                              { id: "gastos", label: "Gastos" },
+                              { id: "pagos", label: "Pagos" },
+                            ].map((f) => (
+                              <button
+                                key={f.id}
+                                onClick={() => setMovementTypeFilter(f.id as any)}
+                                className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
+                                  movementTypeFilter === f.id
+                                    ? "bg-white text-blue-600 shadow-sm"
+                                    : "text-gray-500 hover:text-gray-700"
+                                }`}
+                              >
+                                {f.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                   <table className="w-full">
                     <thead>
                       <tr className="border-b bg-gray-50">
@@ -2325,7 +2361,7 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {movements.map((mov) => (
+                      {filteredMovements.map((mov) => (
                         <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
                           <td className="py-3 px-4 text-sm text-gray-900">{mov.fecha}</td>
                           <td className="py-3 px-4">
@@ -2351,6 +2387,9 @@ export default function DashboardPage() {
                       ))}
                     </tbody>
                   </table>
+                      </> 
+                    ); 
+                  })()}
                 </div>
               )}
             </div>
