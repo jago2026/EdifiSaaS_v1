@@ -1838,7 +1838,7 @@ export default function DashboardPage() {
           <div className="bg-amber-100 border-b border-amber-200 px-6 py-2 flex items-center justify-between animate-pulse">
             <div className="flex items-center gap-2 text-amber-800 text-xs font-bold uppercase tracking-wider">
               <span>⚠️</span>
-              MODO DEMOSTRACIÓN: Estás visualizando datos reales de un edificio pero ANONIMIZADOS por privacidad.
+              MODO DEMOSTRACIÓN: Estás visualizando datos reales de un edificio pero Demo por privacidad.
             </div>
             <div className="text-[10px] text-amber-700 font-bold">SOLO LECTURA</div>
           </div>

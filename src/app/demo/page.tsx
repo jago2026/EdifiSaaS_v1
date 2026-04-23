@@ -42,7 +42,7 @@ export default function DemoPage() {
             <span className="font-black text-2xl text-gray-900 tracking-tighter">EdifiSaaS</span>
           </Link>
           <h1 className="text-4xl font-black text-gray-900 mb-3 tracking-tight">Demo Interactiva del Sistema</h1>
-          <p className="text-gray-600 text-lg">Explora la potencia de EdifiSaaS con datos reales anonimizados</p>
+          <p className="text-gray-600 text-lg">Explora la potencia de EdifiSaaS con datos reales Demo</p>
         </div>
 
         {/* BOTÓN DE ACCESO DIRECTO DESTACADO */}

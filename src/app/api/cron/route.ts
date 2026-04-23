@@ -40,14 +40,28 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON] Iniciando proceso para ${edificios?.length || 0} edificios`);
 
+    // Obtener hora actual en Venezuela
+    const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
+    const currentHourVET = nowVET.getHours();
+
     for (const edificio of edificios) {
       const edificioId = edificio.id;
-      console.log(`[CRON] Procesando edificio: ${edificio.nombre} (ID: ${edificioId})`);
+      const cronTime = edificio.cron_time || "05:00";
+      const configHour = parseInt(cronTime.split(":")[0]);
+
+      console.log(`[CRON] Procesando edificio: ${edificio.nombre} (ID: ${edificioId}) - Config: ${cronTime} VET - Actual: ${currentHourVET} VET`);
 
       if (edificio.cron_enabled === false) {
         console.log(`[CRON] Saltando ${edificio.nombre} - servicio desactivado`);
         await logSincronizacion(supabase, edificioId, "cron_diario", "saltado", 0, "Servicio desactivado en configuración");
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "cron_enabled = false" });
+        continue;
+      }
+
+      // Verificar si es la hora correcta (basado en hora de Venezuela)
+      if (currentHourVET !== configHour) {
+        console.log(`[CRON] Saltando ${edificio.nombre} - No es la hora configurada (${cronTime} VET)`);
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }
 

@@ -106,9 +106,19 @@ export async function GET(request: Request) {
       return dateB - dateA;
     });
 
+    // Deduplicate by type, date, description and amount to avoid repeating rows
+    const uniqueMovementsMap = new Map();
+    allMovements.forEach((m: any) => {
+      const key = `${m.tipo}-${m.fecha}-${m.descripcion}-${m.monto}`;
+      if (!uniqueMovementsMap.has(key)) {
+        uniqueMovementsMap.set(key, m);
+      }
+    });
+    const deduplicatedMovements = Array.from(uniqueMovementsMap.values());
+
     return NextResponse.json({ 
-      movimientos: allMovements.slice(0, 100),
-      total: allMovements.length 
+      movimientos: deduplicatedMovements.slice(0, 100),
+      total: deduplicatedMovements.length 
     });
   } catch (error: any) {
     console.error("Movimientos error:", error);

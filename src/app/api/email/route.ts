@@ -650,7 +650,16 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         ${cobrosHoy > 0 ? `<table><thead><tr style="background:#e8f5e8;"><th>Apartamento</th><th>Descripción</th><th style="text-align:right;">Monto (USD)</th><th style="text-align:right;">Monto (Bs.)</th></tr></thead><tbody>${pagosHoy.map((p: any) => `<tr><td>${p.descripcion}</td><td>Recibo</td><td style="text-align:right;">${formatNumber(p.monto/tasa)}</td><td style="text-align:right;">${formatBs(p.monto)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No se registraron pagos hoy.</p>'}
 
         <h4 style="color:#ea4335; font-size: 12px; margin: 15px 0 8px;">💸 Egresos Procesados Hoy</h4>
-        ${newestEgresos?.length ? `<table><thead><tr style="background:#ffe8e8;"><th>Beneficiario</th><th>Operación</th><th style="text-align:right;">Monto (Bs)</th><th style="text-align:right;">Monto (USD)</th></tr></thead><tbody>${newestEgresos.map((e: any) => `<tr><td>${e.beneficiario}</td><td>Egreso: ${e.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(e.monto)}</td><td style="text-align:right;">${formatUsd(e.monto/tasa)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay egresos hoy.</p>'}
+        ${(() => {
+          const uniqueEgresosMap = new Map();
+          (newestEgresos || []).forEach((e: any) => {
+            const key = `${e.beneficiario}-${e.descripcion}-${e.monto}`;
+            if (!uniqueEgresosMap.has(key)) uniqueEgresosMap.set(key, e);
+          });
+          const uniqueEgresos = Array.from(uniqueEgresosMap.values());
+          
+          return uniqueEgresos.length ? `<table><thead><tr style="background:#ffe8e8;"><th>Beneficiario</th><th>Operación</th><th style="text-align:right;">Monto (Bs)</th><th style="text-align:right;">Monto (USD)</th></tr></thead><tbody>${uniqueEgresos.map((e: any) => `<tr><td>${e.beneficiario}</td><td>Egreso: ${e.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(e.monto)}</td><td style="text-align:right;">${formatUsd(e.monto/tasa)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay egresos hoy.</p>';
+        })()}
       </div>
     </div>
 
