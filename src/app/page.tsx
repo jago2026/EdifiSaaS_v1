@@ -363,12 +363,11 @@ export default function Home() {
                 <select 
                   value={contactForm.rol}
                   onChange={(e) => setContactForm({...contactForm, rol: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none cursor-pointer"
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none"
                 >
-                  <option>Miembro de Junta</option>
                   <option>Administrador</option>
+                  <option>Miembro de Junta</option>
                   <option>Propietario</option>
-                  <option>Otro</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-6">
@@ -382,22 +381,22 @@ export default function Home() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">WhatsApp</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">WhatsApp *</label>
                   <input 
-                    type="tel" 
+                    type="tel" required 
                     value={contactForm.whatsapp}
                     onChange={(e) => setContactForm({...contactForm, whatsapp: e.target.value})}
-                    className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" placeholder="+58..." 
+                    className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" 
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Mensaje *</label>
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Mensaje</label>
                 <textarea 
-                  rows={4} required
+                  rows={4} 
                   value={contactForm.mensaje}
                   onChange={(e) => setContactForm({...contactForm, mensaje: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium text-sm resize-none" placeholder="Cuéntanos sobre tu edificio y necesidades..." 
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm resize-none"
                 ></textarea>
               </div>
               <button 
