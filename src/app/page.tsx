@@ -99,10 +99,9 @@ export default function Home() {
               "Unidades Ilimitadas",
               "Soporte Prioritario",
               "Actualizaciones y mejoras incluidas",
-              "Formación in situ",
-              "Custom Branding"
-            ], is_popular: false, show_contact: true, badge_text: "", display_order: 2 },
-            { name: "Inteligencia Artificial (IA)", price_monthly: 79, price_yearly: 0, features: [
+              "Formación in situ"
+            ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
+            { name: "IA (En Desarrollo. actualmente no disponible)", price_monthly: 79, price_yearly: 0, features: [
               "Todo lo de Empresarial",
               "Asistente de IA",
               "Análisis Predictivo",
@@ -112,7 +111,7 @@ export default function Home() {
               "Análisis de morosidad, de gastos, proyecciones y estimaciones, y mucho mas.",
               "Soporte",
               "Formación in situ"
-            ], is_popular: false, show_contact: true, badge_text: "En Desarrollo", display_order: 3 }
+            ], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
           ]);
         }
       } catch (error) {
@@ -482,16 +481,22 @@ export default function Home() {
                     ))}
                   </ul>
 
-                  <Link 
-                    href="/register" 
-                    className={`block text-center py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
-                      plan.is_popular 
-                        ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200' 
-                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                    }`}
-                  >
-                    Comenzar
-                  </Link>
+                  {plan.badge_text === "En Desarrollo" ? (
+                    <span className="block text-center py-4 rounded-xl font-black text-xs uppercase tracking-widest bg-gray-200 text-gray-400 cursor-not-allowed select-none">
+                      Próximamente
+                    </span>
+                  ) : (
+                    <Link 
+                      href="/register" 
+                      className={`block text-center py-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+                        plan.is_popular 
+                          ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-200' 
+                          : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                      }`}
+                    >
+                      Comenzar
+                    </Link>
+                  )}
                 </div>
               ))
             )}
