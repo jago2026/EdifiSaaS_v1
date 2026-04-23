@@ -210,14 +210,14 @@ export default function Home() {
             <div className="relative">
               <div className="bg-blue-600 rounded-[3.5rem] p-3 rotate-2 shadow-2xl">
                 <img 
-                  src="https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/Ejemplo%20Pantalla%20Ppal%20EdifiSaaS.jpg".replace(/ /g, '%20') 
+                  src={"https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/Ejemplo%20Pantalla%20Ppal%20EdifiSaaS.jpg".replace(/ /g, "%20")} 
                   alt="Dashboard EdifiSaaS" 
                   className="rounded-[3rem] shadow-inner"
                 />
               </div>
               <div className="absolute -bottom-10 -left-10 w-72 bg-white p-5 rounded-[2rem] shadow-2xl -rotate-3 border border-gray-100 hidden lg:block">
                 <img 
-                  src="https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/pantalla%20rascacielo%201.jpg".replace(/ /g, '%20') 
+                  src={"https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/pantalla%20rascacielo%201.jpg".replace(/ /g, "%20")} 
                   alt="Interface Rascacielo" 
                   className="rounded-2xl"
                 />
@@ -230,7 +230,7 @@ export default function Home() {
              <div className="order-2 md:order-1">
                 <div className="bg-white rounded-[4rem] p-3 -rotate-2 shadow-2xl border border-gray-100">
                   <img 
-                    src="https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/Ejemplo%20pantalla%20KPIs.jpg".replace(/ /g, '%20') 
+                    src={"https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/Ejemplo%20pantalla%20KPIs.jpg".replace(/ /g, "%20")} 
                     alt="KPIs" 
                     className="rounded-[3.5rem]"
                   />
