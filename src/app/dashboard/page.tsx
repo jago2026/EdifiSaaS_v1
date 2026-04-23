@@ -4177,6 +4177,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {hasFeature("audit") ? (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -4241,6 +4242,14 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+            ) : (
+              <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-4 text-2xl font-bold italic">?</div>
+                <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Auditoría e Integridad</h2>
+                <p className="text-gray-500 max-w-sm mt-2 text-sm italic font-medium">Esta funcionalidad de análisis avanzado solo está disponible en el Plan Profesional y superiores.</p>
+                <button className="mt-6 px-6 py-2 bg-indigo-600 text-white rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-indigo-100">Mejorar Plan Ahora</button>
+              </div>
+            )}
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
               <h2 className="text-lg font-semibold text-gray-900 mb-2">Estado de Flujo de Efectivo</h2>
@@ -4350,14 +4359,24 @@ export default function DashboardPage() {
                         </td>
 
                          <td className="py-3 px-4 text-center">
-                           <button 
-                             onClick={() => user?.isAdmin && deleteMiembro(m.id)} 
-                             disabled={!user?.isAdmin}
-                             className={`text-red-400 hover:text-red-600 transition-colors ${!user?.isAdmin ? 'opacity-30 cursor-not-allowed' : ''}`} 
-                             title={user?.isAdmin ? "Eliminar miembro" : "No tienes permisos"}
-                           >
-                             🗑️
-                           </button>
+                           <div className="flex items-center justify-center gap-2">
+                             <button 
+                               onClick={() => hasFeature("manual_email") && alert("Reporte enviado a " + m.email)}
+                               disabled={!hasFeature("manual_email")}
+                               className={`p-1.5 rounded-lg transition-colors ${hasFeature("manual_email") ? "text-indigo-600 hover:bg-indigo-50" : "text-gray-300 cursor-not-allowed opacity-30"}`}
+                               title={hasFeature("manual_email") ? "Enviar reporte manual por email" : "Solo disponible en Plan Profesional"}
+                             >
+                               📧
+                             </button>
+                             <button 
+                               onClick={() => user?.isAdmin && deleteMiembro(m.id)} 
+                               disabled={!user?.isAdmin}
+                               className={`p-1.5 text-red-400 hover:text-red-600 transition-colors ${!user?.isAdmin ? "opacity-30 cursor-not-allowed" : ""}`} 
+                               title={user?.isAdmin ? "Eliminar miembro" : "No tienes permisos"}
+                             >
+                               🗑️
+                             </button>
+                           </div>
                          </td>
                       </tr>
                     ))}
