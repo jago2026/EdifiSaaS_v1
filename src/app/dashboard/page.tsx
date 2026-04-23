@@ -4008,7 +4008,6 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-            </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Gesti&oacute;n de Gastos Recurrentes</h2>
