@@ -208,32 +208,42 @@ export default function Home() {
               </div>
             </div>
             <div className="relative">
-              <div className="bg-blue-600 rounded-[3.5rem] p-3 rotate-2 shadow-2xl">
+              <div className="bg-gray-200 rounded-[3.5rem] p-3 rotate-2 shadow-2xl">
                 <img 
-                  src={"https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/Ejemplo%20Pantalla%20Ppal%20EdifiSaaS.jpg".replace(/ /g, "%20")} 
-                  alt="Dashboard EdifiSaaS" 
+                  src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/pantallarascacielo1.jpg?raw=true" 
+                  alt="Portal Rascacielo" 
                   className="rounded-[3rem] shadow-inner"
                 />
               </div>
-              <div className="absolute -bottom-10 -left-10 w-72 bg-white p-5 rounded-[2rem] shadow-2xl -rotate-3 border border-gray-100 hidden lg:block">
+              <div className="absolute -bottom-10 -left-10 w-72 bg-blue-600 p-3 rounded-[2rem] shadow-2xl -rotate-3 border border-blue-400 hidden lg:block">
                 <img 
-                  src={"https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/pantalla%20rascacielo%201.jpg".replace(/ /g, "%20")} 
-                  alt="Interface Rascacielo" 
+                  src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/EjemploPantallaPpalEdifiSaaS.jpg?raw=true" 
+                  alt="Dashboard EdifiSaaS" 
                   className="rounded-2xl"
                 />
-                <p className="text-[10px] font-black text-blue-600 uppercase mt-3 text-center tracking-widest">Portal Rascacielo Tradicional</p>
+                <p className="text-[10px] font-black text-white uppercase mt-3 text-center tracking-widest font-sans">Dashboard Inteligente</p>
               </div>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-16 items-center flex-row-reverse">
              <div className="order-2 md:order-1">
-                <div className="bg-white rounded-[4rem] p-3 -rotate-2 shadow-2xl border border-gray-100">
-                  <img 
-                    src={"https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/main/Ejemplo%20pantalla%20KPIs.jpg".replace(/ /g, "%20")} 
-                    alt="KPIs" 
-                    className="rounded-[3.5rem]"
-                  />
+                <div className="relative">
+                  <div className="bg-white rounded-[4rem] p-3 -rotate-2 shadow-2xl border border-gray-100">
+                    <img 
+                      src="https://raw.githubusercontent.com/jago2026/EdifiSaaS_v1/refs/heads/main/pantallarascacielo2.jpg" 
+                      alt="Portal Rascacielo Detalle" 
+                      className="rounded-[3.5rem]"
+                    />
+                  </div>
+                  <div className="absolute -top-10 -right-10 w-64 bg-white p-3 rounded-[2rem] shadow-2xl rotate-3 border border-gray-100 hidden lg:block">
+                    <img 
+                      src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/EjemplopantallaKPIs.jpg?raw=true" 
+                      alt="KPIs EdifiSaaS" 
+                      className="rounded-2xl"
+                    />
+                    <p className="text-[10px] font-black text-blue-600 uppercase mt-3 text-center tracking-widest">Indicadores Clave</p>
+                  </div>
                 </div>
              </div>
              <div className="space-y-8 order-1 md:order-2">
@@ -262,20 +272,6 @@ export default function Home() {
             <p className="text-xl text-gray-600 mb-10 font-bold uppercase tracking-tight">
               Déjanos tus datos y te contactaremos para una demostración personalizada.
             </p>
-            <div className="space-y-6">
-              <div className="flex items-center gap-6 text-gray-700 font-black text-lg">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                </div>
-                correojago@gmail.com
-              </div>
-              <div className="flex items-center gap-6 text-gray-700 font-black text-lg">
-                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center shadow-sm">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.417-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.5-5.688-1.448l-6.305 1.652zm6.599-3.835c1.511.895 2.994 1.342 4.646 1.343 5.421 0 9.835-4.415 9.838-9.835.001-2.628-1.023-5.1-2.885-6.963-1.862-1.865-4.334-2.889-6.96-2.891-5.424 0-9.838 4.415-9.841 9.836 0 1.734.484 3.424 1.4 4.887l-1.04 3.799 3.882-1.017zm11.332-6.721c-.301-.151-1.781-.878-2.057-.978-.275-.1-.475-.151-.675.151-.199.302-.775 1.006-.95 1.208-.175.202-.35.227-.651.076-.301-.151-1.271-.468-2.422-1.494-.894-.798-1.498-1.783-1.674-2.084-.176-.302-.019-.465.132-.614.135-.135.301-.352.451-.528.15-.175.2-.299.301-.502.1-.202.05-.377-.026-.528-.075-.151-.675-1.634-.925-2.237-.243-.587-.49-.508-.675-.518-.174-.01-.375-.01-.575-.01-.2 0-.525.076-.8.377-.275.302-1.05 1.027-1.05 2.507 0 1.481 1.075 2.912 1.225 3.113.15.201 2.116 3.23 5.125 4.532.715.311 1.275.496 1.71.635.719.227 1.373.195 1.89.118.576-.086 1.781-.727 2.031-1.429.25-.702.25-1.304.175-1.429-.075-.125-.275-.202-.576-.352z" /></svg>
-                </div>
-                +58 416-6284640
-              </div>
-            </div>
           </div>
           <div className="bg-[#0f172a] p-12 rounded-[4rem] border border-slate-800 shadow-2xl">
             <form className="space-y-6" onSubmit={handleContactSubmit}>
@@ -435,6 +431,38 @@ export default function Home() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+      </section>
+
+      <section id="faq" className="container mx-auto px-6 py-20 bg-gray-50 border-y border-gray-100">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-4xl font-black text-center text-gray-900 mb-12 uppercase tracking-tighter italic">Preguntas Frecuentes</h2>
+          <div className="space-y-6">
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Es compatible con mi administradora?</h3>
+              <p className="text-gray-600 font-medium">EdifiSaaS está optimizado para funcionar con administradoras que utilizan el portal Rascacielo. Si tus recibos se ven como los ejemplos mostrados, somos 100% compatibles.</p>
+            </div>
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Cómo se actualizan los datos?</h3>
+              <p className="text-gray-600 font-medium">El sistema se sincroniza diariamente de forma automática con el portal de tu administradora, detectando nuevos pagos, gastos y variaciones en saldos sin que tengas que hacer nada manual.</p>
+            </div>
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Mis datos están seguros?</h3>
+              <p className="text-gray-600 font-medium">Absolutamente. Utilizamos encriptación de nivel bancario para proteger toda la información. Los datos son privados de tu junta de condominio y no se comparten con terceros.</p>
+            </div>
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Tengo que instalar algún software?</h3>
+              <p className="text-gray-600 font-medium">No. EdifiSaaS es una plataforma 100% en la nube. Puedes acceder desde cualquier navegador en tu computadora, tablet o teléfono móvil.</p>
+            </div>
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Puedo cancelar en cualquier momento?</h3>
+              <p className="text-gray-600 font-medium">Sí, no hay contratos de permanencia a largo plazo. Si decides cancelar, tu servicio se mantendrá activo hasta el final del periodo pagado y no se realizarán más cobros.</p>
+            </div>
+            <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-black text-blue-600 mb-3 uppercase tracking-tight">¿Ofrecen soporte técnico?</h3>
+              <p className="text-gray-600 font-medium">Contamos con un equipo de soporte dedicado para ayudarte en la configuración inicial y resolver cualquier duda operativa que surja durante el uso del sistema.</p>
+            </div>
           </div>
         </div>
       </section>
