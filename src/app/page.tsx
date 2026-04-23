@@ -68,54 +68,60 @@ export default function Home() {
 
   useEffect(() => {
     async function loadPlanes() {
+      const hardcodedPlanes = [
+        { name: "Básico", price_monthly: 19, price_yearly: 190, features: [
+          "Sincronización Diaria",
+          "Reporte diario automático a los miembros de la Junta de Condominio con la situación financiera",
+          "Reportes Básicos",
+          "Historial de 3 meses",
+          "Soporte por email",
+          "Hasta 30 Unidades"
+        ], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
+        { name: "Profesional", price_monthly: 29, price_yearly: 290, features: [
+          "Todo lo de Básico",
+          "Control financiero avanzado",
+          "Reporte diario automático a los miembros de la Junta de Condominio con la situación financiera",
+          "Historial de 12 meses",
+          "Exportación de reportes",
+          "Auditoría Financiera",
+          "Reportes Avanzados",
+          "Hasta 50 Unidades"
+        ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
+        { name: "Empresarial", price_monthly: 59, price_yearly: 590, features: [
+          "Todo lo de Profesional",
+          "Unidades Ilimitadas",
+          "Soporte Prioritario",
+          "Actualizaciones y mejoras incluidas",
+          "Formación in situ"
+        ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
+        { name: "IA (En Desarrollo. actualmente no disponible)", price_monthly: 79, price_yearly: 790, features: [
+          "Todo lo de Empresarial",
+          "Asistente de IA",
+          "Análisis Predictivo",
+          "Reportes inteligentes automatizados",
+          "Todo incluido",
+          "Análisis y recomendaciones",
+          "Análisis de morosidad, de gastos, proyecciones y estimaciones, y mucho mas.",
+          "Soporte",
+          "Formación in situ"
+        ], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
+      ];
+
       try {
         const res = await fetch("/api/planes");
         const data = await res.json();
         if (res.ok && data.data && data.data.length > 0) {
-          setPlanes(data.data);
+          // Combinamos con los datos de la DB pero priorizamos nuestros textos de features
+          const mergedPlanes = data.data.map((dbPlan: any) => {
+            const hardPlan = hardcodedPlanes.find(p => p.name === dbPlan.name || (dbPlan.name.startsWith("IA") && p.name.startsWith("IA")));
+            return hardPlan ? { ...dbPlan, ...hardPlan } : dbPlan;
+          });
+          setPlanes(mergedPlanes);
         } else {
-          // Fallback plans if none in DB
-          setPlanes([
-            { name: "Básico", price_monthly: 19, price_yearly: 190, features: [
-              "Sincronización Diaria de Datos",
-              "Reporte diario automático a la Junta de Condominio con la situación financiera",
-              "Acceso a Reportes Financieros Básicos",
-              "Historial de Datos de 3 meses",
-              "Soporte técnico por email",
-              "Hasta 30 Unidades de Vivienda"
-            ], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
-            { name: "Profesional", price_monthly: 29, price_yearly: 290, features: [
-              "Todo lo incluido en el Plan Básico",
-              "Control financiero y conciliación avanzada",
-              "Reporte diario automático a la Junta de Condominio con la situación financiera",
-              "Historial de Datos de 12 meses",
-              "Exportación de reportes (Excel/PDF)",
-              "Herramientas de Auditoría Financiera",
-              "Reportes e Indicadores Avanzados",
-              "Hasta 50 Unidades de Vivienda"
-            ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
-            { name: "Empresarial", price_monthly: 59, price_yearly: 0, features: [
-              "Todo lo incluido en el Plan Profesional",
-              "Unidades de Vivienda Ilimitadas",
-              "Soporte Técnico Prioritario",
-              "Actualizaciones y mejoras continuas incluidas",
-              "Formación y capacitación in situ"
-            ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
-            { name: "IA (En Desarrollo)", price_monthly: 79, price_yearly: 0, features: [
-              "Todo lo incluido en el Plan Empresarial",
-              "Asistente Virtual con IA",
-              "Análisis Predictivo de Flujo de Caja",
-              "Reportes inteligentes automatizados",
-              "Acceso total a todas las funcionalidades",
-              "Análisis detallado y recomendaciones",
-              "Análisis de morosidad, gastos y proyecciones",
-              "Soporte VIP Personalizado",
-              "Formación continua in situ"
-            ], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
-          ]);
+          setPlanes(hardcodedPlanes);
         }
       } catch (error) {
-        console.error("Error loading plans:", error);
+        setPlanes(hardcodedPlanes);
       } finally {
         setLoadingPlanes(false);
       }
