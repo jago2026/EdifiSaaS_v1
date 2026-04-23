@@ -83,7 +83,7 @@ interface Administradora {
   created_at: string;
 }
 
-type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'planes';
+type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'planes' | 'settings';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -105,6 +105,34 @@ export default function AdminPage() {
   const [planesConfigs, setPlanesConfigs] = useState<PlanConfig[]>([]);
   const [loadingPlanes, setLoadingPlanes] = useState(false);
   const [savingPlanes, setSavingPlanes] = useState(false);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(false);
+
+  const loadMaintenanceMode = async () => {
+    try {
+      const res = await fetch('/api/admin/settings?key=maintenance_mode');
+      const data = await res.json();
+      if (res.ok) setMaintenanceMode(data.value || false);
+    } catch (e) {}
+  };
+
+  const toggleMaintenanceMode = async () => {
+    setLoadingSettings(true);
+    try {
+      const newVal = !maintenanceMode;
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: 'maintenance_mode', value: newVal })
+      });
+      if (res.ok) {
+        setMaintenanceMode(newVal);
+        setActionMsg(`✅ Modo mantenimiento ${newVal ? 'ACTIVADO' : 'DESACTIVADO'}`);
+        setTimeout(() => setActionMsg(''), 3000);
+      }
+    } catch (e) {}
+    setLoadingSettings(false);
+  };
 
   const loadEdificios = async () => {
     setLoading(true);
@@ -166,6 +194,7 @@ export default function AdminPage() {
     loadEdificios();
     loadAdministradoras();
     loadPlanesConfigs();
+    loadMaintenanceMode();
   }, []);
 
   const handleSavePlanes = async () => {
@@ -269,6 +298,55 @@ export default function AdminPage() {
     }
   };
 
+  const handleSaveAdministradora = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAdmin) return;
+    setLoadingAdmins(true);
+    try {
+      const res = await fetch('/api/admin/administradoras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: editingAdmin.id ? 'update' : 'create',
+          id: editingAdmin.id,
+          data: {
+            nombre: editingAdmin.nombre,
+            url_login: editingAdmin.url_login,
+            url_recibos: editingAdmin.url_recibos,
+            url_recibo_mes: editingAdmin.url_recibo_mes,
+            url_egresos: editingAdmin.url_egresos,
+            url_gastos: editingAdmin.url_gastos,
+            url_balance: editingAdmin.url_balance,
+            url_alicuotas: editingAdmin.url_alicuotas,
+          }
+        })
+      });
+      if (res.ok) {
+        setActionMsg(`✅ Administradora guardada`);
+        setEditingAdmin(null);
+        loadAdministradoras();
+        setTimeout(() => setActionMsg(''), 3000);
+      }
+    } catch (e) {}
+    setLoadingAdmins(false);
+  };
+
+  const handleDeleteAdministradora = async (id: string) => {
+    if (!confirm('¿Seguro que desea eliminar esta administradora?')) return;
+    try {
+      const res = await fetch('/api/admin/administradoras', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id })
+      });
+      if (res.ok) {
+        setActionMsg('✅ Administradora eliminada');
+        loadAdministradoras();
+        setTimeout(() => setActionMsg(''), 3000);
+      }
+    } catch (e) {}
+  };
+
   const filteredEdificios = edificios.filter(e => 
     e.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.id.toLowerCase().includes(searchTerm.toLowerCase())
@@ -305,6 +383,7 @@ export default function AdminPage() {
               { id: 'edificios',  label: 'Gestionar Edificios', icon: Building },
               { id: 'administradoras', label: 'Administradoras', icon: Settings },
               { id: 'planes',     label: 'Configurar Planes', icon: CreditCard },
+              { id: 'settings',   label: 'Configuración', icon: ShieldCheck },
               { id: 'pagos',      label: 'Cobranza y Pagos', icon: BarChart3 },
               { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
             ].map((item) => (
@@ -659,7 +738,84 @@ export default function AdminPage() {
             </div>
           )}
 
-          {(activeSection === 'administradoras' || activeSection === 'pagos' || activeSection === 'auditoria' || activeSection === 'dashboard') && (
+          {activeSection === 'administradoras' && (
+            <div className="space-y-8">
+               <div className="flex justify-between items-center bg-[#1e293b] p-8 rounded-[2.5rem] border border-slate-700/50 shadow-xl">
+                  <div>
+                    <h2 className="text-2xl font-black text-white tracking-tighter uppercase italic">Administradoras Predefinidas</h2>
+                    <p className="text-slate-500 text-xs font-bold mt-1">Configura las URLs de acceso para las integraciones</p>
+                  </div>
+                  <button 
+                    onClick={() => setEditingAdmin({ nombre: '', url_login: '' })}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-3"
+                  >
+                    <Plus className="w-4 h-4" /> Nueva Administradora
+                  </button>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {administradoras.map((admin) => (
+                    <div key={admin.id} className="bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 p-8 hover:border-indigo-500/50 transition-all group">
+                       <div className="flex justify-between items-start mb-6">
+                          <h3 className="text-white font-black text-xl tracking-tight leading-tight">{admin.nombre}</h3>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => setEditingAdmin(admin)} className="p-2 text-slate-400 hover:text-indigo-400 bg-slate-800 rounded-lg"><Edit className="w-4 h-4" /></button>
+                             <button onClick={() => handleDeleteAdministradora(admin.id)} className="p-2 text-slate-400 hover:text-red-400 bg-slate-800 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                       </div>
+                       <div className="space-y-4">
+                          <div className="bg-[#0f172a] rounded-2xl p-4 border border-slate-800">
+                             <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">URL Login</p>
+                             <p className="text-slate-300 text-[11px] truncate font-mono">{admin.url_login || 'No configurada'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                             <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-800 text-center">
+                                <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Recibos</p>
+                                <CheckCircle2 className={`w-3 h-3 mx-auto ${admin.url_recibos ? 'text-green-500' : 'text-slate-700'}`} />
+                             </div>
+                             <div className="bg-slate-800/30 rounded-xl p-3 border border-slate-800 text-center">
+                                <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Egresos</p>
+                                <CheckCircle2 className={`w-3 h-3 mx-auto ${admin.url_egresos ? 'text-green-500' : 'text-slate-700'}`} />
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          )}
+
+          {activeSection === 'settings' && (
+            <div className="max-w-2xl mx-auto space-y-8">
+               <div className="bg-[#1e293b] rounded-[3rem] border border-slate-700 shadow-2xl p-12 text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/5 rounded-full -mr-32 -mt-32"></div>
+                  <ShieldCheck className="w-20 h-20 text-indigo-500 mx-auto mb-6" />
+                  <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic mb-4">Estado del Sistema</h2>
+                  <p className="text-slate-400 text-sm mb-12">Control global de acceso a la plataforma para mantenimiento.</p>
+                  
+                  <div className="bg-[#0f172a] rounded-[2rem] p-10 border border-slate-800 flex flex-col items-center gap-6">
+                     <div className="space-y-2">
+                        <h3 className="text-white font-black uppercase tracking-widest text-xs">Modo Mantenimiento</h3>
+                        <p className="text-slate-500 text-[10px]">Al activar esto, los usuarios verán un aviso de mantenimiento en lugar del login.</p>
+                     </div>
+                     
+                     <button 
+                       onClick={toggleMaintenanceMode}
+                       disabled={loadingSettings}
+                       className={`w-full py-6 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-2xl ${
+                         maintenanceMode 
+                         ? 'bg-red-600 text-white hover:bg-red-500 shadow-red-600/20' 
+                         : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-emerald-600/20'
+                       } disabled:opacity-50`}
+                     >
+                        {loadingSettings ? 'PROCESANDO...' : maintenanceMode ? 'DESACTIVAR MANTENIMIENTO' : 'ACTIVAR MANTENIMIENTO'}
+                     </button>
+                  </div>
+               </div>
+            </div>
+          )}
+
+          {(activeSection === 'pagos' || activeSection === 'auditoria' || activeSection === 'dashboard') && (
             <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-center">
                <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
                <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
@@ -748,6 +904,77 @@ export default function AdminPage() {
                   <button type="button" onClick={() => setEditingBuilding(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-slate-600">Cancelar</button>
                   <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-indigo-500 flex items-center justify-center gap-3">
                     <Save className="w-4 h-4" /> Actualizar Core
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {editingAdmin && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
+            <div className="bg-[#1e293b] w-full max-w-4xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden">
+              <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center">
+                <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">Configurar Administradora</h3>
+                <button onClick={() => setEditingAdmin(null)} className="text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleSaveAdministradora} className="p-10 space-y-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre Completo</label>
+                  <input 
+                    type="text" required
+                    value={editingAdmin.nombre}
+                    onChange={(e) => setEditingAdmin({...editingAdmin, nombre: e.target.value})}
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 transition-all shadow-inner"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">URL Login Principal</label>
+                    <input 
+                      type="text" 
+                      value={editingAdmin.url_login}
+                      onChange={(e) => setEditingAdmin({...editingAdmin, url_login: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-slate-300 text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">URL Recibos</label>
+                    <input 
+                      type="text" 
+                      value={editingAdmin.url_recibos}
+                      onChange={(e) => setEditingAdmin({...editingAdmin, url_recibos: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-slate-300 text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">URL Egresos</label>
+                    <input 
+                      type="text" 
+                      value={editingAdmin.url_egresos}
+                      onChange={(e) => setEditingAdmin({...editingAdmin, url_egresos: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-slate-300 text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">URL Gastos</label>
+                    <input 
+                      type="text" 
+                      value={editingAdmin.url_gastos}
+                      onChange={(e) => setEditingAdmin({...editingAdmin, url_gastos: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-slate-300 text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => setEditingAdmin(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-slate-600">Cancelar</button>
+                  <button type="submit" disabled={loadingAdmins} className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-indigo-500 flex items-center justify-center gap-3">
+                    <Save className="w-4 h-4" /> {loadingAdmins ? 'GUARDANDO...' : 'GUARDAR CONFIGURACIÓN'}
                   </button>
                 </div>
               </form>

@@ -9,8 +9,34 @@ export default function Home() {
   const [loadingPlanes, setLoadingPlanes] = useState(true);
   const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("monthly");
 
-  useEffect(() => {
-    async function loadPlanes() {
+  const [contactForm, setContactForm] = useState({
+    nombre: '',
+    edificio: '',
+    rol: 'Administrador',
+    email: '',
+    whatsapp: '',
+    mensaje: ''
+  });
+  const [sendingContact, setSendingContact] = useState(false);
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSendingContact(true);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm)
+      });
+      if (res.ok) {
+        alert('¡Mensaje enviado con éxito! Te contactaremos pronto.');
+        setContactForm({ nombre: '', edificio: '', rol: 'Administrador', email: '', whatsapp: '', mensaje: '' });
+      }
+    } catch (e) {
+      alert('Error al enviar el mensaje. Por favor intenta de nuevo.');
+    }
+    setSendingContact(false);
+  };
       try {
         const res = await fetch("/api/planes");
         const data = await res.json();
@@ -47,6 +73,7 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-gray-600 hover:text-blue-600 transition font-medium">Funcionalidades</a>
             <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 transition font-medium">Cómo funciona</a>
+            <a href="#contact" className="text-gray-600 hover:text-blue-600 transition font-medium">Contacto</a>
             <Link href="/login" className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg hover:bg-blue-200 transition font-bold">Ingresar</Link>
             <Link href="/register" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold">Prueba Gratis</Link>
           </nav>
@@ -106,40 +133,219 @@ export default function Home() {
 
       <section id="features" className="container mx-auto px-6 py-20 bg-white">
         <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12 uppercase tracking-tighter">
             Todo lo que necesitas para gestionar tu condominio
           </h2>
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-6 bg-gray-50 rounded-xl hover:shadow-lg transition border border-transparent hover:border-blue-100">
-              <div className="text-4xl mb-4">📊</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Control Financiero Automatizado</h3>
-              <p className="text-gray-600">Sincroniza automáticamente tus recibos, egresos, gastos y balance desde la administradora. Detecta nuevos movimientos al instante.</p>
+            <div className="p-8 bg-gray-50 rounded-[2rem] hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-blue-100 group">
+              <div className="text-5xl mb-6 transform group-hover:scale-110 transition-transform">📊</div>
+              <h3 className="text-xl font-black text-gray-900 mb-4 uppercase tracking-tight">Control Financiero Automatizado</h3>
+              <p className="text-gray-600 font-medium leading-relaxed">Sincroniza automáticamente tus recibos, egresos, gastos y balance desde la administradora. Detecta nuevos movimientos al instante.</p>
             </div>
-            <div className="p-6 bg-gray-50 rounded-xl hover:shadow-lg transition border border-transparent hover:border-blue-100">
-              <div className="text-4xl mb-4">🔔</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Alertas Inteligentes</h3>
-              <p className="text-gray-600">Recibe alertas sobre variaciones inusuales en saldos, gastos y egresos. Mantén el control total de tus finanzas.</p>
+            <div className="p-8 bg-gray-50 rounded-[2rem] hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-blue-100 group">
+              <div className="text-5xl mb-6 transform group-hover:scale-110 transition-transform">🔔</div>
+              <h3 className="text-xl font-black text-gray-900 mb-4 uppercase tracking-tight">Alertas Inteligentes</h3>
+              <p className="text-gray-600 font-medium leading-relaxed">Recibe alertas sobre variaciones inusuales en saldos, gastos y egresos. Mantén el control total de tus finanzas.</p>
             </div>
-            <div className="p-6 bg-gray-50 rounded-xl hover:shadow-lg transition border border-transparent hover:border-blue-100">
-              <div className="text-4xl mb-4">📈</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Dashboards en Tiempo Real</h3>
-              <p className="text-gray-600">Visualiza el estado financiero de tu edificio con gráficos interactivos y reportes detallados.</p>
+            <div className="p-8 bg-gray-50 rounded-[2rem] hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-blue-100 group">
+              <div className="text-5xl mb-6 transform group-hover:scale-110 transition-transform">📈</div>
+              <h3 className="text-xl font-black text-gray-900 mb-4 uppercase tracking-tight">Dashboards en Tiempo Real</h3>
+              <p className="text-gray-600 font-medium leading-relaxed">Visualiza el estado financiero de tu edificio con gráficos interactivos y reportes detallados.</p>
             </div>
-            <div className="p-6 bg-gray-50 rounded-xl hover:shadow-lg transition border border-transparent hover:border-blue-100">
-              <div className="text-4xl mb-4">🔐</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Seguridad Garantizada</h3>
-              <p className="text-gray-600">Tus datos están protegidos con encriptación de extremo a extremo. Solo tú tienes acceso a la información.</p>
+            <div className="p-8 bg-gray-50 rounded-[2rem] hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-blue-100 group">
+              <div className="text-5xl mb-6 transform group-hover:scale-110 transition-transform">🔐</div>
+              <h3 className="text-xl font-black text-gray-900 mb-4 uppercase tracking-tight">Seguridad</h3>
+              <p className="text-gray-600 font-medium leading-relaxed">Tus datos están protegidos con encriptación de extremo a extremo. Solo tú tienes acceso a la información.</p>
             </div>
-            <div className="p-6 bg-gray-50 rounded-xl hover:shadow-lg transition border border-transparent hover:border-blue-100">
-              <div className="text-4xl mb-4">📱</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Acceso desde cualquier lugar</h3>
-              <p className="text-gray-600">Gestiona tu condominio desde cualquier dispositivo. Navega, descarga reportes y toma decisiones informadas.</p>
+            <div className="p-8 bg-gray-50 rounded-[2rem] hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-blue-100 group">
+              <div className="text-5xl mb-6 transform group-hover:scale-110 transition-transform">📱</div>
+              <h3 className="text-xl font-black text-gray-900 mb-4 uppercase tracking-tight">Acceso desde cualquier lugar</h3>
+              <p className="text-gray-600 font-medium leading-relaxed">Gestiona tu condominio desde cualquier dispositivo. Navega, descarga reportes y toma decisiones informadas.</p>
             </div>
-            <div className="p-6 bg-gray-50 rounded-xl hover:shadow-lg transition border border-transparent hover:border-blue-100">
-              <div className="text-4xl mb-4">🔄</div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Sincronización Automática</h3>
-              <p className="text-gray-600">El sistema se actualiza automáticamente cada día. No te preocupes por olvidar sincronizar tus datos.</p>
+            <div className="p-8 bg-gray-50 rounded-[2rem] hover:shadow-2xl transition-all duration-300 border border-transparent hover:border-blue-100 group">
+              <div className="text-5xl mb-6 transform group-hover:scale-110 transition-transform">🔄</div>
+              <h3 className="text-xl font-black text-gray-900 mb-4 uppercase tracking-tight">Sincronización Automática</h3>
+              <p className="text-gray-600 font-medium leading-relaxed">El sistema se actualiza automáticamente cada día. No te preocupes por olvidar sincronizar tus datos.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" className="py-24 bg-gray-50 border-y border-gray-100 overflow-hidden">
+        <div className="container mx-auto px-6">
+          <div className="max-w-4xl mx-auto text-center mb-16">
+            <h2 className="text-4xl font-black text-gray-900 mb-6 tracking-tighter uppercase italic">¿Cómo funciona EdifiSaaS?</h2>
+            <p className="text-xl text-gray-600 leading-relaxed font-medium">
+              Nuestra plataforma actúa como una capa de inteligencia sobre la web de tu administradora actual. 
+              Extraemos, procesamos y presentamos los datos para que siempre tengas el control financiero total.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-16 items-center mb-24">
+            <div className="space-y-6">
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-gray-100 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="relative z-10">
+                  <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl mb-8 shadow-lg shadow-blue-200">1</div>
+                  <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight uppercase">Integración con Rascacielo</h3>
+                  <p className="text-gray-600 font-medium leading-relaxed italic">
+                    "El Sistema está completamente adaptado para funcionar con las Adminitradoras que utilizan el Sistema de condominio Rascacielo, y donde los propietarios acceden al mismo."
+                  </p>
+                </div>
+              </div>
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-gray-100 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-500"></div>
+                <div className="relative z-10">
+                  <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl mb-8 shadow-lg shadow-blue-200">2</div>
+                  <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight uppercase">Data en Tiempo Real</h3>
+                  <p className="text-gray-600 font-medium leading-relaxed">
+                    La actualización on-line depende directamente de la información cargada por tu administradora. EdifiSaaS toma esa data y genera reportes automáticos de alta visibilidad.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="relative">
+              <div className="bg-blue-600 rounded-[3.5rem] p-3 rotate-2 shadow-2xl">
+                <img 
+                  src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/Ejemplo%20Pantalla%20Ppal%20EdifiSaaS.jpg?raw=true" 
+                  alt="Dashboard EdifiSaaS" 
+                  className="rounded-[3rem] shadow-inner"
+                />
+              </div>
+              <div className="absolute -bottom-10 -left-10 w-72 bg-white p-5 rounded-[2rem] shadow-2xl -rotate-3 border border-gray-100 hidden lg:block">
+                <img 
+                  src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/pantalla%20rascacielo%201.jpg?raw=true" 
+                  alt="Interface Rascacielo" 
+                  className="rounded-2xl"
+                />
+                <p className="text-[10px] font-black text-blue-600 uppercase mt-3 text-center tracking-widest">Portal Rascacielo Tradicional</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-16 items-center flex-row-reverse">
+             <div className="order-2 md:order-1">
+                <div className="bg-white rounded-[4rem] p-3 -rotate-2 shadow-2xl border border-gray-100">
+                  <img 
+                    src="https://github.com/jago2026/EdifiSaaS_v1/blob/main/Ejemplo%20pantalla%20KPIs.jpg?raw=true" 
+                    alt="KPIs" 
+                    className="rounded-[3.5rem]"
+                  />
+                </div>
+             </div>
+             <div className="space-y-8 order-1 md:order-2">
+                <h3 className="text-4xl font-black text-gray-900 tracking-tighter leading-tight uppercase italic">
+                  Reportes <span className="text-blue-600 underline decoration-blue-200 underline-offset-8">Gráficos e Indicadores</span>
+                </h3>
+                <p className="text-lg text-gray-600 font-medium leading-relaxed">
+                  Visualiza KPIs críticos como morosidad, flujo de caja proyectado y evolución de fondos de reserva con base a la información de tu administradora.
+                </p>
+                <div className="p-8 bg-blue-600 rounded-[2.5rem] text-white shadow-xl shadow-blue-200">
+                  <p className="text-sm font-bold leading-relaxed italic">
+                    "El sistema toma la data existente en la página de la administradora y a partir de ahí muestra información con base a la data cargada en la misma. Su actualización on-line depende de la información actualizada existente en la página de la administradora."
+                  </p>
+                </div>
+             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" className="container mx-auto px-6 py-24 bg-white">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-20 items-center">
+          <div>
+            <h2 className="text-5xl font-black text-gray-900 mb-8 tracking-tighter leading-tight uppercase italic">
+              ¿Listo para automatizar tu edificio?
+            </h2>
+            <p className="text-xl text-gray-600 mb-10 font-bold uppercase tracking-tight">
+              Déjanos tus datos y te contactaremos para una demostración personalizada.
+            </p>
+            <div className="space-y-6">
+              <div className="flex items-center gap-6 text-gray-700 font-black text-lg">
+                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                </div>
+                correojago@gmail.com
+              </div>
+              <div className="flex items-center gap-6 text-gray-700 font-black text-lg">
+                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center shadow-sm">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.417-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.5-5.688-1.448l-6.305 1.652zm6.599-3.835c1.511.895 2.994 1.342 4.646 1.343 5.421 0 9.835-4.415 9.838-9.835.001-2.628-1.023-5.1-2.885-6.963-1.862-1.865-4.334-2.889-6.96-2.891-5.424 0-9.838 4.415-9.841 9.836 0 1.734.484 3.424 1.4 4.887l-1.04 3.799 3.882-1.017zm11.332-6.721c-.301-.151-1.781-.878-2.057-.978-.275-.1-.475-.151-.675.151-.199.302-.775 1.006-.95 1.208-.175.202-.35.227-.651.076-.301-.151-1.271-.468-2.422-1.494-.894-.798-1.498-1.783-1.674-2.084-.176-.302-.019-.465.132-.614.135-.135.301-.352.451-.528.15-.175.2-.299.301-.502.1-.202.05-.377-.026-.528-.075-.151-.675-1.634-.925-2.237-.243-.587-.49-.508-.675-.518-.174-.01-.375-.01-.575-.01-.2 0-.525.076-.8.377-.275.302-1.05 1.027-1.05 2.507 0 1.481 1.075 2.912 1.225 3.113.15.201 2.116 3.23 5.125 4.532.715.311 1.275.496 1.71.635.719.227 1.373.195 1.89.118.576-.086 1.781-.727 2.031-1.429.25-.702.25-1.304.175-1.429-.075-.125-.275-.202-.576-.352z" /></svg>
+                </div>
+                +58 416-6284640
+              </div>
+            </div>
+          </div>
+          <div className="bg-[#0f172a] p-12 rounded-[4rem] border border-slate-800 shadow-2xl">
+            <form className="space-y-6" onSubmit={handleContactSubmit}>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Nombre y Apellido *</label>
+                  <input 
+                    type="text" required 
+                    value={contactForm.nombre}
+                    onChange={(e) => setContactForm({...contactForm, nombre: e.target.value})}
+                    className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Nombre del Edificio *</label>
+                  <input 
+                    type="text" required 
+                    value={contactForm.edificio}
+                    onChange={(e) => setContactForm({...contactForm, edificio: e.target.value})}
+                    className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Rol en el Edificio</label>
+                <select 
+                  value={contactForm.rol}
+                  onChange={(e) => setContactForm({...contactForm, rol: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm appearance-none cursor-pointer"
+                >
+                  <option>Miembro de Junta</option>
+                  <option>Administrador</option>
+                  <option>Propietario</option>
+                  <option>Otro</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Email *</label>
+                  <input 
+                    type="email" required 
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                    className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">WhatsApp</label>
+                  <input 
+                    type="tel" 
+                    value={contactForm.whatsapp}
+                    onChange={(e) => setContactForm({...contactForm, whatsapp: e.target.value})}
+                    className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-bold text-sm" placeholder="+58..." 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest ml-1">Mensaje *</label>
+                <textarea 
+                  rows={4} required
+                  value={contactForm.mensaje}
+                  onChange={(e) => setContactForm({...contactForm, mensaje: e.target.value})}
+                  className="w-full bg-slate-800 border border-slate-700 text-white px-5 py-4 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none font-medium text-sm resize-none" placeholder="Cuéntanos sobre tu edificio y necesidades..." 
+                ></textarea>
+              </div>
+              <button 
+                type="submit" 
+                disabled={sendingContact}
+                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-blue-500 transition shadow-2xl shadow-blue-600/20 disabled:opacity-50"
+              >
+                {sendingContact ? 'ENVIANDO...' : 'Enviar Mensaje'}
+              </button>
+            </form>
           </div>
         </div>
       </section>
@@ -272,8 +478,8 @@ export default function Home() {
             <div>
               <h4 className="font-black text-xs uppercase tracking-widest text-gray-500 mb-6">Legal</h4>
               <ul className="space-y-3 text-gray-400 text-sm font-bold">
-                <li><a href="#" className="hover:text-white transition">Términos de servicio</a></li>
-                <li><a href="#" className="hover:text-white transition">Política de privacidad</a></li>
+                <li><Link href="/terms" className="hover:text-white transition">Términos de servicio</Link></li>
+                <li><Link href="/privacy" className="hover:text-white transition">Política de privacidad</Link></li>
               </ul>
             </div>
           </div>
