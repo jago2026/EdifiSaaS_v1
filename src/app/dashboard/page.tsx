@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -271,6 +271,9 @@ export default function DashboardPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [newMiembro, setNewMiembro] = useState({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
+  const [planesAdmin, setPlanesAdmin] = useState<any[]>([]);
+  const [loadingPlanesAdmin, setLoadingPlanesAdmin] = useState(false);
+  const [savingPlanesAdmin, setSavingPlanesAdmin] = useState(false);
 
   const loadReciboGeneral = async (mesOverride?: string) => {
     if (!building?.id) return;
@@ -370,6 +373,42 @@ export default function DashboardPage() {
       console.error("Error loading pre-recibo data:", error);
     } finally {
       setLoadingPreRecibo(false);
+    }
+  };
+  const loadAdminPlanes = async () => {
+    setLoadingPlanesAdmin(true);
+    try {
+      const res = await fetch("/api/admin/planes");
+      const data = await res.json();
+      if (res.ok) {
+        setPlanesAdmin(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error loading admin planes:", error);
+    } finally {
+      setLoadingPlanesAdmin(false);
+    }
+  };
+
+  const saveAdminPlanes = async (planesToSave: any[]) => {
+    setSavingPlanesAdmin(true);
+    try {
+      const res = await fetch("/api/admin/planes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planes: planesToSave }),
+      });
+      if (res.ok) {
+        alert("Planes actualizados con éxito");
+        loadAdminPlanes();
+      } else {
+        const data = await res.json();
+        alert("Error: " + data.error);
+      }
+    } catch (error: any) {
+      alert("Error: " + error.message);
+    } finally {
+      setSavingPlanesAdmin(false);
     }
   };
 
@@ -993,6 +1032,9 @@ export default function DashboardPage() {
     }
     if (activeTab === "alertas" && building?.id) {
       loadSincronizaciones();
+    }
+    if (activeTab === "planes") {
+      loadAdminPlanes();
     }
   }, [activeTab, building?.id]);
 
@@ -1823,6 +1865,11 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("instrucciones")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'instrucciones' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📖</span> Ayuda / Manual
               </button>
+              {user?.id === "superuser-id" && (
+                <button onClick={() => setActiveTab("planes")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'planes' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                  <span className="text-lg">🏷️</span> Configurar Planes
+                </button>
+              )}
             </div>
           </div>
         </nav>
@@ -4910,6 +4957,193 @@ export default function DashboardPage() {
           </div>
         )}
 
+ 
+        {activeTab === "planes" && user?.id === "superuser-id" && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Configuración de Planes y Precios</h2>
+                <p className="text-sm text-gray-500">Gestiona los planes que se muestran en la página principal</p>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    const newPlanes = [...planesAdmin, { 
+                      id: crypto.randomUUID(), 
+                      name: "Nuevo Plan", 
+                      price_monthly: 0, 
+                      price_yearly: 0, 
+                      features: ["Feature 1"], 
+                      is_popular: false, 
+                      show_contact: false, 
+                      badge_text: "", 
+                      display_order: planesAdmin.length 
+                    }];
+                    setPlanesAdmin(newPlanes);
+                  }}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
+                >
+                  + Agregar Plan
+                </button>
+                <button 
+                  onClick={() => saveAdminPlanes(planesAdmin)}
+                  disabled={savingPlanesAdmin}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg disabled:opacity-50"
+                >
+                  {savingPlanesAdmin ? "Guardando..." : "Guardar Cambios"}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              {loadingPlanesAdmin ? (
+                <div className="p-12 text-center text-gray-500 font-bold">Cargando planes...</div>
+              ) : planesAdmin.length === 0 ? (
+                <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 text-center">
+                  <p className="text-gray-500 mb-4">No hay planes configurados. Agrega el primero.</p>
+                  <button 
+                    onClick={() => {
+                      const initialPlanes = [
+                        { name: "Básico", price_monthly: 19, price_yearly: 190, features: ["Hasta 30 unidades", "Control financiero básico", "Reporte diario automático", "Historial de 3 meses", "Soporte por email"], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
+                        { name: "Profesional", price_monthly: 29, price_yearly: 290, features: ["Hasta 50 unidades", "Control financiero avanzado", "Reporte diario automático", "Historial de 12 meses", "Soporte", "Exportación de reportes"], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
+                        { name: "Empresarial", price_monthly: 0, price_yearly: 0, features: ["Unidades ilimitadas", "Todo incluido", "Actualizaciones y mejoras incluidas", "Soporte", "Formación in situ"], is_popular: false, show_contact: true, badge_text: "", display_order: 2 },
+                        { name: "Inteligencia Artificial (IA)", price_monthly: 0, price_yearly: 0, features: ["Reportes inteligentes automatizados", "Todo incluido", "Análisis y recomendaciones", "Análisis de morosidad, gastos, proyecciones", "Soporte", "Formación in situ"], is_popular: false, show_contact: true, badge_text: "En Desarrollo", display_order: 3 }
+                      ];
+                      setPlanesAdmin(initialPlanes);
+                    }}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg"
+                  >
+                    Cargar Planes por Defecto
+                  </button>
+                </div>
+              ) : (
+                planesAdmin.map((plan, idx) => (
+                  <div key={plan.id || idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                    <div className="grid md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Nombre del Plan</label>
+                        <input 
+                          value={plan.name} 
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].name = e.target.value;
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Precio Mensual ($)</label>
+                        <input 
+                          type="number"
+                          value={plan.price_monthly} 
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].price_monthly = Number(e.target.value);
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Precio Anual ($)</label>
+                        <input 
+                          type="number"
+                          value={plan.price_yearly} 
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].price_yearly = Number(e.target.value);
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Orden</label>
+                        <input 
+                          type="number"
+                          value={plan.display_order} 
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].display_order = Number(e.target.value);
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Badge (Ej: Más popular)</label>
+                        <input 
+                          value={plan.badge_text || ""} 
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].badge_text = e.target.value;
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm text-blue-600"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <input 
+                          type="checkbox"
+                          checked={plan.is_popular}
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].is_popular = e.target.checked;
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          id={`pop-${idx}`}
+                        />
+                        <label htmlFor={`pop-${idx}`} className="text-xs font-bold text-gray-700">Popular</label>
+                      </div>
+                      <div className="flex items-center gap-2 pt-6">
+                        <input 
+                          type="checkbox"
+                          checked={plan.show_contact}
+                          onChange={(e) => {
+                            const newPlanes = [...planesAdmin];
+                            newPlanes[idx].show_contact = e.target.checked;
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          id={`cont-${idx}`}
+                        />
+                        <label htmlFor={`cont-${idx}`} className="text-xs font-bold text-gray-700">Mostrar "Contactar"</label>
+                      </div>
+                      <div className="flex justify-end pt-4">
+                        <button 
+                          onClick={() => {
+                            const newPlanes = planesAdmin.filter((_, i) => i !== idx);
+                            setPlanesAdmin(newPlanes);
+                          }}
+                          className="text-red-500 text-xs font-bold uppercase"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Características (una por línea)</label>
+                      <textarea 
+                        value={plan.features.join("\n")} 
+                        onChange={(e) => {
+                          const newPlanes = [...planesAdmin];
+                          newPlanes[idx].features = e.target.value.split("\n");
+                          setPlanesAdmin(newPlanes);
+                        }}
+                        rows={4}
+                        className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
         {activeTab === "configuracion" && building && (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
