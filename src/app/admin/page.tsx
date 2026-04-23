@@ -213,6 +213,28 @@ export default function AdminPage() {
     }
   };
 
+  const handlePlanChange = async (building: Edificio, newPlan: string) => {
+    try {
+      const res = await fetch('/api/admin/edificios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          id: building.id,
+          data: { plan: newPlan }
+        })
+      });
+      
+      if (res.ok) {
+        setActionMsg(`✅ Plan de "${building.nombre}" actualizado`);
+        setTimeout(() => setActionMsg(''), 3000);
+        loadEdificios();
+      }
+    } catch (err) {
+      alert("Error al cambiar plan");
+    }
+  };
+
   const handleUpdateBuilding = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingBuilding) return;
@@ -418,9 +440,18 @@ export default function AdminPage() {
                                   : <span className="text-slate-600 italic text-[10px] font-bold uppercase">Sin Actividad</span>}
                               </td>
                               <td className="px-6 py-5">
-                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/50 ${planBadge.bg}`}>
-                                  <PlanIcon className={`w-3 h-3 ${planBadge.color}`} />
-                                  <span className={`text-[10px] font-black uppercase tracking-widest ${planBadge.color}`}>{planBadge.label}</span>
+                                <div className="relative group/plan">
+                                  <select
+                                    value={planBadge.label}
+                                    onChange={(e) => handlePlanChange(b, e.target.value)}
+                                    className={`appearance-none pl-8 pr-4 py-1.5 rounded-xl border border-slate-700/50 text-[10px] font-black uppercase tracking-widest cursor-pointer focus:outline-none transition-all ${planBadge.bg} ${planBadge.color} hover:brightness-110`}
+                                  >
+                                    <option value="Básico">Básico</option>
+                                    <option value="Profesional">Profesional</option>
+                                    <option value="Empresarial">Empresarial</option>
+                                    <option value="IA">IA</option>
+                                  </select>
+                                  <PlanIcon className={`w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${planBadge.color}`} />
                                 </div>
                               </td>
                               <td className="px-6 py-5">
