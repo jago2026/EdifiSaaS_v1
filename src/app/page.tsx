@@ -37,6 +37,9 @@ export default function Home() {
     }
     setSendingContact(false);
   };
+
+  useEffect(() => {
+    async function loadPlanes() {
       try {
         const res = await fetch("/api/planes");
         const data = await res.json();
