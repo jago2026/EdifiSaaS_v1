@@ -113,3 +113,52 @@ export const sendWelcomeEmail = async (recipient: string, firstName: string, bui
     `
   });
 };
+
+export const sendContactEmail = async (data: {
+  nombre: string;
+  edificio: string;
+  rol: string;
+  email: string;
+  whatsapp: string;
+  mensaje: string;
+}) => {
+  // 1. Email to Admin
+  await transporter.sendMail({
+    from: `"EdifiSaaS Leads" <${SMTP_USER}>`,
+    to: "correojago@gmail.com",
+    subject: `NUEVO INTERESADO: ${data.nombre} - ${data.edificio}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px;">
+        <h2 style="color: #2563eb;">Nuevo Prospecto desde la Landing</h2>
+        <p><strong>Nombre:</strong> ${data.nombre}</p>
+        <p><strong>Edificio:</strong> ${data.edificio}</p>
+        <p><strong>Rol:</strong> ${data.rol}</p>
+        <p><strong>Email:</strong> ${data.email}</p>
+        <p><strong>WhatsApp:</strong> ${data.whatsapp}</p>
+        <p><strong>Mensaje:</strong></p>
+        <div style="background: #f3f4f6; padding: 15px; border-radius: 8px;">${data.mensaje}</div>
+      </div>
+    `
+  });
+
+  // 2. Confirmation to User
+  return transporter.sendMail({
+    from: `"EdifiSaaS" <${SMTP_USER}>`,
+    to: data.email,
+    subject: `Recibimos tu solicitud - EdifiSaaS`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+        <div style="background: #2563eb; color: white; padding: 30px; text-align: center;">
+          <h1 style="margin: 0;">¡Hola, ${data.nombre}!</h1>
+        </div>
+        <div style="padding: 30px; line-height: 1.6;">
+          <p>Hemos recibido tu interés en <strong>EdifiSaaS</strong> para el edificio <strong>${data.edificio}</strong>.</p>
+          <p>Nuestro equipo revisará tu información y te contactaremos muy pronto para coordinar una demostración personalizada.</p>
+          <p>Gracias por contactarnos.</p>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">EdifiSaaS - Gestión Inteligente de Condominios</p>
+        </div>
+      </div>
+    `
+  });
+};
