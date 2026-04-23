@@ -494,6 +494,16 @@ export async function POST(request: Request) {
     const { data: building } = await supabase.from("edificios").select("*").eq("usuario_id", userId).single();
     if (!building) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
     
+    // UNIT LIMIT CHECK BY PLAN
+    const plan = building.plan || 'Básico';
+    const limit = plan === 'Básico' ? 30 : plan === 'Profesional' ? 50 : 999999;
+    
+    if ((building.unidades || 0) > limit) {
+      return NextResponse.json({ 
+        error: `Límite de unidades excedido para el plan ${plan}. Tu edificio tiene ${building.unidades} unidades y tu plan permite hasta ${limit}. Por favor mejora tu plan.` 
+      }, { status: 403 });
+    }
+
     currentBuildingId = building.id;
     const session = await loginToRascaCielo(building.url_login, building.admin_secret);
     if (!session) {
@@ -773,6 +783,7 @@ export async function POST(request: Request) {
     if (doSyncAlicuotas && allAlicuotas.length > 0) {
       await supabase.from("alicuotas").delete().eq("edificio_id", building.id);
       await supabase.from("alicuotas").insert(allAlicuotas.map(a => ({ ...a, edificio_id: building.id })));
+      await supabase.from("edificios").update({ unidades: allAlicuotas.length }).eq("id", building.id);
     }
 
     if (doSyncEgresos || doSyncGastos) {

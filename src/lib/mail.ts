@@ -27,24 +27,43 @@ export const sendInvitationEmail = async (recipient: string, nombreMiembro: stri
     to: recipient,
     subject: `Bienvenido a la Junta de Condominio - ${edificioNombre}`,
     html: `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
-        <div style="background: #1a73e8; color: white; padding: 24px; text-align: center;">
-          <h1 style="margin: 0; font-size: 24px;">¡Hola, ${nombreMiembro}!</h1>
+      <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; background-color: #ffffff; color: #1a202c;">
+        <div style="background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%); color: white; padding: 32px 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 24px; font-weight: 800;">¡Hola, ${nombreMiembro}!</h1>
+          <p style="margin-top: 8px; font-size: 16px; opacity: 0.9;">Has sido invitado a participar como miembro de la junta en el sistema de control financiero.</p>
         </div>
-        <div style="padding: 24px; color: #444; line-height: 1.6;">
-          <p>Has sido invitado a participar como miembro de la junta en el sistema de control financiero del edificio <strong>${edificioNombre}</strong>.</p>
-          
-          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin: 24px 0; border: 1px solid #e9ecef;">
-            <p style="margin: 0 0 8px 0;"><strong>Tus credenciales de acceso:</strong></p>
-            <p style="margin: 4px 0;">📧 Email: ${recipient}</p>
-            <p style="margin: 4px 0;">🔑 Clave Inicial: <strong>${tempPassword}</strong></p>
+
+        <div style="padding: 32px 24px; line-height: 1.6;">
+          <p style="font-size: 16px;">Participarás en la gestión del edificio: <strong>${edificioNombre}</strong>.</p>
+
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin: 24px 0; border: 1px solid #e9ecef;">
+            <p style="margin: 0 0 12px 0; color: #1a73e8; font-weight: bold; text-transform: uppercase; font-size: 12px; letter-spacing: 0.05em;">Tus credenciales de acceso:</p>
+            <p style="margin: 6px 0; font-size: 15px;">📧 <strong>Email:</strong> ${recipient}</p>
+            <p style="margin: 6px 0; font-size: 15px;">🔑 <strong>Clave Inicial:</strong> <span style="background: #fff; padding: 2px 8px; border-radius: 4px; border: 1px dashed #cbd5e1;">${tempPassword}</span></p>
           </div>
 
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${BASE_URL}/login" style="background: #1a73e8; color: white; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-weight: bold;">Ingresar al Sistema</a>
+          <h3 style="color: #2d3748; font-size: 16px; margin-top: 32px; border-bottom: 2px solid #edf2f7; padding-bottom: 8px;">🚀 Sigue estos pasos para comenzar:</h3>
+
+          <div style="margin-top: 20px;">
+            <p style="margin-bottom: 8px;"><strong>Paso 1: Ingresar al Sistema y cambiar su clave</strong></p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 16px;">* Por seguridad, el sistema te pedirá cambiar tu clave al ingresar por primera vez.</p>
+            <div style="text-align: left; margin-bottom: 32px;">
+              <a href="${BASE_URL}/login" style="background: #1a73e8; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(26, 115, 232, 0.2);">Configurar mi Acceso Ahora</a>
+            </div>
+
+            <p style="margin-bottom: 12px;"><strong>Paso 2: Conocer más sobre el Sistema</strong></p>
+            <p style="font-size: 13px; color: #666; margin-bottom: 16px;">En cualquier momento, puede usted ir a la página principal para conocer todas las funcionalidades y beneficios de EdifiSaaS.</p>
+            <div style="text-align: left;">
+              <a href="${BASE_URL}" style="background: #ffffff; color: #1a73e8; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block; border: 2px solid #1a73e8;">Ir a la Página Principal</a>
+            </div>
           </div>
 
-          <p style="font-size: 13px; color: #666; font-style: italic;">* Por seguridad, el sistema te pedirá cambiar tu clave al ingresar por primera vez.</p>
+          <hr style="border: 0; border-top: 1px solid #edf2f7; margin: 40px 0;">
+
+          <p style="font-size: 14px; color: #718096; text-align: center;">
+            ¿Necesitas ayuda? Responde a este correo.<br>
+            <span style="font-weight: bold; color: #1a73e8;">EdifiSaaS - Transparencia y Control</span>
+          </p>
         </div>
       </div>
     `

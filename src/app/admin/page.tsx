@@ -26,6 +26,7 @@ interface Edificio {
   last_payment_amount: number;
   notes: string;
   unidades: number;
+  plan?: string;
 }
 
 const STATUS_CYCLE: Record<string, string> = {
@@ -69,7 +70,7 @@ interface Administradora {
   created_at: string;
 }
 
-type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria';
+type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'planes';
 
 const maskEmail = (email: string) => {
   if (!email) return "";
@@ -286,7 +287,8 @@ export default function AdminPage() {
             monthly_fee: editingBuilding.monthly_fee,
             discount_pct: editingBuilding.discount_pct,
             payment_day: editingBuilding.payment_day,
-            notes: editingBuilding.notes
+            notes: editingBuilding.notes,
+            plan: editingBuilding.plan
           }
         })
       });
@@ -337,6 +339,7 @@ export default function AdminPage() {
               { id: 'dashboard', label: 'Dashboard Global', icon: LayoutDashboard },
               { id: 'edificios',  label: 'Gestionar Edificios', icon: Building },
               { id: 'administradoras', label: 'Administradoras', icon: Settings },
+              { id: 'planes',     label: 'Configurar Planes', icon: LayoutDashboard },
               { id: 'pagos',      label: 'Cobranza y Pagos', icon: CreditCard },
               { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
             ].map((item) => (
@@ -719,6 +722,21 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Plan Contratado</label>
+                  <select 
+                    value={editingBuilding.plan || 'Básico'}
+                    onChange={(e) => setEditingBuilding({...editingBuilding, plan: e.target.value})}
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-sm focus:outline-none focus:border-indigo-500 shadow-inner outline-none appearance-none"
+                  >
+                    <option value="Básico">Básico (hasta 30 unidades)</option>
+                    <option value="Profesional">Profesional (hasta 50 unidades)</option>
+                    <option value="Empresarial">Empresarial (Ilimitado)</option>
+                    <option value="IA">Inteligencia Artificial (Ilimitado)</option>
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Código Edificio (6 dígitos)</label>

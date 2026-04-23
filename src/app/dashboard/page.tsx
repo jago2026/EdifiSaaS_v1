@@ -271,9 +271,19 @@ export default function DashboardPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [newMiembro, setNewMiembro] = useState({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
+  const [reportType, setReportType] = useState("resumen");
+  const [reportRange, setReportRange] = useState({ start: "", end: "" });
   const [planesAdmin, setPlanesAdmin] = useState<any[]>([]);
   const [loadingPlanesAdmin, setLoadingPlanesAdmin] = useState(false);
   const [savingPlanesAdmin, setSavingPlanesAdmin] = useState(false);
+
+  const hasFeature = (feature: string) => {
+    const plan = building?.plan || "Básico";
+    if (feature === "export") return ["Profesional", "Empresarial", "IA"].includes(plan);
+    if (feature === "audit") return ["Profesional", "Empresarial", "IA"].includes(plan);
+    if (feature === "manual_email") return ["Profesional", "Empresarial", "IA"].includes(plan);
+    return false;
+  };
 
   const loadReciboGeneral = async (mesOverride?: string) => {
     if (!building?.id) return;
@@ -3849,87 +3859,155 @@ export default function DashboardPage() {
         {activeTab === "informes" && (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen por Fecha</h2>
-              <div className="flex gap-4 items-end mb-6">
-                <div className="flex-1 max-w-xs">
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Seleccionar Fecha</label>
-                  <input 
-                    type="date" 
-                    value={informeFecha} 
-                    onChange={(e) => setInformeFecha(e.target.value)} 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                  />
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold text-gray-900">Generador de Reportes Avanzado</h2>
+                <div className="flex gap-2">
+                   {!hasFeature("export") && (
+                     <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-full uppercase border border-amber-200">
+                       Plan Profesional para Exportar
+                     </span>
+                   )}
                 </div>
-                <button 
-                  onClick={loadInforme} 
-                  disabled={loadingInforme || !informeFecha}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 disabled:opacity-50 text-sm"
-                >
-                  {loadingInforme ? "Cargando..." : "Consultar"}
-                </button>
+              </div>
+              
+              <div className="grid md:grid-cols-4 gap-4 items-end mb-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div className="col-span-1">
+                  <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Tipo de Reporte</label>
+                  <select 
+                    value={reportType} 
+                    onChange={(e) => setReportType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                  >
+                    <option value="resumen">📸 Resumen de Sincronización</option>
+                    <option value="movimientos">📊 Movimientos por Rango</option>
+                    <option value="gastos">💸 Gastos por Categoría</option>
+                    <option value="cuentas_cobrar">⏳ Cuentas por Cobrar (Deuda)</option>
+                    <option value="auditoria">⚖️ Reporte de Auditoría</option>
+                  </select>
+                </div>
+                
+                {reportType === "resumen" ? (
+                  <div className="col-span-1">
+                    <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Fecha Específica</label>
+                    <input 
+                      type="date" 
+                      value={informeFecha} 
+                      onChange={(e) => setInformeFecha(e.target.value)} 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white outline-none"
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <div className="col-span-1">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Desde</label>
+                      <input 
+                        type="date" 
+                        value={reportRange.start} 
+                        onChange={(e) => setReportRange({...reportRange, start: e.target.value})} 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white outline-none"
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Hasta</label>
+                      <input 
+                        type="date" 
+                        value={reportRange.end} 
+                        onChange={(e) => setReportRange({...reportRange, end: e.target.value})} 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white outline-none"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={loadInforme} 
+                    disabled={loadingInforme || (reportType === "resumen" && !informeFecha)}
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 text-sm shadow-md transition-all active:scale-95"
+                  >
+                    {loadingInforme ? "Generando..." : "Ver Reporte"}
+                  </button>
+                  <button 
+                    disabled={!hasFeature("export") || loadingInforme}
+                    className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 border transition-all ${hasFeature("export") ? "bg-white text-gray-700 border-gray-300 hover:bg-gray-50 shadow-sm active:scale-95" : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"}`}
+                    title={hasFeature("export") ? "Exportar a PDF/Excel" : "Solo disponible en Plan Profesional"}
+                  >
+                    📥 Exportar
+                  </button>
+                </div>
               </div>
 
               {loadingInforme ? (
-                <p className="text-gray-500 text-center py-8">Cargando datos...</p>
-              ) : (informeData === "not_found" || !informeData) ? (
-                <div className="text-center py-8 border border-dashed rounded-lg bg-gray-50">
-                  <p className="text-gray-500 font-medium">No hay datos registrados en Control Diario para esta fecha.</p>
-                  <p className="text-[10px] text-gray-400 mt-1">Los datos se generan autom&aacute;ticamente al realizar una sincronizaci&oacute;n exitosa.</p>
+                <div className="text-center py-20">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-indigo-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Procesando Reporte...</p>
                 </div>
-              ) : (
-                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 shadow-inner">
-                  <h3 className="font-bold text-gray-800 mb-4 border-b pb-2 flex justify-between">
-                    <span>Resumen Financiero al: {informeFecha.split('-').reverse().join('/')}</span>
-                    <span className="text-xs text-blue-600 font-black uppercase">Fotograf&iacute;a de Sincronizaci&oacute;n</span>
-                  </h3>
-                  <div className="grid md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Saldo Inicial Bs:</span>
-                      <span className="font-medium">{formatBs(informeData.saldo_inicial_bs)}</span>
+              ) : (reportType === "resumen" && (informeData === "not_found" || !informeData)) ? (
+                <div className="text-center py-12 border border-dashed rounded-2xl bg-gray-50">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">🔎</span>
+                  </div>
+                  <p className="text-gray-500 font-black uppercase tracking-widest text-xs">No hay datos para esta fecha</p>
+                  <p className="text-[10px] text-gray-400 mt-2">Realiza una sincronización para generar la fotografía financiera.</p>
+                </div>
+              ) : reportType === "resumen" && informeData ? (
+                <div className="bg-gray-50 p-8 rounded-2xl border border-gray-200 shadow-inner">
+                  <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
+                    <h3 className="font-black text-indigo-900 uppercase tracking-tighter text-xl">
+                      Fotografía Financiera: {informeFecha.split("-").reverse().join("/")}
+                    </h3>
+                    <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Sincronizado</div>
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-x-12 gap-y-4 text-sm font-bold">
+                    {[
+                      { label: "Saldo Inicial", val: informeData.saldo_inicial_bs, color: "text-gray-600" },
+                      { label: "Fondo Reserva", val: informeData.fondo_reserva_bs, color: "text-purple-700" },
+                      { label: "Ingresos Detectados", val: informeData.ingresos_bs, color: "text-green-600", prefix: "+" },
+                      { label: "Fondo Dif. Cambiario", val: informeData.fondo_dif_camb_bs, color: "text-blue-600" },
+                      { label: "Egresos/Gastos", val: informeData.egresos_bs, color: "text-red-600", prefix: "-" },
+                      { label: "Fondo Intereses Mor.", val: informeData.fondo_int_mor_bs, color: "text-pink-600" },
+                      { label: "Ajustes Varios", val: informeData.ajustes_bs, color: "text-gray-500" },
+                      { label: "Total Fondos", val: informeData.total_fondos_bs, color: "text-indigo-700", border: true },
+                    ].map((row, i) => (
+                      <div key={i} className={`flex justify-between items-center py-2 ${row.border ? "border-t-2 border-indigo-100 mt-2" : "border-b border-gray-200/50"}`}>
+                        <span className="text-gray-500 uppercase text-[10px] tracking-widest">{row.label}:</span>
+                        <span className={`${row.color} font-black text-base tabular-nums tracking-tighter`}>{row.prefix || ""}{formatBs(row.val)}</span>
+                      </div>
+                    ))}
+                    
+                    <div className="md:col-span-2 grid md:grid-cols-2 gap-4 mt-6">
+                      <div className="bg-indigo-600 p-4 rounded-xl shadow-lg shadow-indigo-200">
+                        <p className="text-indigo-100 text-[10px] font-black uppercase tracking-widest mb-1">Saldo Operativo Final</p>
+                        <p className="text-white text-2xl font-black tabular-nums tracking-tighter">{formatBs(informeData.saldo_final_bs)}</p>
+                      </div>
+                      <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-200">
+                        <p className="text-emerald-100 text-[10px] font-black uppercase tracking-widest mb-1">Disponibilidad Total</p>
+                        <p className="text-white text-2xl font-black tabular-nums tracking-tighter">{formatBs(informeData.disponibilidad_total_bs)}</p>
+                      </div>
                     </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Fondo Reserva Bs:</span>
-                      <span className="font-medium text-purple-700">{formatBs(informeData.fondo_reserva_bs)}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Ingresos Bs:</span>
-                      <span className="font-medium text-green-600">+{formatBs(informeData.ingresos_bs)}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Fondo Dif. Camb. Bs:</span>
-                      <span className="font-medium text-blue-600">{formatBs(informeData.fondo_dif_camb_bs)}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Egresos Bs:</span>
-                      <span className="font-medium text-red-600">-{formatBs(informeData.egresos_bs)}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Fondo Int. Mor. Bs:</span>
-                      <span className="font-medium text-pink-600">{formatBs(informeData.fondo_int_mor_bs)}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="text-gray-600">Ajustes Bs:</span>
-                      <span className="font-medium">{formatBs(informeData.ajustes_bs)}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-200 pb-1">
-                      <span className="font-bold text-gray-800">Total Fondos Bs:</span>
-                      <span className="font-bold text-indigo-700">{formatBs(informeData.total_fondos_bs)}</span>
-                    </div>
-                    <div className="flex justify-between bg-blue-50 p-2 rounded-md mt-2">
-                      <span className="font-bold text-blue-800">Saldo Final Bs (Operativo):</span>
-                      <span className="font-bold text-blue-800">{formatBs(informeData.saldo_final_bs)}</span>
-                    </div>
-                    <div className="flex justify-between bg-emerald-50 p-2 rounded-md mt-2">
-                      <span className="font-bold text-emerald-800">Disponibilidad Total Bs:</span>
-                      <span className="font-bold text-emerald-800">{formatBs(informeData.disponibilidad_total_bs)}</span>
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-2 col-span-full">
-                      <span>Tasa Cambio Aplicada: {informeData.tasa_cambio} Bs/USD</span>
-                      <span>Recibos Pendientes: {informeData.recibos_pendientes}</span>
+                    
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-4 col-span-full border-t border-gray-200 pt-4 font-black uppercase tracking-widest">
+                      <span>Tasa Aplicada: {informeData.tasa_cambio} Bs/USD</span>
+                      <span>Recibos por Cobrar: {informeData.recibos_pendientes} unidades</span>
                     </div>
                   </div>
                 </div>
+              ) : (
+                <div className="bg-gray-50 p-10 rounded-2xl border border-gray-200 text-center">
+                  <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="text-3xl">📋</span>
+                  </div>
+                  <h3 className="text-indigo-950 font-black text-lg uppercase tracking-tighter mb-2">Vista Previa del Reporte</h3>
+                  <p className="text-gray-500 text-sm max-w-md mx-auto leading-relaxed">Se mostrará el desglose detallado de {reportType} entre el {reportRange.start || "..."} y el {reportRange.end || "..."}.</p>
+                  <div className="mt-8 flex justify-center gap-4 opacity-30 grayscale">
+                     <div className="h-4 w-32 bg-gray-300 rounded"></div>
+                     <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                     <div className="h-4 w-40 bg-gray-300 rounded"></div>
+                  </div>
+                </div>
               )}
+            </div>
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
