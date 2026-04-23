@@ -233,6 +233,7 @@ export default function DashboardPage() {
   const [mesesRecibos, setMesesRecibos] = useState<string[]>([]);
   const [selectedMesRecibos, setSelectedMesRecibos] = useState<string>("");
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
+  const [manualFilter, setManualFilter] = useState<"todos" | "pendientes" | "ingresos" | "egresos" | "ambos">("todos");
   const [loadingManual, setLoadingManual] = useState(false);
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
   const [loadingAlicuotas, setLoadingAlicuotas] = useState(false);
@@ -3645,14 +3646,29 @@ export default function DashboardPage() {
 
         {activeTab === "manual" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Control Manual de Movimientos Bancarios</h2>
                 <p className="text-sm text-gray-500 italic font-medium">Registra movimientos bancarios pendientes por cargar en Web Admin.</p>
               </div>
-              <button onClick={createMovimientoManual} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase">
-                + Nuevo Registro
-              </button>
+              
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+                  {(["todos", "pendientes", "ingresos", "egresos", "ambos"] as const).map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setManualFilter(f)}
+                      className={`px-3 py-1.5 text-[10px] font-black rounded-md transition-all uppercase ${manualFilter === f ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                      {f === "todos" ? "Ver Todo" : f === "pendientes" ? "Pendientes" : f === "ingresos" ? "Ingresos" : f === "egresos" ? "Egresos" : "Ambos"}
+                    </button>
+                  ))}
+                </div>
+                
+                <button onClick={createMovimientoManual} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase">
+                  + Nuevo Registro
+                </button>
+              </div>
             </div>
             
             {loadingManual ? (
@@ -3677,7 +3693,15 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
-                    {movimientosManual.map((m: MovimientoManual) => (
+                    {movimientosManual
+                      .filter((m: MovimientoManual) => {
+                        if (manualFilter === "pendientes") return !m.comparado;
+                        if (manualFilter === "ingresos") return (Number(m.ingresos) || 0) > 0;
+                        if (manualFilter === "egresos") return (Number(m.egresos) || 0) > 0;
+                        if (manualFilter === "ambos") return (Number(m.ingresos) || 0) > 0 && (Number(m.egresos) || 0) > 0;
+                        return true;
+                      })
+                      .map((m: MovimientoManual) => (
                       <tr key={m.id} className="hover:bg-blue-50/30 transition-colors">
                         <td className="py-2 px-1">
                           <input type="date" defaultValue={m.fecha_corte} onBlur={(e) => updateMovimientoManual(m.id, "fecha_corte", e.target.value)} className="border-none bg-transparent focus:ring-0 w-24 text-[10px] p-0" />
