@@ -6,7 +6,7 @@ import {
   Building, Users, BarChart3, Settings, LogOut, Trash2, Edit, 
   RefreshCw, ChevronDown, ChevronUp, Plus, Save, X, Eye,
   Search, ShieldCheck, CreditCard, LayoutDashboard, Database,
-  AlertTriangle, CheckCircle2, Clock
+  AlertTriangle, CheckCircle2, Clock, Star, Zap, Crown
 } from 'lucide-react';
 
 interface Edificio {
@@ -26,7 +26,19 @@ interface Edificio {
   last_payment_amount: number;
   notes: string;
   unidades: number;
-  plan?: string;
+  plan: string;
+}
+
+interface PlanConfig {
+  id?: string;
+  name: string;
+  price_monthly: number;
+  price_yearly: number;
+  unit_limit: number;
+  features: string[];
+  is_popular: boolean;
+  badge: string;
+  display_order: number;
 }
 
 const STATUS_CYCLE: Record<string, string> = {
@@ -43,18 +55,11 @@ const STATUS_COLORS: Record<string, string> = {
   'Inactivo':   'bg-slate-500/20 text-slate-400 border border-slate-500/30',
 };
 
-const GEAR_COLORS: Record<string, string> = {
-  'Prueba':     'text-amber-400 hover:bg-amber-500/20',
-  'Activo':     'text-green-400 hover:bg-green-500/20',
-  'Suspendido': 'text-slate-400 hover:bg-slate-500/20',
-  'Inactivo':   'text-blue-400 hover:bg-blue-500/20',
-};
-
-const GEAR_TITLES: Record<string, string> = {
-  'Prueba':     'Cambiar a Activo',
-  'Activo':     'Cambiar a Suspendido',
-  'Suspendido': 'Volver a Prueba',
-  'Inactivo':   'Reactivar como Prueba',
+const PLAN_BADGES: Record<string, any> = {
+  'Básico':      { icon: Zap, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+  'Profesional': { icon: Star, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+  'Empresarial': { icon: Crown, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+  'IA':          { icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
 };
 
 interface Administradora {
@@ -72,14 +77,6 @@ interface Administradora {
 
 type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'planes';
 
-const maskEmail = (email: string) => {
-  if (!email) return "";
-  const [user, domain] = email.split("@");
-  if (!user || !domain) return email;
-  if (user.length <= 4) return `${user[0]}****@${domain}`;
-  return `${user.substring(0, 2)}****${user.substring(user.length - 2)}@${domain}`;
-};
-
 export default function AdminPage() {
   const router = useRouter();
   const [activeSection, setActiveSection] = useState<AdminSection>('edificios');
@@ -95,11 +92,15 @@ export default function AdminPage() {
   const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
   const [editingAdmin, setEditingAdmin] = useState<Partial<Administradora> | null>(null);
   const [loadingAdmins, setLoadingAdmins] = useState(false);
+  
+  // Planes config state
+  const [planesConfigs, setPlanesConfigs] = useState<PlanConfig[]>([]);
+  const [loadingPlanes, setLoadingPlanes] = useState(false);
+  const [savingPlanes, setSavingPlanes] = useState(false);
 
   const loadEdificios = async () => {
     setLoading(true);
     try {
-      // Usar la API segura en lugar de conexión directa al cliente
       const res = await fetch('/api/admin/edificios?action=list');
       const data = await res.json();
       
@@ -138,88 +139,47 @@ export default function AdminPage() {
     }
   };
 
+  const loadPlanesConfigs = async () => {
+    setLoadingPlanes(true);
+    try {
+      const res = await fetch('/api/admin/planes');
+      const data = await res.json();
+      if (res.ok && data.data) {
+        setPlanesConfigs(data.data);
+      }
+    } catch (err) {
+      console.error("Error loading planes:", err);
+    } finally {
+      setLoadingPlanes(false);
+    }
+  };
+
   useEffect(() => { 
     loadEdificios();
     loadAdministradoras();
+    loadPlanesConfigs();
   }, []);
 
-  const handleSaveAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingAdmin) return;
-    
-    setLoading(true);
+  const handleSavePlanes = async () => {
+    setSavingPlanes(true);
     try {
-      const isNew = !editingAdmin.id;
-      const res = await fetch('/api/admin/administradoras', {
+      const res = await fetch('/api/admin/planes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: isNew ? 'create' : 'update',
-          id: editingAdmin.id,
-          data: editingAdmin
-        })
+        body: JSON.stringify({ planes: planesConfigs })
       });
       
       if (res.ok) {
-        setActionMsg(isNew ? '✅ Administradora agregada' : '✅ Cambios guardados');
-        setEditingAdmin(null);
+        setActionMsg('✅ Configuración de planes guardada');
         setTimeout(() => setActionMsg(''), 3000);
-        loadAdministradoras();
+      } else {
+        const data = await res.json();
+        throw new Error(data.error || 'Error al guardar');
       }
-    } catch (err) {
-      alert("Error al guardar");
+    } catch (err: any) {
+      alert("Error: " + err.message);
     } finally {
-      setLoading(false);
-    }
-  };
-
-  const autoFillAdminUrls = (loginUrl: string) => {
-    if (!editingAdmin || editingAdmin.id) return; // Solo autocompletar si es nueva
-    if (!loginUrl.includes('http')) return;
-
-    try {
-      // Extraer la base: ej "https://www.datahouseca.com/condlin.php" o "https://www.datahouseca.com/"
-      let baseUrl = loginUrl.split('?')[0];
-      if (!baseUrl.endsWith('.php')) {
-        // Si pusieron solo el dominio, asumimos condlin.php que es el estándar
-        baseUrl = baseUrl.endsWith('/') ? baseUrl + 'condlin.php' : baseUrl + '/condlin.php';
-      }
-
-      setEditingAdmin({
-        ...editingAdmin,
-        url_login: loginUrl,
-        url_recibos: `${baseUrl}?r=5`,
-        url_recibo_mes: `${baseUrl}?r=4`,
-        url_egresos: `${baseUrl}?r=21`,
-        url_gastos: `${baseUrl}?r=3`,
-        url_balance: `${baseUrl}?r=2`,
-        url_alicuotas: `${baseUrl}?r=23`,
-      });
-    } catch (e) {
-      console.error("Error autofilling URLs", e);
-    }
-  };
-
-  const handleDeleteAdmin = async (id: string) => {
-    if (!window.confirm("¿Seguro que deseas eliminar esta administradora?")) return;
-    
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/administradoras', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', id })
-      });
-      
-      if (res.ok) {
-        setActionMsg('🗑️ Administradora eliminada');
-        setTimeout(() => setActionMsg(''), 3000);
-        loadAdministradoras();
-      }
-    } catch (err) {
-      alert("Error al eliminar");
-    } finally {
-      setLoading(false);
+      setSavingPlanes(false);
     }
   };
 
@@ -242,31 +202,6 @@ export default function AdminPage() {
       }
     } catch (err) {
       alert("Error al cambiar estado");
-    }
-  };
-
-  const handleDeactivate = async (building: Edificio) => {
-    const confirmed = window.confirm(`¿Desactivar "${building.nombre}"?`);
-    if (!confirmed) return;
-    
-    try {
-      const res = await fetch('/api/admin/edificios', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update',
-          id: building.id,
-          data: { status: 'Inactivo' }
-        })
-      });
-      
-      if (res.ok) {
-        setActionMsg(`🚫 "${building.nombre}" Inactivo`);
-        setTimeout(() => setActionMsg(''), 3000);
-        loadEdificios();
-      }
-    } catch (err) {
-      alert("Error al desactivar");
     }
   };
 
@@ -309,7 +244,7 @@ export default function AdminPage() {
     e.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) {
+  if (loading && edificios.length === 0) {
     return (
       <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -339,8 +274,8 @@ export default function AdminPage() {
               { id: 'dashboard', label: 'Dashboard Global', icon: LayoutDashboard },
               { id: 'edificios',  label: 'Gestionar Edificios', icon: Building },
               { id: 'administradoras', label: 'Administradoras', icon: Settings },
-              { id: 'planes',     label: 'Configurar Planes', icon: LayoutDashboard },
-              { id: 'pagos',      label: 'Cobranza y Pagos', icon: CreditCard },
+              { id: 'planes',     label: 'Configurar Planes', icon: CreditCard },
+              { id: 'pagos',      label: 'Cobranza y Pagos', icon: BarChart3 },
               { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
             ].map((item) => (
               <button
@@ -372,7 +307,7 @@ export default function AdminPage() {
             <Search className="w-4 h-4 text-slate-500" />
             <input 
               type="text" 
-              placeholder="Buscar edificio..." 
+              placeholder="Buscar edificio o plan..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="bg-transparent border-none text-white text-sm focus:ring-0 w-full outline-none"
@@ -397,299 +332,302 @@ export default function AdminPage() {
         )}
 
         <div className="p-8">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
-            {[
-              { label: 'Total',       value: stats.total,       bg: 'bg-blue-500/20',   ic: 'text-blue-500',   Icon: Building },
-              { label: 'Activos',     value: stats.activos,     bg: 'bg-green-500/20',  ic: 'text-green-500',  Icon: CheckCircle2 },
-              { label: 'En Prueba',   value: stats.prueba,      bg: 'bg-amber-500/20',  ic: 'text-amber-400',  Icon: Clock },
-              { label: 'Suspendidos', value: stats.suspendidos, bg: 'bg-red-500/20',    ic: 'text-red-500',    Icon: AlertTriangle },
-              { label: 'Inactivos',   value: stats.inactivos,   bg: 'bg-slate-500/20',  ic: 'text-slate-400',  Icon: Trash2 },
-            ].map((s) => (
-              <div key={s.label} className="bg-[#1e293b] rounded-3xl p-6 border border-slate-700/50 shadow-xl">
-                <div className="flex flex-col gap-4">
-                  <div className={`w-12 h-12 ${s.bg} rounded-2xl flex items-center justify-center shadow-inner`}>
-                    <s.Icon className={`w-6 h-6 ${s.ic || (s as any).icon_color}`} />
-                  </div>
-                  <div>
-                    <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">{s.label}</p>
-                    <p className="text-3xl font-black text-white">{s.value}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
           {activeSection === 'edificios' && (
-            <div className="bg-[#1e293b] rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
-              <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/20">
-                <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Base de Datos de Clientes</h2>
-                <span className="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
-                  {filteredEdificios.length} RESULTADOS
-                </span>
+            <>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+                {[
+                  { label: 'Total',       value: stats.total,       bg: 'bg-blue-500/20',   ic: 'text-blue-500',   Icon: Building },
+                  { label: 'Activos',     value: stats.activos,     bg: 'bg-green-500/20',  ic: 'text-green-500',  Icon: CheckCircle2 },
+                  { label: 'En Prueba',   value: stats.prueba,      bg: 'bg-amber-500/20',  ic: 'text-amber-400',  Icon: Clock },
+                  { label: 'Suspendidos', value: stats.suspendidos, bg: 'bg-red-500/20',    ic: 'text-red-500',    Icon: AlertTriangle },
+                  { label: 'Inactivos',   value: stats.inactivos,   bg: 'bg-slate-500/20',  ic: 'text-slate-400',  Icon: Trash2 },
+                ].map((s) => (
+                  <div key={s.label} className="bg-[#1e293b] rounded-3xl p-6 border border-slate-700/50 shadow-xl">
+                    <div className="flex flex-col gap-4">
+                      <div className={`w-12 h-12 ${s.bg} rounded-2xl flex items-center justify-center shadow-inner`}>
+                        <s.Icon className={`w-6 h-6 ${s.ic}`} />
+                      </div>
+                      <div>
+                        <p className="text-slate-500 text-[10px] uppercase font-black tracking-widest mb-1">{s.label}</p>
+                        <p className="text-3xl font-black text-white">{s.value}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-slate-800/50">
-                    <tr>
-                      {['Edificio', 'Sincronización', 'Tarifa/mes', 'Estado', 'Acciones']
-                        .map(h => (
-                          <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-700">{h}</th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700/50">
-                    {filteredEdificios.length === 0 ? (
+
+              <div className="bg-[#1e293b] rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
+                <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/20">
+                  <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Base de Datos de Clientes</h2>
+                  <span className="bg-indigo-500/10 text-indigo-400 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                    {filteredEdificios.length} RESULTADOS
+                  </span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="bg-slate-800/50">
                       <tr>
-                        <td colSpan={5} className="px-6 py-20 text-center">
-                          <div className="flex flex-col items-center gap-2 opacity-30">
-                            <Building className="w-12 h-12 text-slate-500" />
-                            <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No se encontraron edificios</p>
-                          </div>
-                        </td>
+                        {['Edificio', 'Sincronización', 'Plan Contratado', 'Tarifa/mes', 'Estado', 'Acciones']
+                          .map(h => (
+                            <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-700">{h}</th>
+                          ))}
                       </tr>
-                    ) : (
-                      filteredEdificios.map((b) => {
-                      const status = b.status || 'Prueba';
-                      const isInactive = status === 'Inactivo';
-                      return (
-                        <React.Fragment key={b.id}>
-                          <tr className={`hover:bg-indigo-500/5 transition-all group ${isInactive ? 'opacity-40 grayscale' : ''}`}>
-                            <td className="px-6 py-5">
-                              <p className="text-white font-black text-base tracking-tighter group-hover:text-indigo-300 transition-colors">{b.nombre}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-indigo-400 text-[9px] font-mono font-black uppercase tracking-tighter">COD: {b.codigo_edificio || '---'}</span>
-                                <span className="text-slate-500 text-[9px] font-mono opacity-50 uppercase tracking-tighter">ID: {b.id.substring(0,8)}...</span>
-                                <span className="text-slate-500 text-[9px] font-bold uppercase">{b.unidades || 0} UNIDADES</span>
-                              </div>
-                            </td>
-                            <td className="px-6 py-5">
-                              {b.ultima_sincronizacion
-                                ? <div className="space-y-0.5">
-                                    <p className="text-slate-200 font-bold text-xs">{new Date(b.ultima_sincronizacion).toLocaleDateString('es-ES')}</p>
-                                    <p className="text-indigo-400 font-black text-[9px] uppercase tracking-widest">{new Date(b.ultima_sincronizacion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
-                                  </div>
-                                : <span className="text-slate-600 italic text-[10px] font-bold uppercase">Sin Actividad</span>}
-                            </td>
-                            <td className="px-6 py-5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-black text-slate-100 text-lg tracking-tighter">${(b.monthly_fee || 0).toLocaleString()}</span>
-                                {b.discount_pct > 0 && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full">-{b.discount_pct}%</span>}
-                              </div>
-                            </td>
-                            <td className="px-6 py-5">
-                              <select 
-                                value={status}
-                                onChange={(e) => handleStatusChange(b, e.target.value)}
-                                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border appearance-none cursor-pointer focus:outline-none transition-all ${STATUS_COLORS[status] || STATUS_COLORS['Prueba']}`}
-                              >
-                                {Object.keys(STATUS_CYCLE).map(st => (
-                                  <option key={st} value={st} className="bg-[#1e293b] text-white">{st}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="px-6 py-5">
-                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)} className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all" title="Ver detalles">
-                                  {expandedId === b.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                </button>
-                                <button onClick={() => setEditingBuilding(b)} className="p-2 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all" title="Configuración SaaS">
-                                  <Settings className="w-4 h-4" />
-                                </button>
-                                <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)} className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all" title="Ver Dashboard">
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                {!isInactive && (
-                                  <button onClick={() => handleDeactivate(b)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all" title="Desactivar">
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                          {expandedId === b.id && (
-                            <tr className="bg-[#0f172a]/50 shadow-inner">
-                              <td colSpan={5} className="px-10 py-10 border-x-4 border-indigo-600/20">
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
-                                  <div className="space-y-3">
-                                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2">Información del Cliente</p>
-                                    <div className="space-y-1">
-                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Fecha de Registro</p>
-                                      <p className="text-slate-100 font-bold text-sm">{new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                                    </div>
-                                    <div className="space-y-1 pt-2">
-                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Día de Facturación</p>
-                                      <p className="text-slate-100 font-bold text-sm">Día {b.payment_day || 5} de cada mes</p>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-3">
-                                    <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest border-b border-emerald-500/10 pb-2">Estatus Financiero</p>
-                                    <div className="space-y-1">
-                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Último Pago</p>
-                                      <div className="flex items-center gap-2">
-                                        <p className="text-slate-100 font-bold text-sm">{b.last_payment_date ? new Date(b.last_payment_date).toLocaleDateString('es-ES') : 'SIN PAGOS'}</p>
-                                        {b.last_payment_amount > 0 && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-lg font-black text-[10px] tracking-tighter">${b.last_payment_amount}</span>}
-                                      </div>
-                                    </div>
-                                    <div className="space-y-1 pt-2">
-                                      <p className="text-slate-500 text-[10px] uppercase font-bold">Proyectado Mensual</p>
-                                      <p className="text-slate-100 font-bold text-sm">${((b.monthly_fee || 0) * (1 - (b.discount_pct || 0)/100)).toFixed(2)}</p>
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-3 col-span-2">
-                                    <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2 text-right">Bitácora y Notas</p>
-                                    <div className="bg-slate-800/80 p-5 rounded-[1.5rem] border border-slate-700/50 h-24 overflow-y-auto">
-                                      <p className="text-slate-400 text-xs italic leading-relaxed">{b.notes || 'Sin observaciones.'}</p>
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    }))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeSection === 'administradoras' && (
-            <div className="bg-[#1e293b] rounded-[2rem] border border-slate-700/50 shadow-2xl overflow-hidden">
-              <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/20">
-                <h2 className="text-xl font-black text-white uppercase tracking-tighter italic">Gestión de Administradoras</h2>
-                <button 
-                  onClick={() => setEditingAdmin({ nombre: '', url_login: '', url_recibos: '', url_recibo_mes: '', url_egresos: '', url_gastos: '', url_balance: '', url_alicuotas: '' })}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
-                >
-                  <Plus className="w-4 h-4" /> Nueva Administradora
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead className="bg-slate-800/50">
-                    <tr>
-                      {['Nombre', 'Links Configurados', 'Fecha Registro', 'Acciones']
-                        .map(h => (
-                          <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-700">{h}</th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700/50">
-                    {administradoras.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-6 py-20 text-center text-slate-500 font-bold uppercase tracking-widest text-xs">No hay administradoras registradas</td>
-                      </tr>
-                    ) : (
-                      administradoras.map((adm) => (
-                        <tr key={adm.id} className="hover:bg-indigo-500/5 transition-all group">
-                          <td className="px-6 py-5">
-                            <p className="text-white font-black text-base tracking-tighter">{adm.nombre}</p>
-                            <p className="text-[9px] text-slate-500 font-mono mt-0.5 uppercase">ID: {adm.id}</p>
-                          </td>
-                          <td className="px-6 py-5">
-                            <div className="flex flex-wrap gap-1">
-                              {['url_login', 'url_recibos', 'url_egresos', 'url_gastos', 'url_balance'].map(link => (
-                                <span key={link} className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${adm[link as keyof Administradora] ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-600'}`}>
-                                  {link.split('_')[1]}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="px-6 py-5">
-                            <p className="text-slate-400 font-bold text-xs">{new Date(adm.created_at).toLocaleDateString()}</p>
-                          </td>
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-2">
-                              <button onClick={() => setEditingAdmin(adm)} className="p-2 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all"><Edit className="w-4 h-4" /></button>
-                              <button onClick={() => handleDeleteAdmin(adm.id)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all"><Trash2 className="w-4 h-4" /></button>
+                    </thead>
+                    <tbody className="divide-y divide-slate-700/50">
+                      {filteredEdificios.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-20 text-center">
+                            <div className="flex flex-col items-center gap-2 opacity-30">
+                              <Building className="w-12 h-12 text-slate-500" />
+                              <p className="text-slate-400 font-black uppercase tracking-widest text-xs">No se encontraron edificios</p>
                             </div>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        filteredEdificios.map((b) => {
+                        const status = b.status || 'Prueba';
+                        const isInactive = status === 'Inactivo';
+                        const plan = b.plan || 'Básico';
+                        const PlanIcon = PLAN_BADGES[plan]?.icon || Zap;
+                        
+                        return (
+                          <React.Fragment key={b.id}>
+                            <tr className={`hover:bg-indigo-500/5 transition-all group ${isInactive ? 'opacity-40 grayscale' : ''}`}>
+                              <td className="px-6 py-5">
+                                <p className="text-white font-black text-base tracking-tighter group-hover:text-indigo-300 transition-colors">{b.nombre}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-indigo-400 text-[9px] font-mono font-black uppercase tracking-tighter">COD: {b.codigo_edificio || '---'}</span>
+                                  <span className="text-slate-500 text-[9px] font-mono opacity-50 uppercase tracking-tighter">ID: {b.id.substring(0,8)}...</span>
+                                  <span className="text-slate-500 text-[9px] font-bold uppercase">{b.unidades || 0} UNIDADES</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                {b.ultima_sincronizacion
+                                  ? <div className="space-y-0.5">
+                                      <p className="text-slate-200 font-bold text-xs">{new Date(b.ultima_sincronizacion).toLocaleDateString('es-ES')}</p>
+                                      <p className="text-indigo-400 font-black text-[9px] uppercase tracking-widest">{new Date(b.ultima_sincronizacion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
+                                    </div>
+                                  : <span className="text-slate-600 italic text-[10px] font-bold uppercase">Sin Actividad</span>}
+                              </td>
+                              <td className="px-6 py-5">
+                                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-700/50 ${PLAN_BADGES[plan]?.bg || 'bg-slate-500/10'}`}>
+                                  <PlanIcon className={`w-3 h-3 ${PLAN_BADGES[plan]?.color || 'text-slate-400'}`} />
+                                  <span className={`text-[10px] font-black uppercase tracking-widest ${PLAN_BADGES[plan]?.color || 'text-slate-400'}`}>{plan}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-slate-100 text-lg tracking-tighter">${(b.monthly_fee || 0).toLocaleString()}</span>
+                                  {b.discount_pct > 0 && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full">-{b.discount_pct}%</span>}
+                                </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                <select 
+                                  value={status}
+                                  onChange={(e) => handleStatusChange(b, e.target.value)}
+                                  className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg border appearance-none cursor-pointer focus:outline-none transition-all ${STATUS_COLORS[status] || STATUS_COLORS['Prueba']}`}
+                                >
+                                  {Object.keys(STATUS_CYCLE).map(st => (
+                                    <option key={st} value={st} className="bg-[#1e293b] text-white">{st}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td className="px-6 py-5">
+                                <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => setExpandedId(expandedId === b.id ? null : b.id)} className="p-2 text-slate-400 hover:bg-slate-700 rounded-xl transition-all" title="Ver detalles">
+                                    {expandedId === b.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                  </button>
+                                  <button onClick={() => setEditingBuilding(b)} className="p-2 text-indigo-400 hover:bg-indigo-500/20 rounded-xl transition-all" title="Configuración SaaS">
+                                    <Settings className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => router.push(`/dashboard?edificio=${b.id}`)} className="p-2 text-purple-400 hover:bg-purple-500/20 rounded-xl transition-all" title="Ver Dashboard">
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                            {expandedId === b.id && (
+                              <tr className="bg-[#0f172a]/50 shadow-inner">
+                                <td colSpan={6} className="px-10 py-10 border-x-4 border-indigo-600/20">
+                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+                                    <div className="space-y-3">
+                                      <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2">Información del Cliente</p>
+                                      <div className="space-y-1">
+                                        <p className="text-slate-500 text-[10px] uppercase font-bold">Fecha de Registro</p>
+                                        <p className="text-slate-100 font-bold text-sm">{new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                      </div>
+                                      <div className="space-y-1 pt-2">
+                                        <p className="text-slate-500 text-[10px] uppercase font-bold">Día de Facturación</p>
+                                        <p className="text-slate-100 font-bold text-sm">Día {b.payment_day || 5} de cada mes</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                      <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest border-b border-emerald-500/10 pb-2">Estatus Financiero</p>
+                                      <div className="space-y-1">
+                                        <p className="text-slate-500 text-[10px] uppercase font-bold">Último Pago</p>
+                                        <div className="flex items-center gap-2">
+                                          <p className="text-slate-100 font-bold text-sm">{b.last_payment_date ? new Date(b.last_payment_date).toLocaleDateString('es-ES') : 'SIN PAGOS'}</p>
+                                          {b.last_payment_amount > 0 && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-lg font-black text-[10px] tracking-tighter">${b.last_payment_amount}</span>}
+                                        </div>
+                                      </div>
+                                      <div className="space-y-1 pt-2">
+                                        <p className="text-slate-500 text-[10px] uppercase font-bold">Proyectado Mensual</p>
+                                        <p className="text-slate-100 font-bold text-sm">${((b.monthly_fee || 0) * (1 - (b.discount_pct || 0)/100)).toFixed(2)}</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-3 col-span-2">
+                                      <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2 text-right">Bitácora y Notas</p>
+                                      <div className="bg-slate-800/80 p-5 rounded-[1.5rem] border border-slate-700/50 h-24 overflow-y-auto">
+                                        <p className="text-slate-400 text-xs italic leading-relaxed">{b.notes || 'Sin observaciones.'}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      }))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
+            </>
+          )}
+
+          {activeSection === 'planes' && (
+            <div className="space-y-8 animate-in fade-in zoom-in duration-300">
+               <div className="flex justify-between items-end">
+                  <div>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic">Configurador de Planes SaaS</h2>
+                    <p className="text-slate-400 text-sm mt-2">Personaliza la oferta comercial que ven los clientes en la página principal.</p>
+                  </div>
+                  <button 
+                    onClick={handleSavePlanes}
+                    disabled={savingPlanes}
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-widest flex items-center gap-3 transition-all shadow-xl shadow-indigo-600/20 disabled:opacity-50"
+                  >
+                    {savingPlanes ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Guardar Cambios Globales
+                  </button>
+               </div>
+
+               {loadingPlanes ? (
+                 <div className="py-20 text-center">
+                    <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-4" />
+                    <p className="text-slate-500 font-bold uppercase text-xs tracking-widest">Cargando catálogo...</p>
+                 </div>
+               ) : (
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {planesConfigs.map((plan, idx) => (
+                      <div key={idx} className={`bg-[#1e293b] rounded-[2.5rem] border p-8 transition-all ${plan.is_popular ? 'border-indigo-500 shadow-2xl shadow-indigo-500/10' : 'border-slate-700/50'}`}>
+                         <div className="flex justify-between items-start mb-6">
+                            <input 
+                              type="text" 
+                              value={plan.name}
+                              onChange={(e) => {
+                                const newPlanes = [...planesConfigs];
+                                newPlanes[idx].name = e.target.value;
+                                setPlanesConfigs(newPlanes);
+                              }}
+                              className="bg-transparent border-b border-slate-700 text-white font-black text-xl uppercase tracking-tighter w-full focus:border-indigo-500 outline-none pb-1"
+                            />
+                         </div>
+
+                         <div className="space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
+                               <div>
+                                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Mensual ($)</label>
+                                  <input 
+                                    type="number"
+                                    value={plan.price_monthly}
+                                    onChange={(e) => {
+                                      const newPlanes = [...planesConfigs];
+                                      newPlanes[idx].price_monthly = Number(e.target.value);
+                                      setPlanesConfigs(newPlanes);
+                                    }}
+                                    className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-3 py-2 text-white font-black text-sm"
+                                  />
+                               </div>
+                               <div>
+                                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Anual ($)</label>
+                                  <input 
+                                    type="number"
+                                    value={plan.price_yearly}
+                                    onChange={(e) => {
+                                      const newPlanes = [...planesConfigs];
+                                      newPlanes[idx].price_yearly = Number(e.target.value);
+                                      setPlanesConfigs(newPlanes);
+                                    }}
+                                    className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-3 py-2 text-white font-black text-sm"
+                                  />
+                               </div>
+                            </div>
+
+                            <div>
+                               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Límite Unidades (0=∞)</label>
+                               <input 
+                                 type="number"
+                                 value={plan.unit_limit}
+                                 onChange={(e) => {
+                                   const newPlanes = [...planesConfigs];
+                                   newPlanes[idx].unit_limit = Number(e.target.value);
+                                   setPlanesConfigs(newPlanes);
+                                 }}
+                                 className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-3 py-2 text-white font-black text-sm"
+                               />
+                            </div>
+
+                            <div>
+                               <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Características (JSON Array)</label>
+                               <textarea 
+                                 value={JSON.stringify(plan.features)}
+                                 onChange={(e) => {
+                                    try {
+                                      const feats = JSON.parse(e.target.value);
+                                      if (Array.isArray(feats)) {
+                                        const newPlanes = [...planesConfigs];
+                                        newPlanes[idx].features = feats;
+                                        setPlanesConfigs(newPlanes);
+                                      }
+                                    } catch(e) {}
+                                 }}
+                                 rows={4}
+                                 className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-3 py-2 text-slate-400 font-mono text-[10px] resize-none"
+                               />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-700">
+                               <span className="text-[10px] font-bold text-slate-500 uppercase">¿Es Popular?</span>
+                               <button 
+                                 onClick={() => {
+                                    const newPlanes = [...planesConfigs];
+                                    newPlanes[idx].is_popular = !newPlanes[idx].is_popular;
+                                    setPlanesConfigs(newPlanes);
+                                 }}
+                                 className={`w-10 h-5 rounded-full transition-all relative ${plan.is_popular ? 'bg-indigo-600' : 'bg-slate-700'}`}
+                               >
+                                  <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${plan.is_popular ? 'right-1' : 'left-1'}`} />
+                               </button>
+                            </div>
+                         </div>
+                      </div>
+                    ))}
+                 </div>
+               )}
             </div>
           )}
 
-          {activeSection !== 'edificios' && activeSection !== 'administradoras' && (
+          {(activeSection === 'administradoras' || activeSection === 'pagos' || activeSection === 'auditoria' || activeSection === 'dashboard') && (
             <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-center">
                <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
                <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
-               <p className="text-slate-600 text-xs mt-2">Esta facilidad estará disponible próximamente.</p>
+               <p className="text-slate-600 text-xs mt-2">Esta facilidad estará disponible próximamente en el Master Control.</p>
             </div>
           )}
         </div>
-
-        {editingAdmin && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
-            <div className="bg-[#1e293b] w-full max-w-2xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden">
-              <div className="bg-indigo-600 px-10 py-8 flex justify-between items-center">
-                <h3 className="text-white font-black uppercase tracking-tighter text-2xl italic">{editingAdmin.id ? 'Editar Administradora' : 'Nueva Administradora'}</h3>
-                <button onClick={() => setEditingAdmin(null)} className="text-white/50 hover:text-white transition-colors bg-white/10 p-2 rounded-full">
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              
-              <form onSubmit={handleSaveAdmin} className="p-10 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                <div className="space-y-3">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Nombre Comercial</label>
-                  <input 
-                    type="text" required
-                    value={editingAdmin.nombre}
-                    onChange={(e) => setEditingAdmin({...editingAdmin, nombre: e.target.value})}
-                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-lg focus:outline-none focus:border-indigo-500 shadow-inner"
-                    placeholder="Ej: Datahouse C.A."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">URL Login (r=1)</label>
-                    <input 
-                      type="text"
-                      value={editingAdmin.url_login || ''}
-                      onChange={(e) => setEditingAdmin({...editingAdmin, url_login: e.target.value})}
-                      onBlur={(e) => autoFillAdminUrls(e.target.value)}
-                      className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-white font-bold text-xs focus:outline-none focus:border-indigo-500 shadow-inner"
-                      placeholder="https://.../condlin.php?r=1"
-                    />
-                  </div>
-                  {[
-                    { key: 'url_recibos', label: 'URL Recibos (r=5)', placeholder: '.../condlin.php?r=5' },
-                    { key: 'url_recibo_mes', label: 'URL Recibo del Mes (r=4)', placeholder: '.../condlin.php?r=4' },
-                    { key: 'url_egresos', label: 'URL Egresos (r=21)', placeholder: '.../condlin.php?r=21' },
-                    { key: 'url_gastos', label: 'URL Gastos (r=3)', placeholder: '.../condlin.php?r=3' },
-                    { key: 'url_balance', label: 'URL Balance (r=2)', placeholder: '.../condlin.php?r=2' },
-                    { key: 'url_alicuotas', label: 'URL Alícuotas (r=23)', placeholder: '.../condlin.php?r=23' },
-                  ].map(field => (
-                    <div key={field.key} className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{field.label}</label>
-                      <input 
-                        type="text"
-                        value={(editingAdmin as any)[field.key] || ''}
-                        onChange={(e) => setEditingAdmin({...editingAdmin, [field.key]: e.target.value})}
-                        className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-white font-bold text-xs focus:outline-none focus:border-indigo-500 shadow-inner"
-                        placeholder={field.placeholder}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-4 pt-6">
-                  <button type="button" onClick={() => setEditingAdmin(null)} className="flex-1 bg-slate-700 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-slate-600 transition-all">Cancelar</button>
-                  <button type="submit" className="flex-[1.5] bg-indigo-600 text-white font-black uppercase text-[11px] py-5 rounded-[1.5rem] hover:bg-indigo-500 flex items-center justify-center gap-3 transition-all">
-                    <Save className="w-4 h-4" /> {editingAdmin.id ? 'Actualizar Base' : 'Registrar Administradora'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {editingBuilding && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
