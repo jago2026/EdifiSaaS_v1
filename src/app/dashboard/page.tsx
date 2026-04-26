@@ -1790,7 +1790,7 @@ export default function DashboardPage() {
             <h1>Solicitud de Mejora de Plan</h1>
             <p><strong>Edificio:</strong> ${building?.nombre}</p>
             <p><strong>ID Edificio:</strong> ${building?.id}</p>
-            <p><strong>Usuario Solicitante:</strong> ${user?.nombre || 'No especificado'} (${user?.email})</p>
+            <p><strong>Usuario Solicitante:</strong> ${user?.first_name || ''} ${user?.last_name || ''} (${user?.email})</p>
             <p><strong>Plan Actual:</strong> ${planInfo?.name}</p>
             <p><strong>Plan Deseado:</strong> ${upgradeForm.planDeseado}</p>
             <p><strong>Teléfono de Contacto:</strong> ${upgradeForm.telefono}</p>
