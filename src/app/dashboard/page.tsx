@@ -23,6 +23,25 @@ function formatUsd(amount: number | undefined | null): string {
   return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+function UpgradeCard({ title, feature, planRequired, onUpgrade }: { title: string, feature: string, planRequired: string, onUpgrade: () => void }) {
+  return (
+    <div className="relative overflow-hidden bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200 text-center space-y-4">
+      <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🔒</div>
+      <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto text-2xl">✨</div>
+      <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight">{title}</h3>
+      <p className="text-gray-500 text-sm max-w-sm mx-auto">
+        La funcionalidad de <span className="font-bold text-gray-700">{feature}</span> está disponible a partir del plan <span className="text-indigo-600 font-bold">{planRequired}</span>.
+      </p>
+      <button 
+        onClick={onUpgrade}
+        className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg uppercase text-xs"
+      >
+        Mejorar mi Plan
+      </button>
+    </div>
+  );
+}
+
 interface Balance {
   id: string;
   fecha: string;
@@ -258,6 +277,7 @@ export default function DashboardPage() {
   const [tasaBCV, setTasaBCV] = useState({ dolar: 0, euro: 0, fecha: "" });
   const [loadingTasa, setLoadingTasa] = useState(false);
   const [selectedMes, setSelectedMes] = useState<string>("");
+  const [planInfo, setPlanInfo] = useState<any>(null);
   const [selectedUnidad, setSelectedUnidad] = useState<string>("");
   const [reciboDetalle, setReciboDetalle] = useState<any[]>([]);
   const [loadingRecibo, setLoadingRecibo] = useState(false);
@@ -742,6 +762,7 @@ export default function DashboardPage() {
         
         setBuilding(data.building);
         setUser(data.user);
+        setPlanInfo(data.planInfo);
         if (data.user?.requiereCambioClave) {
           setShowPasswordChange(true);
         }
@@ -1876,14 +1897,30 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("instrucciones")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'instrucciones' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📖</span> Ayuda / Manual
               </button>
-              {user?.id === "superuser-id" && (
-                <button onClick={() => setActiveTab("planes")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'planes' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                  <span className="text-lg">🏷️</span> Configurar Planes
-                </button>
-              )}
+              <button onClick={() => setActiveTab("planes")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'planes' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🏷️</span> Mi Suscripción
+              </button>
             </div>
           </div>
         </nav>
+
+        {planInfo && (
+          <div className="p-4 mx-4 mb-4 bg-white/10 rounded-2xl border border-white/20">
+            <div className="text-[10px] font-black text-indigo-400 uppercase mb-1">Plan Actual</div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-bold text-white">{planInfo.name}</span>
+              <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.5 rounded font-black uppercase">Activo</span>
+            </div>
+            {planInfo.name === 'Básico' && (
+              <button 
+                onClick={() => setActiveTab("planes")}
+                className="w-full mt-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-lg text-[10px] font-black uppercase transition-colors"
+              >
+                ⚡ Mejorar Plan
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="p-4 border-t border-indigo-900/50 bg-indigo-950">
           <Link href="/logout" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500/20 text-red-200 transition-all font-bold text-xs uppercase tracking-widest">
@@ -3262,8 +3299,17 @@ export default function DashboardPage() {
 
         {activeTab === "kpis" && (
            <div className="space-y-6">
-             {/* Tarjetas de Métricas USD */}
-             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+             {!planInfo?.permissions?.hasKpis ? (
+                <UpgradeCard 
+                  title="Análisis de Gestión Avanzado" 
+                  feature="KPIs, Gráficos de Tendencia y Comparativos" 
+                  planRequired="Profesional" 
+                  onUpgrade={() => setActiveTab("planes")}
+                />
+             ) : (
+               <>
+                 {/* Tarjetas de Métricas USD */}
+                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center cursor-pointer hover:bg-gray-50" onClick={() => setActiveTab("recibos")}>
                  <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Recibos Pendientes</div>
                  <div className="text-lg font-black text-red-600">$ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}</div>
@@ -3854,6 +3900,8 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
+               </>
+             )}
           </div>
         )}
 
@@ -4889,9 +4937,38 @@ export default function DashboardPage() {
         )}
 
  
-        {activeTab === "planes" && user?.id === "superuser-id" && (
+        {activeTab === "planes" && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            {user?.id !== "superuser-id" && (
+              <div className="bg-gradient-to-br from-indigo-900 to-blue-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🏢</div>
+                <div className="relative z-10">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">Estado de su Suscripción</h2>
+                  <p className="text-indigo-200 font-bold text-sm uppercase tracking-widest mb-8">Edificio: {building?.nombre}</p>
+                  
+                  <div className="grid md:grid-cols-3 gap-8">
+                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20">
+                      <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Plan Actual</div>
+                      <div className="text-4xl font-black mb-1">{planInfo?.name}</div>
+                      <div className="inline-block px-3 py-1 bg-green-500 text-[10px] font-black uppercase rounded-full mb-4">Suscripción Activa</div>
+                      <p className="text-xs text-indigo-100 leading-relaxed">Su edificio cuenta con todas las funcionalidades del nivel {planInfo?.name}.</p>
+                    </div>
+
+                    <div className="md:col-span-2 bg-white/5 backdrop-blur-sm p-6 rounded-3xl border border-white/10">
+                      <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Sugerencia de Mejora</div>
+                      <h3 className="text-xl font-bold mb-4">Obtenga Control Estratégico</h3>
+                      <p className="text-sm text-indigo-100 mb-6">Suba al plan <span className="font-bold text-white">Empresarial</span> para desbloquear Conciliación Bancaria, Semáforos de Riesgo y Alertas vía WhatsApp para toda la Junta.</p>
+                      <button className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-8 py-3 rounded-2xl font-black uppercase tracking-tighter transition-all transform hover:scale-105 shadow-xl shadow-amber-900/20">
+                        Contactar Soporte para Upgrade
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {user?.id === "superuser-id" && (
+              <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Configuración de Planes y Precios</h2>
                 <p className="text-sm text-gray-500">Gestiona los planes que se muestran en la página principal</p>

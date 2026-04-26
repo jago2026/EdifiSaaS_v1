@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getPlanPermissions } from "@/lib/planLimits";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -150,6 +151,16 @@ export async function GET(request: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // 0. Obtener el plan del edificio
+    const { data: edificio } = await supabase
+      .from("edificios")
+      .select("plan")
+      .eq("id", edificioId)
+      .single();
+
+    const planName = edificio?.plan || "Básico";
+    const permissions = getPlanPermissions(planName);
 
     // Get more rates to ensure we reach 2025
     const { data: tasasHistoricas } = await supabase
@@ -357,13 +368,18 @@ export async function GET(request: Request) {
     return NextResponse.json({
       egresos: Object.values(egresosAgrupados).sort((a: any, b: any) => a.mes.localeCompare(b.mes)),
       gastos: Object.values(gastosAgrupados).sort((a: any, b: any) => a.mes.localeCompare(b.mes)),
-      balances: balancesWithLabel,
+      balances: permissions.hasKpis ? balancesWithLabel : [],
       movimientos: movimientos || [],
       cashFlow: cashFlowData,
-      deudaTotal,
-      deudaTotalUsd,
+      deudaTotal: permissions.hasAdvancedKpis ? deudaTotal : 0,
+      deudaTotalUsd: permissions.hasAdvancedKpis ? deudaTotalUsd : 0,
       unidadesCount,
-      alicuotaPromedio
+      alicuotaPromedio,
+      planInfo: {
+        name: planName,
+        hasKpis: permissions.hasKpis,
+        hasAdvancedKpis: permissions.hasAdvancedKpis
+      }
     });
   } catch (error: any) {
     console.error("KPIs API error:", error);

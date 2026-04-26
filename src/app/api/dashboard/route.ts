@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { getPlanPermissions } from "@/lib/planLimits";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -97,6 +98,8 @@ export async function GET(request: Request) {
     const building = buildings && buildings.length > 0 ? buildings[0] : null;
     console.log(`[DASHBOARD] Datos cargados para ${user.email}. Edificio: ${building?.nombre || 'Ninguno'}`);
 
+    const permissions = getPlanPermissions(building?.plan || "Básico");
+
     return NextResponse.json({
       user: {
         ...user,
@@ -107,6 +110,10 @@ export async function GET(request: Request) {
         isDemo
       },
       building,
+      planInfo: {
+        name: building?.plan || "Básico",
+        permissions
+      }
     });
   } catch (error: any) {
     console.error("Dashboard error:", error);

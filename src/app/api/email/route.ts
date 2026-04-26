@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
+import { getPlanPermissions } from "@/lib/planLimits";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -56,8 +57,10 @@ export async function POST(request: Request) {
     const tasa = await getTasaBCV();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades, email_junta").eq("id", edificioId).single();
+    const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades, email_junta, plan").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
+
+    const permissions = getPlanPermissions(edificio.plan || "Básico");
 
     if (action === "welcome_invitation") {
       const { tempPassword, nombreMiembro } = body;
@@ -284,7 +287,9 @@ export async function POST(request: Request) {
     }
 
     const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
-    const toEmails = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    const toEmailsRaw = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    const toEmails = toEmailsRaw.slice(0, permissions.maxEmailRecipients);
+    
     if (toEmails.length === 0) return NextResponse.json({ error: "No hay emails en la junta" }, { status: 400 });
 
     const todayDate = new Date();

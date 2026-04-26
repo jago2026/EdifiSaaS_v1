@@ -13,40 +13,42 @@ export async function GET() {
 
   const hardcodedFeatures: Record<string, string[]> = {
     "Básico": [
-      "Sincronización Diaria",
-      "Reporte diario automático a los miembros de la Junta de Condominio con la situación financiera",
-      "Reportes Básicos",
-      "Historial de 3 meses",
+      "Vista de Flujo de Caja Mensual",
+      "Sincronización Diaria de Movimientos",
+      "Reporte diario automático vía Email (1 destinatario)",
+      "Historial de consulta de 3 meses",
       "Soporte por email",
       "Hasta 30 Unidades"
     ],
     "Profesional": [
       "Todo lo de Básico",
-      "Control financiero avanzado",
-      "Reporte diario automático a los miembros de la Junta de Condominio con la situación financiera",
-      "Historial de 12 meses",
-      "Exportación de reportes",
-      "Auditoría Financiera",
-      "Reportes Avanzados",
-      "Hasta 50 Unidades"
+      "Historial de movimientos ilimitado",
+      "KPIs: Índice de Morosidad y Tendencia de Gastos",
+      "Módulo de Alícuotas vs Gasto Real",
+      "Análisis de Tasa BCV Histórica",
+      "Exportación de datos a Excel/CSV",
+      "Reporte diario a toda la Junta (hasta 5 emails)",
+      "Hasta 100 Unidades"
     ],
     "Empresarial": [
       "Todo lo de Profesional",
+      "Módulo de Recibos Proyectados (Pre-emisión)",
+      "Conciliación Bancaria Automatizada",
+      "Flujo de Caja Multimoneda ($ y Bs)",
+      "Semáforo de Reservas y Fondos Especiales",
+      "Gestión diferenciada para Edificios Mixtos",
+      "Alertas Críticas vía WhatsApp",
       "Unidades Ilimitadas",
-      "Soporte Prioritario",
-      "Actualizaciones y mejoras incluidas",
-      "Formación in situ"
+      "Soporte Prioritario"
     ],
-    "IA (En Desarrollo. actualmente no disponible)": [
+    "IA (Asistente de Gestión)": [
       "Todo lo de Empresarial",
-      "Asistente de IA",
-      "Análisis Predictivo",
-      "Reportes inteligentes automatizados",
-      "Todo incluido",
-      "Análisis y recomendaciones",
-      "Análisis de morosidad, de gastos, proyecciones y estimaciones, y mucho mas.",
-      "Soporte",
-      "Formación in situ"
+      "Asistente de IA para Consultas Financieras",
+      "Análisis de Diferencial Cambiario 'Invisible'",
+      "Predicción de Morosidad y Flujo de Caja",
+      "Análisis Inteligente de Variación de Gastos",
+      "Recomendaciones de Ajuste de Cuota de Condominio",
+      "Formación in situ y Consultoría Senior"
     ]
   };
 
