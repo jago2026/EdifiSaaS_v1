@@ -278,6 +278,34 @@ export default function DashboardPage() {
   const [loadingTasa, setLoadingTasa] = useState(false);
   const [selectedMes, setSelectedMes] = useState<string>("");
   const [planInfo, setPlanInfo] = useState<any>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeForm, setUpgradeForm] = useState({ planDeseado: "", motivo: "", telefono: "" });
+
+  const PLAN_SUGGESTIONS: Record<string, any> = {
+    'Básico': {
+      next: 'Profesional',
+      title: 'Obtenga Auditoría Activa',
+      desc: 'Suba al plan Profesional para desbloquear KPIs de Morosidad, Tendencia de Gastos y exportación a Excel.'
+    },
+    'Profesional': {
+      next: 'Empresarial',
+      title: 'Obtenga Control Estratégico',
+      desc: 'Suba al plan Empresarial para desbloquear Conciliación Bancaria, Semáforos de Riesgo y Alertas vía WhatsApp.'
+    },
+    'Empresarial': {
+      next: 'IA (Asistente de Gestión)',
+      title: 'Obtenga Inteligencia Predictiva',
+      desc: 'Suba al plan IA para contar con un Asistente Virtual, Predicción de Flujo de Caja y análisis de Diferencial Cambiario.'
+    },
+    'IA (Asistente de Gestión)': {
+      next: null,
+      title: 'Máximo Nivel de Gestión',
+      desc: 'Su edificio ya cuenta con el nivel más alto de tecnología disponible en la plataforma.'
+    }
+  };
+
+  const currentSuggestion = planInfo ? PLAN_SUGGESTIONS[planInfo.name] || PLAN_SUGGESTIONS['Básico'] : PLAN_SUGGESTIONS['Básico'];
+
   const [selectedUnidad, setSelectedUnidad] = useState<string>("");
   const [reciboDetalle, setReciboDetalle] = useState<any[]>([]);
   const [loadingRecibo, setLoadingRecibo] = useState(false);
@@ -1740,6 +1768,53 @@ export default function DashboardPage() {
       setSyncMessage(`❌ Error en sincronización: ${error.message}`);
     } finally {
       setSyncingMes(false);
+    }
+  };
+
+  const handleSendUpgradeRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setEmailMessage("");
+
+    try {
+      // Usar la API de email existente con una acción personalizada o simplemente enviando el cuerpo
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          edificioId: building?.id,
+          testMode: false,
+          action: "custom_support", // Podemos usar la lógica de email existente o una nueva
+          subject: `SOLICITUD UPGRADE: ${building?.nombre} -> Plan ${upgradeForm.planDeseado}`,
+          customBody: `
+            <h1>Solicitud de Mejora de Plan</h1>
+            <p><strong>Edificio:</strong> ${building?.nombre}</p>
+            <p><strong>ID Edificio:</strong> ${building?.id}</p>
+            <p><strong>Usuario Solicitante:</strong> ${user?.email}</p>
+            <p><strong>Plan Actual:</strong> ${planInfo?.name}</p>
+            <p><strong>Plan Deseado:</strong> ${upgradeForm.planDeseado}</p>
+            <p><strong>Teléfono de Contacto:</strong> ${upgradeForm.telefono}</p>
+            <p><strong>Motivo / Requerimiento:</strong></p>
+            <p>${upgradeForm.motivo}</p>
+          `,
+          overrideRecipient: "correojago@gmail.com"
+        })
+      });
+
+      if (res.ok) {
+        setEmailMessage("✅ Solicitud enviada con éxito. Nos contactaremos pronto.");
+        setTimeout(() => {
+          setShowUpgradeModal(false);
+          setUpgradeForm({ planDeseado: "", motivo: "", telefono: "" });
+          setEmailMessage("");
+        }, 3000);
+      } else {
+        throw new Error("Error al enviar solicitud");
+      }
+    } catch (error) {
+      setEmailMessage("❌ Error al enviar la solicitud. Por favor intente más tarde.");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -4966,11 +5041,19 @@ export default function DashboardPage() {
 
                     <div className="md:col-span-2 bg-white/5 backdrop-blur-sm p-6 rounded-3xl border border-white/10">
                       <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Sugerencia de Mejora</div>
-                      <h3 className="text-xl font-bold mb-4">Obtenga Control Estratégico</h3>
-                      <p className="text-sm text-indigo-100 mb-6">Suba al plan <span className="font-bold text-white">Empresarial</span> para desbloquear Conciliación Bancaria, Semáforos de Riesgo y Alertas vía WhatsApp para toda la Junta.</p>
-                      <button className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-8 py-3 rounded-2xl font-black uppercase tracking-tighter transition-all transform hover:scale-105 shadow-xl shadow-amber-900/20">
-                        Contactar Soporte para Upgrade
-                      </button>
+                      <h3 className="text-xl font-bold mb-4">{currentSuggestion.title}</h3>
+                      <p className="text-sm text-indigo-100 mb-6">{currentSuggestion.desc}</p>
+                      {currentSuggestion.next && (
+                        <button 
+                          onClick={() => {
+                            setUpgradeForm({ ...upgradeForm, planDeseado: currentSuggestion.next });
+                            setShowUpgradeModal(true);
+                          }}
+                          className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-8 py-3 rounded-2xl font-black uppercase tracking-tighter transition-all transform hover:scale-105 shadow-xl shadow-amber-900/20"
+                        >
+                          Contactar Soporte para Upgrade
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -5744,6 +5827,89 @@ export default function DashboardPage() {
                 Cancelar y Salir
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Solicitud de Upgrade */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300 border-4 border-white">
+            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 p-8 text-center text-white relative">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🚀</div>
+              <h2 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2">Solicitar Mejora de Plan</h2>
+              <p className="text-indigo-100 font-bold text-[10px] uppercase tracking-widest italic">Plan Sugerido: {upgradeForm.planDeseado}</p>
+            </div>
+            
+            <form onSubmit={handleSendUpgradeRequest} className="p-8 space-y-5">
+              {emailMessage && (
+                <div className={`p-4 rounded-xl text-xs font-black uppercase tracking-widest text-center ${emailMessage.includes('✅') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                  {emailMessage}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Edificio</label>
+                  <div className="px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl font-bold text-gray-500 text-sm truncate">
+                    {building?.nombre}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Plan Solicitado</label>
+                  <select 
+                    value={upgradeForm.planDeseado}
+                    onChange={(e) => setUpgradeForm({ ...upgradeForm, planDeseado: e.target.value })}
+                    className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-indigo-700 text-sm appearance-none"
+                  >
+                    <option value="Profesional">Plan Profesional</option>
+                    <option value="Empresarial">Plan Empresarial</option>
+                    <option value="IA (Asistente de Gestión)">Plan IA</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Teléfono de Contacto (WhatsApp)</label>
+                <input
+                  type="text"
+                  required
+                  value={upgradeForm.telefono}
+                  onChange={(e) => setUpgradeForm({ ...upgradeForm, telefono: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                  placeholder="Ej: +58 412 0000000"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">¿Por qué desea mejorar su plan?</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={upgradeForm.motivo}
+                  onChange={(e) => setUpgradeForm({ ...upgradeForm, motivo: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium text-gray-700 text-sm"
+                  placeholder="Describa brevemente sus necesidades o funcionalidades que requiere desbloquear..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="flex-1 py-4 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase tracking-widest hover:bg-gray-200 transition-all text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-[2] py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 text-xs"
+                >
+                  {saving ? "Enviando..." : "Enviar Solicitud 🚀"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

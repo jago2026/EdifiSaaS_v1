@@ -62,6 +62,23 @@ export async function POST(request: Request) {
 
     const permissions = getPlanPermissions(edificio.plan || "Básico");
 
+    if (action === "custom_support") {
+      const { subject, customBody, overrideRecipient } = body;
+      await transporter.sendMail({
+        from: `"EdifiSaaS - Soporte" <${SMTP_USER}>`,
+        to: overrideRecipient || "correojago@gmail.com",
+        subject: subject || "Solicitud de Soporte",
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+            ${customBody}
+            <hr style="margin-top: 30px; border: 0; border-top: 1px solid #eee;" />
+            <p style="font-size: 10px; color: #999;">Enviado automáticamente desde la plataforma EdifiSaaS</p>
+          </div>
+        `
+      });
+      return NextResponse.json({ success: true, message: "Solicitud enviada" });
+    }
+
     if (action === "welcome_invitation") {
       const { tempPassword, nombreMiembro } = body;
       await transporter.sendMail({

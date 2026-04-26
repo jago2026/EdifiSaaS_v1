@@ -75,9 +75,15 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
 };
 
 export function getPlanPermissions(planName: string): PlanPermissions {
-  // Manejar variaciones de nombre o planes por defecto
+  // Manejar coincidencias exactas primero
+  if (planName === 'IA (Asistente de Gestión)' || planName === 'IA') return PLAN_LIMITS['IA (Asistente de Gestión)'];
+  if (planName === 'Empresarial') return PLAN_LIMITS['Empresarial'];
+  if (planName === 'Profesional') return PLAN_LIMITS['Profesional'];
+  
+  // Fallback por si hay variaciones de texto
   if (planName.includes('IA')) return PLAN_LIMITS['IA (Asistente de Gestión)'];
   if (planName.includes('Empresarial')) return PLAN_LIMITS['Empresarial'];
   if (planName.includes('Profesional')) return PLAN_LIMITS['Profesional'];
+  
   return PLAN_LIMITS['Básico'];
 }
