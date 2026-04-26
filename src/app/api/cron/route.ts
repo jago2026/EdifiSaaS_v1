@@ -64,33 +64,34 @@ export async function GET(request: NextRequest) {
     // Obtener hora actual en Venezuela
     const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
     const currentHourVET = nowVET.getHours();
-    const currentFullTimeVET = nowVET.toLocaleTimeString("es-VE", { timeZone: "America/Caracas" });
+    const currentFullTimeVET = nowVET.toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
 
     for (const edificio of edificios) {
       const edificioId = edificio.id;
       const cronTime = edificio.cron_time || "05:00";
       const configHour = parseInt(cronTime.split(":")[0]);
 
-      console.log(`[CRON] Procesando edificio: ${edificio.nombre} - Config: ${cronTime} VET - Actual: ${currentFullTimeVET} VET`);
+      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${currentFullTimeVET} VET`);
 
-      if (edificio.cron_enabled === false) {
-        console.log(`[CRON] Saltando ${edificio.nombre} - servicio desactivado`);
+      if (!edificio.cron_enabled) {
+        console.log(`[CRON] [!] Saltando ${edificio.nombre} - Cron DESACTIVADO en config`);
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "cron_enabled = false" });
         continue;
       }
 
       // Verificar si es la hora correcta (basado en hora de Venezuela)
       if (!force && currentHourVET !== configHour) {
-        console.log(`[CRON] Saltando ${edificio.nombre} - No es la hora configurada (${cronTime} VET)`);
+        console.log(`[CRON] [.] Saltando ${edificio.nombre} - Hora no coincide (${currentHourVET} != ${configHour})`);
         
-        // Añadir log silencioso en alertas para diagnóstico
-        // Solo lo hacemos si es la primera vez que lo vemos en el log o cada cierto tiempo para no saturar
-        // Por ahora lo activamos para que el usuario vea que el cron SI se llamó pero se saltó.
-        await logAlerta(supabase, edificioId, "info", "⏱️ Cron Verificado", `El sistema verificó la tarea programada a las ${currentFullTimeVET} VET. Se saltó porque la hora configurada es ${cronTime} VET.`);
+        // Registrar rastro de verificación en alertas para depuración mañana
+        await logAlerta(supabase, edificioId, "debug", "⏱️ Verificación de Cron", `El cron se llamó a las ${currentFullTimeVET} VET. Se saltó porque su hora configurada es ${cronTime} VET.`);
         
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }
+
+      console.log(`[CRON] [EXECUTING] Disparando tareas para ${edificio.nombre}...`);
+      await logAlerta(supabase, edificioId, "info", "🚀 Ejecutando Cron", `Iniciando sincronización y envío de informe diario (${currentFullTimeVET} VET).`);
 
       try {
         await logAlerta(supabase, edificioId, "info", "🚀 Iniciando Cron Diario", `Iniciando proceso automático de sincronización y envío de informes (${force ? 'Ejecución Forzada' : 'Ejecución Programada'}).`);
