@@ -69,42 +69,38 @@ export default function Home() {
   useEffect(() => {
     async function loadPlanes() {
       const hardcodedPlanes = [
-        { name: "Básico", price_monthly: 19, price_yearly: 190, features: [
+        { name: "Esencial", price_monthly: 19, price_yearly: 190, features: [
           "Sincronización Diaria",
-          "Reporte diario automático a los miembros de la Junta de Condominio con la situación financiera",
-          "Reportes Básicos",
-          "Historial de 3 meses",
-          "Soporte por email",
+          "Flujo de Caja Básico (Mes Actual)",
+          "Reportes Mensuales por Email",
+          "Historial de Datos de 3 meses",
+          "Soporte técnico por email",
           "Hasta 30 Unidades"
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
         { name: "Profesional", price_monthly: 29, price_yearly: 290, features: [
-          "Todo lo de Básico",
-          "Control financiero avanzado",
-          "Reporte diario automático a los miembros de la Junta de Condominio con la situación financiera",
-          "Historial de 12 meses",
-          "Exportación de reportes",
-          "Auditoría Financiera",
-          "Reportes Avanzados",
-          "Hasta 50 Unidades"
+          "Todo lo del Plan Esencial",
+          "KPIs y Gráficos de Tendencias",
+          "Exportación a Excel/CSV",
+          "Recibo del Próximo Mes",
+          "Alertas por WhatsApp (Hasta 50/mes)",
+          "Hasta 100 Unidades"
         ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
-        { name: "Empresarial", price_monthly: 59, price_yearly: 590, features: [
-          "Todo lo de Profesional",
-          "Unidades Ilimitadas",
-          "Soporte Prioritario",
-          "Actualizaciones y mejoras incluidas",
-          "Formación in situ"
+        { name: "Premium", price_monthly: 59, price_yearly: 590, features: [
+          "Todo lo del Plan Profesional",
+          "Auditoría Financiera Avanzada",
+          "Módulo de Presupuesto Anual",
+          "Historial de Datos Ilimitado",
+          "Alertas WhatsApp (Hasta 200/mes)",
+          "Soporte VIP y Formación In Situ"
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
-        { name: "IA (En Desarrollo. actualmente no disponible)", price_monthly: 79, price_yearly: 790, features: [
-          "Todo lo de Empresarial",
-          "Asistente de IA",
-          "Análisis Predictivo",
-          "Reportes inteligentes automatizados",
-          "Todo incluido",
-          "Análisis y recomendaciones",
-          "Análisis de morosidad, de gastos, proyecciones y estimaciones, y mucho mas.",
-          "Soporte",
-          "Formación in situ"
-        ], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
+        { name: "Inteligencia Artificial", price_monthly: 79, price_yearly: 790, features: [
+          "Todo lo del Plan Premium",
+          "Asistente Virtual con IA 24/7",
+          "Análisis Predictivo de Gastos",
+          "Análisis de Morosidad IA",
+          "Optimización de Gastos",
+          "Escenarios Financieros IA"
+        ], is_popular: false, show_contact: false, badge_text: "Elite", display_order: 3 }
       ];
 
       try {
@@ -504,11 +500,94 @@ export default function Home() {
                   )}
                 </div>
               ))
-            )}
-          </div>
-        </div>
-      </section>
+              )}
+              </div>
 
+              {/* Tabla Comparativa de Planes */}
+              <div className="mt-32 overflow-x-auto">
+              <div className="text-center mb-16">
+              <h3 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">Comparativa de Funcionalidades</h3>
+              <div className="w-24 h-2 bg-blue-600 mx-auto mt-4 rounded-full"></div>
+              </div>
+              <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr className="border-b-4 border-gray-100">
+                  <th className="py-8 px-6 text-xs font-black uppercase text-gray-400 tracking-widest bg-gray-50/50 rounded-tl-3xl">Módulo / Servicio</th>
+                  <th className="py-8 px-6 text-center font-black text-gray-900 uppercase bg-gray-50/50">Esencial</th>
+                  <th className="py-8 px-6 text-center font-black text-indigo-600 uppercase bg-indigo-50/30">Profesional</th>
+                  <th className="py-8 px-6 text-center font-black text-blue-600 uppercase bg-blue-50/30">Premium</th>
+                  <th className="py-8 px-6 text-center font-black text-purple-600 uppercase bg-purple-50/30 rounded-tr-3xl">Inteligencia Artificial</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Nº de emails de alerta/mes</td>
+                  <td className="py-6 px-6 text-center font-black text-gray-400">Hasta 50</td>
+                  <td className="py-6 px-6 text-center font-black text-indigo-600">Hasta 200</td>
+                  <td className="py-6 px-6 text-center font-black text-green-600 italic">Ilimitado</td>
+                  <td className="py-6 px-6 text-center font-black text-green-600 italic">Ilimitado</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Exportación de Datos (Excel/CSV)</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">KPIs y Gráficos Avanzados</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Recibo del Próximo Mes</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Alertas por WhatsApp</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center font-black text-indigo-400 text-[10px] uppercase">Solo Críticas</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Auditoría y Presupuesto Anual</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Soporte VIP y Formación In Situ</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700 italic">IA y Análisis Predictivo</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-purple-600 font-black text-2xl">✨ ✅</td>
+                </tr>
+                <tr className="bg-gray-900 text-white shadow-xl">
+                  <td className="py-8 px-6 font-black uppercase text-xs tracking-[0.2em] rounded-bl-3xl">Límite de Unidades</td>
+                  <td className="py-8 px-6 text-center font-black text-lg">30</td>
+                  <td className="py-8 px-6 text-center font-black text-lg text-indigo-300">100</td>
+                  <td className="py-8 px-6 text-center font-black text-lg text-blue-300 italic tracking-widest">ILIMITADO</td>
+                  <td className="py-8 px-6 text-center font-black text-lg text-purple-300 italic tracking-widest rounded-br-3xl">ILIMITADO</td>
+                </tr>
+              </tbody>
+              </table>
+              </div>
+              </div>
+              </section>
       <section id="faq" className="container mx-auto px-6 py-20 bg-gray-50 border-y border-gray-100">
         <div className="max-w-4xl mx-auto">
           <h2 className="text-4xl font-black text-center text-gray-900 mb-12 uppercase tracking-tighter italic">Preguntas Frecuentes</h2>

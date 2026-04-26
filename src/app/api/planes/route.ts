@@ -12,43 +12,43 @@ export async function GET() {
     .order("display_order", { ascending: true });
 
   const hardcodedFeatures: Record<string, string[]> = {
-    "Básico": [
-      "Vista de Flujo de Caja Mensual",
+    "Esencial": [
       "Sincronización Diaria de Movimientos",
-      "Reporte diario automático vía Email (1 destinatario)",
-      "Historial de consulta de 3 meses",
-      "Soporte por email",
-      "Hasta 30 Unidades"
+      "Flujo de Caja Básico (Mes Actual)",
+      "Reportes Mensuales Básicos por Email",
+      "Historial de Datos de 3 meses",
+      "Notificaciones por Email (Hasta 50/mes)",
+      "Soporte Estándar por Email (48h)",
+      "Gestión de hasta 30 unidades"
     ],
     "Profesional": [
-      "Todo lo de Básico",
-      "Historial de movimientos ilimitado",
-      "KPIs: Índice de Morosidad y Tendencia de Gastos",
-      "Módulo de Alícuotas vs Gasto Real",
-      "Análisis de Tasa BCV Histórica",
-      "Exportación de datos a Excel/CSV",
-      "Reporte diario a toda la Junta (hasta 5 emails)",
-      "Hasta 100 Unidades"
+      "Todo lo del Plan Esencial",
+      "KPIs y Gráficos de Tendencias",
+      "Flujo de Caja Detallado (12 meses)",
+      "Exportación de Datos (Excel/CSV)",
+      "Generación de Recibo del Próximo Mes",
+      "Alertas por WhatsApp (Hasta 50/mes)",
+      "Soporte Prioritario (24h)",
+      "Gestión de hasta 100 unidades"
     ],
-    "Empresarial": [
-      "Todo lo de Profesional",
-      "Módulo de Recibos Proyectados (Pre-emisión)",
-      "Conciliación Bancaria Automatizada",
-      "Flujo de Caja Multimoneda ($ y Bs)",
-      "Semáforo de Reservas y Fondos Especiales",
-      "Gestión diferenciada para Edificios Mixtos",
-      "Alertas Críticas vía WhatsApp",
-      "Unidades Ilimitadas",
-      "Soporte Prioritario"
+    "Premium": [
+      "Todo lo del Plan Profesional",
+      "Herramientas de Auditoría Financiera",
+      "Módulo de Presupuesto y Control Anual",
+      "Historial de Datos Ilimitado",
+      "Notificaciones por Email Ilimitadas",
+      "Alertas por WhatsApp (Hasta 200/mes)",
+      "Soporte VIP 24/7 y Formación In Situ",
+      "Unidades Ilimitadas"
     ],
-    "IA (Asistente de Gestión)": [
-      "Todo lo de Empresarial",
-      "Asistente de IA para Consultas Financieras",
-      "Análisis de Diferencial Cambiario 'Invisible'",
-      "Predicción de Morosidad y Flujo de Caja",
-      "Análisis Inteligente de Variación de Gastos",
-      "Recomendaciones de Ajuste de Cuota de Condominio",
-      "Formación in situ y Consultoría Senior"
+    "Inteligencia Artificial": [
+      "Todo lo del Plan Premium",
+      "Asistente Virtual con IA 24/7",
+      "Análisis Predictivo de Gastos e Ingresos",
+      "Reportes Inteligentes con Insights de IA",
+      "Análisis de Morosidad Avanzado",
+      "Optimización de Gastos Inteligente",
+      "Escenarios Financieros y Proyecciones IA"
     ]
   };
 

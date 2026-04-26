@@ -5276,10 +5276,83 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-            </div>
+              </div>
 
-            {syncMessage && (
-              <div className={`p-4 rounded-xl font-bold text-sm shadow-sm border ${syncMessage.includes("❌") ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}`}>
+              {/* Nueva Sección: Alertas y Dashboard */}
+              <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tighter">🔔 Alertas Personalizables</h2>
+                  {!planInfo?.permissions?.hasCustomAlerts && (
+                    <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-black">PLAN PROFESIONAL+</span>
+                  )}
+                </div>
+
+                <div className={`space-y-4 ${!planInfo?.permissions?.hasCustomAlerts ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold text-gray-700">Umbral de Saldo Bajo</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-gray-400">$</span>
+                        <input type="number" defaultValue={500} className="w-20 px-2 py-1 border rounded text-xs font-bold" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-500 italic">Recibir notificación cuando el saldo disponible baje de este monto.</p>
+                  </div>
+
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold text-gray-700">Variación de Gastos</span>
+                      <div className="flex items-center gap-2">
+                        <input type="number" defaultValue={15} className="w-16 px-2 py-1 border rounded text-xs font-bold" />
+                        <span className="text-[10px] font-bold text-gray-400">%</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-500 italic">Alertar si un gasto fijo mensual sube más de este porcentaje.</p>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3">
+                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-blue-600" />
+                    <span className="text-xs font-bold text-gray-600 italic">Enviar alertas críticas por WhatsApp</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tighter">📊 Configuración de Dashboard</h2>
+                  {!planInfo?.permissions?.hasCustomDashboard && (
+                    <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-black">PLAN PROFESIONAL+</span>
+                  )}
+                </div>
+
+                <div className={`space-y-4 ${!planInfo?.permissions?.hasCustomDashboard ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                  <p className="text-xs text-gray-500 mb-4">Seleccione qué módulos estarán visibles para los miembros de la Junta:</p>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "Flujo de Caja", id: "cf" },
+                      { label: "Morosidad por Unidad", id: "mo" },
+                      { label: "Comparativa de Gastos", id: "cg" },
+                      { label: "Resumen USD", id: "usd" },
+                      { label: "Borrador de Recibo", id: "br" },
+                      { label: "Historial Sync", id: "hs" }
+                    ].map(module => (
+                      <label key={module.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer hover:bg-white transition-colors">
+                        <input type="checkbox" defaultChecked className="w-4 h-4 rounded text-indigo-600" />
+                        <span className="text-[10px] font-black uppercase text-gray-600">{module.label}</span>
+                      </label>
+                    ))}
+                  </div>
+
+                  <button className="w-full mt-4 py-3 bg-indigo-50 text-indigo-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-colors">
+                    Guardar Preferencias de Visualización
+                  </button>
+                </div>
+              </div>
+              </div>
+
+              {syncMessage && (              <div className={`p-4 rounded-xl font-bold text-sm shadow-sm border ${syncMessage.includes("❌") ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}`}>
                 {syncMessage}
               </div>
             )}
