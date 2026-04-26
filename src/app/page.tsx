@@ -138,9 +138,9 @@ export default function Home() {
           <nav className="hidden md:flex items-center gap-6">
             <a href="#features" className="text-gray-600 hover:text-blue-600 transition font-medium">Funcionalidades</a>
             <a href="#how-it-works" className="text-gray-600 hover:text-blue-600 transition font-medium">Cómo funciona</a>
+            <a href="#pricing" className="text-gray-600 hover:text-blue-600 transition font-medium">Planes</a>
             <a href="#faq" className="text-gray-600 hover:text-blue-600 transition font-medium">Preguntas frecuentes</a>
-            <a href="#contact" className="text-gray-600 hover:text-blue-600 transition font-medium">Contacto</a>
-            <Link href="/login" className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg hover:bg-blue-200 transition font-bold">Ingresar</Link>
+            <a href="#contact" className="text-gray-600 hover:text-blue-600 transition font-medium">Contacto</a>            <Link href="/login" className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg hover:bg-blue-200 transition font-bold">Ingresar</Link>
             <Link href="/register" className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-bold">Prueba Gratis</Link>
           </nav>
           
@@ -164,6 +164,7 @@ export default function Home() {
             <nav className="flex flex-col gap-4">
               <a href="#features" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Funcionalidades</a>
               <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Cómo funciona</a>
+              <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Planes</a>
               <a href="#faq" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Preguntas frecuentes</a>
               <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="text-gray-600 font-medium py-2">Contacto</a>
               <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="bg-blue-100 text-blue-700 px-6 py-2 rounded-lg text-center font-bold">Ingresar</Link>
