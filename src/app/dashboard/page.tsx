@@ -4730,7 +4730,7 @@ export default function DashboardPage() {
                   onUpgrade={() => setActiveTab("planes")}
                 />
             ) : (
-              <>
+              <div className="space-y-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <div>
@@ -4938,7 +4938,7 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     )}
@@ -4979,191 +4979,196 @@ export default function DashboardPage() {
             )}
 
             {user?.id === "superuser-id" && (
-              <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Configuración de Planes y Precios</h2>
-                <p className="text-sm text-gray-500">Gestiona los planes que se muestran en la página principal</p>
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => {
-                    const newPlanes = [...planesAdmin, { 
-                      id: crypto.randomUUID(), 
-                      name: "Nuevo Plan", 
-                      price_monthly: 0, 
-                      price_yearly: 0, 
-                      features: ["Feature 1"], 
-                      is_popular: false, 
-                      show_contact: false, 
-                      badge_text: "", 
-                      display_order: planesAdmin.length 
-                    }];
-                    setPlanesAdmin(newPlanes);
-                  }}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
-                >
-                  + Agregar Plan
-                </button>
-                <button 
-                  onClick={() => saveAdminPlanes(planesAdmin)}
-                  disabled={savingPlanesAdmin}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg disabled:opacity-50"
-                >
-                  {savingPlanesAdmin ? "Guardando..." : "Guardar Cambios"}
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6">
-              {loadingPlanesAdmin ? (
-                <div className="p-12 text-center text-gray-500 font-bold">Cargando planes...</div>
-              ) : planesAdmin.length === 0 ? (
-                <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 text-center">
-                  <p className="text-gray-500 mb-4">No hay planes configurados. Agrega el primero.</p>
-                  <button 
-                    onClick={() => {
-                      const initialPlanes = [
-                        { name: "Básico", price_monthly: 19, price_yearly: 190, features: ["Sincronización Diaria de Datos", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Acceso a Reportes Financieros Básicos", "Historial de Datos de 3 meses", "Soporte técnico por email", "Hasta 30 Unidades de Vivienda"], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
-                        { name: "Profesional", price_monthly: 29, price_yearly: 290, features: ["Todo lo incluido en el Plan Básico", "Control financiero y conciliación avanzada", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Historial de Datos de 12 meses", "Exportación de reportes (Excel/PDF)", "Herramientas de Auditoría Financiera", "Reportes e Indicadores Avanzados", "Hasta 50 Unidades de Vivienda"], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
-                        { name: "Empresarial", price_monthly: 59, price_yearly: 0, features: ["Todo lo incluido en el Plan Profesional", "Unidades de Vivienda Ilimitadas", "Soporte Técnico Prioritario", "Actualizaciones y mejoras continuas incluidas", "Formación y capacitación in situ"], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
-                        { name: "IA (En Desarrollo)", price_monthly: 79, price_yearly: 0, features: ["Todo lo incluido en el Plan Empresarial", "Asistente Virtual con IA", "Análisis Predictivo de Flujo de Caja", "Reportes inteligentes automatizados", "Acceso total a todas las funcionalidades", "Análisis detallado y recomendaciones", "Análisis de morosidad, gastos y proyecciones", "Soporte VIP Personalizado", "Formación continua in situ"], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
-                      ];
-                      setPlanesAdmin(initialPlanes);
-                    }}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg"
-                  >
-                    Cargar Planes por Defecto
-                  </button>
-                </div>
-              ) : (
-                planesAdmin.map((plan, idx) => (
-                  <div key={plan.id || idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
-                    <div className="grid md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Nombre del Plan</label>
-                        <input 
-                          value={plan.name} 
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].name = e.target.value;
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Precio Mensual ($)</label>
-                        <input 
-                          type="number"
-                          value={plan.price_monthly} 
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].price_monthly = Number(e.target.value);
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Precio Anual ($)</label>
-                        <input 
-                          type="number"
-                          value={plan.price_yearly} 
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].price_yearly = Number(e.target.value);
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Orden</label>
-                        <input 
-                          type="number"
-                          value={plan.display_order} 
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].display_order = Number(e.target.value);
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Badge (Ej: Más popular)</label>
-                        <input 
-                          value={plan.badge_text || ""} 
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].badge_text = e.target.value;
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          className="w-full px-3 py-2 border rounded-lg font-bold text-sm text-blue-600"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 pt-6">
-                        <input 
-                          type="checkbox"
-                          checked={plan.is_popular}
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].is_popular = e.target.checked;
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          id={`pop-${idx}`}
-                        />
-                        <label htmlFor={`pop-${idx}`} className="text-xs font-bold text-gray-700">Popular</label>
-                      </div>
-                      <div className="flex items-center gap-2 pt-6">
-                        <input 
-                          type="checkbox"
-                          checked={plan.show_contact}
-                          onChange={(e) => {
-                            const newPlanes = [...planesAdmin];
-                            newPlanes[idx].show_contact = e.target.checked;
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          id={`cont-${idx}`}
-                        />
-                        <label htmlFor={`cont-${idx}`} className="text-xs font-bold text-gray-700">Mostrar "Contactar"</label>
-                      </div>
-                      <div className="flex justify-end pt-4">
-                        <button 
-                          onClick={() => {
-                            const newPlanes = planesAdmin.filter((_, i) => i !== idx);
-                            setPlanesAdmin(newPlanes);
-                          }}
-                          className="text-red-500 text-xs font-bold uppercase"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Características (una por línea)</label>
-                      <textarea 
-                        value={plan.features.join("\n")} 
-                        onChange={(e) => {
-                          const newPlanes = [...planesAdmin];
-                          newPlanes[idx].features = e.target.value.split("\n");
-                          setPlanesAdmin(newPlanes);
-                        }}
-                        rows={4}
-                        className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
-                      />
-                    </div>
+              <div className="space-y-6">
+                <div className="flex justify-between items-center bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Configuración de Planes y Precios</h2>
+                    <p className="text-sm text-gray-500">Gestiona los planes que se muestran en la página principal</p>
                   </div>
-                ))
-              )}
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const newPlanes = [...planesAdmin, { 
+                          id: crypto.randomUUID(), 
+                          name: "Nuevo Plan", 
+                          price_monthly: 0, 
+                          price_yearly: 0, 
+                          features: ["Feature 1"], 
+                          is_popular: false, 
+                          show_contact: false, 
+                          badge_text: "", 
+                          display_order: planesAdmin.length 
+                        }];
+                        setPlanesAdmin(newPlanes);
+                      }}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg font-bold text-sm"
+                    >
+                      + Agregar Plan
+                    </button>
+                    <button 
+                      onClick={() => saveAdminPlanes(planesAdmin)}
+                      disabled={savingPlanesAdmin}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-lg disabled:opacity-50"
+                    >
+                      {savingPlanesAdmin ? "Guardando..." : "Guardar Cambios"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6">
+                  {loadingPlanesAdmin ? (
+                    <div className="p-12 text-center text-gray-500 font-bold">Cargando planes...</div>
+                  ) : planesAdmin.length === 0 ? (
+                    <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100 text-center">
+                      <p className="text-gray-500 mb-4">No hay planes configurados. Agrega el primero.</p>
+                      <button 
+                        onClick={() => {
+                          const initialPlanes = [
+                            { name: "Básico", price_monthly: 19, price_yearly: 190, features: ["Sincronización Diaria de Datos", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Acceso a Reportes Financieros Básicos", "Historial de Datos de 3 meses", "Soporte técnico por email", "Hasta 30 Unidades de Vivienda"], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
+                            { name: "Profesional", price_monthly: 29, price_yearly: 290, features: ["Todo lo incluido en el Plan Básico", "Control financiero y conciliación avanzada", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Historial de Datos de 12 meses", "Exportación de reportes (Excel/PDF)", "Herramientas de Auditoría Financiera", "Reportes e Indicadores Avanzados", "Hasta 50 Unidades de Vivienda"], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
+                            { name: "Empresarial", price_monthly: 59, price_yearly: 0, features: ["Todo lo incluido en el Plan Profesional", "Unidades de Vivienda Ilimitadas", "Soporte Técnico Prioritario", "Actualizaciones y mejoras continuas incluidas", "Formación y capacitación in situ"], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
+                            { name: "IA (En Desarrollo)", price_monthly: 79, price_yearly: 0, features: ["Todo lo incluido en el Plan Empresarial", "Asistente Virtual con IA", "Análisis Predictivo de Flujo de Caja", "Reportes inteligentes automatizados", "Acceso total a todas las funcionalidades", "Análisis detallado y recomendaciones", "Análisis de morosidad, gastos y proyecciones", "Soporte VIP Personalizado", "Formación continua in situ"], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
+                          ];
+                          setPlanesAdmin(initialPlanes);
+                        }}
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg"
+                      >
+                        Cargar Planes por Defecto
+                      </button>
+                    </div>
+                  ) : (
+                    planesAdmin.map((plan, idx) => (
+                      <div key={plan.id || idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+                        <div className="grid md:grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Nombre del Plan</label>
+                            <input 
+                              value={plan.name} 
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].name = e.target.value;
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Precio Mensual ($)</label>
+                            <input 
+                              type="number"
+                              value={plan.price_monthly} 
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].price_monthly = Number(e.target.value);
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Precio Anual ($)</label>
+                            <input 
+                              type="number"
+                              value={plan.price_yearly} 
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].price_yearly = Number(e.target.value);
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Orden</label>
+                            <input 
+                              type="number"
+                              value={plan.display_order} 
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].display_order = Number(e.target.value);
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="grid md:grid-cols-4 gap-4">
+                          <div>
+                            <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Badge (Ej: Más popular)</label>
+                            <input 
+                              value={plan.badge_text || ""} 
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].badge_text = e.target.value;
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              className="w-full px-3 py-2 border rounded-lg font-bold text-sm text-blue-600"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <input 
+                              type="checkbox"
+                              checked={plan.is_popular}
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].is_popular = e.target.checked;
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              id={`pop-${idx}`}
+                            />
+                            <label htmlFor={`pop-${idx}`} className="text-xs font-bold text-gray-700">Popular</label>
+                          </div>
+                          <div className="flex items-center gap-2 pt-6">
+                            <input 
+                              type="checkbox"
+                              checked={plan.show_contact}
+                              onChange={(e) => {
+                                const newPlanes = [...planesAdmin];
+                                newPlanes[idx].show_contact = e.target.checked;
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              id={`cont-${idx}`}
+                            />
+                            <label htmlFor={`cont-${idx}`} className="text-xs font-bold text-gray-700">Mostrar "Contactar"</label>
+                          </div>
+                          <div className="flex justify-end pt-4">
+                            <button 
+                              onClick={() => {
+                                const newPlanes = planesAdmin.filter((_, i) => i !== idx);
+                                setPlanesAdmin(newPlanes);
+                              }}
+                              className="text-red-500 text-xs font-bold uppercase"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-gray-400 mb-1">Características (una por línea)</label>
+                          <textarea 
+                            value={plan.features.join("\n")} 
+                            onChange={(e) => {
+                              const newPlanes = [...planesAdmin];
+                              newPlanes[idx].features = e.target.value.split("\n");
+                              setPlanesAdmin(newPlanes);
+                            }}
+                            rows={4}
+                            className="w-full px-3 py-2 border rounded-lg font-bold text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        )}
-        {activeTab === "configuracion" && building && (
+          )}
+        </div>
+      )}
+
+      {activeTab === "configuracion" && building && (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Datos del Edificio</h2>
