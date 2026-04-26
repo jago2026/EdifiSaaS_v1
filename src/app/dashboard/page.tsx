@@ -134,6 +134,8 @@ interface Building {
   email_junta?: string | null;
   onboarding_completed?: boolean;
   url_alicuotas?: string;
+  dashboard_config?: any;
+  alert_thresholds?: any;
 }
 
 interface Movement {
