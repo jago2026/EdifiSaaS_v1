@@ -109,11 +109,19 @@ export default function Home() {
         if (res.ok && data.data && data.data.length > 0) {
           // Combinamos con los datos de la DB pero priorizamos nuestros textos de features
           const mergedPlanes = data.data.map((dbPlan: any) => {
-            const hardPlan = hardcodedPlanes.find(p => p.name === dbPlan.name || (dbPlan.name.startsWith("IA") && p.name.startsWith("IA")));
-            return hardPlan ? { ...dbPlan, ...hardPlan } : dbPlan;
+            const dbName = dbPlan.name;
+            const normalizedName = dbName === "Básico" ? "Esencial" : 
+                                 (dbName === "Empresarial" ? "Premium" : dbName);
+
+            const hardPlan = hardcodedPlanes.find(p => 
+              p.name === normalizedName || 
+              (normalizedName.startsWith("IA") && p.name.startsWith("IA")) ||
+              (normalizedName.includes("Inteligencia") && p.name.includes("IA"))
+            );
+
+            return hardPlan ? { ...dbPlan, ...hardPlan, name: hardPlan.name } : { ...dbPlan, name: normalizedName };
           });
-          setPlanes(mergedPlanes);
-        } else {
+          setPlanes(mergedPlanes);        } else {
           setPlanes(hardcodedPlanes);
         }
       } catch (error) {

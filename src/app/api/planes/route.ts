@@ -59,11 +59,14 @@ export async function GET() {
   }
 
   const sanitizedData = data.map(plan => {
-    const key = Object.keys(hardcodedFeatures).find(k => k === plan.name || (plan.name.startsWith("IA") && k.startsWith("IA")));
+    const normalizedName = plan.name === "Básico" ? "Esencial" : 
+                         (plan.name === "Empresarial" ? "Premium" : plan.name);
+    
+    const key = Object.keys(hardcodedFeatures).find(k => k === normalizedName || (normalizedName.startsWith("IA") && k.startsWith("IA")));
     if (key) {
-      return { ...plan, features: hardcodedFeatures[key] };
+      return { ...plan, name: key, features: hardcodedFeatures[key] };
     }
-    return plan;
+    return { ...plan, name: normalizedName };
   });
 
   return NextResponse.json({ data: sanitizedData });
