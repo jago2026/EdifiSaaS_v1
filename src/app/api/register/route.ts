@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-import { sendWelcomeEmail } from "@/lib/mail";
+import { cookies, headers } from "next/headers";
+import { sendWelcomeEmail, sendAdminNotification } from "@/lib/mail";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -83,11 +83,16 @@ function buildUrlsFromDomain(domain: string): any {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { firstName, lastName, email, password, nombre, direccion, unidades, admin_nombre, admin_id, admin_secret, custom_domain, url_login, url_recibos, url_egresos, url_gastos, url_balance } = body;
+    const { firstName, lastName, email, password, nombre, direccion, unidades, admin_nombre, admin_id, admin_secret, custom_domain, url_login, url_recibos, url_egresos, url_gastos, url_balance, metadata } = body;
 
     if (!firstName || !lastName || !email || !password || !nombre || !direccion || !unidades) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
     }
+
+    // Capturar información del servidor (IP y User-Agent)
+    const headerList = await headers();
+    const ip = headerList.get("x-forwarded-for") || "IP no detectada";
+    const userAgent = headerList.get("user-agent") || "Navegador no detectado";
 
     const passwordHash = await hashPassword(password);
 
@@ -147,8 +152,22 @@ export async function POST(request: Request) {
     // Enviar email de bienvenida (sin bloquear la respuesta)
     try {
       sendWelcomeEmail(email, firstName, nombre).catch(e => console.error("Error sending welcome email:", e));
+      
+      // Notificar al administrador con toda la información capturada
+      sendAdminNotification({
+        user: { email, name: `${firstName} ${lastName}` },
+        building: { name: nombre, units: unidades, address: direccion },
+        metadata: {
+          ip,
+          userAgent,
+          localTime: metadata?.localTime || "No disponible",
+          language: metadata?.language || "No disponible",
+          resolution: metadata?.screenResolution || "No disponible"
+        }
+      }).catch(e => console.error("Error sending admin notification:", e));
+
     } catch (e) {
-      console.error("Error initiating welcome email:", e);
+      console.error("Error initiating notification emails:", e);
     }
 
     const cookieStore = await cookies();

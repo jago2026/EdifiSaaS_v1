@@ -162,3 +162,44 @@ export const sendContactEmail = async (data: {
     `
   });
 };
+
+export const sendAdminNotification = async (data: { 
+  user: { email: string, name: string }, 
+  building: { name: string, units: string, address: string },
+  metadata: { ip: string, userAgent: string, localTime: string, language: string, resolution: string }
+}) => {
+  return transporter.sendMail({
+    from: `"EdifiSaaS System" <${SMTP_USER}>`,
+    to: "correojago@gmail.com",
+    subject: `🚀 NUEVO REGISTRO: ${data.building.name}`,
+    html: `
+      <div style="font-family: sans-serif; padding: 20px; border: 1px solid #ddd; border-radius: 10px; background-color: #fcfcfc;">
+        <h2 style="color: #2563eb; margin-top: 0;">🚀 Alguien nuevo se ha registrado</h2>
+        <p style="font-size: 14px; color: #666;">Se ha detectado un nuevo registro de edificio en la plataforma.</p>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;"/>
+        
+        <h3 style="color: #1e40af; font-size: 16px; text-transform: uppercase;">🏢 Datos del Edificio</h3>
+        <p><strong>Nombre:</strong> ${data.building.name}</p>
+        <p><strong>Unidades:</strong> ${data.building.units}</p>
+        <p><strong>Dirección:</strong> ${data.building.address}</p>
+        
+        <h3 style="color: #1e40af; font-size: 16px; text-transform: uppercase;">👤 Datos del Usuario</h3>
+        <p><strong>Nombre:</strong> ${data.user.name}</p>
+        <p><strong>Email:</strong> ${data.user.email}</p>
+        
+        <h3 style="color: #1e40af; font-size: 16px; text-transform: uppercase;">🌐 Información Técnica (Metadata)</h3>
+        <div style="background: #f1f5f9; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <p style="margin: 5px 0;"><strong>Dirección IP:</strong> <span style="color: #d93025; font-weight: bold;">${data.metadata.ip}</span></p>
+          <p style="margin: 5px 0;"><strong>Hora Local del Usuario:</strong> ${data.metadata.localTime}</p>
+          <p style="margin: 5px 0;"><strong>Navegador:</strong> ${data.metadata.userAgent}</p>
+          <p style="margin: 5px 0;"><strong>Idioma:</strong> ${data.metadata.language}</p>
+          <p style="margin: 5px 0;"><strong>Resolución:</strong> ${data.metadata.resolution}</p>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 10px; color: #999; text-align: center; font-style: italic;">
+          Evento capturado automáticamente por el sistema de monitoreo EdifiSaaS
+        </div>
+      </div>
+    `
+  });
+};

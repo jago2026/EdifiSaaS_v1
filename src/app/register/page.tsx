@@ -244,6 +244,13 @@ export default function RegisterPage() {
     }
     
     try {
+      const clientMetadata = {
+        browser: navigator.userAgent,
+        localTime: new Date().toLocaleString("es-VE"),
+        language: navigator.language,
+        screenResolution: `${window.screen.width}x${window.screen.height}`,
+      };
+
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,6 +258,7 @@ export default function RegisterPage() {
           ...account,
           ...building,
           ...integrationData,
+          metadata: clientMetadata
         }),
       });
       
