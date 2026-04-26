@@ -18,6 +18,7 @@ Mejorar la página de ayuda (Manual de Usuario) y diagnosticar/corregir fallos e
     - Uso de `SUPABASE_SERVICE_ROLE_KEY` para backend.
 - [x] **Mejora de Email (`src/app/api/email/route.ts`)**:
     - Añadido log de alerta al enviar correos con éxito para confirmar despacho.
+    - Actualizado el asunto del correo de bienvenida a miembros para hacerlo más profesional: "📊 Bienvenido al Sistema de Control Financiero...".
 
 ### Resumen de Cambios Técnicos
 - **Navegación Manual**: Se cambió a `scrollIntoView` para funcionar dentro del contenedor con scroll del dashboard.

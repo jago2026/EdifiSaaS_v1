@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       await transporter.sendMail({
         from: `"EdifiSaaS - Invitación" <${SMTP_USER}>`,
         to: recipient,
-        subject: `Bienvenido a la Junta de Condominio - ${edificio.nombre}`,
+        subject: `📊 Bienvenido al Sistema de Control Financiero - ${edificio.nombre}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
             <div style="background: #1a73e8; color: white; padding: 24px; text-align: center;">
