@@ -70,37 +70,37 @@ export default function Home() {
     async function loadPlanes() {
       const hardcodedPlanes = [
         { name: "Esencial", price_monthly: 19, price_yearly: 190, features: [
-          "Sincronización Diaria",
-          "Flujo de Caja Básico (Mes Actual)",
-          "Reportes Mensuales por Email",
+          "Sincronización Automática Diaria",
+          "Flujo de Caja y Reportes Básicos",
+          "App de Propietarios (Consulta)",
           "Historial de Datos de 3 meses",
-          "Soporte técnico por email",
-          "Hasta 30 Unidades"
+          "Soporte Estándar por Email",
+          "Hasta 30 Unidades de Vivienda"
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
         { name: "Profesional", price_monthly: 29, price_yearly: 290, features: [
-          "Todo lo del Plan Esencial",
+          "Todo lo incluido en el Plan Esencial",
           "KPIs y Gráficos de Tendencias",
-          "Exportación a Excel/CSV",
-          "Recibo del Próximo Mes",
-          "Alertas por WhatsApp (Hasta 50/mes)",
-          "Hasta 100 Unidades"
+          "Exportación Completa Excel/CSV",
+          "Generación Recibo Próximo Mes",
+          "Alertas por WhatsApp (50/mes)",
+          "Hasta 100 Unidades de Vivienda"
         ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
         { name: "Premium", price_monthly: 59, price_yearly: 590, features: [
-          "Todo lo del Plan Profesional",
-          "Auditoría Financiera Avanzada",
-          "Módulo de Presupuesto Anual",
-          "Historial de Datos Ilimitado",
-          "Alertas WhatsApp (Hasta 200/mes)",
-          "Soporte VIP y Formación In Situ"
+          "Todo lo incluido en el Plan Profesional",
+          "Unidades de Vivienda Ilimitadas",
+          "Soporte Prioritario y Formación",
+          "Auditoría y Presupuesto Anual",
+          "Personalización de Marca (Branding)",
+          "Alertas WhatsApp (200/mes)"
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
         { name: "Inteligencia Artificial", price_monthly: 79, price_yearly: 790, features: [
-          "Todo lo del Plan Premium",
+          "Todo lo incluido en el Plan Premium",
           "Asistente Virtual con IA 24/7",
           "Análisis Predictivo de Gastos",
-          "Análisis de Morosidad IA",
-          "Optimización de Gastos",
-          "Escenarios Financieros IA"
-        ], is_popular: false, show_contact: false, badge_text: "Elite", display_order: 3 }
+          "Análisis de Morosidad con IA",
+          "Automatización de Tareas",
+          "Próximamente - En Desarrollo"
+        ], is_popular: false, show_contact: false, badge_text: "Próximamente", display_order: 3 }
       ];
 
       try {
@@ -549,6 +549,13 @@ export default function Home() {
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                 </tr>
                 <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">App de Propietarios (Consulta Recibos)</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                </tr>
+                <tr className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-6 px-6 font-bold text-gray-700">Alertas por WhatsApp</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center font-black text-indigo-400 text-[10px] uppercase">Solo Críticas</td>
@@ -563,18 +570,18 @@ export default function Home() {
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                 </tr>
                 <tr className="hover:bg-gray-50/50 transition-colors">
-                  <td className="py-6 px-6 font-bold text-gray-700">Soporte VIP y Formación In Situ</td>
+                  <td className="py-6 px-6 font-bold text-gray-700">Personalización de Marca (Branding)</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                 </tr>
                 <tr className="hover:bg-gray-50/50 transition-colors">
-                  <td className="py-6 px-6 font-bold text-gray-700 italic">IA y Análisis Predictivo</td>
+                  <td className="py-6 px-6 font-bold text-gray-700 italic text-purple-700">IA, Análisis Predictivo y Asistente</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
-                  <td className="py-6 px-6 text-center text-purple-600 font-black text-2xl">✨ ✅</td>
+                  <td className="py-6 px-6 text-center text-purple-600 font-black text-xs uppercase tracking-tighter">Próximamente</td>
                 </tr>
                 <tr className="bg-gray-900 text-white shadow-xl">
                   <td className="py-8 px-6 font-black uppercase text-xs tracking-[0.2em] rounded-bl-3xl">Límite de Unidades</td>

@@ -13,42 +13,36 @@ export async function GET() {
 
   const hardcodedFeatures: Record<string, string[]> = {
     "Esencial": [
-      "Sincronización Diaria de Movimientos",
-      "Flujo de Caja Básico (Mes Actual)",
-      "Reportes Mensuales Básicos por Email",
+      "Sincronización Automática Diaria",
+      "Flujo de Caja y Reportes Básicos",
+      "App de Propietarios (Consulta)",
       "Historial de Datos de 3 meses",
-      "Notificaciones por Email (Hasta 50/mes)",
-      "Soporte Estándar por Email (48h)",
-      "Gestión de hasta 30 unidades"
+      "Soporte Estándar por Email",
+      "Hasta 30 Unidades de Vivienda"
     ],
     "Profesional": [
-      "Todo lo del Plan Esencial",
+      "Todo lo incluido en el Plan Esencial",
       "KPIs y Gráficos de Tendencias",
-      "Flujo de Caja Detallado (12 meses)",
-      "Exportación de Datos (Excel/CSV)",
-      "Generación de Recibo del Próximo Mes",
-      "Alertas por WhatsApp (Hasta 50/mes)",
-      "Soporte Prioritario (24h)",
-      "Gestión de hasta 100 unidades"
+      "Exportación Completa Excel/CSV",
+      "Generación Recibo Próximo Mes",
+      "Alertas por WhatsApp (50/mes)",
+      "Hasta 100 Unidades de Vivienda"
     ],
     "Premium": [
-      "Todo lo del Plan Profesional",
-      "Herramientas de Auditoría Financiera",
-      "Módulo de Presupuesto y Control Anual",
-      "Historial de Datos Ilimitado",
-      "Notificaciones por Email Ilimitadas",
-      "Alertas por WhatsApp (Hasta 200/mes)",
-      "Soporte VIP 24/7 y Formación In Situ",
-      "Unidades Ilimitadas"
+      "Todo lo incluido en el Plan Profesional",
+      "Unidades de Vivienda Ilimitadas",
+      "Soporte Prioritario y Formación",
+      "Auditoría y Presupuesto Anual",
+      "Personalización de Marca (Branding)",
+      "Alertas WhatsApp (200/mes)"
     ],
     "Inteligencia Artificial": [
-      "Todo lo del Plan Premium",
+      "Todo lo incluido en el Plan Premium",
       "Asistente Virtual con IA 24/7",
-      "Análisis Predictivo de Gastos e Ingresos",
-      "Reportes Inteligentes con Insights de IA",
-      "Análisis de Morosidad Avanzado",
-      "Optimización de Gastos Inteligente",
-      "Escenarios Financieros y Proyecciones IA"
+      "Análisis Predictivo de Gastos",
+      "Análisis de Morosidad con IA",
+      "Automatización de Tareas",
+      "Próximamente - En Desarrollo"
     ]
   };
 
