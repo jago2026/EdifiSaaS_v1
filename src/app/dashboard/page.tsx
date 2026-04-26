@@ -4943,8 +4943,7 @@ export default function DashboardPage() {
       </div>
     )}
 
-        {activeTab === "instrucciones" && (
-          <ManualUsuario />
+      {activeTab === "instrucciones" && (          <ManualUsuario />
         )}
 
  
@@ -4989,7 +4988,7 @@ export default function DashboardPage() {
                     <button 
                       onClick={() => {
                         const newPlanes = [...planesAdmin, { 
-                          id: crypto.randomUUID(), 
+                          id: Date.now().toString(), 
                           name: "Nuevo Plan", 
                           price_monthly: 0, 
                           price_yearly: 0, 
@@ -5159,14 +5158,13 @@ export default function DashboardPage() {
                           />
                         </div>
                       </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
       {activeTab === "configuracion" && building && (
           <div className="space-y-6">
