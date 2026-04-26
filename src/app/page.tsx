@@ -83,15 +83,15 @@ export default function Home() {
           "KPIs y Gráficos de Tendencias",
           "Exportación Completa Excel/CSV",
           "Generación Recibo Próximo Mes",
-          "Hasta 100 Unidades de Vivienda"
+          "Hasta 50 Unidades de Vivienda"
         ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
         { name: "Premium", price_monthly: 59, price_yearly: 590, features: [
-          "Todo Automático + Unidades Ilimitadas",
+          "Todo Automático e Ilimitado",
           "Historial para Procesamiento: 1 Año",
           "Auditoría Financiera y Presupuestos",
           "Personalización de Marca (Branding)",
           "Alertas WhatsApp (200/mes)",
-          "Soporte VIP y Formación In Situ"
+          "Hasta 100 Unidades de Vivienda"
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
         { name: "Inteligencia Artificial", price_monthly: 79, price_yearly: 790, features: [
           "Todo lo del Plan Premium",
@@ -99,7 +99,7 @@ export default function Home() {
           "Análisis Predictivo de Gastos",
           "Análisis de Morosidad con IA",
           "Automatización de Tareas",
-          "PRÓXIMAMENTE - EN DESARROLLO"
+          "Unidades de Vivienda Ilimitadas"
         ], is_popular: false, show_contact: false, badge_text: "Próximamente", display_order: 3 }
       ];
 
@@ -578,11 +578,10 @@ export default function Home() {
                 <tr className="bg-gray-900 text-white shadow-xl">
                   <td className="py-8 px-6 font-black uppercase text-xs tracking-[0.2em] rounded-bl-3xl">Límite de Unidades</td>
                   <td className="py-8 px-6 text-center font-black text-lg">30</td>
-                  <td className="py-8 px-6 text-center font-black text-lg text-indigo-300">100</td>
-                  <td className="py-8 px-6 text-center font-black text-lg text-blue-300 italic tracking-widest">ILIMITADO</td>
+                  <td className="py-8 px-6 text-center font-black text-lg text-indigo-300">50</td>
+                  <td className="py-8 px-6 text-center font-black text-lg text-blue-300">100</td>
                   <td className="py-8 px-6 text-center font-black text-lg text-purple-300 italic tracking-widest rounded-br-3xl">ILIMITADO</td>
-                </tr>
-              </tbody>
+                </tr>              </tbody>
               </table>
               </div>
               </div>

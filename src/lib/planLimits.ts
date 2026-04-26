@@ -54,7 +54,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
     hasMultiCurrency: false,
     hasProjections: true, // Recibo próximo mes
     hasIA: false,
-    maxUnits: 100,
+    maxUnits: 50,
     hasMixedBuildingSupport: false,
     hasSemaforos: false,
     hasCustomAlerts: true,
@@ -74,7 +74,7 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
     hasMultiCurrency: true,
     hasProjections: true,
     hasIA: false,
-    maxUnits: 9999,
+    maxUnits: 100,
     hasMixedBuildingSupport: true,
     hasSemaforos: true,
     hasCustomAlerts: true,

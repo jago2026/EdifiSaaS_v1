@@ -26,7 +26,7 @@ export async function GET() {
       "Historial Procesamiento: 6 meses",
       "Exportación Datos (Últimos 3m)",
       "Recibo del Próximo Mes",
-      "Hasta 100 Unidades de Vivienda"
+      "Hasta 50 Unidades de Vivienda"
     ],
     "Premium": [
       "Todo Automático e Ilimitado",
@@ -34,7 +34,7 @@ export async function GET() {
       "Exportación Histórica Completa",
       "Auditoría Financiera Digital",
       "Personalización de Marca",
-      "Unidades Ilimitadas"
+      "Hasta 100 Unidades de Vivienda"
     ],
     "Inteligencia Artificial": [
       "Todo lo anterior + Inteligencia IA",
@@ -42,7 +42,7 @@ export async function GET() {
       "Asistente Virtual con IA 24/7",
       "Análisis Predictivo de Gastos",
       "Automatización de Tareas",
-      "PRÓXIMAMENTE - EN DESARROLLO"
+      "Unidades de Vivienda Ilimitadas"
     ]
   };
 
