@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       .eq("id", edificioId)
       .single();
 
-    const permissions = getPlanPermissions(edificio?.plan || "Básico");
+    const permissions = getPlanPermissions(edificio?.plan || "Esencial");
 
     if (!permissions.hasIA && !permissions.hasAdvancedKpis) {
       return NextResponse.json({ error: "Este reporte requiere un plan Profesional o superior" }, { status: 403 });

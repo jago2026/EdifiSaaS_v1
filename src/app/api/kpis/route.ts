@@ -159,7 +159,7 @@ export async function GET(request: Request) {
       .eq("id", edificioId)
       .single();
 
-    const planName = edificio?.plan || "Básico";
+    const planName = edificio?.plan || "Esencial";
     const permissions = getPlanPermissions(planName);
 
     // Get more rates to ensure we reach 2025

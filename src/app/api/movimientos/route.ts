@@ -23,7 +23,7 @@ export async function GET(request: Request) {
       .eq("id", edificioId)
       .single();
 
-    const planName = edificio?.plan || "Básico";
+    const planName = edificio?.plan || "Esencial";
     const permissions = getPlanPermissions(planName);
 
     // 2. Aplicar filtro de fecha si el historial está limitado

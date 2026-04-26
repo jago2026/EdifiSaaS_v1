@@ -56,18 +56,19 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const PLAN_BADGES: Record<string, any> = {
-  'Básico':      { icon: Zap, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+  'Esencial':    { icon: Zap, color: 'text-blue-400', bg: 'bg-blue-400/10' },
   'Profesional': { icon: Star, color: 'text-amber-400', bg: 'bg-amber-400/10' },
-  'Empresarial': { icon: Crown, color: 'text-purple-400', bg: 'bg-purple-400/10' },
+  'Premium':     { icon: Crown, color: 'text-purple-400', bg: 'bg-purple-400/10' },
   'IA':          { icon: Zap, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
 };
 
 const getPlanBadge = (planName: string) => {
-  const name = (planName || 'Básico').toLowerCase();
-  if (name.includes('ia')) return { label: 'IA', ...PLAN_BADGES['IA'] };
-  if (name.includes('empresarial') || name.includes('premium')) return { label: 'Empresarial', ...PLAN_BADGES['Empresarial'] };
+  const name = (planName || 'Esencial').toLowerCase();
+  // Primero coincidencias exactas o prioritarias
+  if (name === 'ia' || name.includes('inteligencia')) return { label: 'IA', ...PLAN_BADGES['IA'] };
+  if (name.includes('premium') || name.includes('empresarial')) return { label: 'Premium', ...PLAN_BADGES['Premium'] };
   if (name.includes('profesional')) return { label: 'Profesional', ...PLAN_BADGES['Profesional'] };
-  return { label: 'Básico', ...PLAN_BADGES['Básico'] };
+  return { label: 'Esencial', ...PLAN_BADGES['Esencial'] };
 };
 
 interface Administradora {
@@ -525,9 +526,9 @@ export default function AdminPage() {
                                     onChange={(e) => handlePlanChange(b, e.target.value)}
                                     className={`appearance-none pl-8 pr-4 py-1.5 rounded-xl border border-slate-700/50 text-[10px] font-black uppercase tracking-widest cursor-pointer focus:outline-none transition-all ${planBadge.bg} ${planBadge.color} hover:brightness-110`}
                                   >
-                                    <option value="Básico">Básico</option>
+                                    <option value="Esencial">Esencial</option>
                                     <option value="Profesional">Profesional</option>
-                                    <option value="Empresarial">Empresarial</option>
+                                    <option value="Premium">Premium</option>
                                     <option value="IA">IA</option>
                                   </select>
                                   <PlanIcon className={`w-3 h-3 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none ${planBadge.color}`} />
@@ -859,13 +860,13 @@ export default function AdminPage() {
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Plan Contratado</label>
                   <select 
-                    value={editingBuilding.plan || 'Básico'}
+                    value={editingBuilding.plan || 'Esencial'}
                     onChange={(e) => setEditingBuilding({...editingBuilding, plan: e.target.value})}
                     className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-black text-sm focus:outline-none focus:border-indigo-500 shadow-inner outline-none appearance-none"
                   >
-                    <option value="Básico">Básico (hasta 30 unidades)</option>
+                    <option value="Esencial">Esencial (hasta 30 unidades)</option>
                     <option value="Profesional">Profesional (hasta 50 unidades)</option>
-                    <option value="Empresarial">Empresarial (Ilimitado)</option>
+                    <option value="Premium">Premium (Ilimitado)</option>
                     <option value="IA">Inteligencia Artificial (Ilimitado)</option>
                   </select>
                 </div>

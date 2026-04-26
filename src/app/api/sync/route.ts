@@ -495,8 +495,8 @@ export async function POST(request: Request) {
     if (!building) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
     
     // UNIT LIMIT CHECK BY PLAN
-    const plan = building.plan || 'Básico';
-    const limit = plan === 'Básico' ? 30 : plan === 'Profesional' ? 50 : 999999;
+    const plan = building.plan || 'Esencial';
+    const limit = plan === 'Esencial' ? 30 : plan === 'Profesional' ? 50 : 999999;
     
     if ((building.unidades || 0) > limit) {
       return NextResponse.json({ 

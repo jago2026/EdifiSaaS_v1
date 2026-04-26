@@ -50,8 +50,8 @@ export async function GET() {
     const fallbackData = Object.entries(hardcodedFeatures).map(([name, features], idx) => ({
       name,
       features,
-      price_monthly: name === "Básico" ? 19 : name === "Profesional" ? 29 : name === "Empresarial" ? 59 : 79,
-      price_yearly: name === "Básico" ? 190 : name === "Profesional" ? 290 : name === "Empresarial" ? 590 : 790,
+      price_monthly: name === "Esencial" ? 19 : name === "Profesional" ? 29 : name === "Premium" ? 59 : 79,
+      price_yearly: name === "Esencial" ? 190 : name === "Profesional" ? 290 : name === "Premium" ? 590 : 790,
       is_popular: name === "Profesional",
       display_order: idx
     }));

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades, email_junta, plan").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });
 
-    const permissions = getPlanPermissions(edificio.plan || "Básico");
+    const permissions = getPlanPermissions(edificio.plan || "Esencial");
 
     if (action === "custom_support") {
       const { subject, customBody, overrideRecipient } = body;

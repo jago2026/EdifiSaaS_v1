@@ -98,7 +98,7 @@ export async function GET(request: Request) {
     const building = buildings && buildings.length > 0 ? buildings[0] : null;
     console.log(`[DASHBOARD] Datos cargados para ${user.email}. Edificio: ${building?.nombre || 'Ninguno'}`);
 
-    const permissions = getPlanPermissions(building?.plan || "Básico");
+    const permissions = getPlanPermissions(building?.plan || "Esencial");
 
     return NextResponse.json({
       user: {
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
       },
       building,
       planInfo: {
-        name: building?.plan || "Básico",
+        name: building?.plan || "Esencial",
         permissions
       }
     });

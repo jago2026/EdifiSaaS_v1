@@ -284,17 +284,17 @@ export default function DashboardPage() {
   const [upgradeForm, setUpgradeForm] = useState({ planDeseado: "", motivo: "", telefono: "" });
 
   const PLAN_SUGGESTIONS: Record<string, any> = {
-    'Básico': {
+    'Esencial': {
       next: 'Profesional',
       title: 'Obtenga Auditoría Activa',
       desc: 'Suba al plan Profesional para desbloquear KPIs de Morosidad, Tendencia de Gastos y exportación a Excel.'
     },
     'Profesional': {
-      next: 'Empresarial',
+      next: 'Premium',
       title: 'Obtenga Control Estratégico',
-      desc: 'Suba al plan Empresarial para desbloquear Conciliación Bancaria, Semáforos de Riesgo y Alertas vía WhatsApp.'
+      desc: 'Suba al plan Premium para desbloquear Conciliación Bancaria, Semáforos de Riesgo y Alertas vía WhatsApp.'
     },
-    'Empresarial': {
+    'Premium': {
       next: 'IA (Asistente de Gestión)',
       title: 'Obtenga Inteligencia Predictiva',
       desc: 'Suba al plan IA para contar con un Asistente Virtual, Predicción de Flujo de Caja y análisis de Diferencial Cambiario.'
@@ -306,7 +306,7 @@ export default function DashboardPage() {
     }
   };
 
-  const currentSuggestion = planInfo ? PLAN_SUGGESTIONS[planInfo.name] || PLAN_SUGGESTIONS['Básico'] : PLAN_SUGGESTIONS['Básico'];
+  const currentSuggestion = planInfo ? PLAN_SUGGESTIONS[planInfo.name] || PLAN_SUGGESTIONS['Esencial'] : PLAN_SUGGESTIONS['Esencial'];
 
   const [selectedUnidad, setSelectedUnidad] = useState<string>("");
   const [reciboDetalle, setReciboDetalle] = useState<any[]>([]);
@@ -329,10 +329,10 @@ export default function DashboardPage() {
   const [savingPlanesAdmin, setSavingPlanesAdmin] = useState(false);
 
   const hasFeature = (feature: string) => {
-    const plan = building?.plan || "Básico";
-    if (feature === "export") return ["Profesional", "Empresarial", "IA"].includes(plan);
-    if (feature === "audit") return ["Profesional", "Empresarial", "IA"].includes(plan);
-    if (feature === "manual_email") return ["Profesional", "Empresarial", "IA"].includes(plan);
+    const plan = building?.plan || "Esencial";
+    if (feature === "export") return ["Profesional", "Premium", "IA"].includes(plan);
+    if (feature === "audit") return ["Profesional", "Premium", "IA"].includes(plan);
+    if (feature === "manual_email") return ["Profesional", "Premium", "IA"].includes(plan);
     return false;
   };
 
@@ -1991,7 +1991,7 @@ export default function DashboardPage() {
               <span className="text-sm font-bold text-white">{planInfo.name}</span>
               <span className="text-[10px] bg-indigo-500 text-white px-1.5 py-0.5 rounded font-black uppercase">Activo</span>
             </div>
-            {planInfo.name === 'Básico' && (
+            {planInfo.name === 'Esencial' && (
               <button 
                 onClick={() => setActiveTab("planes")}
                 className="w-full mt-3 py-1.5 bg-amber-400 hover:bg-amber-500 text-amber-950 rounded-lg text-[10px] font-black uppercase transition-colors"
@@ -4822,7 +4822,7 @@ export default function DashboardPage() {
                 <UpgradeCard 
                   title="Generación de Recibos Proyectados" 
                   feature="Borrador de recibo estimado y pre-emisión" 
-                  planRequired="Empresarial" 
+                  planRequired="Premium" 
                   onUpgrade={() => setActiveTab("planes")}
                 />
             ) : (
@@ -5127,10 +5127,10 @@ export default function DashboardPage() {
                       <button 
                         onClick={() => {
                           const initialPlanes = [
-                            { name: "Básico", price_monthly: 19, price_yearly: 190, features: ["Sincronización Diaria de Datos", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Acceso a Reportes Financieros Básicos", "Historial de Datos de 3 meses", "Soporte técnico por email", "Hasta 30 Unidades de Vivienda"], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
-                            { name: "Profesional", price_monthly: 29, price_yearly: 290, features: ["Todo lo incluido en el Plan Básico", "Control financiero y conciliación avanzada", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Historial de Datos de 12 meses", "Exportación de reportes (Excel/PDF)", "Herramientas de Auditoría Financiera", "Reportes e Indicadores Avanzados", "Hasta 50 Unidades de Vivienda"], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
-                            { name: "Empresarial", price_monthly: 59, price_yearly: 0, features: ["Todo lo incluido en el Plan Profesional", "Unidades de Vivienda Ilimitadas", "Soporte Técnico Prioritario", "Actualizaciones y mejoras continuas incluidas", "Formación y capacitación in situ"], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
-                            { name: "IA (En Desarrollo)", price_monthly: 79, price_yearly: 0, features: ["Todo lo incluido en el Plan Empresarial", "Asistente Virtual con IA", "Análisis Predictivo de Flujo de Caja", "Reportes inteligentes automatizados", "Acceso total a todas las funcionalidades", "Análisis detallado y recomendaciones", "Análisis de morosidad, gastos y proyecciones", "Soporte VIP Personalizado", "Formación continua in situ"], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
+                            { name: "Esencial", price_monthly: 19, price_yearly: 190, features: ["Sincronización Diaria de Datos", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Acceso a Reportes Financieros Esencials", "Historial de Datos de 3 meses", "Soporte técnico por email", "Hasta 30 Unidades de Vivienda"], is_popular: false, show_contact: false, badge_text: "", display_order: 0 },
+                            { name: "Profesional", price_monthly: 29, price_yearly: 290, features: ["Todo lo incluido en el Plan Esencial", "Control financiero y conciliación avanzada", "Reporte diario automático a la Junta de Condominio con la situación financiera", "Historial de Datos de 12 meses", "Exportación de reportes (Excel/PDF)", "Herramientas de Auditoría Financiera", "Reportes e Indicadores Avanzados", "Hasta 50 Unidades de Vivienda"], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
+                            { name: "Premium", price_monthly: 59, price_yearly: 0, features: ["Todo lo incluido en el Plan Profesional", "Unidades de Vivienda Ilimitadas", "Soporte Técnico Prioritario", "Actualizaciones y mejoras continuas incluidas", "Formación y capacitación in situ"], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
+                            { name: "IA (En Desarrollo)", price_monthly: 79, price_yearly: 0, features: ["Todo lo incluido en el Plan Premium", "Asistente Virtual con IA", "Análisis Predictivo de Flujo de Caja", "Reportes inteligentes automatizados", "Acceso total a todas las funcionalidades", "Análisis detallado y recomendaciones", "Análisis de morosidad, gastos y proyecciones", "Soporte VIP Personalizado", "Formación continua in situ"], is_popular: false, show_contact: false, badge_text: "En Desarrollo", display_order: 3 }
                           ];
                           setPlanesAdmin(initialPlanes);
                         }}
@@ -5979,7 +5979,7 @@ export default function DashboardPage() {
                     className="w-full px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-bold text-indigo-700 text-sm appearance-none"
                   >
                     <option value="Profesional">Plan Profesional</option>
-                    <option value="Empresarial">Plan Empresarial</option>
+                    <option value="Premium">Plan Premium</option>
                     <option value="IA (Asistente de Gestión)">Plan IA</option>
                   </select>
                 </div>
