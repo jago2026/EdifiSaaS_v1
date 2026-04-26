@@ -4,7 +4,7 @@ Este documento define la estructura de niveles (tiers) y las funcionalidades de 
 
 ## 1. Estructura de Planes (Bloqueos y Desbloqueos)
 
-### Plan Básico: "El Vigilante"
+### Plan Esencial: "El Vigilante"
 *Enfocado en la transparencia operativa básica.*
 - **Acceso:** Vista de Dashboard simplificada.
 - **Limitación Temporal:** Consulta de movimientos de los últimos 90 días.
@@ -20,7 +20,7 @@ Este documento define la estructura de niveles (tiers) y las funcionalidades de 
 - **Análisis Cambiario:** Acceso a la tasa BCV histórica vinculada a los movimientos.
 - **Exportación:** Botones de descarga CSV/Excel habilitados en todas las tablas.
 
-### Plan Empresarial: "Control Estratégico"
+### Plan Premium: "Control Estratégico"
 *Para edificios de alta complejidad y centros comerciales.*
 - **Recibos Proyectados:** Generación de un borrador de recibo basado en gastos cargados (antes del cierre de la administradora).
 - **Conciliación:** Herramienta de cruce entre movimientos bancarios y reportes de la administradora.

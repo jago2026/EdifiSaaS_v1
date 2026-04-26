@@ -37,7 +37,7 @@ export async function GET() {
       "Hasta 100 Unidades de Vivienda"
     ],
     "Inteligencia Artificial": [
-      "Todo lo anterior + Inteligencia IA",
+      "Todo lo del Plan Premium + Inteligencia IA",
       "Historial Procesamiento: Ilimitado",
       "Asistente Virtual con IA 24/7",
       "Análisis Predictivo de Gastos",
@@ -62,7 +62,11 @@ export async function GET() {
     const normalizedName = plan.name === "Básico" ? "Esencial" : 
                          (plan.name === "Empresarial" ? "Premium" : plan.name);
     
-    const key = Object.keys(hardcodedFeatures).find(k => k === normalizedName || (normalizedName.startsWith("IA") && k.startsWith("IA")));
+    const key = Object.keys(hardcodedFeatures).find(k => 
+      k === normalizedName || 
+      (normalizedName.toLowerCase() === "ia" && k.includes("Inteligencia")) ||
+      (normalizedName.includes("Inteligencia") && k.toLowerCase() === "ia")
+    );
     if (key) {
       return { ...plan, name: key, features: hardcodedFeatures[key] };
     }

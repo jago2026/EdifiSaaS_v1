@@ -115,10 +115,10 @@ export default function Home() {
 
             const hardPlan = hardcodedPlanes.find(p => 
               p.name === normalizedName || 
-              (normalizedName.startsWith("IA") && p.name.startsWith("IA")) ||
-              (normalizedName.includes("Inteligencia") && p.name.includes("IA"))
+              (normalizedName.toLowerCase() === "ia" && p.name.includes("Inteligencia")) ||
+              (normalizedName.includes("Inteligencia") && p.name.toLowerCase() === "ia") ||
+              (normalizedName.startsWith("IA") && p.name.startsWith("IA"))
             );
-
             return hardPlan ? { ...dbPlan, ...hardPlan, name: hardPlan.name } : { ...dbPlan, name: normalizedName };
           });
           setPlanes(mergedPlanes);        } else {
