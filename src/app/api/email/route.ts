@@ -683,6 +683,19 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
       html,
     });
 
+    // Registrar alerta de envío exitoso
+    try {
+      await supabase.from("alertas").insert({
+        edificio_id: edificioId,
+        tipo: "info",
+        titulo: "📧 Informe Diario Enviado",
+        descripcion: `El resumen financiero ha sido enviado por email a los destinatarios configurados: ${toEmails.join(", ")}`,
+        fecha: today
+      });
+    } catch (e) {
+      console.error("Error logging email alert:", e);
+    }
+
     return NextResponse.json({ success: true, message: testMode ? "Email de prueba enviado" : "Informe enviado a la junta", recipient: toEmails.join(", ") });
   } catch (error: any) {
     console.error("Email error:", error);
