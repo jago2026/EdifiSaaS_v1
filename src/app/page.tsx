@@ -192,7 +192,7 @@ export default function Home() {
             <Link href="/register" className="bg-white text-blue-600 border-2 border-blue-600 px-8 py-4 rounded-xl text-lg font-semibold hover:bg-blue-50 transition shadow-lg">
               Comenzar Prueba Gratis
             </Link>
-            <Link href="/demo" className="bg-white text-gray-800 px-8 py-4 rounded-xl text-lg font-semibold border-2 border-gray-200 hover:border-blue-600 hover:text-blue-600 transition">
+            <Link href="/demo" className="bg-white text-gray-800 px-8 py-4 rounded-xl text-lg font-semibold border-2 border-gray-400 hover:border-blue-600 hover:text-blue-600 transition shadow-sm">
               Ver Demo
             </Link>
           </div>
@@ -443,11 +443,11 @@ export default function Home() {
                   className={`p-6 rounded-3xl border-2 flex flex-col transition-all duration-300 hover:shadow-2xl relative ${
                     plan.is_popular 
                       ? 'border-blue-600 bg-blue-50/30 scale-105 z-10' 
-                      : 'border-gray-100 bg-white hover:border-blue-200'
-                  } ${plan.name.includes("IA") || plan.name.includes("Inteligencia") ? 'overflow-hidden' : ''}`}
+                      : 'border-gray-200 bg-white hover:border-blue-300'
+                  } ${plan.name.includes("IA") || plan.name.includes("Inteligencia") ? 'overflow-hidden pt-12' : ''}`}
                 >
                   {(plan.name.includes("IA") || plan.name.includes("Inteligencia")) && (
-                    <div className="absolute top-0 right-0 bg-purple-600 text-white px-10 py-1 rotate-45 translate-x-8 translate-y-4 font-black text-[8px] uppercase tracking-[0.2em] shadow-lg z-20">
+                    <div className="absolute top-0 left-0 w-full bg-purple-600 text-white py-2 font-black text-[10px] uppercase tracking-[0.2em] shadow-md z-20 text-center">
                       Próximamente
                     </div>
                   )}
@@ -515,17 +515,17 @@ export default function Home() {
               <h3 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">Comparativa de Funcionalidades</h3>
               <div className="w-24 h-2 bg-blue-600 mx-auto mt-4 rounded-full"></div>
               </div>
-              <table className="w-full text-left border-collapse min-w-[900px]">
+              <table className="w-full text-left border-collapse min-w-[900px] border-2 border-gray-200 shadow-sm rounded-3xl overflow-hidden">
               <thead>
-                <tr className="border-b-4 border-gray-100">
-                  <th className="py-8 px-6 text-xs font-black uppercase text-gray-400 tracking-widest bg-gray-50/50 rounded-tl-3xl">Módulo / Servicio</th>
-                  <th className="py-8 px-6 text-center font-black text-gray-900 uppercase bg-gray-50/50">Esencial</th>
-                  <th className="py-8 px-6 text-center font-black text-indigo-600 uppercase bg-indigo-50/30">Profesional</th>
-                  <th className="py-8 px-6 text-center font-black text-blue-600 uppercase bg-blue-50/30">Premium</th>
-                  <th className="py-8 px-6 text-center font-black text-purple-600 uppercase bg-purple-50/30 rounded-tr-3xl">Inteligencia Artificial</th>
+                <tr className="border-b-4 border-gray-200">
+                  <th className="py-8 px-6 text-xs font-black uppercase text-gray-500 tracking-widest bg-gray-100/50">Módulo / Servicio</th>
+                  <th className="py-8 px-6 text-center font-black text-gray-900 uppercase bg-gray-100/50">Esencial</th>
+                  <th className="py-8 px-6 text-center font-black text-indigo-600 uppercase bg-indigo-50/50">Profesional</th>
+                  <th className="py-8 px-6 text-center font-black text-blue-600 uppercase bg-blue-50/50">Premium</th>
+                  <th className="py-8 px-6 text-center font-black text-purple-600 uppercase bg-purple-50/50">Inteligencia Artificial</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y-2 divide-gray-200">
                 <tr className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-6 px-6 font-bold text-gray-700">Sincronización de Datos</td>
                   <td className="py-6 px-6 text-center font-black text-gray-400 uppercase text-[9px]">Diaria Manual</td>
