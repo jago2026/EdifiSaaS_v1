@@ -106,6 +106,8 @@ export async function POST(request: Request) {
       cron_time,
       cron_frequency,
       unidades,
+      dashboard_config,
+      alert_thresholds,
       userId: bodyUserId 
     } = body;
 
@@ -174,6 +176,8 @@ export async function POST(request: Request) {
     if (cron_time) updateData.cron_time = cron_time;
     if (cron_frequency) updateData.cron_frequency = cron_frequency;
     if (unidades !== undefined) updateData.unidades = unidades;
+    if (dashboard_config !== undefined) updateData.dashboard_config = dashboard_config;
+    if (alert_thresholds !== undefined) updateData.alert_thresholds = alert_thresholds;
 
     const { data: building, error } = await supabase
       .from("edificios")
