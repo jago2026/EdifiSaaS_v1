@@ -13,36 +13,36 @@ export async function GET() {
 
   const hardcodedFeatures: Record<string, string[]> = {
     "Esencial": [
-      "Sincronización Automática Diaria",
-      "Flujo de Caja y Reportes Básicos",
+      "Sincronización Diaria Manual",
+      "Envío de Reportes Manual",
+      "Historial Procesamiento: 3 meses",
       "App de Propietarios (Consulta)",
-      "Historial de Datos de 3 meses",
       "Soporte Estándar por Email",
       "Hasta 30 Unidades de Vivienda"
     ],
     "Profesional": [
-      "Todo lo incluido en el Plan Esencial",
-      "KPIs y Gráficos de Tendencias",
-      "Exportación Completa Excel/CSV",
-      "Generación Recibo Próximo Mes",
-      "Alertas por WhatsApp (50/mes)",
+      "Sincronización Automática",
+      "Reportes Automáticos Programados",
+      "Historial Procesamiento: 6 meses",
+      "Exportación Datos (Últimos 3m)",
+      "Recibo del Próximo Mes",
       "Hasta 100 Unidades de Vivienda"
     ],
     "Premium": [
-      "Todo lo incluido en el Plan Profesional",
-      "Unidades de Vivienda Ilimitadas",
-      "Soporte Prioritario y Formación",
-      "Auditoría y Presupuesto Anual",
-      "Personalización de Marca (Branding)",
-      "Alertas WhatsApp (200/mes)"
+      "Todo Automático e Ilimitado",
+      "Historial Procesamiento: 1 Año",
+      "Exportación Histórica Completa",
+      "Auditoría Financiera Digital",
+      "Personalización de Marca",
+      "Unidades Ilimitadas"
     ],
     "Inteligencia Artificial": [
-      "Todo lo incluido en el Plan Premium",
+      "Todo lo anterior + Inteligencia IA",
+      "Historial Procesamiento: Ilimitado",
       "Asistente Virtual con IA 24/7",
       "Análisis Predictivo de Gastos",
-      "Análisis de Morosidad con IA",
       "Automatización de Tareas",
-      "Próximamente - En Desarrollo"
+      "PRÓXIMAMENTE - EN DESARROLLO"
     ]
   };
 
