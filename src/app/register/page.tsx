@@ -469,7 +469,9 @@ export default function RegisterPage() {
                   ) : administradoras.length > 0 ? (
                     <>
                       <option value="">Seleccione una administradora</option>
-                      {administradoras.map(adm => (
+                      {administradoras
+                        .filter(adm => !adm.nombre.toLowerCase().includes("otra"))
+                        .map(adm => (
                         <option key={adm.id} value={adm.nombre}>{adm.nombre}</option>
                       ))}
                       <option value="Otra">Otra (Manual)</option>
