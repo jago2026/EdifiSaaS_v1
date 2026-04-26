@@ -3784,6 +3784,8 @@ export default function DashboardPage() {
                 )}
               </div>
             </div>
+               </>
+             )}
           </div>
         )}
 
@@ -3900,8 +3902,6 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
-               </>
-             )}
           </div>
         )}
 
@@ -4722,7 +4722,16 @@ export default function DashboardPage() {
 
         {activeTab === "pre-recibo" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom duration-500">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            {!planInfo?.permissions?.hasProjections ? (
+                <UpgradeCard 
+                  title="Generación de Recibos Proyectados" 
+                  feature="Borrador de recibo estimado y pre-emisión" 
+                  planRequired="Empresarial" 
+                  onUpgrade={() => setActiveTab("planes")}
+                />
+            ) : (
+              <>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Borrador de Recibo Estimado</h2>
@@ -4929,6 +4938,9 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </div>
+               </>
+            )}
           </div>
         )}
 
