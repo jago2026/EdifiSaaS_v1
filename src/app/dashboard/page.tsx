@@ -5184,7 +5184,6 @@ export default function DashboardPage() {
         )}
       </div> {/* Closes main content container div */}
       </main> {/* Closes main tag */}
-      </div> {/* Closes root flex div */}
 
       {showOnboarding && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
@@ -5204,5 +5203,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+    </div>
   );
 }
