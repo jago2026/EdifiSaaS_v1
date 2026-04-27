@@ -5522,10 +5522,9 @@ export default function DashboardPage() {
                       value={editConfig.email_administradora}
                       disabled={!user?.isAdmin}
                       onChange={(e) => setEditConfig({ ...editConfig, email_administradora: e.target.value })}
-                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${!user?.isAdmin ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
                       placeholder="ejemplo@administradora.com"
                     />
-                  </div>
                   </div>
                 <div className="border-t pt-4">
                   <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">URLs de Scraping (Avanzado)</h3>
