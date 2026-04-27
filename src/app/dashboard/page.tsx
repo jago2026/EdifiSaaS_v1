@@ -2465,12 +2465,14 @@ export default function DashboardPage() {
                       </tfoot>
                     </table>
                   </div>
-                )}
-              </div>
-            )}
-            )}
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
         {activeTab === "ingresos" && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Pagos de Condominio por Unidad</h2>
             <p className="text-sm text-gray-500 mb-4">Estado de pagos de recibos del mes - Comparación entre sync actual y anterior</p>
             {loadingIngresos ? (
@@ -5096,111 +5098,111 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-            </div>
+                </div>
+              </div>
+            )}
           </div>
-          )}
         )}
 
-      {activeTab === "instrucciones" && (
-        <ManualUsuario />
-      )}
+        {activeTab === "instrucciones" && (
+          <ManualUsuario />
+        )}
 
-      {activeTab === "planes" && (
-        <div className="space-y-6">
-          {user?.id !== "superuser-id" && (
-            <div className="bg-gradient-to-br from-indigo-900 to-blue-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🏢</div>
-              <div className="relative z-10">
-                <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">Estado de su Suscripción</h2>
-                <p className="text-indigo-200 font-bold text-sm uppercase tracking-widest mb-8">Edificio: {building?.nombre}</p>
-                <div className="grid md:grid-cols-3 gap-8">
-                  <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20">
-                    <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Plan Actual</div>
-                    <div className="text-4xl font-black mb-1">{planInfo?.name}</div>
-                    <div className="inline-block px-3 py-1 bg-green-500 text-[10px] font-black uppercase rounded-full mb-4">Suscripción Activa</div>
-                    <p className="text-xs text-indigo-100 leading-relaxed">Su edificio cuenta con todas las funcionalidades del nivel {planInfo?.name}.</p>
-                  </div>
-                  <div className="md:col-span-2 bg-white/5 backdrop-blur-sm p-6 rounded-3xl border border-white/10">
-                    <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Sugerencia de Mejora</div>
-                    <h3 className="text-xl font-bold mb-4">{currentSuggestion.title}</h3>
-                    <p className="text-sm text-indigo-100 mb-6">{currentSuggestion.desc}</p>
-                    {currentSuggestion.next && (
-                      <button onClick={() => { setUpgradeForm({ ...upgradeForm, planDeseado: currentSuggestion.next }); setShowUpgradeModal(true); }} className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-8 py-3 rounded-2xl font-black uppercase tracking-tighter transition-all shadow-xl shadow-amber-900/20">Contactar Soporte</button>
-                    )}
+        {activeTab === "planes" && (
+          <div className="space-y-6">
+            {user?.id !== "superuser-id" && (
+              <div className="bg-gradient-to-br from-indigo-900 to-blue-900 p-10 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🏢</div>
+                <div className="relative z-10">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter mb-2">Estado de su Suscripción</h2>
+                  <p className="text-indigo-200 font-bold text-sm uppercase tracking-widest mb-8">Edificio: {building?.nombre}</p>
+                  <div className="grid md:grid-cols-3 gap-8">
+                    <div className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20">
+                      <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Plan Actual</div>
+                      <div className="text-4xl font-black mb-1">{planInfo?.name}</div>
+                      <div className="inline-block px-3 py-1 bg-green-500 text-[10px] font-black uppercase rounded-full mb-4">Suscripción Activa</div>
+                      <p className="text-xs text-indigo-100 leading-relaxed">Su edificio cuenta con todas las funcionalidades del nivel {planInfo?.name}.</p>
+                    </div>
+                    <div className="md:col-span-2 bg-white/5 backdrop-blur-sm p-6 rounded-3xl border border-white/10">
+                      <div className="text-[10px] font-black text-indigo-300 uppercase mb-4 tracking-widest">Sugerencia de Mejora</div>
+                      <h3 className="text-xl font-bold mb-4">{currentSuggestion.title}</h3>
+                      <p className="text-sm text-indigo-100 mb-6">{currentSuggestion.desc}</p>
+                      {currentSuggestion.next && (
+                        <button onClick={() => { setUpgradeForm({ ...upgradeForm, planDeseado: currentSuggestion.next }); setShowUpgradeModal(true); }} className="bg-amber-400 hover:bg-amber-500 text-amber-950 px-8 py-3 rounded-2xl font-black uppercase tracking-tighter transition-all shadow-xl shadow-amber-900/20">Contactar Soporte para Upgrade</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-          {user?.id === "superuser-id" && <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">Superuser Dashboard</div>}
-        </div>
+            )}
+            {user?.id === "superuser-id" && <div className="p-6 bg-white rounded-xl border border-gray-100">Tablero de Administrador Maestro</div>}
+          </div>
         )}
 
-      {activeTab === "proyeccion" && (
-        <div className="space-y-8 animate-in fade-in duration-700">
-          {!planInfo?.permissions?.hasAdvancedKpis ? (
-            <UpgradeCard title="Proyección de Ingresos" feature="Predicción predictiva" planRequired="Premium" onUpgrade={() => setActiveTab("planes")} />
-          ) : (
-            <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-               <h2 className="text-3xl font-black uppercase mb-8">🔮 Proyección de Ingresos</h2>
-               {/* ... (Contenido simplificado para asegurar el build) ... */}
-               <p>Módulo Predictivo Activado para {building?.nombre}</p>
-            </div>
+        {activeTab === "proyeccion" && (
+          <div className="space-y-8 animate-in fade-in duration-700">
+            {!planInfo?.permissions?.hasAdvancedKpis ? (
+              <UpgradeCard title="Proyección de Ingresos" feature="Predicción predictiva" planRequired="Premium" onUpgrade={() => setActiveTab("planes")} />
+            ) : (
+              <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
+                 <h2 className="text-3xl font-black uppercase mb-8">🔮 Proyección de Ingresos</h2>
+                 <p>Módulo de Inteligencia Predictiva Activado.</p>
+              </div>
             )}
-        </div>
-      )}
+          </div>
+        )}
 
-      {activeTab === "servicios" && (
-        <div className="space-y-8 animate-in fade-in duration-700">
-          {!planInfo?.permissions?.hasPublicServices ? (
-            <UpgradeCard title="Servicios Públicos" feature="Consulta automática" planRequired="Profesional" onUpgrade={() => setActiveTab("planes")} />
-          ) : (
-            <div className="space-y-6">
-              <div className="bg-gradient-to-br from-cyan-900 to-blue-900 p-8 rounded-[2rem] text-white shadow-2xl relative">
-                <h2 className="text-3xl font-black uppercase mb-1">🚰 Servicios Públicos</h2>
+        {activeTab === "servicios" && (
+          <div className="space-y-8 animate-in fade-in duration-700">
+            {!planInfo?.permissions?.hasPublicServices ? (
+              <UpgradeCard title="Servicios Públicos" feature="Consulta automática" planRequired="Profesional" onUpgrade={() => setActiveTab("planes")} />
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-gradient-to-br from-cyan-900 to-blue-900 p-8 rounded-[2rem] text-white shadow-2xl relative">
+                  <h2 className="text-3xl font-black uppercase mb-1">🚰 Servicios Públicos</h2>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "configuracion" && building && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 uppercase tracking-tighter font-black">Datos del Edificio</h2>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase">Nombre</label><div className="font-bold text-gray-900">{building.nombre}</div></div>
+                <div><label className="text-[10px] font-bold text-gray-400 uppercase">Unidades</label><input type="number" value={editConfig.unidades} onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} className="w-full border rounded-lg p-2 font-bold" /></div>
               </div>
             </div>
-            )}
-        </div>
-      )}
-
-      {activeTab === "configuracion" && building && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Configuración de Edificio</h2>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div><label className="text-xs font-bold text-gray-400 uppercase">Nombre</label><div className="font-bold text-gray-900">{building.nombre}</div></div>
-              <div><label className="text-xs font-bold text-gray-400 uppercase">Unidades</label><input type="number" value={editConfig.unidades} onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} className="w-full border rounded p-2" /></div>
+            
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Gestión de Servicios</h2>
+              <button onClick={handleSync} disabled={syncing} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold uppercase text-xs shadow-lg">Sincronizar Ahora</button>
             </div>
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="font-bold mb-4">Gestión de Servicios</h3>
-            <button onClick={handleSync} disabled={syncing} className="bg-indigo-600 text-white px-4 py-2 rounded">Sincronizar Ahora</button>
-          </div>
-        </div>
         )}
-      </div> {/* Closes p-4 lg:p-8 w-full */}
-      </div> {/* Closes flex-1 flex flex-col */}
-      </div> {/* Closes layout wrapper if needed */}
+      </div> {/* Closes main content container div */}
+      </main> {/* Closes main tag */}
+      </div> {/* Closes root flex div */}
 
       {showOnboarding && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center">
-          <div className="bg-white p-10 rounded-[2rem] max-w-lg text-center shadow-2xl border-4 border-white">
-            <h2 className="text-3xl font-black mb-4">¡Bienvenido!</h2>
-            <button onClick={() => setShowOnboarding(false)} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg">Empezar</button>
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white p-10 rounded-[2.5rem] max-w-lg text-center shadow-2xl border-4 border-white">
+            <div className="text-6xl mb-4">👋</div>
+            <h2 className="text-3xl font-black uppercase mb-4">¡Bienvenido!</h2>
+            <button onClick={() => setShowOnboarding(false)} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-bold shadow-lg uppercase">Empezar Ahora</button>
           </div>
         </div>
       )}
 
       {showUpgradeModal && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center">
-          <div className="bg-white p-10 rounded-[2rem] max-w-lg shadow-2xl border-4 border-white">
-            <h2 className="text-2xl font-black mb-4 uppercase">Solicitar Mejora</h2>
-            <button onClick={() => setShowUpgradeModal(false)} className="bg-gray-100 text-gray-500 px-6 py-2 rounded-xl">Cerrar</button>
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-white p-10 rounded-[2.5rem] max-w-lg shadow-2xl border-4 border-white">
+            <h2 className="text-2xl font-black mb-4 uppercase tracking-tighter text-indigo-900">Solicitar Mejora de Plan</h2>
+            <button onClick={() => setShowUpgradeModal(false)} className="w-full bg-gray-100 text-gray-500 py-3 rounded-xl font-bold uppercase text-xs">Cerrar</button>
           </div>
         </div>
       )}
-    </div> {/* Closes outer div */}
   );
 }
-
