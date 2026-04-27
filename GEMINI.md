@@ -24,6 +24,27 @@ Mejorar la página de ayuda (Manual de Usuario) y diagnosticar/corregir fallos e
 - **Navegación Manual**: Se cambió a `scrollIntoView` para funcionar dentro del contenedor con scroll del dashboard.
 - **Visibilidad de Procesos**: El usuario ahora podrá ver en la sección "Alertas" por qué el cron no se ejecutó (ej: "Hora no coincide") o confirmar que se ejecutó correctamente.
 
+### Fecha: 27 de Abril, 2026
+
+### Objetivo
+Desarrollar un módulo de Proyección de Ingresos Diaria hasta fin de mes basado en patrones históricos y escenarios probabilísticos.
+
+### Tareas Realizadas
+- [x] **Módulo de Proyección de Ingresos**: Implementado el algoritmo de estimación basado en la especificación técnica (logic AppScript v3.6).
+- [x] **API de Proyección (`/api/proyeccion`)**: Creada para extraer historial de pagos (6 meses) y deudas pendientes.
+- [x] **Interfaz UI Premium**: Añadida la pestaña "🔮 Proyección de Ingresos" en el grupo de Finanzas.
+    - Resumen Ejecutivo con KPIs (Días restantes, Techo de cobranza, Promedio por recibo).
+    - Tabla de Escenarios (Optimista 1.3x, Conservador 1.0x, Pesimista 0.6x).
+    - Proyección Detallada Día por Día con validación de historial.
+    - Segmentación de Deuda por cantidad de recibos pendientes.
+    - Recomendaciones automáticas basadas en IA/Lógica de negocio.
+- [x] **Actualización de Tipos y Navegación**: Integrado el nuevo tab en el estado del Dashboard.
+
+### Resumen de Cambios Técnicos
+- **Lógica de Predicción**: El sistema ahora calcula el promedio de recibos cobrados por día del mes históricamente para predecir el comportamiento futuro.
+- **Cálculo Monetario**: Se utiliza el "Promedio por Recibo" actual para convertir las probabilidades de cobro en montos financieros (Bs/USD).
+- **Refuerzo de Plan**: Se asignó esta funcionalidad como parte de los planes Premium e IA para incentivar el upgrade.
+
 ### Próximos Pasos
-- El usuario verificará mañana la sección de alertas para confirmar la ejecución automática.
-- Se recomienda al usuario probar `https://[dominio]/api/cron?force=true` para validación inmediata.
+- Monitorear la precisión de las proyecciones comparando con la cobranza real al final de mes.
+- Refactorizar `DashboardPage` en sub-componentes más pequeños para mejorar la mantenibilidad.

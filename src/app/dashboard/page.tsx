@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ManualUsuario } from "./ManualUsuario";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -272,6 +272,10 @@ export default function DashboardPage() {
   const [junta, setJunta] = useState<any[]>([]);
   const [loadingJunta, setLoadingJunta] = useState(false);
   const [sincronizaciones, setSincronizaciones] = useState<any[]>([]);
+  const [proyeccionData, setProyeccionData] = useState<any>(null);
+  const [loadingProyeccion, setLoadingProyeccion] = useState(false);
+
+  // ... (rest of states)
   const [loadingSincronizaciones, setLoadingSincronizaciones] = useState(false);
   const [alertas, setAlertas] = useState<any[]>([]);
   const [loadingAlertas, setLoadingAlertas] = useState(false);
@@ -1101,7 +1105,26 @@ export default function DashboardPage() {
     if (activeTab === "planes") {
       loadAdminPlanes();
     }
+    if (activeTab === "proyeccion" && building?.id) {
+      loadProyeccion();
+    }
   }, [activeTab, building?.id]);
+
+  const loadProyeccion = async () => {
+    if (!building?.id) return;
+    setLoadingProyeccion(true);
+    try {
+      const res = await fetch(`/api/proyeccion?edificioId=${building.id}`);
+      const data = await res.json();
+      if (res.ok) {
+        setProyeccionData(data);
+      }
+    } catch (error) {
+      console.error("Error loading proyeccion:", error);
+    } finally {
+      setLoadingProyeccion(false);
+    }
+  };
 
   const loadRecibos = async (mesOverride?: string) => {
     if (!building?.id) return;
@@ -1935,6 +1958,9 @@ export default function DashboardPage() {
               </button>
               <button onClick={() => setActiveTab("balance")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'balance' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">⚖️</span> Balance Financiero
+              </button>
+              <button onClick={() => setActiveTab("proyeccion")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'proyeccion' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🔮</span> Proyección de Ingresos
               </button>
             </div>
           </div>
@@ -5266,6 +5292,272 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "proyeccion" && (
+          <div className="space-y-8 animate-in fade-in duration-700">
+            {!planInfo?.permissions?.hasAdvancedKpis ? (
+              <UpgradeCard
+                title="Proyección de Ingresos Inteligente"
+                feature="Predicción de cobranza basada en patrones históricos y escenarios probabilísticos"
+                planRequired="Premium"
+                onUpgrade={() => setActiveTab("planes")}
+              />
+            ) : (
+              <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
+                {/* ... rest of the existing proyeccion content ... */}
+              <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🔮</div>
+              <div className="relative z-10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                  <div>
+                    <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Proyección de Ingresos</h2>
+                    <p className="text-indigo-200 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+                      Inteligencia Predictiva Financiera
+                    </p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
+                    <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">Fecha de Análisis</div>
+                    <div className="text-xl font-black">{new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                  </div>
+                </div>
+
+                {(() => {
+                  if (loadingProyeccion) return <div className="text-center py-10 font-black uppercase tracking-widest animate-pulse">Analizando Patrones Históricos...</div>;
+                  if (!proyeccionData) return <div className="text-center py-10 text-indigo-300">No hay datos suficientes para generar la proyección.</div>;
+
+                  const { historicalPagos, currentRecibos } = proyeccionData;
+                  const today = new Date();
+                  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                  const currentDay = today.getDate();
+                  const daysRemaining = lastDayOfMonth - currentDay;
+
+                  // 1. Historical averages by day of month (last 6 months)
+                  const daysHistory: any = {};
+                  historicalPagos.forEach((p: any) => {
+                    const d = new Date(p.fecha_pago).getDate();
+                    if (!daysHistory[d]) daysHistory[d] = 0;
+                    daysHistory[d]++;
+                  });
+                  
+                  const monthsCount = 6;
+                  const dailyAverages: any = {};
+                  for (let i = 1; i <= 31; i++) {
+                    dailyAverages[i] = (daysHistory[i] || 0) / monthsCount;
+                  }
+                  
+                  const totalDebtBs = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
+                  const totalDebtUsd = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.deuda_usd || 0), 0);
+                  const totalReceiptsPending = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.num_recibos || 0), 0);
+                  const avgPerReceiptBs = totalReceiptsPending > 0 ? totalDebtBs / totalReceiptsPending : 0;
+                  const avgPerReceiptUsd = totalReceiptsPending > 0 ? totalDebtUsd / totalReceiptsPending : 0;
+
+                  // Projection loop
+                  const projection = [];
+                  let totalReceiptsOpt = 0;
+                  let totalReceiptsCons = 0;
+                  let totalReceiptsPes = 0;
+
+                  for (let d = currentDay + 1; d <= lastDayOfMonth; d++) {
+                    const avg = dailyAverages[d] || (historicalPagos.length / (6 * 30));
+                    const hasHistory = !!daysHistory[d];
+                    
+                    const opt = avg * 1.3;
+                    const cons = avg * 1.0;
+                    const pes = avg * 0.6;
+                    
+                    projection.push({ day: d, hasHistory, avgHistory: avg, opt, cons, pes });
+                    
+                    totalReceiptsOpt += opt;
+                    totalReceiptsCons += cons;
+                    totalReceiptsPes += pes;
+                  }
+
+                  const montoOptBs = totalReceiptsOpt * avgPerReceiptBs;
+                  const montoConsBs = totalReceiptsCons * avgPerReceiptBs;
+                  const montoPesBs = totalReceiptsPes * avgPerReceiptBs;
+                  const montoOptUsd = totalReceiptsOpt * avgPerReceiptUsd;
+                  const montoConsUsd = totalReceiptsCons * avgPerReceiptUsd;
+                  const montoPesUsd = totalReceiptsPes * avgPerReceiptUsd;
+
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Días Restantes</div>
+                          <div className="text-3xl font-black">{daysRemaining}</div>
+                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Hasta fin de mes</div>
+                        </div>
+                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Recibos Pendientes</div>
+                          <div className="text-3xl font-black">{totalReceiptsPending}</div>
+                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">{currentRecibos.length} Unidades</div>
+                        </div>
+                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Techo de Cobranza</div>
+                          <div className="text-xl font-black">${formatUsd(totalDebtUsd)}</div>
+                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">100% de la Deuda</div>
+                        </div>
+                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Promedio por Recibo</div>
+                          <div className="text-xl font-black">{formatBs(avgPerReceiptBs)} Bs</div>
+                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Base de Proyección</div>
+                        </div>
+                      </div>
+
+                      {/* TABLA DE ESCENARIOS TOTALES */}
+                      <div className="mt-10 bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900 border border-indigo-100">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-indigo-50/50">
+                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Escenario</th>
+                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-center">Recibos a Pagar</th>
+                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado Bs</th>
+                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado USD</th>
+                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Base de Cálculo</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            <tr className="hover:bg-green-50/30 transition-colors">
+                              <td className="px-6 py-4 font-black text-green-700 flex items-center gap-2">
+                                <span className="w-3 h-3 bg-green-500 rounded-full"></span> 🟢 OPTIMISTA
+                              </td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{Math.floor(totalReceiptsOpt)}</td>
+                              <td className="px-6 py-4 text-right font-black text-green-700">{formatBs(montoOptBs)}</td>
+                              <td className="px-6 py-4 text-right font-black text-green-700 text-lg">${formatUsd(montoOptUsd)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 1.3x</td>
+                            </tr>
+                            <tr className="hover:bg-amber-50/30 transition-colors">
+                              <td className="px-6 py-4 font-black text-amber-600 flex items-center gap-2">
+                                <span className="w-3 h-3 bg-amber-400 rounded-full"></span> 🟡 CONSERVADOR
+                              </td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{Math.floor(totalReceiptsCons)}</td>
+                              <td className="px-6 py-4 text-right font-black text-amber-600">{formatBs(montoConsBs)}</td>
+                              <td className="px-6 py-4 text-right font-black text-amber-600 text-lg">${formatUsd(montoConsUsd)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial Real + 1.0x</td>
+                            </tr>
+                            <tr className="hover:bg-red-50/30 transition-colors">
+                              <td className="px-6 py-4 font-black text-red-600 flex items-center gap-2">
+                                <span className="w-3 h-3 bg-red-500 rounded-full"></span> 🔴 PESIMISTA
+                              </td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{Math.floor(totalReceiptsPes)}</td>
+                              <td className="px-6 py-4 text-right font-black text-red-600">{formatBs(montoPesBs)}</td>
+                              <td className="px-6 py-4 text-right font-black text-red-600 text-lg">${formatUsd(montoPesUsd)}</td>
+                              <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 0.6x</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* TABLA DETALLADA DIA A DIA */}
+                      <div className="mt-10">
+                        <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
+                          <span className="bg-white/20 p-2 rounded-xl">📅</span> Proyección Detallada Día por Día
+                        </h3>
+                        <div className="bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900">
+                          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-left border-collapse">
+                              <thead className="sticky top-0 bg-gray-50 z-10">
+                                <tr>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Día del Mes</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">¿Tiene historial?</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Promedio Histórico</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Recibos Proyectados (Opt/Cons/Pes)</th>
+                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Comentario Histórico</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {projection.map((p: any) => (
+                                  <tr key={p.day} className="hover:bg-indigo-50/30 transition-colors">
+                                    <td className="px-6 py-3 font-black text-indigo-950">Día {p.day}</td>
+                                    <td className="px-6 py-3">
+                                      {p.hasHistory ? (
+                                        <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Sí</span>
+                                      ) : (
+                                        <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">No</span>
+                                      )}
+                                    </td>
+                                    <td className="px-6 py-3 text-center font-mono text-sm">{p.avgHistory.toFixed(2)}</td>
+                                    <td className="px-6 py-3 text-center font-bold text-indigo-600">
+                                      {p.opt.toFixed(1)} / {p.cons.toFixed(1)} / {p.pes.toFixed(1)}
+                                    </td>
+                                    <td className="px-6 py-3 text-xs text-gray-500 font-medium">
+                                      Promedio: {p.avgHistory.toFixed(1)} recibos ({historicalPagos.filter((hp:any) => new Date(hp.fecha_pago).getDate() === p.day).length} veces)
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-8 mt-10">
+                        {/* ANÁLISIS POR CANTIDAD DE RECIBOS PENDIENTES */}
+                        <div className="bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/20">
+                          <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
+                            <span className="bg-white/20 p-2 rounded-xl">📊</span> Análisis por Recibos Pendientes
+                          </h3>
+                          <div className="space-y-4">
+                            {[1, 2, 3].map(num => {
+                              const units = currentRecibos.filter((r: any) => num === 3 ? r.num_recibos >= 3 : r.num_recibos === num);
+                              const debt = units.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
+                              return (
+                                <div key={num} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5">
+                                  <div>
+                                    <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">{num === 3 ? "3+ Recibos Pendientes" : `${num} Recibo Pendiente`}</div>
+                                    <div className="text-2xl font-black">{units.length} <span className="text-[10px] text-indigo-200">propietarios</span></div>
+                                  </div>
+                                  <div className="text-right">
+                                    <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">Suma Deuda</div>
+                                    <div className="text-xl font-black text-amber-400">{formatBs(debt)} Bs</div>
+                                    <div className="text-[10px] font-bold text-indigo-200">Promedio: {formatBs(units.length > 0 ? debt / units.length : 0)} Bs</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* RECOMENDACIONES */}
+                        <div className="bg-white p-8 rounded-[2rem] shadow-2xl text-gray-900">
+                          <h3 className="text-xl font-black text-indigo-950 mb-6 uppercase tracking-tighter flex items-center gap-3">
+                            <span className="bg-indigo-100 p-2 rounded-xl">💡</span> Recomendaciones
+                          </h3>
+                          <div className="space-y-6">
+                            <div className="flex gap-4">
+                              <div className="bg-amber-100 text-amber-600 p-3 rounded-2xl h-fit">⚠️</div>
+                              <div>
+                                <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Déficit Proyectado</h4>
+                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                  Quedarían <span className="text-red-600 font-bold">{Math.max(0, totalReceiptsPending - Math.floor(totalReceiptsCons))} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-4">
+                              <div className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl h-fit">🎯</div>
+                              <div>
+                                <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Estrategia Sugerida</h4>
+                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                  {totalReceiptsPending > totalReceiptsOpt 
+                                    ? "La morosidad actual supera incluso el escenario optimista. Se recomienda realizar una jornada especial de cobranza antes del cierre de mes." 
+                                    : "El flujo proyectado es suficiente para cubrir la mayoría de las obligaciones. Mantenga recordatorios suaves para asegurar el escenario conservador."}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 italic text-sm text-indigo-900 font-medium">
+                              "Basado en los últimos 6 meses, los días con mayor probabilidad de pago restantes son el 15 y 30. Prepare notificaciones personalizadas para esas fechas."
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
             )}
           </div>
         )}
