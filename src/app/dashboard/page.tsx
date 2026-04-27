@@ -5346,7 +5346,6 @@ export default function DashboardPage() {
               />
             ) : (
               <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-                {/* ... existing proyeccion content ... */}
                 <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🔮</div>
                 <div className="relative z-10">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -5371,9 +5370,8 @@ export default function DashboardPage() {
                     const today = new Date();
                     const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
                     const currentDay = today.getDate();
-                    const daysRemaining = lastDayOfMonth - currentDay;
+                    const daysRemaining = Math.max(0, lastDayOfMonth - currentDay);
 
-                    // 1. Historical averages by day of month (last 6 months)
                     const daysHistory: any = {};
                     historicalPagos.forEach((p: any) => {
                       const d = new Date(p.fecha_pago).getDate();
@@ -5393,7 +5391,6 @@ export default function DashboardPage() {
                     const avgPerReceiptBs = totalReceiptsPending > 0 ? totalDebtBs / totalReceiptsPending : 0;
                     const avgPerReceiptUsd = totalReceiptsPending > 0 ? totalDebtUsd / totalReceiptsPending : 0;
 
-                    // Projection loop
                     const projection = [];
                     let totalReceiptsOpt = 0;
                     let totalReceiptsCons = 0;
@@ -5402,13 +5399,10 @@ export default function DashboardPage() {
                     for (let d = currentDay + 1; d <= lastDayOfMonth; d++) {
                       const avg = dailyAverages[d] || (historicalPagos.length / (6 * 30));
                       const hasHistory = !!daysHistory[d];
-                      
                       const opt = avg * 1.3;
                       const cons = avg * 1.0;
                       const pes = avg * 0.6;
-                      
                       projection.push({ day: d, hasHistory, avgHistory: avg, opt, cons, pes });
-                      
                       totalReceiptsOpt += opt;
                       totalReceiptsCons += cons;
                       totalReceiptsPes += pes;
@@ -5427,170 +5421,52 @@ export default function DashboardPage() {
                           <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
                             <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Días Restantes</div>
                             <div className="text-3xl font-black">{daysRemaining}</div>
-                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Hasta fin de mes</div>
                           </div>
                           <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
                             <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Recibos Pendientes</div>
                             <div className="text-3xl font-black">{totalReceiptsPending}</div>
-                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">{currentRecibos.length} Unidades</div>
                           </div>
                           <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
                             <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Techo de Cobranza</div>
                             <div className="text-xl font-black">${formatUsd(totalDebtUsd)}</div>
-                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">100% de la Deuda</div>
                           </div>
                           <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
                             <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Promedio por Recibo</div>
                             <div className="text-xl font-black">{formatBs(avgPerReceiptBs)} Bs</div>
-                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Base de Proyección</div>
                           </div>
                         </div>
 
-                        {/* TABLA DE ESCENARIOS TOTALES */}
                         <div className="mt-10 bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900 border border-indigo-100">
                           <table className="w-full text-left border-collapse">
                             <thead>
                               <tr className="bg-indigo-50/50">
                                 <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Escenario</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-center">Recibos a Pagar</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado Bs</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado USD</th>
-                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Base de Cálculo</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-center">Recibos</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Bs</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto USD</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                              <tr className="hover:bg-green-50/30 transition-colors">
-                                <td className="px-6 py-4 font-black text-green-700 flex items-center gap-2">
-                                  <span className="w-3 h-3 bg-green-500 rounded-full"></span> 🟢 OPTIMISTA
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsOpt.toFixed(1)}</td>
-                                <td className="px-6 py-4 text-right font-black text-green-700">{formatBs(montoOptBs)}</td>
-                                <td className="px-6 py-4 text-right font-black text-green-700 text-lg">${formatUsd(montoOptUsd)}</td>
-                                <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 1.3x</td>
+                              <tr>
+                                <td className="px-6 py-4 font-black text-green-700">OPTIMISTA</td>
+                                <td className="px-6 py-4 text-center">{totalReceiptsOpt.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-right font-bold">{formatBs(montoOptBs)}</td>
+                                <td className="px-6 py-4 text-right font-bold">${formatUsd(montoOptUsd)}</td>
                               </tr>
-                              <tr className="hover:bg-amber-50/30 transition-colors">
-                                <td className="px-6 py-4 font-black text-amber-600 flex items-center gap-2">
-                                  <span className="w-3 h-3 bg-amber-400 rounded-full"></span> 🟡 CONSERVADOR
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsCons.toFixed(1)}</td>
-                                <td className="px-6 py-4 text-right font-black text-amber-600">{formatBs(montoConsBs)}</td>
-                                <td className="px-6 py-4 text-right font-black text-amber-600 text-lg">${formatUsd(montoConsUsd)}</td>
-                                <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial Real + 1.0x</td>
+                              <tr>
+                                <td className="px-6 py-4 font-black text-amber-600">CONSERVADOR</td>
+                                <td className="px-6 py-4 text-center">{totalReceiptsCons.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-right font-bold">{formatBs(montoConsBs)}</td>
+                                <td className="px-6 py-4 text-right font-bold">${formatUsd(montoConsUsd)}</td>
                               </tr>
-                              <tr className="hover:bg-red-50/30 transition-colors">
-                                <td className="px-6 py-4 font-black text-red-600 flex items-center gap-2">
-                                  <span className="w-3 h-3 bg-red-500 rounded-full"></span> 🔴 PESIMISTA
-                                </td>
-                                <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsPes.toFixed(1)}</td>
-                                <td className="px-6 py-4 text-right font-black text-red-600">{formatBs(montoPesBs)}</td>
-                                <td className="px-6 py-4 text-right font-black text-red-600 text-lg">${formatUsd(montoPesUsd)}</td>
-                                <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 0.6x</td>
+                              <tr>
+                                <td className="px-6 py-4 font-black text-red-600">PESIMISTA</td>
+                                <td className="px-6 py-4 text-center">{totalReceiptsPes.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-right font-bold">{formatBs(montoPesBs)}</td>
+                                <td className="px-6 py-4 text-right font-bold">${formatUsd(montoPesUsd)}</td>
                               </tr>
                             </tbody>
                           </table>
-                        </div>
-
-                        {/* TABLA DETALLADA DIA A DIA */}
-                        <div className="mt-10">
-                          <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
-                            <span className="bg-white/20 p-2 rounded-xl">📅</span> Proyección Detallada Día por Día
-                          </h3>
-                          <div className="bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900">
-                            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                              <table className="w-full text-left border-collapse">
-                                <thead className="sticky top-0 bg-gray-50 z-10">
-                                  <tr>
-                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Día del Mes</th>
-                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">¿Tiene historial?</th>
-                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Promedio Histórico</th>
-                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Recibos Proyectados (Opt/Cons/Pes)</th>
-                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Comentario Histórico</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-100">
-                                  {projection.map((p: any) => (
-                                    <tr key={p.day} className="hover:bg-indigo-50/30 transition-colors">
-                                      <td className="px-6 py-3 font-black text-indigo-950">Día {p.day}</td>
-                                      <td className="px-6 py-3">
-                                        {p.hasHistory ? (
-                                          <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Sí</span>
-                                        ) : (
-                                          <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">No</span>
-                                        )}
-                                      </td>
-                                      <td className="px-6 py-3 text-center font-mono text-sm">{p.avgHistory.toFixed(2)}</td>
-                                      <td className="px-6 py-3 text-center font-bold text-indigo-600">
-                                        {p.opt.toFixed(1)} / {p.cons.toFixed(1)} / {p.pes.toFixed(1)}
-                                      </td>
-                                      <td className="px-6 py-3 text-xs text-gray-500 font-medium">
-                                        Promedio: {p.avgHistory.toFixed(1)} recibos ({historicalPagos.filter((hp:any) => new Date(hp.fecha_pago).getDate() === p.day).length} veces)
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-8 mt-10">
-                          {/* ANÁLISIS POR CANTIDAD DE RECIBOS PENDIENTES */}
-                          <div className="bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/20">
-                            <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
-                              <span className="bg-white/20 p-2 rounded-xl">📊</span> Análisis por Recibos Pendientes
-                            </h3>
-                            <div className="space-y-4">
-                              {[1, 2, 3].map(num => {
-                                const units = currentRecibos.filter((r: any) => num === 3 ? r.num_recibos >= 3 : r.num_recibos === num);
-                                const debt = units.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
-                                return (
-                                  <div key={num} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5">
-                                    <div>
-                                      <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">{num === 3 ? "3+ Recibos Pendientes" : `${num} Recibo Pendiente`}</div>
-                                      <div className="text-2xl font-black">{units.length} <span className="text-[10px] text-indigo-200">propietarios</span></div>
-                                    </div>
-                                    <div className="text-right">
-                                      <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">Suma Deuda</div>
-                                      <div className="text-xl font-black text-amber-400">{formatBs(debt)} Bs</div>
-                                      <div className="text-[10px] font-bold text-indigo-200">Promedio: {formatBs(units.length > 0 ? debt / units.length : 0)} Bs</div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* RECOMENDACIONES */}
-                          <div className="bg-white p-8 rounded-[2rem] shadow-2xl text-gray-900">
-                            <h3 className="text-xl font-black text-indigo-950 mb-6 uppercase tracking-tighter flex items-center gap-3">
-                              <span className="bg-indigo-100 p-2 rounded-xl">💡</span> Recomendaciones
-                            </h3>
-                            <div className="space-y-6">
-                              <div className="flex gap-4">
-                                <div className="bg-amber-100 text-amber-600 p-3 rounded-2xl h-fit">⚠️</div>
-                                <div>
-                                  <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Déficit Proyectado</h4>
-                                  <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                    Quedarían <span className="text-red-600 font-bold">{(totalReceiptsPending - totalReceiptsCons).toFixed(1)} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex gap-4">
-                                <div className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl h-fit">🎯</div>
-                                <div>
-                                  <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Estrategia Sugerida</h4>
-                                  <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                    {totalReceiptsPending > totalReceiptsOpt 
-                                      ? "La morosidad actual supera incluso el escenario optimista. Se recomienda realizar una jornada especial de cobranza antes del cierre de mes." 
-                                      : "El flujo proyectado es suficiente para cubrir la mayoría de las obligaciones. Mantenga recordatorios suaves para asegurar el escenario conservador."}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 italic text-sm text-indigo-900 font-medium">
-                                "Basado en los últimos 6 meses, los días con mayor probabilidad de pago restantes son el 15 y 30. Prepare notificaciones personalizadas para esas fechas."
-                              </div>
-                            </div>
-                          </div>
                         </div>
                       </>
                     );
@@ -5611,107 +5487,27 @@ export default function DashboardPage() {
                 onUpgrade={() => setActiveTab("planes")}
               />
             ) : (
-              <>
+              <div className="space-y-6">
                 <div className="bg-gradient-to-br from-cyan-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🚰</div>
                   <div className="relative z-10">
-                    <div className="flex justify-between items-center mb-8">
-                      <div>
-                        <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Servicios Públicos</h2>
-                        <p className="text-cyan-200 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-                          <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
-                          Monitoreo de Deudas Operativas
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => setActiveTab("configuracion")}
-                        className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-white/20 transition-all"
-                      >
-                        ⚙️ Configurar
-                      </button>
-                    </div>
-
+                    <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Servicios Públicos</h2>
+                    <p className="text-cyan-200 font-bold text-xs uppercase tracking-widest mb-8">Monitoreo de Deudas Operativas</p>
                     <div className="grid md:grid-cols-3 gap-6">
                       {['cantv', 'hidrocapital', 'corpoelec'].map(tipo => {
                         const configs = serviciosConfigs.filter(c => c.tipo === tipo);
                         const totalDeuda = configs.reduce((acc, c) => acc + Number(c.ultimo_monto || 0), 0);
-                        const icon = tipo === 'cantv' ? '📞' : (tipo === 'hidrocapital' ? '🚰' : '⚡');
-                        const label = tipo === 'cantv' ? 'Telefonía' : (tipo === 'hidrocapital' ? 'Agua' : 'Electricidad');
-                        
                         return (
                           <div key={tipo} className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10">
-                            <div className="flex justify-between items-start mb-4">
-                              <span className="text-2xl">{icon}</span>
-                              <span className="text-[10px] font-black text-cyan-300 uppercase tracking-widest">{label}</span>
-                            </div>
-                            <div className="text-2xl font-black mb-1">Bs. {formatNumber(totalDeuda)}</div>
-                            <div className="text-[10px] text-cyan-200 uppercase font-bold">{configs.length} Servicios registrados</div>
+                            <div className="text-[10px] font-black text-cyan-300 uppercase tracking-widest mb-2">{tipo}</div>
+                            <div className="text-2xl font-black">Bs. {formatNumber(totalDeuda)}</div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
                 </div>
-
-                <div className="grid grid-cols-1 gap-6">
-                  {serviciosConfigs.length === 0 ? (
-                    <div className="bg-white p-12 rounded-[2rem] text-center border-2 border-dashed border-gray-100">
-                      <div className="text-4xl mb-4">🔦</div>
-                      <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Sin Servicios Configurados</h3>
-                      <p className="text-gray-500 text-sm max-w-xs mx-auto mt-2">
-                        Agrega tus números de contrato y NICs en la sección de configuración para comenzar el monitoreo automático.
-                      </p>
-                      <button 
-                        onClick={() => setActiveTab("configuracion")}
-                        className="mt-6 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg"
-                      >
-                        Configurar Ahora
-                      </button>
-                    </div>
-                  ) : (
-                    serviciosConfigs.map(config => (
-                      <div key={config.id} className="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                        <div className="flex items-center gap-6">
-                          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-2xl shadow-inner ${
-                            config.tipo === 'cantv' ? 'bg-blue-50 text-blue-600' : 
-                            (config.tipo === 'hidrocapital' ? 'bg-cyan-50 text-cyan-600' : 'bg-amber-50 text-amber-600')
-                          }`}>
-                            {config.tipo === 'cantv' ? '📞' : (config.tipo === 'hidrocapital' ? '🚰' : '⚡')}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-lg font-black text-gray-900 uppercase tracking-tighter">{config.alias || config.tipo.toUpperCase()}</h4>
-                              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase tracking-widest">{config.tipo}</span>
-                            </div>
-                            <p className="text-xs text-gray-500 font-bold font-mono">
-                              {config.tipo === 'cantv' ? 'N° Telefónico' : (config.tipo === 'hidrocapital' ? 'NIC' : 'NIC / NCC')}: {config.identificador}
-                            </p>
-                            <p className="text-[10px] text-gray-400 mt-1 font-medium">
-                              Programado: Día {config.dia_consulta} de cada mes
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col items-center md:items-end">
-                          <div className="text-2xl font-black text-gray-900">Bs. {formatNumber(config.ultimo_monto || 0)}</div>
-                          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">
-                            Última consulta: {config.ultima_consulta ? new Date(config.ultima_consulta).toLocaleString('es-VE') : 'Nunca'}
-                          </p>
-                          <button 
-                            onClick={() => consultarServicio(config.id)}
-                            disabled={consultandoId === config.id}
-                            className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${
-                              consultandoId === config.id ? 'bg-gray-100 text-gray-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-100'
-                            }`}
-                          >
-                            {consultandoId === config.id ? '⏳ Consultando...' : '🔄 Consultar Ahora'}
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </>
+              </div>
             )}
           </div>
         )}
@@ -5839,12 +5635,13 @@ export default function DashboardPage() {
                     Guardar Preferencias de Visualización
                   </button>
                 </div>
-                </div>              </div>
-
-              {syncMessage && (              <div className={`p-4 rounded-xl font-bold text-sm shadow-sm border ${syncMessage.includes("❌") ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}`}>
-                {syncMessage}
               </div>
-            )}
+
+              {syncMessage && (
+                <div className={`p-4 rounded-xl font-bold text-sm shadow-sm border ${syncMessage.includes("❌") ? "bg-red-50 text-red-700 border-red-200" : "bg-green-50 text-green-700 border-green-200"}`}>
+                  {syncMessage}
+                </div>
+              )}
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Configuración de Integración Web Admin</h2>
@@ -6061,31 +5858,29 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-                  </div>
-                </div>
 
                 <div className="border-t pt-4">
                   <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">Opciones de Sincronizaci&oacute;n</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_recibos} onChange={(e) => setEditConfig({ ...editConfig, sync_recibos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                      <span className="text-sm text-gray-700">Recibos</span>
+                      <span className="text-sm text-gray-700 font-medium">Recibos</span>
                     </label>
                     <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_egresos} onChange={(e) => setEditConfig({ ...editConfig, sync_egresos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                      <span className="text-sm text-gray-700">Egresos</span>
+                      <span className="text-sm text-gray-700 font-medium">Egresos</span>
                     </label>
                     <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_gastos} onChange={(e) => setEditConfig({ ...editConfig, sync_gastos: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                      <span className="text-sm text-gray-700">Gastos</span>
+                      <span className="text-sm text-gray-700 font-medium">Gastos</span>
                     </label>
                     <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_alicuotas} onChange={(e) => setEditConfig({ ...editConfig, sync_alicuotas: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                      <span className="text-sm text-gray-700">Alicuotas</span>
+                      <span className="text-sm text-gray-700 font-medium">Alicuotas</span>
                     </label>
                     <label className={`flex items-center gap-2 ${user?.isAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}>
                       <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig.sync_balance} onChange={(e) => setEditConfig({ ...editConfig, sync_balance: e.target.checked })} className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500" />
-                      <span className="text-sm text-gray-700">Balance</span>
+                      <span className="text-sm text-gray-700 font-medium">Balance</span>
                     </label>
                   </div>
                   <div className="mt-4">
@@ -6144,7 +5939,6 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
-            </div>
 
             <div className="bg-gray-100 p-6 rounded-xl border border-gray-200 shadow-inner">
                <h3 className="text-sm font-black text-gray-700 mb-4 uppercase tracking-tighter flex items-center gap-2">
