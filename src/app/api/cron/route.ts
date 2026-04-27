@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
       }
 
       if (alreadyRunToday && !force) {
-        console.log(`[CRON] [!] Saltando ${edificio.nombre} - Ya se ejecutó hoy (${lastSync})`);
+        console.log(`[CRON] [!] Saltando ${edificio.nombre} - Ya se ejecutó hoy (${lastSyncVET})`);
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "Ya se ejecutó hoy" });
         continue;
       }
