@@ -2296,7 +2296,7 @@ export default function DashboardPage() {
                               dist[n].value++;
                             });
                             return Object.values(dist);
-                          })()
+                          })()}
                           cx="50%"
                           cy="50%"
                           innerRadius={60}
@@ -5202,5 +5202,4 @@ export default function DashboardPage() {
       )}
     </div> {/* Closes outer div */}
   );
-}
 }
