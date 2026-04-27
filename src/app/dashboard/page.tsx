@@ -2296,7 +2296,12 @@ export default function DashboardPage() {
             <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🔄 Movimientos</button>
           </div>
 
-          {activeTab === "resumen" && (
+          {/* BANNER DE VERIFICACIÓN DE DESPLIEGUE */}
+      <div className="bg-red-600 text-white text-center py-2 font-black uppercase text-[10px] tracking-[0.2em] fixed top-0 left-0 right-0 z-[999]">
+        Versión Actualizada: 27 Abril - 12:30 PM VET
+      </div>
+      
+      {activeTab === "resumen" && (
             <div className="space-y-6">
             
             {/* Módulos Superiores (Resumen USD / Balance) */}
