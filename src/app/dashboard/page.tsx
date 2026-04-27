@@ -1768,6 +1768,29 @@ export default function DashboardPage() {
     }
   };
 
+  const handleMaintenance = async () => {
+    if (!building?.id) return;
+    setMaintenanceLoading(true);
+    setMaintenanceMessage("Iniciando mantenimiento de tablas...");
+    try {
+      const res = await fetch("/api/config/maintenance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ edificioId: building.id })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMaintenanceMessage(`✅ ${data.message || "Mantenimiento completado. Se ha enviado el reporte por email."}`);
+      } else {
+        setMaintenanceMessage(`❌ Error: ${data.error || "Fallo en mantenimiento"}`);
+      }
+    } catch (error: any) {
+      setMaintenanceMessage(`❌ Error de red: ${error.message}`);
+    } finally {
+      setMaintenanceLoading(false);
+    }
+  };
+
   const handleSaveConfig = async () => {
     setSaving(true);
     setSyncMessage("");
@@ -5283,253 +5306,382 @@ export default function DashboardPage() {
 
         {activeTab === "configuracion" && building && (
           <div className="space-y-6 pb-20 animate-in slide-in-from-bottom duration-500">
-            {/* CABECERA CONFIG */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
-              <div>
-                <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Configuración del Sistema</h2>
-                <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mt-1">Gestión de credenciales y automatización</p>
+            {/* 1. DATOS BÁSICOS */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 uppercase tracking-tighter font-black">🏢 Datos del Edificio</h2>
+              <div className="grid md:grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Nombre</label>
+                  <div className="text-gray-900 font-bold">{building.nombre}</div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Dirección</label>
+                  <div className="text-gray-900 text-sm">{building.direccion || "-"}</div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase">Unidades (Apartamentos)</label>
+                  <input 
+                    type="number" 
+                    value={editConfig.unidades} 
+                    onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} 
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold border-gray-300 bg-white"
+                  />
+                </div>
               </div>
-              <button 
-                onClick={handleSaveConfig} 
-                disabled={saving}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-2xl font-black uppercase tracking-tighter shadow-xl shadow-indigo-900/20 transition-all flex items-center justify-center gap-2"
-              >
-                {saving ? "⌛ Guardando..." : "💾 Guardar Cambios"}
-              </button>
             </div>
 
-            {syncMessage && (
-              <div className="bg-green-100 border border-green-200 text-green-800 px-6 py-4 rounded-2xl font-bold text-sm animate-bounce">
-                {syncMessage}
-              </div>
-            )}
-
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* BLOQUE 1: CREDENCIALES */}
-              <div className="space-y-6">
-                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-                  <h3 className="text-sm font-black text-indigo-600 uppercase mb-6 tracking-widest flex items-center gap-2">
-                    <span className="text-lg">🛡️</span> Credenciales Administradora
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Administradora</label>
-                      <select 
-                        value={editConfig.admin_nombre} 
-                        onChange={(e) => handleAdminSelect(e.target.value)}
-                        className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                      >
-                        {administradoras.map(a => <option key={a.nombre} value={a.nombre}>{a.nombre}</option>)}
-                        <option value="Personalizado">Otra (Manual)</option>
-                      </select>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Usuario / ID</label>
-                        <input 
-                          type="text" 
-                          value={editConfig.admin_id} 
-                          onChange={(e) => setEditConfig({ ...editConfig, admin_id: e.target.value })}
-                          placeholder="Ej: 123456"
-                          className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Contraseña / Token</label>
-                        <input 
-                          type="password" 
-                          value={editConfig.admin_secret} 
-                          onChange={(e) => setEditConfig({ ...editConfig, admin_secret: e.target.value })}
-                          placeholder="••••••••"
-                          className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-                  <h3 className="text-sm font-black text-indigo-600 uppercase mb-6 tracking-widest flex items-center gap-2">
-                    <span className="text-lg">⚙️</span> Automatización (Cron)
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                      <div>
-                        <div className="font-black text-indigo-900 text-xs uppercase tracking-tighter">Sincronización Diaria</div>
-                        <div className="text-[10px] text-indigo-600 font-bold">Ejecuta tareas a las 05:00 AM VET</div>
-                      </div>
-                      <button 
-                        onClick={() => setEditConfig({ ...editConfig, cron_enabled: !editConfig.cron_enabled })}
-                        className={`w-12 h-6 rounded-full transition-all relative ${editConfig.cron_enabled ? 'bg-indigo-600' : 'bg-gray-300'}`}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editConfig.cron_enabled ? 'right-1' : 'left-1'}`}></div>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Hora de Ejecución (VET)</label>
-                        <input 
-                          type="time" 
-                          value={editConfig.cron_time} 
-                          onChange={(e) => setEditConfig({ ...editConfig, cron_time: e.target.value })}
-                          className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Frecuencia</label>
-                        <select 
-                          value={editConfig.cron_frequency} 
-                          onChange={(e) => setEditConfig({ ...editConfig, cron_frequency: e.target.value })}
-                          className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm"
-                        >
-                          <option value="diaria">Diaria</option>
-                          <option value="semanal">Semanal</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* BLOQUE 2: SERVICIOS PUBLICOS */}
-              <div className="space-y-6">
-                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-sm font-black text-cyan-600 uppercase tracking-widest flex items-center gap-2">
-                      <span className="text-lg">🚰</span> Servicios Públicos
-                    </h3>
-                    {planInfo?.name === 'Esencial' && (
-                      <span className="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded-lg font-black uppercase">Plan Profesional+</span>
-                    )}
-                  </div>
-                  
-                  {!planInfo?.permissions?.hasPublicServices ? (
-                    <div className="p-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-center">
-                      <p className="text-xs text-gray-500 font-bold uppercase mb-4">Módulo bloqueado en plan {planInfo?.name}</p>
-                      <button onClick={() => setActiveTab("planes")} className="text-indigo-600 font-black uppercase text-[10px] hover:underline">Ver Planes →</button>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {/* Lista de configurados */}
-                      <div className="space-y-2">
-                        {serviciosConfigs.map(s => (
-                          <div key={s.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100 group">
-                            <div className="flex items-center gap-3">
-                              <span className="text-lg">{s.tipo === 'cantv' ? '📞' : s.tipo === 'hidrocapital' ? '🚰' : '⚡'}</span>
-                              <div>
-                                <div className="text-xs font-black text-gray-900 uppercase tracking-tighter">{s.alias || s.identificador}</div>
-                                <div className="text-[9px] text-gray-400 font-bold uppercase">{s.tipo}: {s.identificador} | Día {s.dia_consulta}</div>
-                              </div>
-                            </div>
-                            <button onClick={() => removeServicioConfig(s.id)} className="text-red-400 hover:text-red-600 p-2 opacity-0 group-hover:opacity-100 transition-opacity">🗑️</button>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Formulario agregar */}
-                      <div className="p-4 bg-cyan-50/50 rounded-2xl border border-cyan-100 space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                          <select 
-                            value={newSvc.tipo} 
-                            onChange={(e) => setNewSvc({ ...newSvc, tipo: e.target.value })}
-                            className="bg-white border-cyan-100 rounded-lg p-2 text-xs font-bold uppercase"
-                          >
-                            <option value="cantv">CANTV (Telf)</option>
-                            <option value="hidrocapital">Hidrocapital</option>
-                            <option value="corpoelec">Corpoelec</option>
-                          </select>
-                          <input 
-                            type="text" 
-                            placeholder="Número / NIC"
-                            value={newSvc.identificador}
-                            onChange={(e) => setNewSvc({ ...newSvc, identificador: e.target.value })}
-                            className="bg-white border-cyan-100 rounded-lg p-2 text-xs font-bold"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <input 
-                            type="text" 
-                            placeholder="Alias (Ej: Aseo)"
-                            value={newSvc.alias}
-                            onChange={(e) => setNewSvc({ ...newSvc, alias: e.target.value })}
-                            className="bg-white border-cyan-100 rounded-lg p-2 text-xs font-bold"
-                          />
-                          <div className="flex items-center gap-2">
-                            <span className="text-[9px] font-black text-gray-400 uppercase">Día:</span>
-                            <input 
-                              type="number" 
-                              min="1" max="31"
-                              value={newSvc.diaConsulta}
-                              onChange={(e) => setNewSvc({ ...newSvc, diaConsulta: parseInt(e.target.value) || 1 })}
-                              className="w-full bg-white border-cyan-100 rounded-lg p-2 text-xs font-bold"
-                            />
-                          </div>
-                        </div>
-                        <button 
-                          onClick={() => {
-                            addServicioConfig(newSvc.tipo, newSvc.identificador, newSvc.alias, newSvc.diaConsulta);
-                            setNewSvc({ ...newSvc, identificador: '', alias: '' });
-                          }}
-                          disabled={!newSvc.identificador}
-                          className="w-full bg-cyan-600 hover:bg-cyan-700 text-white py-2 rounded-xl font-black uppercase text-[10px] shadow-lg shadow-cyan-900/20"
-                        >
-                          ➕ Agregar Servicio
-                        </button>
-                      </div>
-                    </div>
+            {/* 2. ALERTAS Y DASHBOARD */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tighter">🔔 Alertas Personalizables</h2>
+                  {!planInfo?.permissions?.hasCustomAlerts && (
+                    <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full">PLAN PROFESIONAL+</span>
                   )}
                 </div>
 
-                <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-gray-100">
-                  <h3 className="text-sm font-black text-indigo-600 uppercase mb-6 tracking-widest flex items-center gap-2">
-                    <span className="text-lg">📩</span> Notificaciones y Alertas
-                  </h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-[10px] font-black text-gray-400 uppercase mb-1 block">Email(s) de la Junta</label>
-                      <input 
-                        type="text" 
-                        value={editConfig.email_junta} 
-                        onChange={(e) => setEditConfig({ ...editConfig, email_junta: e.target.value })}
-                        placeholder="email1@test.com, email2@test.com"
-                        className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                      />
+                <div className={`space-y-4 ${!planInfo?.permissions?.hasCustomAlerts ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold text-gray-700">Umbral de Saldo Bajo</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-gray-400">$</span>
+                        <input 
+                          type="number" 
+                          value={editConfig.alert_thresholds.saldo_bajo} 
+                          onChange={(e) => setEditConfig({ ...editConfig, alert_thresholds: { ...editConfig.alert_thresholds, saldo_bajo: parseInt(e.target.value) || 0 } })}
+                          className="w-20 px-2 py-1 border rounded text-xs font-bold" 
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
-                      <div className="text-[10px] font-bold text-amber-800 uppercase">Alertas WhatsApp</div>
-                      <button 
-                        onClick={() => setEditConfig({ 
-                          ...editConfig, 
-                          alert_thresholds: { ...editConfig.alert_thresholds, whatsapp_enabled: !editConfig.alert_thresholds.whatsapp_enabled } 
-                        })}
-                        className={`w-10 h-5 rounded-full relative ${editConfig.alert_thresholds.whatsapp_enabled ? 'bg-green-500' : 'bg-gray-300'}`}
-                      >
-                        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${editConfig.alert_thresholds.whatsapp_enabled ? 'right-0.5' : 'left-0.5'}`}></div>
-                      </button>
-                    </div>
+                    <p className="text-[10px] text-gray-500 italic">Recibir notificación cuando el saldo disponible baje de este monto.</p>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3">
+                    <input 
+                      type="checkbox" 
+                      checked={editConfig.alert_thresholds.whatsapp_enabled}
+                      onChange={(e) => setEditConfig({ ...editConfig, alert_thresholds: { ...editConfig.alert_thresholds, whatsapp_enabled: e.target.checked } })}
+                      className="w-4 h-4 rounded text-blue-600" 
+                    />
+                    <span className="text-xs font-bold text-gray-600 italic">Enviar alertas críticas por WhatsApp</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tighter">📊 Configuración de Dashboard</h2>
+                  {!planInfo?.permissions?.hasCustomDashboard && (
+                    <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full">PLAN PROFESIONAL+</span>
+                  )}
+                </div>
+
+                <div className={`space-y-4 ${!planInfo?.permissions?.hasCustomDashboard ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: "Flujo de Caja", id: "cf" },
+                      { label: "Morosidad por Unidad", id: "mo" },
+                      { label: "Comparativa de Gastos", id: "cg" },
+                      { label: "Resumen USD", id: "usd" },
+                      { label: "Borrador de Recibo", id: "br" },
+                      { label: "Historial Sync", id: "hs" }
+                    ].map(module => (
+                      <label key={module.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer hover:bg-white transition-colors">
+                        <input 
+                          type="checkbox" 
+                          checked={editConfig.dashboard_config[module.id as keyof typeof editConfig.dashboard_config]}
+                          onChange={(e) => setEditConfig({ ...editConfig, dashboard_config: { ...editConfig.dashboard_config, [module.id]: e.target.checked } })}
+                          className="w-4 h-4 rounded text-indigo-600" 
+                        />
+                        <span className="text-[10px] font-black uppercase text-gray-600">{module.label}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-            
+
+            {/* 3. INTEGRACIÓN WEB ADMIN */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 uppercase tracking-tighter font-black">🔌 Integración Web Admin</h2>
+              
+              <div className="space-y-6">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Administradora</label>
+                    <select
+                      value={editConfig.admin_nombre || "La Ideal C.A."}
+                      onChange={(e) => handleAdminSelect(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    >
+                      {administradoras.map(adm => <option key={adm.id} value={adm.nombre}>{adm.nombre}</option>)}
+                      <option value="Otra">Otra (Manual)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Clave de Acceso (Portal Web)</label>
+                    <input
+                      type="password"
+                      value={editConfig.admin_secret}
+                      onChange={(e) => setEditConfig({ ...editConfig, admin_secret: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      placeholder="Contraseña del portal"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">URLs de Scraping (Avanzado)</h3>
+                  <div className="grid md:grid-cols-3 gap-3">
+                    {["url_login", "url_recibos", "url_recibo_mes", "url_egresos", "url_gastos", "url_balance", "url_alicuotas"].map(urlKey => (
+                      <div key={urlKey} className="space-y-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase">{urlKey.replace(/_/g, ' ')}</label>
+                        <input 
+                          type="text" 
+                          value={editConfig[urlKey as keyof typeof editConfig] as string} 
+                          onChange={(e) => setEditConfig({ ...editConfig, [urlKey]: e.target.value })} 
+                          className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" 
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. SERVICIOS PÚBLICOS */}
+            <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-black text-cyan-700 uppercase tracking-tighter flex items-center gap-2">
+                  <span>🚰</span> Gestión de Servicios Públicos
+                </h3>
+                {!planInfo?.permissions?.hasPublicServices && (
+                  <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full uppercase">Plan Profesional+</span>
+                )}
+              </div>
+
+              <div className={`${!planInfo?.permissions?.hasPublicServices ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                <div className="bg-cyan-50/50 p-6 rounded-[2rem] border border-cyan-100 mb-6">
+                  <div className="grid md:grid-cols-5 gap-4 items-end">
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Empresa / Tipo</label>
+                      <select 
+                        value={newSvc.tipo}
+                        onChange={(e) => setNewSvc({ ...newSvc, tipo: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border rounded-xl bg-white border-cyan-200"
+                      >
+                        <option value="cantv">CANTV (Telefonía)</option>
+                        <option value="hidrocapital">Hidrocapital (Agua)</option>
+                        <option value="corpoelec">Corpoelec (Electricidad)</option>
+                      </select>
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Identificador (NIC/Línea)</label>
+                      <input 
+                        type="text" 
+                        value={newSvc.identificador}
+                        onChange={(e) => setNewSvc({ ...newSvc, identificador: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border rounded-xl border-cyan-200" 
+                        placeholder={newSvc.tipo === 'cantv' ? "Ej. 02127313362" : "Ej. 1013084"} 
+                      />
+                      <p className="text-[9px] text-cyan-600 mt-1 font-bold">
+                        {newSvc.tipo === 'cantv' ? "Formato: 11 dígitos" : "Formato: NIC numérico"}
+                      </p>
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Alias (Opcional)</label>
+                      <input 
+                        type="text" 
+                        value={newSvc.alias}
+                        onChange={(e) => setNewSvc({ ...newSvc, alias: e.target.value })}
+                        className="w-full px-3 py-2 text-sm border rounded-xl border-cyan-200" 
+                        placeholder="Ej. Bomba Ppal" 
+                      />
+                    </div>
+                    <div className="md:col-span-1">
+                      <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Día de Consulta</label>
+                      <input 
+                        type="number" 
+                        min="1" max="31" 
+                        value={newSvc.diaConsulta}
+                        onChange={(e) => setNewSvc({ ...newSvc, diaConsulta: parseInt(e.target.value) || 1 })}
+                        className="w-full px-3 py-2 text-sm border rounded-xl border-cyan-200" 
+                      />
+                    </div>
+                    <button 
+                      onClick={() => {
+                        addServicioConfig(newSvc.tipo, newSvc.identificador, newSvc.alias, newSvc.diaConsulta);
+                        setNewSvc({ ...newSvc, identificador: '', alias: '' });
+                      }}
+                      disabled={!newSvc.identificador}
+                      className="bg-cyan-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-cyan-700 transition-all shadow-lg"
+                    >
+                      + Agregar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {serviciosConfigs.map(svc => (
+                    <div key={svc.id} className="flex justify-between items-center p-4 bg-white border border-gray-100 rounded-2xl shadow-sm group">
+                      <div className="flex items-center gap-4">
+                        <span className="text-xl">{svc.tipo === 'cantv' ? '📞' : (svc.tipo === 'hidrocapital' ? '🚰' : '⚡')}</span>
+                        <div>
+                          <div className="text-xs font-black text-gray-900 uppercase">{svc.alias || svc.tipo}</div>
+                          <div className="text-[10px] text-gray-400 font-mono font-bold">{svc.identificador}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right">
+                          <div className="text-[9px] font-bold text-gray-400 uppercase">Día {svc.dia_consulta}</div>
+                        </div>
+                        <button onClick={() => removeServicioConfig(svc.id)} className="text-red-300 hover:text-red-600 transition-opacity p-2 opacity-0 group-hover:opacity-100">🗑️</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 5. SINCRONIZACIÓN Y EMAIL */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 uppercase tracking-tighter font-black">📩 Reportes y Sincronización</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 block">Email(s) de la Junta</label>
+                  <input 
+                    type="text" 
+                    value={editConfig.email_junta} 
+                    onChange={(e) => setEditConfig({ ...editConfig, email_junta: e.target.value })}
+                    placeholder="email1@test.com, email2@test.com"
+                    className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">SOPORTA MÚLTIPLES CORREOS SEPARADOS POR COMA (,)</p>
+                </div>
+
+                <div className="border-t pt-4">
+                   <h3 className="text-xs font-black text-gray-600 uppercase mb-3 tracking-widest">Opciones de Sincronización Manual</h3>
+                   <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                      {['sync_recibos', 'sync_egresos', 'sync_gastos', 'sync_alicuotas', 'sync_balance'].map(opt => (
+                        <label key={opt} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer">
+                          <input type="checkbox" checked={editConfig[opt as keyof typeof editConfig] as boolean} onChange={(e) => setEditConfig({ ...editConfig, [opt]: e.target.checked })} className="w-3 h-3 text-indigo-600" />
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">{opt.split('_')[1]}</span>
+                        </label>
+                      ))}
+                   </div>
+                   <button onClick={handleSync} disabled={syncing} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-indigo-900/20">
+                     {syncing ? "Sincronizando..." : "🚀 Sincronizar Ahora"}
+                   </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 6. CRON AUTOMÁTICO */}
             <div className="bg-indigo-900 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-8 opacity-10 text-9xl">🔄</div>
-              <h2 className="text-2xl font-black uppercase mb-2 tracking-tighter">Mantenimiento Manual</h2>
-              <p className="text-indigo-200 text-sm mb-6 max-w-md">Usa esta opción si deseas forzar una sincronización de datos con la administradora fuera del horario programado.</p>
-              <button 
-                onClick={handleSync} 
-                disabled={syncing} 
-                className={`bg-white text-indigo-900 px-8 py-4 rounded-2xl font-black uppercase text-xs shadow-xl transition-all ${syncing ? 'opacity-50' : 'hover:scale-105 active:scale-95'}`}
-              >
-                {syncing ? "Sincronizando..." : "🚀 Sincronizar Datos Ahora"}
-              </button>
+              <div className="absolute top-0 right-0 p-8 opacity-10 text-9xl">⏰</div>
+              <h2 className="text-2xl font-black uppercase mb-4 tracking-tighter">Programación Automática</h2>
+              <div className="grid md:grid-cols-3 gap-6 items-center">
+                <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/10">
+                   <label className="block text-[10px] font-black text-indigo-300 uppercase mb-2">Estado</label>
+                   <button 
+                    onClick={() => setEditConfig({ ...editConfig, cron_enabled: !editConfig.cron_enabled })}
+                    className={`w-full py-2 rounded-xl text-xs font-black uppercase transition-all ${editConfig.cron_enabled ? 'bg-green-500 text-white' : 'bg-white/20 text-indigo-200'}`}
+                  >
+                    {editConfig.cron_enabled ? '● ACTIVO' : '○ INACTIVO'}
+                  </button>
+                </div>
+                <div className="bg-white/10 p-4 rounded-2xl backdrop-blur-md border border-white/10">
+                   <label className="block text-[10px] font-black text-indigo-300 uppercase mb-2">Hora (VET)</label>
+                   <input type="time" value={editConfig.cron_time} onChange={(e) => setEditConfig({ ...editConfig, cron_time: e.target.value })} className="w-full bg-white/20 border-none rounded-xl px-4 py-2 text-sm font-bold text-white outline-none" />
+                </div>
+                <button onClick={handleSaveConfig} disabled={saving} className="bg-white text-indigo-900 h-full py-4 rounded-2xl font-black uppercase text-xs hover:scale-105 transition-all shadow-xl">
+                  {saving ? "Guardando..." : "💾 Guardar Toda la Configuración"}
+                </button>
+              </div>
+            </div>
+
+            {/* 7. MANTENIMIENTO */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight flex items-center gap-2">
+                <span>🛠️</span> Mantenimiento de la Plataforma
+              </h2>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                <div className="flex-1">
+                  <h3 className="text-blue-800 font-bold mb-1 uppercase text-xs">Mantenimiento de Base de Datos</h3>
+                  <p className="text-[10px] text-blue-600 leading-relaxed font-medium">
+                    Optimiza tablas, compacta almacenamiento y reindexa datos. Se enviará un reporte detallado a la junta.
+                  </p>
+                </div>
+                <button
+                  onClick={handleMaintenance}
+                  disabled={maintenanceLoading}
+                  className={`px-6 py-2.5 rounded-lg font-black uppercase text-[10px] shadow-sm transition-all flex items-center gap-2 ${
+                    maintenanceLoading ? "bg-gray-300 text-gray-500" : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  }`}
+                >
+                  {maintenanceLoading ? "Ejecutando..." : "Ejecutar Ahora"}
+                </button>
+              </div>
+              {maintenanceMessage && (
+                <div className={`mt-4 p-3 rounded-lg text-[10px] font-bold border ${maintenanceMessage.includes("❌") ? "bg-red-50 text-red-700 border-red-100" : "bg-green-50 text-green-700 border-green-100"}`}>
+                  {maintenanceMessage}
+                </div>
+              )}
+            </div>
+
+            {/* 8. GESTIÓN DE DATOS HISTÓRICOS */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+               <h3 className="text-sm font-black text-gray-700 mb-6 uppercase tracking-widest flex items-center gap-2">
+                 <span>📅</span> Sincronización por Mes Específico
+               </h3>
+               <div className="flex flex-wrap gap-4 items-end">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Escribir Mes/Año (MM-YYYY)</label>
+                    <input type="text" value={syncMes} onChange={(e) => setSyncMes(e.target.value)} className="w-full px-4 py-2 border rounded-lg text-sm font-bold" placeholder="Ej: 03-2026" />
+                  </div>
+                  <button onClick={handleSyncMes} disabled={syncingMes || !syncMes} className="px-8 py-2.5 bg-gray-800 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-black transition-all">
+                    {syncingMes ? "Procesando..." : "Descargar Mes Histórico"}
+                  </button>
+               </div>
+            </div>
+
+            {/* 8. TABLA RESUMEN DE DATOS */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Detalle de Datos Almacenados</h3>
+                <button onClick={loadDataSummary} className="text-indigo-600 hover:rotate-180 transition-all duration-500">🔄</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="py-3 px-4 font-black uppercase text-gray-400">Mes / Bloque</th>
+                      <th className="py-3 px-4 text-center font-black uppercase text-gray-400">Recibos</th>
+                      <th className="py-3 px-4 text-center font-black uppercase text-gray-400">Egresos</th>
+                      <th className="py-3 px-4 text-center font-black uppercase text-gray-400">Balance</th>
+                      <th className="py-3 px-4 text-right font-black uppercase text-gray-400">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {dataSummary.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                        <td className="py-4 px-4 font-black text-indigo-600 uppercase">{item.mes}</td>
+                        <td className="py-4 px-4 text-center"><span className={`px-2 py-1 rounded-lg font-black ${item.recibos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{item.recibos}</span></td>
+                        <td className="py-4 px-4 text-center"><span className={`px-2 py-1 rounded-lg font-black ${item.egresos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{item.egresos}</span></td>
+                        <td className="py-4 px-4 text-center"><span className={`px-2 py-1 rounded-lg font-black ${item.balances > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>{item.balances > 0 ? 'SÍ' : 'NO'}</span></td>
+                        <td className="py-4 px-4 text-right">
+                          <button onClick={() => deleteSync("", item.mes)} className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase">Borrar</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
+
       </div> {/* Closes main content container div */}
       </main> {/* Closes main tag */}
 
