@@ -5512,6 +5512,17 @@ export default function DashboardPage() {
                     </select>
                   </div>
                   <div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email de la Administradora</label>
+                    <input
+                      type="email"
+                      value={editConfig.email_administradora}
+                      disabled={!user?.isAdmin}
+                      onChange={(e) => setEditConfig({ ...editConfig, email_administradora: e.target.value })}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${!user?.isAdmin ? "bg-gray-50 text-gray-400 cursor-not-allowed" : ""}`}
+                      placeholder="ejemplo@administradora.com"
+                    />
+                  </div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Clave de Acceso (Portal Web)</label>
                     <input
                       type="password"
