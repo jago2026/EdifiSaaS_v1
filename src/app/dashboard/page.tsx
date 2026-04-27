@@ -501,7 +501,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    alert("EDIFISAAS LOADED: VERSION 12:40 VET");
+    
     if (activeTab === "configuracion" && building?.id) {
       loadDataSummary();
     }
@@ -706,7 +706,7 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    alert("EDIFISAAS LOADED: VERSION 12:40 VET");
+    
     if (building) {
       setEditConfig(prev => ({
         ...prev,
@@ -798,7 +798,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    alert("EDIFISAAS LOADED: VERSION 12:40 VET");
+    
     async function fetchData() {
       try {
         const res = await fetch("/api/dashboard");
@@ -884,7 +884,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    alert("EDIFISAAS LOADED: VERSION 12:40 VET");
+    
     if (activeTab === "pre-recibo" && building?.id) {
       loadPreReciboData();
       loadAlicuotas();
@@ -1025,7 +1025,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    alert("EDIFISAAS LOADED: VERSION 12:40 VET");
+    
     if (activeTab === "resumen" && building?.id) {
       loadRecibos();
       loadMovimientosDia();
@@ -1063,7 +1063,7 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    alert("EDIFISAAS LOADED: VERSION 12:40 VET");
+    
     if (activeTab === "resumen" && building?.id) {
       loadRecibos();
       loadMovimientosDia();
