@@ -116,6 +116,7 @@ interface Building {
   admin_id: string | null;
   admin_secret: string | null;
   admin_nombre: string | null;
+  email_administradora?: string | null;
   url_login: string | null;
   url_recibos: string | null;
   url_recibo_mes: string | null;
@@ -679,6 +680,7 @@ export default function DashboardPage() {
     admin_id: "",
     admin_secret: "",
     admin_nombre: "La Ideal C.A.",
+    email_administradora: "adm_laideal@hotmail.com",
     url_login: "https://admlaideal.com.ve/condlin.php?r=1",
     url_recibos: "https://admlaideal.com.ve/condlin.php?r=5",
     url_recibo_mes: "https://admlaideal.com.ve/condlin.php?r=4",
@@ -707,6 +709,7 @@ export default function DashboardPage() {
         admin_id: building.admin_id || "",
         admin_secret: building.admin_secret || "",
         admin_nombre: building.admin_nombre || "La Ideal C.A.",
+        email_administradora: building.email_administradora || (building.admin_nombre === "La Ideal C.A." ? "adm_laideal@hotmail.com" : ""),
         url_login: building.url_login || "",
         url_recibos: building.url_recibos || "",
         url_recibo_mes: building.url_recibo_mes || (building.admin_nombre === "La Ideal C.A." ? "https://admlaideal.com.ve/condlin.php?r=4" : ""),
@@ -1168,11 +1171,13 @@ export default function DashboardPage() {
   const enviarEmailServicio = async (svc: any) => {
     if (!building?.id) return;
 
+    const adminEmail = building.email_administradora || "adm_laideal@hotmail.com";
+
     const choice = prompt(
       "📧 ENVIAR NOTIFICACIÓN DE SERVICIO\n\n" +
       "¿A quién deseas enviar el correo?\n" +
       "1. A mí mismo (" + (user?.email || "Mi email") + ")\n" +
-      "2. A la Administradora (adm_laideal@hotmail.com)\n" +
+      "2. A la Administradora (" + adminEmail + ")\n" +
       "3. A toda la Junta de Condominio\n\n" +
       "Ingresa el número (1, 2 o 3):"
     );
@@ -1185,7 +1190,7 @@ export default function DashboardPage() {
     if (choice === '1') {
       targetRecipient = user?.email || "";
     } else if (choice === '2') {
-      targetRecipient = "adm_laideal@hotmail.com";
+      targetRecipient = adminEmail;
       isForAdmin = true;
     } else if (choice === '3') {
       targetRecipient = ""; // La API usará los correos de la junta
@@ -1193,7 +1198,6 @@ export default function DashboardPage() {
       alert("Opción no válida");
       return;
     }
-
     try {
       const res = await fetch(`/api/email`, {
         method: "POST",
@@ -5506,8 +5510,18 @@ export default function DashboardPage() {
                       placeholder="Contraseña del portal"
                     />
                   </div>
-                </div>
-
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email de la Administradora</label>
+                    <input
+                      type="email"
+                      value={editConfig.email_administradora}
+                      disabled={!user?.isAdmin}
+                      onChange={(e) => setEditConfig({ ...editConfig, email_administradora: e.target.value })}
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                      placeholder="ejemplo@administradora.com"
+                    />
+                  </div>
+                  </div>
                 <div className="border-t pt-4">
                   <h3 className="text-sm font-bold text-gray-900 mb-3 uppercase tracking-wider">URLs de Scraping (Avanzado)</h3>
                   <div className="grid md:grid-cols-3 gap-3">

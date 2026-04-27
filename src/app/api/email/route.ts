@@ -323,9 +323,10 @@ export async function POST(request: Request) {
 
       const html = isForAdmin ? `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 24px; color: #444;">
-            <p>Buen día, representantes de Administradora La Ideal,</p>
-            <p>En nombre de la Junta de Condominio de <strong>${edificio.nombre}</strong>, solicitamos información y/o gestión de pago del servicio <strong>${serviceName}</strong>:</p>
+            <p>Buen día, representantes de la administración de <strong>${edificio.nombre}</strong>,</p>
+            <p>En nombre de la Junta de Condominio, solicitamos información y/o gestión de pago del servicio <strong>${serviceName}</strong>:</p>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ddd;">
+              <p style="margin: 5px 0;"><strong>Edificio:</strong> ${edificio.nombre}</p>
               <p style="margin: 5px 0;"><strong>Servicio:</strong> ${serviceName}</p>
               <p style="margin: 5px 0;"><strong>${idLabel}:</strong> ${identificador}</p>
               ${alias ? `<p style="margin: 5px 0;"><strong>Alias:</strong> ${alias}</p>` : ''}

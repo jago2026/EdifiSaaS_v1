@@ -45,27 +45,25 @@ Desarrollar un módulo de Proyección de Ingresos Diaria hasta fin de mes basado
 - **Cálculo Monetario**: Se utiliza el "Promedio por Recibo" actual para convertir las probabilidades de cobro en montos financieros (Bs/USD).
 - **Refuerzo de Plan**: Se asignó esta funcionalidad como parte de los planes Premium e IA para incentivar el upgrade.
 
-### Fecha: 27 de Abril, 2026 (Tercera Intervención)
+### Fecha: 27 de Abril, 2026 (Cuarta Intervención)
 
 ### Objetivo
-Corregir la ejecución del cron job, mejorar la UI de servicios públicos, aumentar el feedback de usuario y añadir funcionalidad de envío de emails de servicios.
+Hacer configurable el email de la administradora por edificio y asegurar la persistencia de los cambios previos de la UI de servicios públicos.
 
 ### Tareas Realizadas
-- [x] **Corrección de Cron Job**:
-    - Actualizado `vercel.json` para ejecutar el cron cada hora (`0 * * * *`) asegurando que se capture la ventana de ejecución de las 5:00 AM VET.
-    - Mejorada la detección de tiempo VET en `src/app/api/cron/route.ts` usando `Intl.DateTimeFormat` para mayor precisión y comparaciones de fecha robustas.
-    - Añadidos logs de depuración mejorados para trazabilidad de ejecuciones saltadas o exitosas.
-- [x] **Mejora UI Servicios Públicos**:
-    - Corregido texto en sección CANTV: Cambiado "Ver Email" por el monto de la deuda actual, manteniendo consistencia con Hidrocapital y Corpoelec.
-- [x] **Feedback de Usuario en Consultas**:
-    - Implementadas alertas (`alert()`) y logs de consola al finalizar las consultas manuales de servicios públicos para informar al usuario sobre el resultado (éxito/deuda/error).
-    - Añadidos logs en el backend (`/api/servicios-publicos/consultar`) para monitorear el proceso de scraping.
-- [x] **Nueva Funcionalidad: Enviar Email de Servicio**:
-    - Añadido botón "📧" en cada tarjeta de servicio público.
-    - Implementada lógica de selección de destinatario: El usuario puede elegir enviar la notificación a sí mismo, a la administradora (con cuerpo de mensaje especializado) o a toda la junta de condominio.
-    - Actualizada la API de Email (`/api/email`) para soportar destinatarios personalizados y plantillas específicas para administradoras.
+- [x] **Email de Administradora Configurable**:
+    - Añadida columna `email_administradora` a la tabla `edificios` (Nota: Se debe asegurar la ejecución del SQL en Supabase).
+    - Actualizada la API de Configuración (`/api/config`) para guardar y cargar este nuevo campo, con valor por defecto para "La Ideal C.A.".
+    - Modificada la Interfaz de Configuración en el Dashboard para permitir al usuario editar el email de su administradora.
+- [x] **Mejora en Notificaciones de Servicio**:
+    - El botón de "Enviar Email" ahora utiliza el email configurado para la administradora de ese edificio específico.
+    - Se actualizó el mensaje de confirmación (`prompt`) para mostrar el email real al que se enviará la información.
+    - Refinada la plantilla de correo para administradoras, haciéndola más genérica y profesional (usa el nombre del edificio dinámicamente).
+- [x] **Aseguramiento de UI de Servicios**:
+    - Re-verificado y asegurado que el texto "Ver Email" ha sido eliminado definitivamente de la sección CANTV y reemplazado por la deuda actual.
+    - Confirmada la presencia de los botones de Consulta y Email con feedback de usuario.
 
 ### Resumen de Cambios Técnicos
-- **Cron**: Cambio de trigger diario a horario para mayor fiabilidad frente a variaciones de Vercel.
-- **UI/UX**: Mejora en la visibilidad de datos y confirmación de acciones asíncronas.
-- **Email**: Extensión de la lógica de notificaciones para permitir comunicación directa con la administradora desde el módulo de servicios.
+- **Base de Datos**: Extensión del esquema de `edificios`.
+- **Backend**: Inclusión de `email_administradora` en las respuestas de la API del Dashboard y en la lógica de envío de correos.
+- **Frontend**: Nuevo campo de entrada en el formulario de configuración y lógica dinámica en el componente de servicios públicos.

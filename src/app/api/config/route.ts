@@ -12,6 +12,7 @@ const DEFAULT_URLS_LA_IDEAL = {
   url_egresos: 'https://admlaideal.com.ve/condlin.php?r=21',
   url_gastos: 'https://admlaideal.com.ve/condlin.php?r=3',
   url_balance: 'https://admlaideal.com.ve/condlin.php?r=2',
+  email_administradora: 'adm_laideal@hotmail.com',
 };
 
 const DEFAULT_URLS_ASTRI = {
@@ -88,6 +89,7 @@ export async function POST(request: Request) {
       admin_id, 
       admin_secret, 
       admin_nombre,
+      email_administradora,
       url_login,
       url_recibos,
       url_recibo_mes,
@@ -148,6 +150,9 @@ export async function POST(request: Request) {
     if (fecha_inicio) updateData.fecha_inicio = fecha_inicio;
     if (saldo_inicial) updateData.saldo_inicial = saldo_inicial;
     if (saldo_inicial_usd) updateData.saldo_inicial_usd = saldo_inicial_usd;
+
+    if (email_administradora) updateData.email_administradora = email_administradora;
+    else if (urls.email_administradora) updateData.email_administradora = urls.email_administradora;
 
     if (url_login) updateData.url_login = url_login;
     else if (Object.keys(urls).length > 0) updateData.url_login = urls.url_login;
