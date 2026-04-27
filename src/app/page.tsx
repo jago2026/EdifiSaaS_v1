@@ -81,7 +81,6 @@ export default function Home() {
           "Todo Automático: Sincronización y Reportes",
           "Historial para Procesamiento: 6 meses",
           "KPIs y Gráficos de Tendencias",
-          "Monitoreo de Servicios Públicos",
           "Exportación Completa Excel/CSV",
           "Generación Recibo Próximo Mes",
           "Hasta 50 Unidades de Vivienda"
@@ -585,13 +584,6 @@ export default function Home() {
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                   <td className="py-6 px-6 text-center text-purple-500 font-bold text-xl font-black">INTELIGENTE</td>
-                </tr>
-                <tr className="hover:bg-gray-50/50 transition-colors">
-                  <td className="py-6 px-6 font-bold text-gray-700">Monitoreo de Servicios Públicos</td>
-                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
-                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
-                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
-                  <td className="py-6 px-6 text-center text-purple-500 font-bold text-xl">IA-AVANZADO</td>
                 </tr>
 
                 <tr className="hover:bg-gray-50/50 transition-colors">

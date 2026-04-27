@@ -1,4 +1,3 @@
-// CRON API - Last Update: 2026-04-27
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -56,36 +55,23 @@ export async function GET(request: NextRequest) {
   try {
     const { data: edificios, error: edErr } = await supabase
       .from("edificios")
-      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, plan, ultima_sincronizacion_cron");
+      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency");
 
     if (edErr) throw edErr;
 
     console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso para ${edificios?.length || 0} edificios. BASE_URL: ${BASE_URL}`);
 
-    // Obtener hora actual en Venezuela (VET)
-    const now = new Date();
-    const todayVET = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Caracas' }).format(now);
-    const timeVET = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
-    const currentHourVET = parseInt(timeVET.split(':')[0]);
-    const currentFullTimeVET = `${timeVET} VET`;
-
-    console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso. Ahora: ${currentFullTimeVET}, Fecha: ${todayVET}`);
+    // Obtener hora actual en Venezuela
+    const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
+    const currentHourVET = nowVET.getHours();
+    const currentFullTimeVET = nowVET.toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
 
     for (const edificio of edificios) {
       const edificioId = edificio.id;
       const cronTime = edificio.cron_time || "05:00";
       const configHour = parseInt(cronTime.split(":")[0]);
 
-      // Verificar si ya corrió hoy (usando columna específica para el cron)
-      let alreadyRunToday = false;
-      let lastSyncVET = null;
-      
-      if (edificio.ultima_sincronizacion_cron) {
-        lastSyncVET = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Caracas' }).format(new Date(edificio.ultima_sincronizacion_cron));
-        alreadyRunToday = lastSyncVET === todayVET;
-      }
-
-      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${timeVET} VET | Ya corrió: ${alreadyRunToday} (${lastSyncVET})`);
+      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${currentFullTimeVET} VET`);
 
       if (!edificio.cron_enabled) {
         console.log(`[CRON] [!] Saltando ${edificio.nombre} - Cron DESACTIVADO en config`);
@@ -93,22 +79,14 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Lógica flexible: 
-      // 1. Si es forzado.
-      // 2. Si es la hora exacta (configHour).
-      // 3. Si ya pasó la hora (currentHourVET > configHour) y NO ha corrido hoy.
-      const isTime = currentHourVET === configHour;
-      const isPastTimeAndNotRun = currentHourVET > configHour && !alreadyRunToday;
-
-      if (!force && !isTime && !isPastTimeAndNotRun) {
-        console.log(`[CRON] [.] Saltando ${edificio.nombre} - No es el momento (Ahora: ${currentHourVET}, Config: ${configHour}, Ya corrió: ${alreadyRunToday})`);
-        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `No es el momento (Ahora: ${currentHourVET}, Config: ${configHour})` });
-        continue;
-      }
-
-      if (alreadyRunToday && !force) {
-        console.log(`[CRON] [!] Saltando ${edificio.nombre} - Ya se ejecutó hoy (${lastSyncVET})`);
-        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "Ya se ejecutó hoy" });
+      // Verificar si es la hora correcta (basado en hora de Venezuela)
+      if (!force && currentHourVET !== configHour) {
+        console.log(`[CRON] [.] Saltando ${edificio.nombre} - Hora no coincide (${currentHourVET} != ${configHour})`);
+        
+        // Registrar rastro de verificación en alertas para depuración mañana
+        await logAlerta(supabase, edificioId, "debug", "⏱️ Verificación de Cron", `El cron se llamó a las ${currentFullTimeVET} VET. Se saltó porque su hora configurada es ${cronTime} VET.`);
+        
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }
 
@@ -116,6 +94,8 @@ export async function GET(request: NextRequest) {
       await logAlerta(supabase, edificioId, "info", "🚀 Ejecutando Cron", `Iniciando sincronización y envío de informe diario (${currentFullTimeVET} VET).`);
 
       try {
+        await logAlerta(supabase, edificioId, "info", "🚀 Iniciando Cron Diario", `Iniciando proceso automático de sincronización y envío de informes (${force ? 'Ejecución Forzada' : 'Ejecución Programada'}).`);
+
         // 1. Sincronización
         console.log(`[CRON] Ejecutando sync para ${edificio.nombre}`);
         await logSincronizacion(supabase, edificioId, "sync", "iniciando", 0, null, { fecha: new Date().toISOString(), mode: "cron" });
@@ -161,22 +141,9 @@ export async function GET(request: NextRequest) {
         }
 
         await logSincronizacion(supabase, edificioId, "email_diario", "completado", 0, null, { recipient: emailData.recipient });
-        
-        // 3. Consulta de Servicios Públicos (Si el plan lo permite)
-        if (edificio.plan !== 'Esencial') {
-          console.log(`[CRON] Disparando consulta de servicios para ${edificio.nombre}`);
-          await fetch(`${BASE_URL}/api/servicios-publicos/cron`, {
-            method: "GET",
-            headers: { "Authorization": authHeader || "" }
-          });
-        }
-
-        // Marcar éxito en el cron para este edificio hoy
-        await supabase.from("edificios").update({
-            ultima_sincronizacion_cron: new Date().toISOString()
-        }).eq("id", edificioId);
-
         await logAlerta(supabase, edificioId, "success", "✅ Cron Completado", `Sincronización exitosa (${syncMovimientos} mov.) e informe enviado a: ${emailData.recipient}`);
+        
+        console.log(`[CRON] Email enviado para ${edificio.nombre} a ${emailData.recipient}`);
 
         resultados.push({ 
           edificio: edificio.nombre, 

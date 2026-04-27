@@ -19,7 +19,6 @@ export interface PlanPermissions {
   hasCustomDashboard: boolean;
   hasAudit: boolean;
   hasBudgets: boolean;
-  hasPublicServices: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
@@ -42,7 +41,6 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
     hasCustomDashboard: false,
     hasAudit: false,
     hasBudgets: false,
-    hasPublicServices: false,
   },
   'Profesional': {
     maxHistoryMonths: 12,
@@ -63,7 +61,6 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
     hasCustomDashboard: true,
     hasAudit: false,
     hasBudgets: false,
-    hasPublicServices: true,
   },
   'Premium': {
     maxHistoryMonths: 999, // Ilimitado
@@ -84,7 +81,6 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
     hasCustomDashboard: true,
     hasAudit: true,
     hasBudgets: true,
-    hasPublicServices: true,
   },
   'Inteligencia Artificial': {
     maxHistoryMonths: 999,
@@ -105,7 +101,6 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
     hasCustomDashboard: true,
     hasAudit: true,
     hasBudgets: true,
-    hasPublicServices: true,
   },
 };
 
