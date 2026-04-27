@@ -5101,11 +5101,10 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
-      </div>
-    )}
 
-      {activeTab === "instrucciones" && (          <ManualUsuario />
-        )}
+      {activeTab === "instrucciones" && (
+        <ManualUsuario />
+      )}
 
  
         {activeTab === "planes" && (
