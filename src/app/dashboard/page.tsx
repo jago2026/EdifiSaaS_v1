@@ -2392,7 +2392,7 @@ export default function DashboardPage() {
           </div>
 
           {/* BANNER DE VERIFICACIÓN DE DESPLIEGUE */}
-      <div className="bg-red-600 text-white text-center py-2 font-black uppercase text-[10px] tracking-[0.2em] fixed top-0 left-0 right-0 z-[999]">
+      <div className="bg-green-600 text-white text-center py-2 font-black uppercase text-[10px] tracking-[0.2em] fixed top-0 left-0 right-0 z-[999]">
         Versión Actualizada: 27 Abril - 15:30 VET (Fix Sincronización)
       </div>
       
@@ -2911,7 +2911,7 @@ export default function DashboardPage() {
                               href={`${building.url_recibo_mes}${selectedMesRecibos ? `&combo=${selectedMesRecibos}` : ""}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
+                              className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-colors flex items-center gap-1.5"
                             >
                               <span>📄</span> PDF RECIBO
                             </a>
