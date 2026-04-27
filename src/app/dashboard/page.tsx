@@ -4420,17 +4420,8 @@ export default function DashboardPage() {
                 <button className="mt-6 px-6 py-2 bg-indigo-600 text-white rounded-lg font-black uppercase text-[10px] tracking-widest shadow-lg shadow-indigo-100">Mejorar Plan Ahora</button>
               </div>
             )}
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 opacity-60">
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Estado de Flujo de Efectivo</h2>
-              <p className="text-sm text-gray-500 mb-4">Esta funci&oacute;n est&aacute; en desarrollo y estar&aacute; disponible pr&oacute;ximamente.</p>
-              <button disabled className="px-4 py-2 bg-gray-200 text-gray-500 rounded-lg font-bold text-sm cursor-not-allowed">
-                Generar Estado de Flujo
-              </button>
             </div>
-          </div>
-        )}
-
+            )}
         {activeTab === "junta" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-6 uppercase tracking-tighter">Miembros de la Junta de Condominio</h2>
