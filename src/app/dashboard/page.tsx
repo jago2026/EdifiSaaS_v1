@@ -5300,9 +5300,13 @@ export default function DashboardPage() {
                   <input 
                     type="number" 
                     value={editConfig.unidades} 
+                    disabled={!user?.isAdmin}
                     onChange={(e) => setEditConfig({ ...editConfig, unidades: parseInt(e.target.value) || 0 })} 
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold border-gray-300 bg-white"
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'} ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   />
+                  {showUnitsAlert && (
+                    <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Suma alícuotas errónea ({alicuotaSum.toFixed(2)}%). Verifica unidades.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -5313,7 +5317,7 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tighter">🔔 Alertas Personalizables</h2>
                   {!planInfo?.permissions?.hasCustomAlerts && (
-                    <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full">PLAN PROFESIONAL+</span>
+                    <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-black">PLAN PROFESIONAL+</span>
                   )}
                 </div>
 
@@ -5334,6 +5338,22 @@ export default function DashboardPage() {
                     <p className="text-[10px] text-gray-500 italic">Recibir notificación cuando el saldo disponible baje de este monto.</p>
                   </div>
 
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-bold text-gray-700">Variación de Gastos</span>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="number" 
+                          value={editConfig.alert_thresholds.variacion_gastos} 
+                          onChange={(e) => setEditConfig({ ...editConfig, alert_thresholds: { ...editConfig.alert_thresholds, variacion_gastos: parseInt(e.target.value) || 0 } })}
+                          className="w-16 px-2 py-1 border rounded text-xs font-bold" 
+                        />
+                        <span className="text-[10px] font-bold text-gray-400">%</span>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-500 italic">Alertar si un gasto fijo mensual sube más de este porcentaje.</p>
+                  </div>
+
                   <div className="flex items-center gap-3 p-3">
                     <input 
                       type="checkbox" 
@@ -5350,11 +5370,12 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-lg font-semibold text-gray-900 uppercase tracking-tighter">📊 Configuración de Dashboard</h2>
                   {!planInfo?.permissions?.hasCustomDashboard && (
-                    <span className="text-[9px] font-black bg-amber-100 text-amber-700 px-2 py-1 rounded-full">PLAN PROFESIONAL+</span>
+                    <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-black">PLAN PROFESIONAL+</span>
                   )}
                 </div>
 
                 <div className={`space-y-4 ${!planInfo?.permissions?.hasCustomDashboard ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                  <p className="text-xs text-gray-500 mb-4">Seleccione qué módulos estarán visibles para los miembros de la Junta:</p>
                   <div className="grid grid-cols-2 gap-3">
                     {[
                       { label: "Flujo de Caja", id: "cf" },
@@ -5389,8 +5410,9 @@ export default function DashboardPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Nombre de Administradora</label>
                     <select
                       value={editConfig.admin_nombre || "La Ideal C.A."}
+                      disabled={!user?.isAdmin}
                       onChange={(e) => handleAdminSelect(e.target.value)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                     >
                       {administradoras.map(adm => <option key={adm.id} value={adm.nombre}>{adm.nombre}</option>)}
                       <option value="Otra">Otra (Manual)</option>
@@ -5401,8 +5423,9 @@ export default function DashboardPage() {
                     <input
                       type="password"
                       value={editConfig.admin_secret}
+                      disabled={!user?.isAdmin}
                       onChange={(e) => setEditConfig({ ...editConfig, admin_secret: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                       placeholder="Contraseña del portal"
                     />
                   </div>
@@ -5417,6 +5440,7 @@ export default function DashboardPage() {
                         <input 
                           type="text" 
                           value={editConfig[urlKey as keyof typeof editConfig] as string} 
+                          disabled={!user?.isAdmin}
                           onChange={(e) => setEditConfig({ ...editConfig, [urlKey]: e.target.value })} 
                           className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" 
                         />
@@ -5530,9 +5554,10 @@ export default function DashboardPage() {
                   <input 
                     type="text" 
                     value={editConfig.email_junta} 
+                    disabled={!user?.isAdmin}
                     onChange={(e) => setEditConfig({ ...editConfig, email_junta: e.target.value })}
                     placeholder="email1@test.com, email2@test.com"
-                    className="w-full bg-gray-50 border-gray-200 rounded-xl p-3 font-bold text-sm"
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   />
                   <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">SOPORTA MÚLTIPLES CORREOS SEPARADOS POR COMA (,)</p>
                 </div>
@@ -5542,14 +5567,19 @@ export default function DashboardPage() {
                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
                       {['sync_recibos', 'sync_egresos', 'sync_gastos', 'sync_alicuotas', 'sync_balance'].map(opt => (
                         <label key={opt} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100 cursor-pointer">
-                          <input type="checkbox" checked={editConfig[opt as keyof typeof editConfig] as boolean} onChange={(e) => setEditConfig({ ...editConfig, [opt]: e.target.checked })} className="w-3 h-3 text-indigo-600" />
+                          <input type="checkbox" disabled={!user?.isAdmin} checked={editConfig[opt as keyof typeof editConfig] as boolean} onChange={(e) => setEditConfig({ ...editConfig, [opt]: e.target.checked })} className="w-3 h-3 text-indigo-600" />
                           <span className="text-[10px] font-bold text-gray-500 uppercase">{opt.split('_')[1]}</span>
                         </label>
                       ))}
                    </div>
-                   <button onClick={handleSync} disabled={syncing} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-indigo-900/20">
-                     {syncing ? "Sincronizando..." : "🚀 Sincronizar Ahora"}
-                   </button>
+                   <div className="flex flex-wrap gap-4">
+                     <button onClick={handleSync} disabled={syncing} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-black uppercase text-xs shadow-lg shadow-indigo-900/20">
+                       {syncing ? "Sincronizando..." : "🚀 Sincronizar Ahora"}
+                     </button>
+                     <button onClick={handleTestConnection} disabled={saving} className="px-6 py-3 bg-white text-blue-600 border border-blue-600 rounded-xl font-black uppercase text-xs shadow-sm">
+                        Probar Conexión
+                      </button>
+                   </div>
                 </div>
               </div>
             </div>
@@ -5623,10 +5653,10 @@ export default function DashboardPage() {
                </div>
             </div>
 
-            {/* 8. TABLA RESUMEN DE DATOS */}
+            {/* 9. TABLA RESUMEN DE DATOS */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Detalle de Datos Almacenados</h3>
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Detalle de Datos Almacenados Off-line</h3>
                 <button onClick={loadDataSummary} className="text-indigo-600 hover:rotate-180 transition-all duration-500">🔄</button>
               </div>
               <div className="overflow-x-auto">
@@ -5648,7 +5678,7 @@ export default function DashboardPage() {
                         <td className="py-4 px-4 text-center"><span className={`px-2 py-1 rounded-lg font-black ${item.egresos > 0 ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}>{item.egresos}</span></td>
                         <td className="py-4 px-4 text-center"><span className={`px-2 py-1 rounded-lg font-black ${item.balances > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'}`}>{item.balances > 0 ? 'SÍ' : 'NO'}</span></td>
                         <td className="py-4 px-4 text-right">
-                          <button onClick={() => deleteSync("", item.mes)} className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase">Borrar</button>
+                          <button onClick={() => deleteSync("", item.mes)} className="text-red-400 hover:text-red-600 text-[10px] font-black uppercase">Borrar Mes</button>
                         </td>
                       </tr>
                     ))}
