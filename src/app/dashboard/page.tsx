@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ManualUsuario } from "./ManualUsuario";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -274,6 +274,9 @@ export default function DashboardPage() {
   const [sincronizaciones, setSincronizaciones] = useState<any[]>([]);
   const [proyeccionData, setProyeccionData] = useState<any>(null);
   const [loadingProyeccion, setLoadingProyeccion] = useState(false);
+  const [serviciosConfigs, setServiciosConfigs] = useState<any[]>([]);
+  const [loadingServicios, setLoadingServicios] = useState(false);
+  const [consultandoId, setConsultandoId] = useState<string | null>(null);
 
   // ... (rest of states)
   const [loadingSincronizaciones, setLoadingSincronizaciones] = useState(false);
@@ -1108,7 +1111,49 @@ export default function DashboardPage() {
     if (activeTab === "proyeccion" && building?.id) {
       loadProyeccion();
     }
+    if (activeTab === "servicios" && building?.id) {
+      loadServiciosConfigs();
+    }
   }, [activeTab, building?.id]);
+
+  const loadServiciosConfigs = async () => {
+    if (!building?.id) return;
+    setLoadingServicios(true);
+    try {
+      const res = await fetch(`/api/servicios-publicos/config?edificioId=${building.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setServiciosConfigs(data);
+      }
+    } catch (error) {
+      console.error("Error loading servicios:", error);
+    } finally {
+      setLoadingServicios(false);
+    }
+  };
+
+  const consultarServicio = async (configId: string) => {
+    if (!building?.id) return;
+    setConsultandoId(configId);
+    try {
+      const res = await fetch(`/api/servicios-publicos/consultar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configId, edificioId: building.id })
+      });
+      if (res.ok) {
+        // Recargar para ver el nuevo monto y fecha
+        await loadServiciosConfigs();
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || "No se pudo realizar la consulta"}`);
+      }
+    } catch (error) {
+      console.error("Error consultando servicio:", error);
+    } finally {
+      setConsultandoId(null);
+    }
+  };
 
   const loadProyeccion = async () => {
     if (!building?.id) return;
@@ -1961,6 +2006,9 @@ export default function DashboardPage() {
               </button>
               <button onClick={() => setActiveTab("proyeccion")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'proyeccion' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">🔮</span> Proyección de Ingresos
+              </button>
+              <button onClick={() => setActiveTab("servicios")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'servicios' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🚰</span> Servicios Públicos
               </button>
             </div>
           </div>
@@ -5298,257 +5346,372 @@ export default function DashboardPage() {
               />
             ) : (
               <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-                {/* ... rest of the existing proyeccion content ... */}
-              <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🔮</div>
-              <div className="relative z-10">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                  <div>
-                    <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Proyección de Ingresos</h2>
-                    <p className="text-indigo-200 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
-                      <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
-                      Inteligencia Predictiva Financiera
-                    </p>
+                {/* ... existing proyeccion content ... */}
+                <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🔮</div>
+                <div className="relative z-10">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                    <div>
+                      <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Proyección de Ingresos</h2>
+                      <p className="text-indigo-200 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                        <span className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span>
+                        Inteligencia Predictiva Financiera
+                      </p>
+                    </div>
+                    <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
+                      <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">Fecha de Análisis</div>
+                      <div className="text-xl font-black">{new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                    </div>
                   </div>
-                  <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
-                    <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">Fecha de Análisis</div>
-                    <div className="text-xl font-black">{new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+
+                  {(() => {
+                    if (loadingProyeccion) return <div className="text-center py-10 font-black uppercase tracking-widest animate-pulse">Analizando Patrones Históricos...</div>;
+                    if (!proyeccionData) return <div className="text-center py-10 text-indigo-300">No hay datos suficientes para generar la proyección.</div>;
+
+                    const { historicalPagos, currentRecibos } = proyeccionData;
+                    const today = new Date();
+                    const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                    const currentDay = today.getDate();
+                    const daysRemaining = lastDayOfMonth - currentDay;
+
+                    // 1. Historical averages by day of month (last 6 months)
+                    const daysHistory: any = {};
+                    historicalPagos.forEach((p: any) => {
+                      const d = new Date(p.fecha_pago).getDate();
+                      if (!daysHistory[d]) daysHistory[d] = 0;
+                      daysHistory[d]++;
+                    });
+                    
+                    const monthsCount = 6;
+                    const dailyAverages: any = {};
+                    for (let i = 1; i <= 31; i++) {
+                      dailyAverages[i] = (daysHistory[i] || 0) / monthsCount;
+                    }
+                    
+                    const totalDebtBs = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
+                    const totalDebtUsd = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.deuda_usd || 0), 0);
+                    const totalReceiptsPending = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.num_recibos || 0), 0);
+                    const avgPerReceiptBs = totalReceiptsPending > 0 ? totalDebtBs / totalReceiptsPending : 0;
+                    const avgPerReceiptUsd = totalReceiptsPending > 0 ? totalDebtUsd / totalReceiptsPending : 0;
+
+                    // Projection loop
+                    const projection = [];
+                    let totalReceiptsOpt = 0;
+                    let totalReceiptsCons = 0;
+                    let totalReceiptsPes = 0;
+
+                    for (let d = currentDay + 1; d <= lastDayOfMonth; d++) {
+                      const avg = dailyAverages[d] || (historicalPagos.length / (6 * 30));
+                      const hasHistory = !!daysHistory[d];
+                      
+                      const opt = avg * 1.3;
+                      const cons = avg * 1.0;
+                      const pes = avg * 0.6;
+                      
+                      projection.push({ day: d, hasHistory, avgHistory: avg, opt, cons, pes });
+                      
+                      totalReceiptsOpt += opt;
+                      totalReceiptsCons += cons;
+                      totalReceiptsPes += pes;
+                    }
+
+                    const montoOptBs = totalReceiptsOpt * avgPerReceiptBs;
+                    const montoConsBs = totalReceiptsCons * avgPerReceiptBs;
+                    const montoPesBs = totalReceiptsPes * avgPerReceiptBs;
+                    const montoOptUsd = totalReceiptsOpt * avgPerReceiptUsd;
+                    const montoConsUsd = totalReceiptsCons * avgPerReceiptUsd;
+                    const montoPesUsd = totalReceiptsPes * avgPerReceiptUsd;
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                          <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                            <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Días Restantes</div>
+                            <div className="text-3xl font-black">{daysRemaining}</div>
+                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Hasta fin de mes</div>
+                          </div>
+                          <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                            <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Recibos Pendientes</div>
+                            <div className="text-3xl font-black">{totalReceiptsPending}</div>
+                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">{currentRecibos.length} Unidades</div>
+                          </div>
+                          <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                            <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Techo de Cobranza</div>
+                            <div className="text-xl font-black">${formatUsd(totalDebtUsd)}</div>
+                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">100% de la Deuda</div>
+                          </div>
+                          <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
+                            <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Promedio por Recibo</div>
+                            <div className="text-xl font-black">{formatBs(avgPerReceiptBs)} Bs</div>
+                            <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Base de Proyección</div>
+                          </div>
+                        </div>
+
+                        {/* TABLA DE ESCENARIOS TOTALES */}
+                        <div className="mt-10 bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900 border border-indigo-100">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-indigo-50/50">
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Escenario</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-center">Recibos a Pagar</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado Bs</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado USD</th>
+                                <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Base de Cálculo</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              <tr className="hover:bg-green-50/30 transition-colors">
+                                <td className="px-6 py-4 font-black text-green-700 flex items-center gap-2">
+                                  <span className="w-3 h-3 bg-green-500 rounded-full"></span> 🟢 OPTIMISTA
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsOpt.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-right font-black text-green-700">{formatBs(montoOptBs)}</td>
+                                <td className="px-6 py-4 text-right font-black text-green-700 text-lg">${formatUsd(montoOptUsd)}</td>
+                                <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 1.3x</td>
+                              </tr>
+                              <tr className="hover:bg-amber-50/30 transition-colors">
+                                <td className="px-6 py-4 font-black text-amber-600 flex items-center gap-2">
+                                  <span className="w-3 h-3 bg-amber-400 rounded-full"></span> 🟡 CONSERVADOR
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsCons.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-right font-black text-amber-600">{formatBs(montoConsBs)}</td>
+                                <td className="px-6 py-4 text-right font-black text-amber-600 text-lg">${formatUsd(montoConsUsd)}</td>
+                                <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial Real + 1.0x</td>
+                              </tr>
+                              <tr className="hover:bg-red-50/30 transition-colors">
+                                <td className="px-6 py-4 font-black text-red-600 flex items-center gap-2">
+                                  <span className="w-3 h-3 bg-red-500 rounded-full"></span> 🔴 PESIMISTA
+                                </td>
+                                <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsPes.toFixed(1)}</td>
+                                <td className="px-6 py-4 text-right font-black text-red-600">{formatBs(montoPesBs)}</td>
+                                <td className="px-6 py-4 text-right font-black text-red-600 text-lg">${formatUsd(montoPesUsd)}</td>
+                                <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 0.6x</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* TABLA DETALLADA DIA A DIA */}
+                        <div className="mt-10">
+                          <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
+                            <span className="bg-white/20 p-2 rounded-xl">📅</span> Proyección Detallada Día por Día
+                          </h3>
+                          <div className="bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900">
+                            <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                              <table className="w-full text-left border-collapse">
+                                <thead className="sticky top-0 bg-gray-50 z-10">
+                                  <tr>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Día del Mes</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">¿Tiene historial?</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Promedio Histórico</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Recibos Proyectados (Opt/Cons/Pes)</th>
+                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Comentario Histórico</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {projection.map((p: any) => (
+                                    <tr key={p.day} className="hover:bg-indigo-50/30 transition-colors">
+                                      <td className="px-6 py-3 font-black text-indigo-950">Día {p.day}</td>
+                                      <td className="px-6 py-3">
+                                        {p.hasHistory ? (
+                                          <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Sí</span>
+                                        ) : (
+                                          <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">No</span>
+                                        )}
+                                      </td>
+                                      <td className="px-6 py-3 text-center font-mono text-sm">{p.avgHistory.toFixed(2)}</td>
+                                      <td className="px-6 py-3 text-center font-bold text-indigo-600">
+                                        {p.opt.toFixed(1)} / {p.cons.toFixed(1)} / {p.pes.toFixed(1)}
+                                      </td>
+                                      <td className="px-6 py-3 text-xs text-gray-500 font-medium">
+                                        Promedio: {p.avgHistory.toFixed(1)} recibos ({historicalPagos.filter((hp:any) => new Date(hp.fecha_pago).getDate() === p.day).length} veces)
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-8 mt-10">
+                          {/* ANÁLISIS POR CANTIDAD DE RECIBOS PENDIENTES */}
+                          <div className="bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/20">
+                            <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
+                              <span className="bg-white/20 p-2 rounded-xl">📊</span> Análisis por Recibos Pendientes
+                            </h3>
+                            <div className="space-y-4">
+                              {[1, 2, 3].map(num => {
+                                const units = currentRecibos.filter((r: any) => num === 3 ? r.num_recibos >= 3 : r.num_recibos === num);
+                                const debt = units.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
+                                return (
+                                  <div key={num} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5">
+                                    <div>
+                                      <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">{num === 3 ? "3+ Recibos Pendientes" : `${num} Recibo Pendiente`}</div>
+                                      <div className="text-2xl font-black">{units.length} <span className="text-[10px] text-indigo-200">propietarios</span></div>
+                                    </div>
+                                    <div className="text-right">
+                                      <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">Suma Deuda</div>
+                                      <div className="text-xl font-black text-amber-400">{formatBs(debt)} Bs</div>
+                                      <div className="text-[10px] font-bold text-indigo-200">Promedio: {formatBs(units.length > 0 ? debt / units.length : 0)} Bs</div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* RECOMENDACIONES */}
+                          <div className="bg-white p-8 rounded-[2rem] shadow-2xl text-gray-900">
+                            <h3 className="text-xl font-black text-indigo-950 mb-6 uppercase tracking-tighter flex items-center gap-3">
+                              <span className="bg-indigo-100 p-2 rounded-xl">💡</span> Recomendaciones
+                            </h3>
+                            <div className="space-y-6">
+                              <div className="flex gap-4">
+                                <div className="bg-amber-100 text-amber-600 p-3 rounded-2xl h-fit">⚠️</div>
+                                <div>
+                                  <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Déficit Proyectado</h4>
+                                  <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                    Quedarían <span className="text-red-600 font-bold">{(totalReceiptsPending - totalReceiptsCons).toFixed(1)} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-4">
+                                <div className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl h-fit">🎯</div>
+                                <div>
+                                  <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Estrategia Sugerida</h4>
+                                  <p className="text-sm text-gray-600 leading-relaxed font-medium">
+                                    {totalReceiptsPending > totalReceiptsOpt 
+                                      ? "La morosidad actual supera incluso el escenario optimista. Se recomienda realizar una jornada especial de cobranza antes del cierre de mes." 
+                                      : "El flujo proyectado es suficiente para cubrir la mayoría de las obligaciones. Mantenga recordatorios suaves para asegurar el escenario conservador."}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 italic text-sm text-indigo-900 font-medium">
+                                "Basado en los últimos 6 meses, los días con mayor probabilidad de pago restantes son el 15 y 30. Prepare notificaciones personalizadas para esas fechas."
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "servicios" && (
+          <div className="space-y-8 animate-in fade-in duration-700">
+            {!planInfo?.permissions?.hasPublicServices ? (
+              <UpgradeCard
+                title="Gestión de Servicios Públicos"
+                feature="Consulta automática de deudas de CANTV, Hidrocapital y Corpoelec"
+                planRequired="Profesional"
+                onUpgrade={() => setActiveTab("planes")}
+              />
+            ) : (
+              <>
+                <div className="bg-gradient-to-br from-cyan-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🚰</div>
+                  <div className="relative z-10">
+                    <div className="flex justify-between items-center mb-8">
+                      <div>
+                        <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Servicios Públicos</h2>
+                        <p className="text-cyan-200 font-bold text-xs uppercase tracking-widest flex items-center gap-2">
+                          <span className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+                          Monitoreo de Deudas Operativas
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => setActiveTab("configuracion")}
+                        className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest border border-white/20 transition-all"
+                      >
+                        ⚙️ Configurar
+                      </button>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-6">
+                      {['cantv', 'hidrocapital', 'corpoelec'].map(tipo => {
+                        const configs = serviciosConfigs.filter(c => c.tipo === tipo);
+                        const totalDeuda = configs.reduce((acc, c) => acc + Number(c.ultimo_monto || 0), 0);
+                        const icon = tipo === 'cantv' ? '📞' : (tipo === 'hidrocapital' ? '🚰' : '⚡');
+                        const label = tipo === 'cantv' ? 'Telefonía' : (tipo === 'hidrocapital' ? 'Agua' : 'Electricidad');
+                        
+                        return (
+                          <div key={tipo} className="bg-white/5 backdrop-blur-md p-6 rounded-3xl border border-white/10">
+                            <div className="flex justify-between items-start mb-4">
+                              <span className="text-2xl">{icon}</span>
+                              <span className="text-[10px] font-black text-cyan-300 uppercase tracking-widest">{label}</span>
+                            </div>
+                            <div className="text-2xl font-black mb-1">Bs. {formatNumber(totalDeuda)}</div>
+                            <div className="text-[10px] text-cyan-200 uppercase font-bold">{configs.length} Servicios registrados</div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
 
-                {(() => {
-                  if (loadingProyeccion) return <div className="text-center py-10 font-black uppercase tracking-widest animate-pulse">Analizando Patrones Históricos...</div>;
-                  if (!proyeccionData) return <div className="text-center py-10 text-indigo-300">No hay datos suficientes para generar la proyección.</div>;
-
-                  const { historicalPagos, currentRecibos } = proyeccionData;
-                  const today = new Date();
-                  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-                  const currentDay = today.getDate();
-                  const daysRemaining = lastDayOfMonth - currentDay;
-
-                  // 1. Historical averages by day of month (last 6 months)
-                  const daysHistory: any = {};
-                  historicalPagos.forEach((p: any) => {
-                    const d = new Date(p.fecha_pago).getDate();
-                    if (!daysHistory[d]) daysHistory[d] = 0;
-                    daysHistory[d]++;
-                  });
-                  
-                  const monthsCount = 6;
-                  const dailyAverages: any = {};
-                  for (let i = 1; i <= 31; i++) {
-                    dailyAverages[i] = (daysHistory[i] || 0) / monthsCount;
-                  }
-                  
-                  const totalDebtBs = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
-                  const totalDebtUsd = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.deuda_usd || 0), 0);
-                  const totalReceiptsPending = currentRecibos.reduce((acc: any, r: any) => acc + Number(r.num_recibos || 0), 0);
-                  const avgPerReceiptBs = totalReceiptsPending > 0 ? totalDebtBs / totalReceiptsPending : 0;
-                  const avgPerReceiptUsd = totalReceiptsPending > 0 ? totalDebtUsd / totalReceiptsPending : 0;
-
-                  // Projection loop
-                  const projection = [];
-                  let totalReceiptsOpt = 0;
-                  let totalReceiptsCons = 0;
-                  let totalReceiptsPes = 0;
-
-                  for (let d = currentDay + 1; d <= lastDayOfMonth; d++) {
-                    const avg = dailyAverages[d] || (historicalPagos.length / (6 * 30));
-                    const hasHistory = !!daysHistory[d];
-                    
-                    const opt = avg * 1.3;
-                    const cons = avg * 1.0;
-                    const pes = avg * 0.6;
-                    
-                    projection.push({ day: d, hasHistory, avgHistory: avg, opt, cons, pes });
-                    
-                    totalReceiptsOpt += opt;
-                    totalReceiptsCons += cons;
-                    totalReceiptsPes += pes;
-                  }
-
-                  const montoOptBs = totalReceiptsOpt * avgPerReceiptBs;
-                  const montoConsBs = totalReceiptsCons * avgPerReceiptBs;
-                  const montoPesBs = totalReceiptsPes * avgPerReceiptBs;
-                  const montoOptUsd = totalReceiptsOpt * avgPerReceiptUsd;
-                  const montoConsUsd = totalReceiptsCons * avgPerReceiptUsd;
-                  const montoPesUsd = totalReceiptsPes * avgPerReceiptUsd;
-
-                  return (
-                    <>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
-                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Días Restantes</div>
-                          <div className="text-3xl font-black">{daysRemaining}</div>
-                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Hasta fin de mes</div>
-                        </div>
-                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
-                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Recibos Pendientes</div>
-                          <div className="text-3xl font-black">{totalReceiptsPending}</div>
-                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">{currentRecibos.length} Unidades</div>
-                        </div>
-                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
-                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Techo de Cobranza</div>
-                          <div className="text-xl font-black">${formatUsd(totalDebtUsd)}</div>
-                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">100% de la Deuda</div>
-                        </div>
-                        <div className="bg-white/5 backdrop-blur-sm p-5 rounded-3xl border border-white/10">
-                          <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-2">Promedio por Recibo</div>
-                          <div className="text-xl font-black">{formatBs(avgPerReceiptBs)} Bs</div>
-                          <div className="text-[10px] text-indigo-200 mt-1 uppercase font-bold">Base de Proyección</div>
-                        </div>
-                      </div>
-
-                      {/* TABLA DE ESCENARIOS TOTALES */}
-                      <div className="mt-10 bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900 border border-indigo-100">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-indigo-50/50">
-                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Escenario</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-center">Recibos a Pagar</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado Bs</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest text-right">Monto Estimado USD</th>
-                              <th className="px-6 py-4 text-[10px] font-black text-indigo-900 uppercase tracking-widest">Base de Cálculo</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            <tr className="hover:bg-green-50/30 transition-colors">
-                              <td className="px-6 py-4 font-black text-green-700 flex items-center gap-2">
-                                <span className="w-3 h-3 bg-green-500 rounded-full"></span> 🟢 OPTIMISTA
-                              </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsOpt.toFixed(1)}</td>
-                              <td className="px-6 py-4 text-right font-black text-green-700">{formatBs(montoOptBs)}</td>
-                              <td className="px-6 py-4 text-right font-black text-green-700 text-lg">${formatUsd(montoOptUsd)}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 1.3x</td>
-                            </tr>
-                            <tr className="hover:bg-amber-50/30 transition-colors">
-                              <td className="px-6 py-4 font-black text-amber-600 flex items-center gap-2">
-                                <span className="w-3 h-3 bg-amber-400 rounded-full"></span> 🟡 CONSERVADOR
-                              </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsCons.toFixed(1)}</td>
-                              <td className="px-6 py-4 text-right font-black text-amber-600">{formatBs(montoConsBs)}</td>
-                              <td className="px-6 py-4 text-right font-black text-amber-600 text-lg">${formatUsd(montoConsUsd)}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial Real + 1.0x</td>
-                            </tr>
-                            <tr className="hover:bg-red-50/30 transition-colors">
-                              <td className="px-6 py-4 font-black text-red-600 flex items-center gap-2">
-                                <span className="w-3 h-3 bg-red-500 rounded-full"></span> 🔴 PESIMISTA
-                              </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsPes.toFixed(1)}</td>
-                              <td className="px-6 py-4 text-right font-black text-red-600">{formatBs(montoPesBs)}</td>
-                              <td className="px-6 py-4 text-right font-black text-red-600 text-lg">${formatUsd(montoPesUsd)}</td>
-                              <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 0.6x</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* TABLA DETALLADA DIA A DIA */}
-                      <div className="mt-10">
-                        <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
-                          <span className="bg-white/20 p-2 rounded-xl">📅</span> Proyección Detallada Día por Día
-                        </h3>
-                        <div className="bg-white rounded-3xl overflow-hidden shadow-xl text-gray-900">
-                          <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                            <table className="w-full text-left border-collapse">
-                              <thead className="sticky top-0 bg-gray-50 z-10">
-                                <tr>
-                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Día del Mes</th>
-                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">¿Tiene historial?</th>
-                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Promedio Histórico</th>
-                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Recibos Proyectados (Opt/Cons/Pes)</th>
-                                  <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Comentario Histórico</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                {projection.map((p: any) => (
-                                  <tr key={p.day} className="hover:bg-indigo-50/30 transition-colors">
-                                    <td className="px-6 py-3 font-black text-indigo-950">Día {p.day}</td>
-                                    <td className="px-6 py-3">
-                                      {p.hasHistory ? (
-                                        <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">Sí</span>
-                                      ) : (
-                                        <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">No</span>
-                                      )}
-                                    </td>
-                                    <td className="px-6 py-3 text-center font-mono text-sm">{p.avgHistory.toFixed(2)}</td>
-                                    <td className="px-6 py-3 text-center font-bold text-indigo-600">
-                                      {p.opt.toFixed(1)} / {p.cons.toFixed(1)} / {p.pes.toFixed(1)}
-                                    </td>
-                                    <td className="px-6 py-3 text-xs text-gray-500 font-medium">
-                                      Promedio: {p.avgHistory.toFixed(1)} recibos ({historicalPagos.filter((hp:any) => new Date(hp.fecha_pago).getDate() === p.day).length} veces)
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                <div className="grid grid-cols-1 gap-6">
+                  {serviciosConfigs.length === 0 ? (
+                    <div className="bg-white p-12 rounded-[2rem] text-center border-2 border-dashed border-gray-100">
+                      <div className="text-4xl mb-4">🔦</div>
+                      <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Sin Servicios Configurados</h3>
+                      <p className="text-gray-500 text-sm max-w-xs mx-auto mt-2">
+                        Agrega tus números de contrato y NICs en la sección de configuración para comenzar el monitoreo automático.
+                      </p>
+                      <button 
+                        onClick={() => setActiveTab("configuracion")}
+                        className="mt-6 px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs tracking-widest shadow-lg"
+                      >
+                        Configurar Ahora
+                      </button>
+                    </div>
+                  ) : (
+                    serviciosConfigs.map(config => (
+                      <div key={config.id} className="bg-white p-6 rounded-[2rem] shadow-xl border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                        <div className="flex items-center gap-6">
+                          <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-2xl shadow-inner ${
+                            config.tipo === 'cantv' ? 'bg-blue-50 text-blue-600' : 
+                            (config.tipo === 'hidrocapital' ? 'bg-cyan-50 text-cyan-600' : 'bg-amber-50 text-amber-600')
+                          }`}>
+                            {config.tipo === 'cantv' ? '📞' : (config.tipo === 'hidrocapital' ? '🚰' : '⚡')}
                           </div>
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-8 mt-10">
-                        {/* ANÁLISIS POR CANTIDAD DE RECIBOS PENDIENTES */}
-                        <div className="bg-white/10 backdrop-blur-md p-8 rounded-[2rem] border border-white/20">
-                          <h3 className="text-xl font-black text-white mb-6 uppercase tracking-tighter flex items-center gap-3">
-                            <span className="bg-white/20 p-2 rounded-xl">📊</span> Análisis por Recibos Pendientes
-                          </h3>
-                          <div className="space-y-4">
-                            {[1, 2, 3].map(num => {
-                              const units = currentRecibos.filter((r: any) => num === 3 ? r.num_recibos >= 3 : r.num_recibos === num);
-                              const debt = units.reduce((acc: any, r: any) => acc + Number(r.deuda || 0), 0);
-                              return (
-                                <div key={num} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center border border-white/5">
-                                  <div>
-                                    <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">{num === 3 ? "3+ Recibos Pendientes" : `${num} Recibo Pendiente`}</div>
-                                    <div className="text-2xl font-black">{units.length} <span className="text-[10px] text-indigo-200">propietarios</span></div>
-                                  </div>
-                                  <div className="text-right">
-                                    <div className="text-xs font-black text-indigo-300 uppercase tracking-widest">Suma Deuda</div>
-                                    <div className="text-xl font-black text-amber-400">{formatBs(debt)} Bs</div>
-                                    <div className="text-[10px] font-bold text-indigo-200">Promedio: {formatBs(units.length > 0 ? debt / units.length : 0)} Bs</div>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-lg font-black text-gray-900 uppercase tracking-tighter">{config.alias || config.tipo.toUpperCase()}</h4>
+                              <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase tracking-widest">{config.tipo}</span>
+                            </div>
+                            <p className="text-xs text-gray-500 font-bold font-mono">
+                              {config.tipo === 'cantv' ? 'N° Telefónico' : (config.tipo === 'hidrocapital' ? 'NIC' : 'NIC / NCC')}: {config.identificador}
+                            </p>
+                            <p className="text-[10px] text-gray-400 mt-1 font-medium">
+                              Programado: Día {config.dia_consulta} de cada mes
+                            </p>
                           </div>
                         </div>
 
-                        {/* RECOMENDACIONES */}
-                        <div className="bg-white p-8 rounded-[2rem] shadow-2xl text-gray-900">
-                          <h3 className="text-xl font-black text-indigo-950 mb-6 uppercase tracking-tighter flex items-center gap-3">
-                            <span className="bg-indigo-100 p-2 rounded-xl">💡</span> Recomendaciones
-                          </h3>
-                          <div className="space-y-6">
-                            <div className="flex gap-4">
-                              <div className="bg-amber-100 text-amber-600 p-3 rounded-2xl h-fit">⚠️</div>
-                              <div>
-                                <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Déficit Proyectado</h4>
-                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                  Quedarían <span className="text-red-600 font-bold">{(totalReceiptsPending - totalReceiptsCons).toFixed(1)} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-4">
-                              <div className="bg-indigo-100 text-indigo-600 p-3 rounded-2xl h-fit">🎯</div>
-                              <div>
-                                <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Estrategia Sugerida</h4>
-                                <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                  {totalReceiptsPending > totalReceiptsOpt 
-                                    ? "La morosidad actual supera incluso el escenario optimista. Se recomienda realizar una jornada especial de cobranza antes del cierre de mes." 
-                                    : "El flujo proyectado es suficiente para cubrir la mayoría de las obligaciones. Mantenga recordatorios suaves para asegurar el escenario conservador."}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 italic text-sm text-indigo-900 font-medium">
-                              "Basado en los últimos 6 meses, los días con mayor probabilidad de pago restantes son el 15 y 30. Prepare notificaciones personalizadas para esas fechas."
-                            </div>
-                          </div>
+                        <div className="flex flex-col items-center md:items-end">
+                          <div className="text-2xl font-black text-gray-900">Bs. {formatNumber(config.ultimo_monto || 0)}</div>
+                          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3">
+                            Última consulta: {config.ultima_consulta ? new Date(config.ultima_consulta).toLocaleString('es-VE') : 'Nunca'}
+                          </p>
+                          <button 
+                            onClick={() => consultarServicio(config.id)}
+                            disabled={consultandoId === config.id}
+                            className={`px-6 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${
+                              consultandoId === config.id ? 'bg-gray-100 text-gray-400' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-100'
+                            }`}
+                          >
+                            {consultandoId === config.id ? '⏳ Consultando...' : '🔄 Consultar Ahora'}
+                          </button>
                         </div>
                       </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
+                    ))
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -5793,6 +5956,111 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* GESTIÓN DE SERVICIOS PÚBLICOS */}
+                <div className="border-t pt-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                      🚰 Gestión de Servicios Públicos
+                      {!planInfo?.permissions?.hasPublicServices && (
+                        <span className="text-[9px] bg-amber-100 text-amber-700 px-2 py-1 rounded-full font-black">PLAN PROFESIONAL+</span>
+                      )}
+                    </h3>
+                  </div>
+
+                  <div className={`${!planInfo?.permissions?.hasPublicServices ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+                    <p className="text-xs text-gray-500 mb-6 font-medium">Configure los números de contrato y NICs para automatizar la consulta de deudas mensuales.</p>
+                    
+                    <div className="bg-gray-50 p-6 rounded-[2rem] border border-gray-200 mb-6">
+                      <div className="grid md:grid-cols-5 gap-4 items-end">
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Empresa / Tipo</label>
+                          <select 
+                            className="w-full px-3 py-2 text-sm border rounded-xl"
+                            id="newSP_tipo"
+                          >
+                            <option value="cantv">CANTV (Telefonía)</option>
+                            <option value="hidrocapital">Hidrocapital (Agua)</option>
+                            <option value="corpoelec">Corpoelec (Electricidad)</option>
+                          </select>
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Identificador (NIC/N°)</label>
+                          <input type="text" id="newSP_id" className="w-full px-3 py-2 text-sm border rounded-xl" placeholder="Ej. 1013084" />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Alias (Opcional)</label>
+                          <input type="text" id="newSP_alias" className="w-full px-3 py-2 text-sm border rounded-xl" placeholder="Ej. Bomba Ppal" />
+                        </div>
+                        <div className="md:col-span-1">
+                          <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Día de Corte/Consulta</label>
+                          <input type="number" id="newSP_dia" min="1" max="31" defaultValue="7" className="w-full px-3 py-2 text-sm border rounded-xl" />
+                        </div>
+                        <button 
+                          onClick={async () => {
+                            const tipo = (document.getElementById('newSP_tipo') as HTMLSelectElement).value;
+                            const identificador = (document.getElementById('newSP_id') as HTMLInputElement).value;
+                            const alias = (document.getElementById('newSP_alias') as HTMLInputElement).value;
+                            const diaConsulta = parseInt((document.getElementById('newSP_dia') as HTMLInputElement).value);
+
+                            if (!identificador) return alert("El identificador es obligatorio");
+
+                            const res = await fetch('/api/servicios-publicos/config', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ edificioId: building.id, tipo, identificador, alias, diaConsulta })
+                            });
+
+                            if (res.ok) {
+                              loadServiciosConfigs();
+                              (document.getElementById('newSP_id') as HTMLInputElement).value = '';
+                              (document.getElementById('newSP_alias') as HTMLInputElement).value = '';
+                            } else {
+                              const err = await res.json();
+                              alert(err.error);
+                            }
+                          }}
+                          className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg"
+                        >
+                          + Agregar
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {serviciosConfigs.map(config => (
+                        <div key={config.id} className="flex justify-between items-center p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                          <div className="flex items-center gap-4">
+                            <span className="text-xl">{config.tipo === 'cantv' ? '📞' : (config.tipo === 'hidrocapital' ? '🚰' : '⚡')}</span>
+                            <div>
+                              <div className="text-xs font-black text-gray-900 uppercase">{config.alias || config.tipo}</div>
+                              <div className="text-[10px] text-gray-400 font-mono">{config.identificador}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-6">
+                            <div className="text-right">
+                              <div className="text-[9px] font-bold text-gray-400 uppercase">Consulta Programada</div>
+                              <div className="text-[10px] font-black text-indigo-600">Día {config.dia_consulta} del mes</div>
+                            </div>
+                            <button 
+                              onClick={async () => {
+                                if (confirm("¿Eliminar este servicio?")) {
+                                  const res = await fetch(`/api/servicios-publicos/config?id=${config.id}`, { method: 'DELETE' });
+                                  if (res.ok) loadServiciosConfigs();
+                                }
+                              }}
+                              className="text-red-300 hover:text-red-600 transition-colors"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
                   </div>
                 </div>
 

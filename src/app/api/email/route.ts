@@ -303,6 +303,54 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
     }
 
+    if (action === "public_service_notification") {
+      const { serviceType, identificador, alias, monto, recibos, details } = body;
+      const serviceName = serviceType.toUpperCase();
+      const idLabel = serviceType === 'cantv' ? 'N° Telefónico' : (serviceType === 'hidrocapital' ? 'NIC' : 'NIC / NCC');
+
+      // Configurar destinatarios (misma lógica que pre-recibo)
+      let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
+      if (recipients.length === 0) {
+        const { data: miembros } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
+        if (miembros) recipients = miembros.map(m => m.email);
+      }
+
+      if (recipients.length === 0) return NextResponse.json({ error: "No hay destinatarios" }, { status: 400 });
+
+      await transporter.sendMail({
+        from: `"EdifiSaaS - Servicios Públicos" <${SMTP_USER}>`,
+        to: recipients,
+        subject: `Notificación de Deuda - ${serviceName} - ${alias || identificador}`,
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
+            <div style="background: #1a237e; color: white; padding: 20px; text-align: center;">
+              <h2 style="margin: 0; text-transform: uppercase;">Consulta de Servicio: ${serviceName}</h2>
+            </div>
+            <div style="padding: 24px; color: #444; line-height: 1.6;">
+              <p>Se ha realizado una consulta automática del servicio para <strong>${edificio.nombre}</strong>.</p>
+              
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Servicio:</strong> ${serviceName}</p>
+                <p style="margin: 5px 0;"><strong>${idLabel}:</strong> ${identificador}</p>
+                ${alias ? `<p style="margin: 5px 0;"><strong>Alias:</strong> ${alias}</p>` : ''}
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
+                <p style="margin: 5px 0; font-size: 18px;"><strong>Monto adeudado:</strong> <span style="color: #c62828;">Bs. ${formatNumber(monto)}</span></p>
+                ${recibos ? `<p style="margin: 5px 0;"><strong>Recibos pendientes:</strong> ${recibos}</p>` : ''}
+              </div>
+
+              ${details.titular ? `<p style="font-size: 12px; color: #666;"><strong>Titular:</strong> ${details.titular}</p>` : ''}
+              
+              <p style="font-size: 13px; color: #666; margin-top: 30px;">Esta información es obtenida directamente de los portales oficiales de cada proveedor de servicio.</p>
+            </div>
+            <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 11px; color: #999;">
+              EdifiSaaS v1 - El Espejo Inteligente de tu Condominio
+            </div>
+          </div>
+        `
+      });
+      return NextResponse.json({ success: true, message: "Notificación de servicio enviada" });
+    }
+
     const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
     const toEmailsRaw = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
     const toEmails = toEmailsRaw.slice(0, permissions.maxEmailRecipients);
