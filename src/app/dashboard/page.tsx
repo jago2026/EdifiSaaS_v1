@@ -221,6 +221,7 @@ const maskEmail = (email: string) => {
 };
 
 export default function DashboardPage() {
+  console.log(">>> EDIFISAAS PRODUCTION VERSION: 2026-04-27 11:10 VET <<<");
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("resumen");
   const [loading, setLoading] = useState(true);
