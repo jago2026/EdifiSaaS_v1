@@ -2353,7 +2353,6 @@ export default function DashboardPage() {
             )}
 
             {/* Módulos de Liquidez (Indicadores) */}
-            )}
             {(editConfig.dashboard_config?.cf !== false || user?.id === "superuser-id") && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 group" title="Indicadores clave de rendimiento financiero del edificio. Cada indicador muestra la salud financiera del condominio.">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">Indicadores Financieros</h2>
@@ -2469,7 +2468,7 @@ export default function DashboardPage() {
                 )}
               </div>
             )}
-          )}
+            )}
         {activeTab === "ingresos" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Pagos de Condominio por Unidad</h2>
@@ -5099,6 +5098,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+          )}
         )}
 
       {activeTab === "instrucciones" && (
@@ -5134,7 +5134,7 @@ export default function DashboardPage() {
           )}
           {user?.id === "superuser-id" && <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-100">Superuser Dashboard</div>}
         </div>
-      )}
+        )}
 
       {activeTab === "proyeccion" && (
         <div className="space-y-8 animate-in fade-in duration-700">
@@ -5146,7 +5146,7 @@ export default function DashboardPage() {
                {/* ... (Contenido simplificado para asegurar el build) ... */}
                <p>Módulo Predictivo Activado para {building?.nombre}</p>
             </div>
-          )}
+            )}
         </div>
       )}
 
@@ -5160,7 +5160,7 @@ export default function DashboardPage() {
                 <h2 className="text-3xl font-black uppercase mb-1">🚰 Servicios Públicos</h2>
               </div>
             </div>
-          )}
+            )}
         </div>
       )}
 
@@ -5178,7 +5178,7 @@ export default function DashboardPage() {
             <button onClick={handleSync} disabled={syncing} className="bg-indigo-600 text-white px-4 py-2 rounded">Sincronizar Ahora</button>
           </div>
         </div>
-      )}
+        )}
       </div> {/* Closes p-4 lg:p-8 w-full */}
       </div> {/* Closes flex-1 flex flex-col */}
       </div> {/* Closes layout wrapper if needed */}
@@ -5203,3 +5203,4 @@ export default function DashboardPage() {
     </div> {/* Closes outer div */}
   );
 }
+
