@@ -1057,7 +1057,6 @@ export default function DashboardPage() {
       loadMovimientosDia();
       loadBalance();
     }
-          )}
     if (activeTab === "ingresos" && building?.id) {
       loadIngresosData();
     }
@@ -5203,4 +5202,5 @@ export default function DashboardPage() {
       )}
     </div> {/* Closes outer div */}
   );
+}
 }
