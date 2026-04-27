@@ -223,6 +223,8 @@ const maskEmail = (email: string) => {
 export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("resumen");
+  const [serviciosParaReporte, setServiciosParaReporte] = useState<any[]>([]);
+  const [isSendingConsolidated, setIsSendingConsolidated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState<Building | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -6280,16 +6282,109 @@ export default function DashboardPage() {
                   <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">🏛️ Servicios Públicos</h2>
                   <p className="text-blue-200 text-xs mt-1 font-bold uppercase tracking-wider">Consulta de saldos y gestión de CANTV · Hidrocapital · Corpoelec</p>
                 </div>
-                {user?.isAdmin && (
-                  <button
-                    onClick={() => setShowSpForm(!showSpForm)}
-                    className="px-4 py-2 bg-white text-blue-700 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-blue-50 transition-colors shadow"
-                  >
-                    {showSpForm ? "✕ Cancelar" : "+ Agregar Servicio"}
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {serviciosParaReporte.length > 0 && (
+                    <button
+                      onClick={async () => {
+                        if (isSendingConsolidated) return;
+                        setIsSendingConsolidated(true);
+                        try {
+                          const totalDeuda = serviciosParaReporte.reduce((acc, s) => acc + (spResultados[s.id]?.deuda || 0), 0);
+                          let bodyHtml = `
+                            <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #eee;border-radius:12px;overflow:hidden;">
+                              <div style="background:#1e40af;color:white;padding:24px;text-align:center;">
+                                <h2 style="margin:0;text-transform:uppercase;letter-spacing:1px;">Reporte Consolidado de Servicios</h2>
+                                <p style="margin:4px 0 0 0;opacity:0.8;">Edificio: ${building?.nombre}</p>
+                              </div>
+                              <div style="padding:24px;">
+                                <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+                                  <thead>
+                                    <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+                                      <th style="padding:12px;text-align:left;font-size:12px;text-transform:uppercase;color:#64748b;">Servicio</th>
+                                      <th style="padding:12px;text-align:left;font-size:12px;text-transform:uppercase;color:#64748b;">ID</th>
+                                      <th style="padding:12px;text-align:right;font-size:12px;text-transform:uppercase;color:#64748b;">Deuda (Bs)</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    ${serviciosParaReporte.map(s => `
+                                      <tr style="border-bottom:1px solid #f1f5f9;">
+                                        <td style="padding:12px;font-size:14px;font-weight:bold;color:#1e293b;">${s.tipo.toUpperCase()}</td>
+                                        <td style="padding:12px;font-size:13px;color:#64748b;">${s.identificador}${s.alias ? `<br/><small>(${s.alias})</small>` : ''}</td>
+                                        <td style="padding:12px;text-align:right;font-size:14px;font-weight:bold;color:${(spResultados[s.id]?.deuda || 0) > 0 ? '#ef4444' : '#10b981'};">
+                                          Bs. ${(spResultados[s.id]?.deuda || 0).toLocaleString('es-VE')}
+                                        </td>
+                                      </tr>
+                                    `).join('')}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr style="background:#f1f5f9;">
+                                      <td colspan="2" style="padding:16px;text-align:right;font-weight:900;text-transform:uppercase;font-size:12px;">Total Consolidado:</td>
+                                      <td style="padding:16px;text-align:right;font-weight:900;font-size:18px;color:#1e40af;">Bs. ${totalDeuda.toLocaleString('es-VE')}</td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                                <p style="font-size:12px;color:#94a3b8;font-style:italic;">* Reporte generado automáticamente el ${new Date().toLocaleDateString('es-VE')} a las ${new Date().toLocaleTimeString('es-VE')}.</p>
+                              </div>
+                            </div>
+                          `;
+
+                          const res = await fetch("/api/email", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              action: "custom_support",
+                              subject: `📊 Reporte Consolidado de Servicios - ${building?.nombre}`,
+                              customBody: bodyHtml,
+                              overrideRecipient: editConfig.email_administradora || building?.email_administradora
+                            })
+                          });
+
+                          if (res.ok) {
+                            alert("✅ Reporte consolidado enviado con éxito a la administradora.");
+                            setServiciosParaReporte([]);
+                          } else {
+                            throw new Error("Error al enviar el email");
+                          }
+                        } catch (err: any) {
+                          alert("❌ Error: " + err.message);
+                        } finally {
+                          setIsSendingConsolidated(false);
+                        }
+                      }}
+                      className="px-4 py-2 bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-wider hover:bg-green-600 transition-colors shadow flex items-center gap-2"
+                    >
+                      {isSendingConsolidated ? "Enviando..." : `📧 Enviar Reporte (${serviciosParaReporte.length})`}
+                    </button>
+                  )}
+                  {user?.isAdmin && (
+                    <button
+                      onClick={() => setShowSpForm(!showSpForm)}
+                      className="px-4 py-2 bg-white text-blue-700 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-blue-50 transition-colors shadow"
+                    >
+                      {showSpForm ? "✕ Cancelar" : "+ Agregar Servicio"}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Cola de Reporte (Visual) */}
+            {serviciosParaReporte.length > 0 && (
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100 flex items-center gap-4 overflow-x-auto">
+                <div className="text-[10px] font-black uppercase text-blue-700 whitespace-nowrap">Cola de Reporte:</div>
+                <div className="flex items-center gap-2">
+                  {serviciosParaReporte.map(s => (
+                    <div key={s.id} className="bg-blue-50 border border-blue-200 px-3 py-1 rounded-full flex items-center gap-2 whitespace-nowrap">
+                      <span className="text-[10px] font-bold text-blue-800">{s.tipo.toUpperCase()}: {s.identificador}</span>
+                      <button 
+                        onClick={() => setServiciosParaReporte(serviciosParaReporte.filter(x => x.id !== s.id))}
+                        className="text-red-500 hover:text-red-700 font-black text-sm"
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Formulario agregar servicio */}
             {showSpForm && user?.isAdmin && (
@@ -6424,6 +6519,15 @@ export default function DashboardPage() {
                                     ))}
                                   </div>
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    if (serviciosParaReporte.find(x => x.id === config.id)) return;
+                                    setServiciosParaReporte([...serviciosParaReporte, config]);
+                                  }}
+                                  className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg font-black text-[10px] uppercase hover:bg-blue-200 transition-colors"
+                                >
+                                  ➕ Reporte
+                                </button>
                                 {user?.isAdmin && (
                                   <button
                                     onClick={() => eliminarSpConfig(config.id)}
@@ -6509,6 +6613,15 @@ export default function DashboardPage() {
                                     ))}
                                   </div>
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    if (serviciosParaReporte.find(x => x.id === config.id)) return;
+                                    setServiciosParaReporte([...serviciosParaReporte, config]);
+                                  }}
+                                  className="px-3 py-1.5 bg-cyan-100 text-cyan-700 rounded-lg font-black text-[10px] uppercase hover:bg-cyan-200 transition-colors"
+                                >
+                                  ➕ Reporte
+                                </button>
                                 {user?.isAdmin && (
                                   <button onClick={() => eliminarSpConfig(config.id)} className="px-2 py-1.5 bg-red-50 text-red-500 rounded-lg font-black text-[10px] uppercase hover:bg-red-100 transition-colors" title="Eliminar">🗑️</button>
                                 )}
@@ -6602,6 +6715,15 @@ export default function DashboardPage() {
                                     ))}
                                   </div>
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    if (serviciosParaReporte.find(x => x.id === config.id)) return;
+                                    setServiciosParaReporte([...serviciosParaReporte, config]);
+                                  }}
+                                  className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg font-black text-[10px] uppercase hover:bg-yellow-200 transition-colors"
+                                >
+                                  ➕ Reporte
+                                </button>
                                 {user?.isAdmin && (
                                   <button onClick={() => eliminarSpConfig(config.id)} className="px-2 py-1.5 bg-red-50 text-red-500 rounded-lg font-black text-[10px] uppercase hover:bg-red-100 transition-colors" title="Eliminar">🗑️</button>
                                 )}

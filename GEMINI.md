@@ -39,36 +39,25 @@ Módulo de Proyección de Ingresos + Corrección cron + Módulo Servicios Públi
 - [x] **Fix aplicado**: Cambiado a `"schedule": "0 9 * * *"` = 9:00 AM UTC = 5:00 AM VET (Venezuela UTC-4).
 - [x] Eliminada la alerta de debug `⏱️ Verificación de Cron` que spam-eaba la tabla de alertas con mensajes de "Se saltó" en cada invocación del cron.
 
-#### Módulo Servicios Públicos (NUEVO)
+#### Módulo Servicios Públicos (CORREGIDO Y COMPLETADO)
 - [x] **Pestaña "🏛️ Servicios Públicos"** añadida al sidebar de navegación.
-- [x] **Tab type** extendido con `"servicios-publicos"`.
-- [x] **Interface Building** actualizada con campo `email_administradora`.
-- [x] **editConfig state** añadido campo `email_administradora`.
-- [x] **Campo config en pestaña Configuración**: "📬 Email(s) de la Administradora" para configurar a quién enviar notificaciones de servicios públicos.
-
+- [x] **Reporte Consolidado (Carrito)**: Implementada lógica de acumulación de servicios. Ahora se pueden consultar múltiples servicios (ej: 2 contratos Corpoelec) y enviarlos todos en un único email HTML profesional con la sumatoria total de la deuda.
+- [x] **Mejora Crítica Scraper Corpoelec**: Corregido el error `❌ fetch failed` mediante la optimización de cabeceras HTTP (User-Agent real, Origin, Referer) y aumento de timeout a 15s.
+- [x] **Sinceración de Hidrocapital**: Corregido bug que devolvía deuda 0 en fallos de extracción. Ahora distingue explícitamente entre "Sin Deuda" y "Error de Portal".
+- [x] **Botón "➕ Reporte"**: Añadido en cada tarjeta de servicio para facilitar la consolidación.
+- [x] **Envío HTML Profesional**: El reporte consolidado utiliza una plantilla HTML con tablas y formato elegante para la administradora.
+- [x] **Campo config en pestaña Configuración**: "📬 Email(s) de la Administradora" integrado.
 ##### Estado: Servicios soportados
-- **CANTV** (📞): Hasta 2 N° de Línea. Sin portal de consulta directa → botón envía email de solicitud.
-- **Hidrocapital** (💧): Hasta 2 N° de Contrato (NIC). Consulta saldo real en `pagoenlinea.hidrocapital.gob.ve`.
-- **Corpoelec** (⚡): Hasta 3 N° de Cuenta Contrato (NCC). Consulta saldo real en `ov-capital.corpoelec.gob.ve`.
-
-##### Funcionalidades implementadas en la UI
-- Botón **"Consultar Saldo"** por servicio (manual, en cualquier momento).
-- Botón **"Enviar Email ▾"** con dropdown: → A la Administradora / → A mí / → A la Junta.
-- Resultado de consulta mostrado en tarjetas (N° Contrato, Recibos, Deuda para Hidrocapital; Titular, Cta.Contrato, Energía Vencida, Total a Pagar para Corpoelec).
-- Mensajes de estado (✅/❌) visibles al usuario tras cada acción.
-- Formulario para **agregar nuevos servicios** (tipo + identificador + alias + día del mes).
-- Botón **eliminar** (solo para admins).
-- Visualización de **última consulta** y **último monto** almacenado.
-
+- **CANTV** (📞): Envía email de solicitud (sin portal directo).
+- **Hidrocapital** (💧): Consulta saldo real con scraping robusto.
+- **Corpoelec** (⚡): Consulta saldo real con scraping optimizado (Fix headers).
 ##### APIs modificadas/creadas
-- **`/api/servicios-publicos/consultar/route.ts`** — Reescrito completo:
-  - Console.log detallado en cada paso (HTTP status, bytes recibidos, datos extraídos).
-  - Schema corregido: usa columnas `monto`, `detalle`, `exitoso`, `error` (sin `recibos_pendientes`, `estado`, `error_msg` que no existen en Supabase).
-  - Mensajes de error descriptivos para el usuario.
-- **`/api/email/route.ts`** — Nueva acción `"servicios_publicos_email"`:
-  - Genera emails formales para CANTV, Hidrocapital y Corpoelec.
-  - Incluye bloque de mensaje listo para copiar a WhatsApp.
-  - Soporte de destinatario: administradora / usuario actual / junta / lista personalizada.
+- **`/api/servicios-publicos/consultar/route.ts`**: Reescrito para robustez y soporte de tipos unificado.
+- **`/api/email/route.ts`**: Soporte para envíos de reportes personalizados HTML.
+#### Próximos Pasos Sugeridos
+- Implementar histórico visual de consultas por servicio en una sub-pestaña.
+- Automatizar la consulta en el cron diario para que el reporte llegue solo al email de la junta cada mañana.
+- Refactorizar `DashboardPage` (actualmente +6900 líneas) para mejorar el rendimiento de renderizado.
 
 ##### Schema Supabase de referencia
 ```sql

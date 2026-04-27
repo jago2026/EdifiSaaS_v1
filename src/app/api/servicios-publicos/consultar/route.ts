@@ -17,15 +17,17 @@ async function consultarHidrocapital(nic: string) {
       body: formData,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
+      signal: AbortSignal.timeout(15000)
     });
 
-    console.log(`[SP][HIDROCAPITAL] HTTP Status: ${response.status}`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    console.log(`[SP][HIDROCAPITAL] HTTP Status: ${response.status} ${response.statusText}`);
+    if (!response.ok) throw new Error(`Error de conexión con Hidrocapital (Status: ${response.status})`);
     
     const html = await response.text();
-    console.log(`[SP][HIDROCAPITAL] Respuesta recibida (${html.length} bytes). Extrayendo datos...`);
+    console.log(`[SP][HIDROCAPITAL] Respuesta recibida (${html.length} bytes).`);
     
     const contratoMatch = html.match(/id="nic"[^>]*value='([^']+)'/);
     const recibosMatch = html.match(/id="numerorecibos"[^>]*value='([^']+)'/);
@@ -43,16 +45,19 @@ async function consultarHidrocapital(nic: string) {
       };
     }
     
-    if (html.includes("No se encontraron registros") || html.includes("Cero deuda")) {
-      console.log(`[SP][HIDROCAPITAL] ✅ Sin deuda registrada para NIC: ${nic}`);
+    if (html.includes("No se encontraron registros") || html.includes("Cero deuda") || html.includes("No presenta deuda")) {
+      console.log(`[SP][HIDROCAPITAL] ✅ Confirmado: Sin deuda registrada para NIC: ${nic}`);
       return { exitoso: true, contrato: nic, recibos: 0, deuda: 0 };
     }
 
-    console.error(`[SP][HIDROCAPITAL] ❌ No se pudieron extraer los datos. El HTML puede haber cambiado. NIC: ${nic}`);
-    return { exitoso: false, error: "No se pudieron extraer los datos del portal de Hidrocapital. El formato de la página puede haber cambiado." };
+    console.error(`[SP][HIDROCAPITAL] ❌ Error de extracción. Longitud HTML: ${html.length}. NIC: ${nic}`);
+    return { 
+      exitoso: false, 
+      error: "No se pudieron extraer los datos de Hidrocapital. El formato de la página puede haber cambiado o el NIC es inválido." 
+    };
   } catch (error: any) {
     console.error(`[SP][HIDROCAPITAL] ❌ Excepción: ${error.message}`);
-    return { exitoso: false, error: error.message };
+    return { exitoso: false, error: `Fallo en consulta: ${error.message}` };
   }
 }
 
@@ -70,15 +75,20 @@ async function consultarCorpoelec(nic: string) {
       body: formData,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0'
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
+        'Origin': 'https://ov-capital.corpoelec.gob.ve',
+        'Referer': 'https://ov-capital.corpoelec.gob.ve/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
+      signal: AbortSignal.timeout(15000)
     });
 
-    console.log(`[SP][CORPOELEC] HTTP Status: ${response.status}`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    console.log(`[SP][CORPOELEC] HTTP Status: ${response.status} ${response.statusText}`);
+    if (!response.ok) throw new Error(`Error de conexión con Corpoelec (Status: ${response.status})`);
     
     const html = await response.text();
-    console.log(`[SP][CORPOELEC] Respuesta recibida (${html.length} bytes). Extrayendo datos...`);
+    console.log(`[SP][CORPOELEC] Respuesta recibida (${html.length} bytes).`);
     
     const getTxt = (id: string) => {
       let m = html.match(new RegExp(`id=${id}>([^<]+)`, 'i'));
@@ -111,11 +121,16 @@ async function consultarCorpoelec(nic: string) {
         totalVigente,
       };
     }
-    console.error(`[SP][CORPOELEC] ❌ El portal no devolvió un saldo válido para NCC: ${nic}`);
-    return { exitoso: false, error: "El portal de Corpoelec no devolvió un saldo válido. Verifique el N° de Cuenta Contrato." };
+    
+    if (html.includes("No se encontraron registros") || html.includes("NCC no existe") || html.length < 1000) {
+      console.error(`[SP][CORPOELEC] ❌ Respuesta inválida o NCC no encontrado. Longitud HTML: ${html.length}`);
+      return { exitoso: false, error: "El portal de Corpoelec no devolvió un saldo válido. Verifique el N° de Cuenta Contrato." };
+    }
+
+    return { exitoso: false, error: "No se pudieron extraer los datos de Corpoelec. Formato de página desconocido." };
   } catch (error: any) {
     console.error(`[SP][CORPOELEC] ❌ Excepción: ${error.message}`);
-    return { exitoso: false, error: error.message };
+    return { exitoso: false, error: `Fallo en consulta: ${error.message}` };
   }
 }
 
@@ -146,14 +161,13 @@ export async function POST(request: Request) {
     } else if (config.tipo === 'corpoelec') {
       result = await consultarCorpoelec(config.identificador);
     } else if (config.tipo === 'cantv') {
-      // CANTV: no tiene portal de consulta directa, registramos la intención
       console.log(`[SP][CANTV] Registro de consulta para N° de Línea: ${config.identificador}`);
       result = { exitoso: true, recordatorio: true, deuda: 0, msg: "CANTV no dispone de portal de consulta en línea. Use el botón 'Enviar Email' para solicitar información a la administradora." };
     }
 
     console.log(`[SP] Resultado final tipo=${config.tipo}:`, JSON.stringify(result));
 
-    // Guardar en historial usando el schema correcto
+    // Guardar en historial
     const { error: insertError } = await supabase
       .from("servicios_publicos_consultas")
       .insert({
@@ -167,8 +181,6 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error(`[SP] Error al guardar historial de consulta:`, insertError);
-    } else {
-      console.log(`[SP] ✅ Historial de consulta guardado.`);
     }
 
     if (result.exitoso) {
