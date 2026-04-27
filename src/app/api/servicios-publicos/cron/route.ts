@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
     const { data: configs, error: configErr } = await supabase
       .from("servicios_publicos_config")
       .select("*, edificios(nombre, plan)")
-      .eq("activo", true)
       .eq("dia_consulta", todayDay);
 
     if (configErr) throw configErr;

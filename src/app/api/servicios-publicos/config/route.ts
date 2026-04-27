@@ -58,8 +58,7 @@ export async function POST(request: Request) {
         tipo,
         identificador,
         alias,
-        dia_consulta: diaConsulta || 1,
-        activo: true
+        dia_consulta: diaConsulta || 1
       })
       .select()
       .single();
