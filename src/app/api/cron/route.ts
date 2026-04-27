@@ -1,3 +1,4 @@
+// CRON API - Last Update: 2026-04-27
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
