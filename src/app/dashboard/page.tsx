@@ -5265,8 +5265,7 @@ export default function DashboardPage() {
                 <div className="bg-gradient-to-br from-cyan-900 to-blue-900 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-8 opacity-10 text-9xl">🚰</div>
                   <h2 className="text-3xl font-black uppercase mb-1">🚰 Servicios Públicos</h2>
-                  <p className="text-cyan-100 font-bold max-w-xl">Monitoreo automático de deudas operativas del edificio (CANTV, Hidrocapital, Corpoelec).</p>
-                  
+                  <p className="text-cyan-100 font-bold max-w-xl">Monitoreo automático de deudas operativas del edificio (CANTV, Hidrocapital, Corpoelec). <span className="opacity-0">v270426-1100</span></p>
                   <div className="mt-8 flex gap-4">
                     <button 
                       onClick={loadServiciosConfigs}
