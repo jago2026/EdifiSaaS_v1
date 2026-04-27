@@ -105,17 +105,18 @@ export async function GET(request: NextRequest) {
       if (!force && !isTime && !isPastTimeAndNotRun) {
         console.log(`[CRON] [.] Saltando ${edificio.nombre} - No es el momento (Ahora: ${currentHourVET}, Config: ${configHour}, Ya corrió: ${alreadyRunToday})`);
         
-        // Solo registrar debug si no ha corrido hoy y estamos antes de la hora, o si ya corrió y estamos después
-        if (!alreadyRunToday || isTime) {
-           // No saturar con logs si todo está bien
+        // Registrar alerta de verificación solo si el usuario llamó manualmente o para debug
+        if (force) {
+           await logAlerta(supabase, edificioId, "info", "⏱️ Verificación de Cron", `El cron se llamó a las ${currentFullTimeVET}. Se saltó porque su hora configurada es ${cronTime}:00 VET y ya se ejecutó hoy o no es el momento.`);
         }
 
-        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `No es el momento` });
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `No es el momento (Ahora: ${currentHourVET}, Config: ${configHour})` });
         continue;
       }
 
       if (alreadyRunToday && !force) {
         console.log(`[CRON] [!] Saltando ${edificio.nombre} - Ya se ejecutó hoy (${lastSyncVET})`);
+        await logAlerta(supabase, edificioId, "info", "⏱️ Cron Saltado", `El cron se llamó a las ${currentFullTimeVET} pero se saltó porque ya se ejecutó hoy (${lastSyncVET}).`);
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "Ya se ejecutó hoy" });
         continue;
       }

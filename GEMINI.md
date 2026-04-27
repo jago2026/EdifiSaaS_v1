@@ -45,25 +45,32 @@ Desarrollar un módulo de Proyección de Ingresos Diaria hasta fin de mes basado
 - **Cálculo Monetario**: Se utiliza el "Promedio por Recibo" actual para convertir las probabilidades de cobro en montos financieros (Bs/USD).
 - **Refuerzo de Plan**: Se asignó esta funcionalidad como parte de los planes Premium e IA para incentivar el upgrade.
 
-### Fecha: 27 de Abril, 2026 (Cuarta Intervención)
+### Fecha: 27 de Abril, 2026 (Quinta Intervención)
 
 ### Objetivo
-Hacer configurable el email de la administradora por edificio y asegurar la persistencia de los cambios previos de la UI de servicios públicos.
+Corregir la ejecución del cron, mejorar el feedback de servicios públicos y permitir la selección de destinatarios para emails de servicio.
 
 ### Tareas Realizadas
-- [x] **Email de Administradora Configurable**:
-    - Añadida columna `email_administradora` a la tabla `edificios` (Nota: Se debe asegurar la ejecución del SQL en Supabase).
-    - Actualizada la API de Configuración (`/api/config`) para guardar y cargar este nuevo campo, con valor por defecto para "La Ideal C.A.".
-    - Modificada la Interfaz de Configuración en el Dashboard para permitir al usuario editar el email de su administradora.
-- [x] **Mejora en Notificaciones de Servicio**:
-    - El botón de "Enviar Email" ahora utiliza el email configurado para la administradora de ese edificio específico.
-    - Se actualizó el mensaje de confirmación (`prompt`) para mostrar el email real al que se enviará la información.
-    - Refinada la plantilla de correo para administradoras, haciéndola más genérica y profesional (usa el nombre del edificio dinámicamente).
-- [x] **Aseguramiento de UI de Servicios**:
-    - Re-verificado y asegurado que el texto "Ver Email" ha sido eliminado definitivamente de la sección CANTV y reemplazado por la deuda actual.
-    - Confirmada la presencia de los botones de Consulta y Email con feedback de usuario.
+- [x] **Robustez del Cron (`src/app/api/cron/route.ts`)**:
+    - Se mejoró la lógica de saltos para ser más explícita.
+    - Se añadió el registro de alertas detalladas en la tabla `alertas` cuando el cron se salta (solo en modo `force` para debug o cuando ya se ejecutó), permitiendo al usuario entender por qué no se disparó (ej. zona horaria o ejecución previa el mismo día).
+- [x] **API de Alertas (`src/app/api/alertas/route.ts`)**:
+    - Implementado método `POST` para permitir que el frontend registre alertas internas de forma oficial.
+- [x] **Mejora de Servicios Públicos (Dashboard)**:
+    - **CANTV**: Re-asegurado que el texto "Ver Email" no aparezca y sea reemplazado por "Deuda Actual" de forma incondicional.
+    - **Feedback de Consulta**: Se añadieron `console.log` detallados y alertas al sistema interno cuando una consulta (CANTV/Hidrocapital) termina, informando éxito o error detallado.
+    - **Botón "Enviar Email"**: Se actualizó el botón con texto explícito "📧 Enviar Email" para mayor claridad.
+    - **Selección de Destinatarios**: Se mejoró la función `enviarEmailServicio` permitiendo seleccionar entre:
+        1. Mismo usuario.
+        2. Administradora (email configurado).
+        3. Toda la Junta (emails configurados).
+        4. **Seleccionar un miembro específico** de la tabla de Junta (funcionalidad nueva).
+        5. Email manual.
 
-### Resumen de Cambios Técnicos
-- **Base de Datos**: Extensión del esquema de `edificios`.
-- **Backend**: Inclusión de `email_administradora` en las respuestas de la API del Dashboard y en la lógica de envío de correos.
-- **Frontend**: Nuevo campo de entrada en el formulario de configuración y lógica dinámica en el componente de servicios públicos.
+### Futuras Mejoras Recomendadas
+- **Notificaciones Modernas**: Reemplazar `alert()` y `prompt()` por una librería de toasts (ej. `react-hot-toast` o `Sonner`) para una experiencia de usuario más fluida y profesional.
+- **Estados de Carga en Email**: Añadir un spinner o estado de "Enviando..." específico para el botón de enviar email de servicios.
+- **Panel de Control de Cron**: Crear una pequeña sección de "Salud del Sistema" donde se muestre de forma gráfica si el cron diario se ejecutó correctamente en las últimas 72 horas.
+- **Validación de Emails**: Mejorar la validación de los campos de email en la configuración para evitar errores de envío.
+- **Soporte para más Servicios**: Investigar scrapers para otros proveedores de servicios regionales si fuera necesario.
+

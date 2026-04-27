@@ -1147,30 +1147,61 @@ export default function DashboardPage() {
   const consultarServicio = async (configId: string) => {
     if (!building?.id) return;
     setConsultandoId(configId);
+    console.log(`[SP] Iniciando consulta para configId: ${configId}...`);
+    
     try {
       const res = await fetch(`/api/servicios-publicos/consultar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ configId, edificioId: building.id })
       });
+      
+      const data = await res.json();
+      console.log(`[SP] Respuesta recibida:`, data);
+
       if (res.ok) {
-        const data = await res.json();
         // Recargar para ver el nuevo monto y fecha
         await loadServiciosConfigs();
+        
+        const montoStr = data.deuda !== undefined ? `Bs. ${formatBs(data.deuda)}` : "0.00";
+        
+        // Log to internal alertas
+        await fetch("/api/alertas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            edificioId: building.id,
+            tipo: "info",
+            titulo: "🔍 Consulta de Servicio",
+            descripcion: `Se consultó el servicio exitosamente. Deuda actual: Bs. ${montoStr}.`,
+            severidad: "baja"
+          })
+        });
 
-        const montoStr = data.deuda !== undefined ? `Bs. ${formatBs(data.deuda)}` : "No disponible";
         if (data.recordatorio) {
-          alert("✅ Solicitud enviada correctamente a la administradora via Email.");
+          alert("✅ Solicitud enviada correctamente a la administradora via Email.\n\nEl sistema ha registrado la solicitud. La deuda se actualizará cuando la administradora responda.");
         } else {
-          alert(`✅ Consulta exitosa.\nDeuda detectada: ${montoStr}`);
+          alert(`✅ Consulta exitosa.\n\nDeuda detectada: ${montoStr}\n\nLos datos han sido actualizados en el tablero.`);
         }
-        console.log("Consulta de servicio completada:", data);
       } else {
-        const err = await res.json();
-        alert(`Error: ${err.error || "No se pudo realizar la consulta"}`);
+        console.error(`[SP] Error en API:`, data.error);
+        alert(`❌ Error en la consulta: ${data.error || "No se pudo realizar la consulta"}`);
+        
+        await fetch("/api/alertas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            edificioId: building.id,
+            tipo: "error",
+            titulo: "❌ Fallo en Consulta de Servicio",
+            descripcion: `Error: ${data.error || "Error desconocido"}`,
+            severidad: "media"
+          })
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error consultando servicio:", error);
+      alert(`❌ Error de conexión: ${error.message}`);
     } finally {
       setConsultandoId(null);
     }
@@ -1180,14 +1211,17 @@ export default function DashboardPage() {
     if (!building?.id) return;
 
     const adminEmail = building.email_administradora || "adm_laideal@hotmail.com";
+    const juntaEmailsConfig = building.email_junta || "";
 
     const choice = prompt(
       "📧 ENVIAR NOTIFICACIÓN DE SERVICIO\n\n" +
       "¿A quién deseas enviar el correo?\n" +
       "1. A mí mismo (" + (user?.email || "Mi email") + ")\n" +
       "2. A la Administradora (" + adminEmail + ")\n" +
-      "3. A toda la Junta de Condominio\n\n" +
-      "Ingresa el número (1, 2 o 3):"
+      "3. A toda la Junta (Config: " + (juntaEmailsConfig || "No configurados") + ")\n" +
+      "4. Seleccionar un Miembro de Junta específico\n" +
+      "5. A un correo específico manual\n\n" +
+      "Ingresa el número (1, 2, 3, 4 o 5):"
     );
 
     if (!choice) return;
@@ -1201,12 +1235,55 @@ export default function DashboardPage() {
       targetRecipient = adminEmail;
       isForAdmin = true;
     } else if (choice === '3') {
-      targetRecipient = ""; // La API usará los correos de la junta
+      if (!juntaEmailsConfig) {
+        alert("No hay correos de la junta configurados en la sección de reportes.");
+        return;
+      }
+      targetRecipient = juntaEmailsConfig;
+    } else if (choice === '4') {
+      // Fetch junta members
+      try {
+        const resJunta = await fetch(`/api/junta?edificioId=${building.id}`);
+        const dataJunta = await resJunta.json();
+        const miembros = dataJunta.miembros || [];
+        
+        if (miembros.length === 0) {
+          alert("No se encontraron miembros registrados en la pestaña de Junta.");
+          return;
+        }
+
+        let menu = "Selecciona el miembro:\n";
+        miembros.forEach((m: any, i: number) => {
+          menu += `${i + 1}. ${m.nombre} (${m.email})\n`;
+        });
+        
+        const mChoice = prompt(menu + "\nIngresa el número:");
+        const idx = parseInt(mChoice || "0") - 1;
+        
+        if (miembros[idx]) {
+          targetRecipient = miembros[idx].email;
+        } else {
+          alert("Selección no válida");
+          return;
+        }
+      } catch (e) {
+        alert("Error al cargar miembros de la junta");
+        return;
+      }
+    } else if (choice === '5') {
+      const customEmail = prompt("Ingresa el correo electrónico destino:");
+      if (!customEmail || !customEmail.includes("@")) {
+        alert("Email no válido");
+        return;
+      }
+      targetRecipient = customEmail;
     } else {
       alert("Opción no válida");
       return;
     }
+
     try {
+      console.log(`[SP] Enviando email de servicio a: ${targetRecipient || 'Junta'}...`);
       const res = await fetch(`/api/email`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1227,13 +1304,24 @@ export default function DashboardPage() {
 
       if (res.ok) {
         alert("✅ Email enviado con éxito");
+        await fetch("/api/alertas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            edificioId: building.id,
+            tipo: "success",
+            titulo: "📧 Email de Servicio Enviado",
+            descripcion: `Se envió una notificación de ${svc.tipo} a ${targetRecipient || 'la junta'}.`,
+            severidad: "baja"
+          })
+        });
       } else {
         const err = await res.json();
-        alert(`Error: ${err.error || "No se pudo enviar el email"}`);
+        alert(`❌ Error: ${err.error || "No se pudo enviar el email"}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error enviando email:", error);
-      alert("Error de conexión al enviar email");
+      alert("❌ Error de conexión al enviar email");
     }
   };
   const addServicioConfig = async (tipo: string, identificador: string, alias: string, diaConsulta: number) => {
@@ -5348,14 +5436,13 @@ export default function DashboardPage() {
                             <div className="flex gap-2">
                               <button 
                                 onClick={() => enviarEmailServicio(svc)}
-                                className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center gap-2"
                                 title="Enviar notificación por Email"
                               >
-                                📧
+                                📧 <span className="hidden sm:inline">Enviar Email</span>
                               </button>
                               <button 
-                                onClick={() => consultarServicio(svc.id)}
-                                disabled={consultandoId === svc.id}
+                                onClick={() => consultarServicio(svc.id)}                                disabled={consultandoId === svc.id}
                                 className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
                                   consultandoId === svc.id ? 'bg-gray-100 text-gray-400' : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200'
                                 }`}
