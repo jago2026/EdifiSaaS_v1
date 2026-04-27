@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data: edificios, error: edErr } = await supabase
       .from("edificios")
-      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, plan");
+      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, plan, ultima_sincronizacion_cron");
 
     if (edErr) throw edErr;
 
@@ -76,14 +76,12 @@ export async function GET(request: NextRequest) {
       const cronTime = edificio.cron_time || "05:00";
       const configHour = parseInt(cronTime.split(":")[0]);
 
-      // Verificar si ya corrió hoy (usando ultima_sincronizacion de edificios)
-      const { data: edFull } = await supabase.from("edificios").select("ultima_sincronizacion").eq("id", edificioId).single();
-      
+      // Verificar si ya corrió hoy (usando columna específica para el cron)
       let alreadyRunToday = false;
       let lastSyncVET = null;
       
-      if (edFull?.ultima_sincronizacion) {
-        lastSyncVET = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Caracas' }).format(new Date(edFull.ultima_sincronizacion));
+      if (edificio.ultima_sincronizacion_cron) {
+        lastSyncVET = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Caracas' }).format(new Date(edificio.ultima_sincronizacion_cron));
         alreadyRunToday = lastSyncVET === todayVET;
       }
 
@@ -104,19 +102,12 @@ export async function GET(request: NextRequest) {
 
       if (!force && !isTime && !isPastTimeAndNotRun) {
         console.log(`[CRON] [.] Saltando ${edificio.nombre} - No es el momento (Ahora: ${currentHourVET}, Config: ${configHour}, Ya corrió: ${alreadyRunToday})`);
-        
-        // Registrar alerta de verificación solo si el usuario llamó manualmente o para debug
-        if (force) {
-           await logAlerta(supabase, edificioId, "info", "⏱️ Verificación de Cron", `El cron se llamó a las ${currentFullTimeVET}. Se saltó porque su hora configurada es ${cronTime}:00 VET y ya se ejecutó hoy o no es el momento.`);
-        }
-
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `No es el momento (Ahora: ${currentHourVET}, Config: ${configHour})` });
         continue;
       }
 
       if (alreadyRunToday && !force) {
         console.log(`[CRON] [!] Saltando ${edificio.nombre} - Ya se ejecutó hoy (${lastSyncVET})`);
-        await logAlerta(supabase, edificioId, "info", "⏱️ Cron Saltado", `El cron se llamó a las ${currentFullTimeVET} pero se saltó porque ya se ejecutó hoy (${lastSyncVET}).`);
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "Ya se ejecutó hoy" });
         continue;
       }
@@ -125,8 +116,6 @@ export async function GET(request: NextRequest) {
       await logAlerta(supabase, edificioId, "info", "🚀 Ejecutando Cron", `Iniciando sincronización y envío de informe diario (${currentFullTimeVET} VET).`);
 
       try {
-        await logAlerta(supabase, edificioId, "info", "🚀 Iniciando Cron Diario", `Iniciando proceso automático de sincronización y envío de informes (${force ? 'Ejecución Forzada' : 'Ejecución Programada'}).`);
-
         // 1. Sincronización
         console.log(`[CRON] Ejecutando sync para ${edificio.nombre}`);
         await logSincronizacion(supabase, edificioId, "sync", "iniciando", 0, null, { fecha: new Date().toISOString(), mode: "cron" });
@@ -172,18 +161,22 @@ export async function GET(request: NextRequest) {
         }
 
         await logSincronizacion(supabase, edificioId, "email_diario", "completado", 0, null, { recipient: emailData.recipient });
-        await logAlerta(supabase, edificioId, "success", "✅ Cron Completado", `Sincronización exitosa (${syncMovimientos} mov.) e informe enviado a: ${emailData.recipient}`);
         
-        console.log(`[CRON] Email enviado para ${edificio.nombre} a ${emailData.recipient}`);
-
         // 3. Consulta de Servicios Públicos (Si el plan lo permite)
         if (edificio.plan !== 'Esencial') {
           console.log(`[CRON] Disparando consulta de servicios para ${edificio.nombre}`);
           await fetch(`${BASE_URL}/api/servicios-publicos/cron`, {
-            method: "GET", // Note: the SP cron is a GET
+            method: "GET",
             headers: { "Authorization": authHeader || "" }
           });
         }
+
+        // Marcar éxito en el cron para este edificio hoy
+        await supabase.from("edificios").update({
+            ultima_sincronizacion_cron: new Date().toISOString()
+        }).eq("id", edificioId);
+
+        await logAlerta(supabase, edificioId, "success", "✅ Cron Completado", `Sincronización exitosa (${syncMovimientos} mov.) e informe enviado a: ${emailData.recipient}`);
 
         resultados.push({ 
           edificio: edificio.nombre, 
