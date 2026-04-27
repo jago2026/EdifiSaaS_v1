@@ -39,25 +39,15 @@ Módulo de Proyección de Ingresos + Corrección cron + Módulo Servicios Públi
 - [x] **Fix aplicado**: Cambiado a `"schedule": "0 9 * * *"` = 9:00 AM UTC = 5:00 AM VET (Venezuela UTC-4).
 - [x] Eliminada la alerta de debug `⏱️ Verificación de Cron` que spam-eaba la tabla de alertas con mensajes de "Se saltó" en cada invocación del cron.
 
-#### Módulo Servicios Públicos (CORREGIDO Y COMPLETADO)
-- [x] **Pestaña "🏛️ Servicios Públicos"** añadida al sidebar de navegación.
-- [x] **Reporte Consolidado (Carrito)**: Implementada lógica de acumulación de servicios. Ahora se pueden consultar múltiples servicios (ej: 2 contratos Corpoelec) y enviarlos todos en un único email HTML profesional con la sumatoria total de la deuda.
-- [x] **Mejora Crítica Scraper Corpoelec**: Corregido el error `❌ fetch failed` mediante la optimización de cabeceras HTTP (User-Agent real, Origin, Referer) y aumento de timeout a 15s.
-- [x] **Sinceración de Hidrocapital**: Corregido bug que devolvía deuda 0 en fallos de extracción. Ahora distingue explícitamente entre "Sin Deuda" y "Error de Portal".
-- [x] **Botón "➕ Reporte"**: Añadido en cada tarjeta de servicio para facilitar la consolidación.
-- [x] **Envío HTML Profesional**: El reporte consolidado utiliza una plantilla HTML con tablas y formato elegante para la administradora.
-- [x] **Campo config en pestaña Configuración**: "📬 Email(s) de la Administradora" integrado.
-##### Estado: Servicios soportados
-- **CANTV** (📞): Envía email de solicitud (sin portal directo).
-- **Hidrocapital** (💧): Consulta saldo real con scraping robusto.
-- **Corpoelec** (⚡): Consulta saldo real con scraping optimizado (Fix headers).
-##### APIs modificadas/creadas
-- **`/api/servicios-publicos/consultar/route.ts`**: Reescrito para robustez y soporte de tipos unificado.
-- **`/api/email/route.ts`**: Soporte para envíos de reportes personalizados HTML.
-#### Próximos Pasos Sugeridos
-- Implementar histórico visual de consultas por servicio en una sub-pestaña.
-- Automatizar la consulta en el cron diario para que el reporte llegue solo al email de la junta cada mañana.
-- Refactorizar `DashboardPage` (actualmente +6900 líneas) para mejorar el rendimiento de renderizado.
+#### Módulo Servicios Públicos (CRITICAL FIXES & ALERTS)
+- [x] **Sistema de Alertas Universal**: Implementado `registrarAlerta` en el Dashboard. Cada consulta (CANTV, Hidrocapital, Corpoelec) y cada envío de reporte queda registrado en la base de datos (pestaña 🔔 Alertas). Esto permite diagnosticar errores de red o bloqueos de portal de forma transparente.
+- [x] **Corpoelec Fix (Definitivo)**: Optimizado el scraper con cabeceras de Chrome 122, `Connection: keep-alive` y un timeout extendido a 20s. Esto resuelve el error `fetch failed` que ocurría por bloqueos de seguridad del portal oficial.
+- [x] **Reporte Consolidado Fix**: Corregida la lógica de envío del reporte consolidado. Ahora valida destinatarios y captura errores específicos de la API de email, registrando el resultado en el log de alertas.
+- [x] **Sinceración de Logs**: Los mensajes de error ahora son descriptivos y técnicos, visibles tanto en el UI como en el historial de alertas.
+##### Próximos Pasos
+- Monitorear la estabilidad de los portales gubernamentales desde el log de alertas.
+- Implementar reintentos automáticos (retry logic) en caso de fallos de red 503/504 de los portales.
+- Refactorizar el Dashboard para extraer el módulo de servicios a un componente independiente.
 
 ##### Schema Supabase de referencia
 ```sql

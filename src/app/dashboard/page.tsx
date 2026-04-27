@@ -225,6 +225,21 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<Tab>("resumen");
   const [serviciosParaReporte, setServiciosParaReporte] = useState<any[]>([]);
   const [isSendingConsolidated, setIsSendingConsolidated] = useState(false);
+
+  // Función para registrar alertas en el sistema
+  const registrarAlerta = async (tipo: 'info' | 'error' | 'success' | 'warning' | 'debug', titulo: string, descripcion: string) => {
+    try {
+      if (!building?.id) return;
+      await supabase.from("alertas").insert({
+        edificio_id: building.id,
+        tipo,
+        titulo,
+        descripcion,
+      });
+    } catch (err) {
+      console.error("Error al registrar alerta:", err);
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [building, setBuilding] = useState<Building | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -531,27 +546,27 @@ export default function DashboardPage() {
   const consultarServicio = async (config: any) => {
     setSpConsultando(prev => ({ ...prev, [config.id]: true }));
     setSpEmailMsg(prev => ({ ...prev, [config.id]: "" }));
-    console.log(`[SP][UI] Consultando ${config.tipo} - ${config.identificador}`);
+    await registrarAlerta('info', `🔍 Consulta: ${config.tipo.toUpperCase()}`, `Iniciando consulta para ${config.identificador}`);
     try {
       const res = await fetch("/api/servicios-publicos/consultar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ configId: config.id, edificioId: building?.id }),
+        body: JSON.stringify({ configId: config.id, edificioId: building?.id, tipo: config.tipo, identificador: config.identificador }),
       });
       const data = await res.json();
-      console.log(`[SP][UI] Resultado recibido:`, data);
       setSpResultados(prev => ({ ...prev, [config.id]: data }));
       if (data.exitoso) {
-        setSpEmailMsg(prev => ({ ...prev, [config.id]: data.deuda === 0 ? "✅ Deuda: Bs. 0 (Sin deuda registrada)" : `💰 Deuda: Bs. ${data.deuda ?? data.totalPagarStr ?? "N/D"}` }));
+        setSpEmailMsg(prev => ({ ...prev, [config.id]: data.deuda === 0 ? "✅ Deuda: Bs. 0 (Sin deuda)" : `💰 Deuda: Bs. ${data.deuda ?? data.totalPagarStr ?? "N/D"}` }));
+        await registrarAlerta('success', `✅ Consulta Exitosa: ${config.tipo.toUpperCase()}`, `Deuda: Bs. ${data.deuda} (${config.identificador})`);
       } else {
         setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ ${data.error || "Error al consultar"}` }));
+        await registrarAlerta('error', `❌ Error Consulta: ${config.tipo.toUpperCase()}`, `Portal: ${data.error || 'Error desconocido'} (${config.identificador})`);
       }
-      // Reload configs to get updated ultima_consulta and ultimo_monto
       loadSpConfigs();
     } catch (e: any) {
-      console.error(`[SP][UI] Error consultando:`, e);
       setSpResultados(prev => ({ ...prev, [config.id]: { exitoso: false, error: e.message } }));
       setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ Error: ${e.message}` }));
+      await registrarAlerta('error', `❌ Fallo Conexión: ${config.tipo.toUpperCase()}`, `Error de red: ${e.message}`);
     } finally {
       setSpConsultando(prev => ({ ...prev, [config.id]: false }));
     }
@@ -561,7 +576,6 @@ export default function DashboardPage() {
     setSpEnviandoEmail(prev => ({ ...prev, [config.id]: true }));
     setSpEmailMsg(prev => ({ ...prev, [config.id]: "Enviando..." }));
     const resultado = spResultados[config.id];
-    console.log(`[SP][UI] Enviando email ${config.tipo} -> ${destinatario}`);
     try {
       const res = await fetch("/api/email", {
         method: "POST",
@@ -581,13 +595,15 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        console.log(`[SP][UI] ✅ Email enviado:`, data.recipient);
         setSpEmailMsg(prev => ({ ...prev, [config.id]: `✅ Email enviado a: ${data.recipient}` }));
+        await registrarAlerta('success', '📧 Email Enviado', `Reporte de ${config.tipo} enviado a ${data.recipient}`);
       } else {
         setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ ${data.error}` }));
+        await registrarAlerta('error', '❌ Fallo Email', `Error al enviar ${config.tipo}: ${data.error}`);
       }
     } catch (e: any) {
       setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ Error: ${e.message}` }));
+      await registrarAlerta('error', '❌ Error de Red Email', `Error: ${e.message}`);
     } finally {
       setSpEnviandoEmail(prev => ({ ...prev, [config.id]: false }));
     }
@@ -6328,6 +6344,12 @@ export default function DashboardPage() {
                             </div>
                           `;
 
+                          const recipient = editConfig.email_administradora || building?.email_administradora;
+                          
+                          if (!recipient) {
+                            throw new Error("No hay email de administradora configurado en la pestaña Configuración.");
+                          }
+
                           const res = await fetch("/api/email", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -6335,18 +6357,21 @@ export default function DashboardPage() {
                               action: "custom_support",
                               subject: `📊 Reporte Consolidado de Servicios - ${building?.nombre}`,
                               customBody: bodyHtml,
-                              overrideRecipient: editConfig.email_administradora || building?.email_administradora
+                              overrideRecipient: recipient
                             })
                           });
 
                           if (res.ok) {
                             alert("✅ Reporte consolidado enviado con éxito a la administradora.");
+                            await registrarAlerta('success', '📧 Reporte Consolidado Enviado', `Se envió el resumen de ${serviciosParaReporte.length} servicios a: ${recipient}`);
                             setServiciosParaReporte([]);
                           } else {
-                            throw new Error("Error al enviar el email");
+                            const errorData = await res.json();
+                            throw new Error(errorData.error || "Error al enviar el email");
                           }
                         } catch (err: any) {
                           alert("❌ Error: " + err.message);
+                          await registrarAlerta('error', '❌ Fallo Envío de Reporte', `Error: ${err.message}`);
                         } finally {
                           setIsSendingConsolidated(false);
                         }
