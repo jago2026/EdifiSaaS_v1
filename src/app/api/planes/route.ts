@@ -30,6 +30,7 @@ export async function GET() {
     ],
     "Premium": [
       "Todo Automático e Ilimitado",
+      "Proyección de Ingresos Diaria",
       "Historial Procesamiento: 1 Año",
       "Exportación Histórica Completa",
       "Auditoría Financiera Digital",
@@ -38,6 +39,7 @@ export async function GET() {
     ],
     "Inteligencia Artificial": [
       "Todo lo del Plan Premium + Inteligencia IA",
+      "Predicción de Cobranza Predictiva",
       "Historial Procesamiento: Ilimitado",
       "Asistente Virtual con IA 24/7",
       "Análisis Predictivo de Gastos",

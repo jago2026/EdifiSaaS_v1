@@ -87,6 +87,7 @@ export default function Home() {
         ], is_popular: true, show_contact: false, badge_text: "Más popular", display_order: 1 },
         { name: "Premium", price_monthly: 59, price_yearly: 590, features: [
           "Todo Automático e Ilimitado",
+          "Proyección de Ingresos Diaria (Predictivo)",
           "Historial para Procesamiento: 1 Año",
           "Auditoría Financiera y Presupuestos",
           "Personalización de Marca (Branding)",
@@ -95,6 +96,7 @@ export default function Home() {
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
         { name: "Inteligencia Artificial", price_monthly: 79, price_yearly: 790, features: [
           "Todo lo del Plan Premium",
+          "Predicción de Cobranza Avanzada (IA)",
           "Asistente Virtual con IA 24/7",
           "Análisis Predictivo de Gastos",
           "Análisis de Morosidad con IA",
@@ -576,6 +578,14 @@ export default function Home() {
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                   <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
                 </tr>
+                <tr className="hover:bg-indigo-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-indigo-700 italic">Proyección de Ingresos (Predictivo)</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center text-green-500 font-bold text-xl">✅</td>
+                  <td className="py-6 px-6 text-center text-purple-500 font-bold text-xl font-black">INTELIGENTE</td>
+                </tr>
+
                 <tr className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-6 px-6 font-bold text-gray-700 italic text-purple-700">IA, Análisis Predictivo y Asistente</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
