@@ -304,49 +304,70 @@ export async function POST(request: Request) {
     }
 
     if (action === "public_service_notification") {
-      const { serviceType, identificador, alias, monto, recibos, details } = body;
+      const { serviceType, identificador, alias, monto, recibos, details, isForAdmin } = body;
       const serviceName = serviceType.toUpperCase();
       const idLabel = serviceType === 'cantv' ? 'N° Telefónico' : (serviceType === 'hidrocapital' ? 'NIC' : 'NIC / NCC');
 
-      // Configurar destinatarios (misma lógica que pre-recibo)
-      let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
-      if (recipients.length === 0) {
+      // Configurar destinatarios
+      let recipients = recipient ? [recipient] : (edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : []);
+      if (recipients.length === 0 && !recipient) {
         const { data: miembros } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
         if (miembros) recipients = miembros.map(m => m.email);
       }
 
-      if (recipients.length === 0) return NextResponse.json({ error: "No hay destinatarios" }, { status: 400 });
+      if (recipients.length === 0) return NextResponse.json({ error: "No hay destinatarios configurados" }, { status: 400 });
 
-      await transporter.sendMail({
-        from: `"EdifiSaaS - Servicios Públicos" <${SMTP_USER}>`,
-        to: recipients,
-        subject: `Notificación de Deuda - ${serviceName} - ${alias || identificador}`,
-        html: `
+      const subject = isForAdmin 
+        ? `Solicitud de Pago / Información ${serviceName} - ${edificio.nombre}`
+        : `Notificación de Deuda - ${serviceName} - ${alias || identificador}`;
+
+      const html = isForAdmin ? `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; padding: 24px; color: #444;">
+            <p>Buen día, representantes de Administradora La Ideal,</p>
+            <p>En nombre de la Junta de Condominio de <strong>${edificio.nombre}</strong>, solicitamos información y/o gestión de pago del servicio <strong>${serviceName}</strong>:</p>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #ddd;">
+              <p style="margin: 5px 0;"><strong>Servicio:</strong> ${serviceName}</p>
+              <p style="margin: 5px 0;"><strong>${idLabel}:</strong> ${identificador}</p>
+              ${alias ? `<p style="margin: 5px 0;"><strong>Alias:</strong> ${alias}</p>` : ''}
+              <p style="margin: 5px 0;"><strong>Última Deuda Detectada:</strong> Bs. ${formatNumber(monto || 0)}</p>
+            </div>
+            <p>Agradecemos nos confirmen si el pago ya fue realizado o si requieren que se gestione el mismo.</p>
+            <p>Saludos cordiales.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin-top: 30px;" />
+            <p style="font-size: 10px; color: #999;">Enviado desde EdifiSaaS por la Junta de Condominio</p>
+          </div>
+      ` : `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 12px; overflow: hidden;">
             <div style="background: #1a237e; color: white; padding: 20px; text-align: center;">
               <h2 style="margin: 0; text-transform: uppercase;">Consulta de Servicio: ${serviceName}</h2>
             </div>
             <div style="padding: 24px; color: #444; line-height: 1.6;">
-              <p>Se ha realizado una consulta automática del servicio para <strong>${edificio.nombre}</strong>.</p>
+              <p>Se ha realizado una consulta del servicio para <strong>${edificio.nombre}</strong>.</p>
               
               <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef; margin: 20px 0;">
                 <p style="margin: 5px 0;"><strong>Servicio:</strong> ${serviceName}</p>
                 <p style="margin: 5px 0;"><strong>${idLabel}:</strong> ${identificador}</p>
                 ${alias ? `<p style="margin: 5px 0;"><strong>Alias:</strong> ${alias}</p>` : ''}
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;" />
-                <p style="margin: 5px 0; font-size: 18px;"><strong>Monto adeudado:</strong> <span style="color: #c62828;">Bs. ${formatNumber(monto)}</span></p>
+                <p style="margin: 5px 0; font-size: 18px;"><strong>Monto adeudado:</strong> <span style="color: #c62828;">Bs. ${formatNumber(monto || 0)}</span></p>
                 ${recibos ? `<p style="margin: 5px 0;"><strong>Recibos pendientes:</strong> ${recibos}</p>` : ''}
               </div>
 
-              ${details.titular ? `<p style="font-size: 12px; color: #666;"><strong>Titular:</strong> ${details.titular}</p>` : ''}
+              ${details?.titular ? `<p style="font-size: 12px; color: #666;"><strong>Titular:</strong> ${details.titular}</p>` : ''}
               
-              <p style="font-size: 13px; color: #666; margin-top: 30px;">Esta información es obtenida directamente de los portales oficiales de cada proveedor de servicio.</p>
+              <p style="font-size: 13px; color: #666; margin-top: 30px;">Esta información es obtenida directamente de los portales oficiales de cada proveedor de servicio o reportada por la administración.</p>
             </div>
             <div style="background: #f8f9fa; padding: 15px; text-align: center; font-size: 11px; color: #999;">
               EdifiSaaS v1 - El Espejo Inteligente de tu Condominio
             </div>
           </div>
-        `
+        `;
+
+      await transporter.sendMail({
+        from: `"EdifiSaaS - Servicios Públicos" <${SMTP_USER}>`,
+        to: recipients,
+        subject,
+        html,
       });
       return NextResponse.json({ success: true, message: "Notificación de servicio enviada" });
     }

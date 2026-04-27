@@ -61,11 +61,14 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso para ${edificios?.length || 0} edificios. BASE_URL: ${BASE_URL}`);
 
-    // Obtener hora actual en Venezuela
-    const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
-    const currentHourVET = nowVET.getHours();
-    const currentFullTimeVET = nowVET.toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
-    const todayVET = nowVET.toISOString().split("T")[0];
+    // Obtener hora actual en Venezuela (VET)
+    const now = new Date();
+    const todayVET = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Caracas' }).format(now);
+    const timeVET = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
+    const currentHourVET = parseInt(timeVET.split(':')[0]);
+    const currentFullTimeVET = `${timeVET} VET`;
+
+    console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso. Ahora: ${currentFullTimeVET}, Fecha: ${todayVET}`);
 
     for (const edificio of edificios) {
       const edificioId = edificio.id;
@@ -74,10 +77,16 @@ export async function GET(request: NextRequest) {
 
       // Verificar si ya corrió hoy (usando ultima_sincronizacion de edificios)
       const { data: edFull } = await supabase.from("edificios").select("ultima_sincronizacion").eq("id", edificioId).single();
-      const lastSync = edFull?.ultima_sincronizacion ? new Date(new Date(edFull.ultima_sincronizacion).toLocaleString("en-US", { timeZone: "America/Caracas" })).toISOString().split("T")[0] : null;
-      const alreadyRunToday = lastSync === todayVET;
+      
+      let alreadyRunToday = false;
+      let lastSyncVET = null;
+      
+      if (edFull?.ultima_sincronizacion) {
+        lastSyncVET = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Caracas' }).format(new Date(edFull.ultima_sincronizacion));
+        alreadyRunToday = lastSyncVET === todayVET;
+      }
 
-      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${currentFullTimeVET} VET | Ya corrió hoy: ${alreadyRunToday}`);
+      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${timeVET} VET | Ya corrió: ${alreadyRunToday} (${lastSyncVET})`);
 
       if (!edificio.cron_enabled) {
         console.log(`[CRON] [!] Saltando ${edificio.nombre} - Cron DESACTIVADO en config`);

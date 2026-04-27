@@ -1143,8 +1143,17 @@ export default function DashboardPage() {
         body: JSON.stringify({ configId, edificioId: building.id })
       });
       if (res.ok) {
+        const data = await res.json();
         // Recargar para ver el nuevo monto y fecha
         await loadServiciosConfigs();
+
+        const montoStr = data.deuda !== undefined ? `Bs. ${formatBs(data.deuda)}` : "No disponible";
+        if (data.recordatorio) {
+          alert("✅ Solicitud enviada correctamente a la administradora via Email.");
+        } else {
+          alert(`✅ Consulta exitosa.\nDeuda detectada: ${montoStr}`);
+        }
+        console.log("Consulta de servicio completada:", data);
       } else {
         const err = await res.json();
         alert(`Error: ${err.error || "No se pudo realizar la consulta"}`);
@@ -1156,6 +1165,65 @@ export default function DashboardPage() {
     }
   };
 
+  const enviarEmailServicio = async (svc: any) => {
+    if (!building?.id) return;
+
+    const choice = prompt(
+      "📧 ENVIAR NOTIFICACIÓN DE SERVICIO\n\n" +
+      "¿A quién deseas enviar el correo?\n" +
+      "1. A mí mismo (" + (user?.email || "Mi email") + ")\n" +
+      "2. A la Administradora (adm_laideal@hotmail.com)\n" +
+      "3. A toda la Junta de Condominio\n\n" +
+      "Ingresa el número (1, 2 o 3):"
+    );
+
+    if (!choice) return;
+
+    let targetRecipient = "";
+    let isForAdmin = false;
+
+    if (choice === '1') {
+      targetRecipient = user?.email || "";
+    } else if (choice === '2') {
+      targetRecipient = "adm_laideal@hotmail.com";
+      isForAdmin = true;
+    } else if (choice === '3') {
+      targetRecipient = ""; // La API usará los correos de la junta
+    } else {
+      alert("Opción no válida");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "public_service_notification",
+          edificioId: building.id,
+          recipient: targetRecipient,
+          isForAdmin,
+          serviceType: svc.tipo,
+          identificador: svc.identificador,
+          alias: svc.alias,
+          monto: svc.ultimo_monto,
+          details: {
+            ultimaConsulta: svc.ultima_consulta
+          }
+        })
+      });
+
+      if (res.ok) {
+        alert("✅ Email enviado con éxito");
+      } else {
+        const err = await res.json();
+        alert(`Error: ${err.error || "No se pudo enviar el email"}`);
+      }
+    } catch (error) {
+      console.error("Error enviando email:", error);
+      alert("Error de conexión al enviar email");
+    }
+  };
   const addServicioConfig = async (tipo: string, identificador: string, alias: string, diaConsulta: number) => {
     if (!building?.id) return;
     try {
@@ -5247,7 +5315,7 @@ export default function DashboardPage() {
                             <div>
                               <div className="text-[10px] font-black text-gray-400 uppercase mb-1">Deuda Actual</div>
                               <div className={`text-2xl font-black ${svc.ultimo_monto > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                {svc.tipo === 'cantv' ? 'Ver Email' : `Bs. ${formatBs(svc.ultimo_monto || 0)}`}
+                                {`Bs. ${formatBs(svc.ultimo_monto || 0)}`}
                               </div>
                             </div>
                             <div className="text-right">
@@ -5256,20 +5324,30 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          <div className="pt-4 border-t border-gray-50 flex items-center justify-between">
+                          <div className="pt-4 border-t border-gray-50 flex items-center justify-between gap-2">
                             <div className="text-[9px] text-gray-400 font-medium">
                               Última consulta: <br/>
                               <span className="font-bold">{svc.ultima_consulta ? new Date(svc.ultima_consulta).toLocaleString() : 'Nunca'}</span>
                             </div>
-                            <button 
-                              onClick={() => consultarServicio(svc.id)}
-                              disabled={consultandoId === svc.id}
-                              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                                consultandoId === svc.id ? 'bg-gray-100 text-gray-400' : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200'
-                              }`}
-                            >
-                              {consultandoId === svc.id ? '⌛ ...' : 'Consultar'}
-                            </button>
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => enviarEmailServicio(svc)}
+                                className="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                title="Enviar notificación por Email"
+                              >
+                                📧
+                              </button>
+                              <button 
+                                onClick={() => consultarServicio(svc.id)}
+                                disabled={consultandoId === svc.id}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                  consultandoId === svc.id ? 'bg-gray-100 text-gray-400' : 'bg-gray-900 text-white hover:bg-black shadow-lg shadow-gray-200'
+                                }`}
+                              >
+                                {consultandoId === svc.id ? '⌛ ...' : 'Consultar'}
+                              </button>
+                            </div>
+                          </div>
                           </div>
                         </div>
                       </div>

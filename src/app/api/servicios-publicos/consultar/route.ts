@@ -145,13 +145,18 @@ export async function POST(request: Request) {
     let result: any = { exitoso: false };
 
     if (config.tipo === 'hidrocapital') {
+      console.log(`[SP] Consultando Hidrocapital para NIC: ${config.identificador}`);
       result = await consultarHidrocapital(config.identificador);
     } else if (config.tipo === 'corpoelec') {
+      console.log(`[SP] Consultando Corpoelec para NIC/NCC: ${config.identificador}`);
       result = await consultarCorpoelec(config.identificador);
     } else if (config.tipo === 'cantv') {
+      console.log(`[SP] Enviando solicitud CANTV para línea: ${config.identificador}`);
       const sent = await enviarEmailCANTV(config.edificios?.nombre || "Edificio", config.identificador);
       result = { exitoso: sent, recordatorio: true, deuda: 0, msg: "Solicitud enviada a la administradora" };
     }
+
+    console.log(`[SP] Resultado consulta ${config.tipo}:`, result);
 
     // Save result to history
     const { error: insertError } = await supabase

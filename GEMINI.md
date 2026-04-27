@@ -45,23 +45,27 @@ Desarrollar un módulo de Proyección de Ingresos Diaria hasta fin de mes basado
 - **Cálculo Monetario**: Se utiliza el "Promedio por Recibo" actual para convertir las probabilidades de cobro en montos financieros (Bs/USD).
 - **Refuerzo de Plan**: Se asignó esta funcionalidad como parte de los planes Premium e IA para incentivar el upgrade.
 
-### Fecha: 27 de Abril, 2026 (Segunda Intervención)
+### Fecha: 27 de Abril, 2026 (Tercera Intervención)
 
 ### Objetivo
-Restaurar opciones de configuración eliminadas erróneamente, implementar la interfaz de Servicios Públicos y mejorar la resiliencia del cron job.
+Corregir la ejecución del cron job, mejorar la UI de servicios públicos, aumentar el feedback de usuario y añadir funcionalidad de envío de emails de servicios.
 
 ### Tareas Realizadas
-- [x] **Restauración de Configuración**: Re-implementada la interfaz completa de Configuración en el Dashboard, incluyendo credenciales de administradora, selector de empresas, URLs personalizadas, y ajustes de cron.
-- [x] **Módulo de Servicios Públicos (UI)**: Implementada la pestaña "🚰 Servicios Públicos" con tarjetas de resumen para cada servicio (CANTV, Hidrocapital, Corpoelec), montos de deuda y botones de consulta manual.
-- [x] **Gestión de Servicios**: Añadida sección en Configuración para agregar/eliminar servicios con límites por plan (2 CANTV, 2 Hidrocapital, 3 Corpoelec) y terminología correcta (NIC, Línea, Contrato).
-- [x] **Mejora de Scrapers (`/api/servicios-publicos/consultar`)**: Actualizada la lógica de extracción para Hidrocapital y Corpoelec (v2.0) usando Regex más robustos y manejo de errores mejorado.
-- [x] **Integración CANTV**: Implementada lógica de solicitud de confirmación por email para servicios CANTV hacia la administradora.
-- [x] **Optimización de Cron (`/api/cron`)**:
-    - Añadida llamada automática al cron de servicios públicos.
-    - Implementada **Lógica Flexible de Horario**: Ahora el cron permite ejecución si la hora actual es superior a la configurada y aún no se ha realizado la sincronización del día (soluciona el problema de saltos por triggers externos tardíos).
-- [x] **Actualización de Memoria**: Documentados los cambios para mantener la coherencia del proyecto.
+- [x] **Corrección de Cron Job**:
+    - Actualizado `vercel.json` para ejecutar el cron cada hora (`0 * * * *`) asegurando que se capture la ventana de ejecución de las 5:00 AM VET.
+    - Mejorada la detección de tiempo VET en `src/app/api/cron/route.ts` usando `Intl.DateTimeFormat` para mayor precisión y comparaciones de fecha robustas.
+    - Añadidos logs de depuración mejorados para trazabilidad de ejecuciones saltadas o exitosas.
+- [x] **Mejora UI Servicios Públicos**:
+    - Corregido texto en sección CANTV: Cambiado "Ver Email" por el monto de la deuda actual, manteniendo consistencia con Hidrocapital y Corpoelec.
+- [x] **Feedback de Usuario en Consultas**:
+    - Implementadas alertas (`alert()`) y logs de consola al finalizar las consultas manuales de servicios públicos para informar al usuario sobre el resultado (éxito/deuda/error).
+    - Añadidos logs en el backend (`/api/servicios-publicos/consultar`) para monitorear el proceso de scraping.
+- [x] **Nueva Funcionalidad: Enviar Email de Servicio**:
+    - Añadido botón "📧" en cada tarjeta de servicio público.
+    - Implementada lógica de selección de destinatario: El usuario puede elegir enviar la notificación a sí mismo, a la administradora (con cuerpo de mensaje especializado) o a toda la junta de condominio.
+    - Actualizada la API de Email (`/api/email`) para soportar destinatarios personalizados y plantillas específicas para administradoras.
 
 ### Resumen de Cambios Técnicos
-- **Frontend**: Uso de estados locales (`newSvc`) para gestión de formularios de servicios y funciones asíncronas para CRUD de configuraciones.
-- **Backend**: Mejora en los headers de fetch para scrapers (User-Agent) y lógica de validación de planes Profesional+.
-- **Cron**: El sistema ahora detecta `ultima_sincronizacion` para decidir si debe ejecutar la tarea diaria incluso si el trigger llega fuera del minuto exacto configurado.
+- **Cron**: Cambio de trigger diario a horario para mayor fiabilidad frente a variaciones de Vercel.
+- **UI/UX**: Mejora en la visibilidad de datos y confirmación de acciones asíncronas.
+- **Email**: Extensión de la lógica de notificaciones para permitir comunicación directa con la administradora desde el módulo de servicios.
