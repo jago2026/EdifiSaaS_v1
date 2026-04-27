@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ManualUsuario } from "./ManualUsuario";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos";
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
@@ -136,6 +136,7 @@ interface Building {
   url_alicuotas?: string;
   dashboard_config?: any;
   alert_thresholds?: any;
+  email_administradora?: string | null;
 }
 
 interface Movement {
@@ -332,6 +333,17 @@ export default function DashboardPage() {
   const [loadingPlanesAdmin, setLoadingPlanesAdmin] = useState(false);
   const [savingPlanesAdmin, setSavingPlanesAdmin] = useState(false);
 
+  // ── Servicios Públicos ────────────────────────────────────────────────────
+  const [spConfigs, setSpConfigs] = useState<any[]>([]);
+  const [loadingSpConfigs, setLoadingSpConfigs] = useState(false);
+  const [spConsultando, setSpConsultando] = useState<Record<string, boolean>>({});
+  const [spResultados, setSpResultados] = useState<Record<string, any>>({});
+  const [spEnviandoEmail, setSpEnviandoEmail] = useState<Record<string, boolean>>({});
+  const [spEmailMsg, setSpEmailMsg] = useState<Record<string, string>>({});
+  const [showSpForm, setShowSpForm] = useState(false);
+  const [spForm, setSpForm] = useState({ tipo: "cantv", identificador: "", alias: "", diaConsulta: 7 });
+  const [savingSpConfig, setSavingSpConfig] = useState(false);
+
   const hasFeature = (feature: string) => {
     const plan = building?.plan || "Esencial";
     if (feature === "export") return ["Profesional", "Premium", "IA"].includes(plan);
@@ -496,6 +508,132 @@ export default function DashboardPage() {
   useEffect(() => {
     if (activeTab === "configuracion" && building?.id) {
       loadDataSummary();
+    }
+  }, [activeTab, building?.id]);
+
+  // ── Servicios Públicos ────────────────────────────────────────────────────
+  const loadSpConfigs = async () => {
+    if (!building?.id) return;
+    setLoadingSpConfigs(true);
+    try {
+      const res = await fetch(`/api/servicios-publicos/config?edificioId=${building.id}`);
+      const data = await res.json();
+      if (res.ok) setSpConfigs(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("[SP] Error cargando configs:", e);
+    } finally {
+      setLoadingSpConfigs(false);
+    }
+  };
+
+  const consultarServicio = async (config: any) => {
+    setSpConsultando(prev => ({ ...prev, [config.id]: true }));
+    setSpEmailMsg(prev => ({ ...prev, [config.id]: "" }));
+    console.log(`[SP][UI] Consultando ${config.tipo} - ${config.identificador}`);
+    try {
+      const res = await fetch("/api/servicios-publicos/consultar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ configId: config.id, edificioId: building?.id }),
+      });
+      const data = await res.json();
+      console.log(`[SP][UI] Resultado recibido:`, data);
+      setSpResultados(prev => ({ ...prev, [config.id]: data }));
+      if (data.exitoso) {
+        setSpEmailMsg(prev => ({ ...prev, [config.id]: data.deuda === 0 ? "✅ Deuda: Bs. 0 (Sin deuda registrada)" : `💰 Deuda: Bs. ${data.deuda ?? data.totalPagarStr ?? "N/D"}` }));
+      } else {
+        setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ ${data.error || "Error al consultar"}` }));
+      }
+      // Reload configs to get updated ultima_consulta and ultimo_monto
+      loadSpConfigs();
+    } catch (e: any) {
+      console.error(`[SP][UI] Error consultando:`, e);
+      setSpResultados(prev => ({ ...prev, [config.id]: { exitoso: false, error: e.message } }));
+      setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ Error: ${e.message}` }));
+    } finally {
+      setSpConsultando(prev => ({ ...prev, [config.id]: false }));
+    }
+  };
+
+  const enviarEmailServicio = async (config: any, destinatario: string) => {
+    setSpEnviandoEmail(prev => ({ ...prev, [config.id]: true }));
+    setSpEmailMsg(prev => ({ ...prev, [config.id]: "Enviando..." }));
+    const resultado = spResultados[config.id];
+    console.log(`[SP][UI] Enviando email ${config.tipo} -> ${destinatario}`);
+    try {
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "servicios_publicos_email",
+          edificioId: building?.id,
+          tipoServicio: config.tipo,
+          identificador: config.identificador,
+          alias: config.alias,
+          resultadoConsulta: resultado,
+          destinatario,
+          emailAdministradora: editConfig.email_administradora,
+          nombreEdificio: building?.nombre,
+          recipient: user?.email,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        console.log(`[SP][UI] ✅ Email enviado:`, data.recipient);
+        setSpEmailMsg(prev => ({ ...prev, [config.id]: `✅ Email enviado a: ${data.recipient}` }));
+      } else {
+        setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ ${data.error}` }));
+      }
+    } catch (e: any) {
+      setSpEmailMsg(prev => ({ ...prev, [config.id]: `❌ Error: ${e.message}` }));
+    } finally {
+      setSpEnviandoEmail(prev => ({ ...prev, [config.id]: false }));
+    }
+  };
+
+  const agregarSpConfig = async () => {
+    if (!building?.id || !spForm.identificador.trim()) return;
+    setSavingSpConfig(true);
+    try {
+      const res = await fetch("/api/servicios-publicos/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          edificioId: building.id,
+          tipo: spForm.tipo,
+          identificador: spForm.identificador.trim(),
+          alias: spForm.alias.trim(),
+          diaConsulta: spForm.diaConsulta,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSpForm({ tipo: "cantv", identificador: "", alias: "", diaConsulta: 7 });
+        setShowSpForm(false);
+        loadSpConfigs();
+      } else {
+        alert("Error: " + data.error);
+      }
+    } catch (e: any) {
+      alert("Error: " + e.message);
+    } finally {
+      setSavingSpConfig(false);
+    }
+  };
+
+  const eliminarSpConfig = async (id: string) => {
+    if (!confirm("¿Eliminar este servicio?")) return;
+    try {
+      await fetch(`/api/servicios-publicos/config?id=${id}`, { method: "DELETE" });
+      loadSpConfigs();
+    } catch (e) {
+      console.error("[SP] Error eliminando config:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "servicios-publicos" && building?.id) {
+      loadSpConfigs();
     }
   }, [activeTab, building?.id]);
 
@@ -693,7 +831,8 @@ export default function DashboardPage() {
     url_alicuotas: "",
     unidades: 0,
     dashboard_config: { cf: true, mo: true, cg: true, usd: true, br: true, hs: true },
-    alert_thresholds: { saldo_bajo: 500, variacion_gastos: 15, whatsapp_enabled: true }
+    alert_thresholds: { saldo_bajo: 500, variacion_gastos: 15, whatsapp_enabled: true },
+    email_administradora: ""
   });
 
   useEffect(() => {
@@ -721,7 +860,8 @@ export default function DashboardPage() {
         sync_balance: building.sync_balance !== false,
         unidades: building.unidades || 0,
         dashboard_config: building.dashboard_config || { cf: true, mo: true, cg: true, usd: true, br: true, hs: true },
-        alert_thresholds: building.alert_thresholds || { saldo_bajo: 500, variacion_gastos: 15, whatsapp_enabled: true }
+        alert_thresholds: building.alert_thresholds || { saldo_bajo: 500, variacion_gastos: 15, whatsapp_enabled: true },
+        email_administradora: building.email_administradora || ""
         }));    }
   }, [building]);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -1993,6 +2133,9 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <button onClick={() => setActiveTab("informes")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'informes' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📅</span> Generar Informes
+              </button>
+              <button onClick={() => setActiveTab("servicios-publicos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'servicios-publicos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">🏛️</span> Servicios Públicos
               </button>
               <button onClick={() => setActiveTab("junta")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'junta' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">🛡️</span> Junta y Permisos
@@ -5846,6 +5989,20 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
+                <div className="border-t pt-4">
+                  <h3 className="text-sm font-bold text-gray-900 mb-1 uppercase tracking-wider">📬 Email(s) de la Administradora</h3>
+                  <p className="text-[10px] text-gray-400 mb-2 italic">Usado para enviar notificaciones de servicios públicos directamente a la administradora.</p>
+                  <input
+                    type="text"
+                    value={editConfig.email_administradora}
+                    disabled={!user?.isAdmin}
+                    onChange={(e) => setEditConfig({ ...editConfig, email_administradora: e.target.value })}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
+                    placeholder="administradora@ejemplo.com, otro@ejemplo.com"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">SOPORTA MÚLTIPLES CORREOS SEPARADOS POR COMA (,)</p>
+                </div>
+
                 {emailMessage && (
                   <div className={`mb-4 p-3 rounded-lg text-xs font-bold ${emailMessage.includes('✅') ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-100 text-red-700 border border-red-200'}`}>
                     {emailMessage}
@@ -6112,9 +6269,386 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* ══ SERVICIOS PÚBLICOS ══════════════════════════════════════════════ */}
+        {activeTab === "servicios-publicos" && building && (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-700 text-white p-6 rounded-xl shadow-lg">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight flex items-center gap-2">🏛️ Servicios Públicos</h2>
+                  <p className="text-blue-200 text-xs mt-1 font-bold uppercase tracking-wider">Consulta de saldos y gestión de CANTV · Hidrocapital · Corpoelec</p>
+                </div>
+                {user?.isAdmin && (
+                  <button
+                    onClick={() => setShowSpForm(!showSpForm)}
+                    className="px-4 py-2 bg-white text-blue-700 rounded-xl font-black text-xs uppercase tracking-wider hover:bg-blue-50 transition-colors shadow"
+                  >
+                    {showSpForm ? "✕ Cancelar" : "+ Agregar Servicio"}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Formulario agregar servicio */}
+            {showSpForm && user?.isAdmin && (
+              <div className="bg-white p-6 rounded-xl shadow-sm border-2 border-blue-200">
+                <h3 className="text-sm font-black text-gray-800 mb-4 uppercase tracking-wider">Agregar Nuevo Servicio</h3>
+                <div className="grid md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Tipo de Servicio</label>
+                    <select
+                      value={spForm.tipo}
+                      onChange={(e) => setSpForm({ ...spForm, tipo: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="cantv">📞 CANTV (Teléfono)</option>
+                      <option value="hidrocapital">💧 Hidrocapital (Agua)</option>
+                      <option value="corpoelec">⚡ Corpoelec (Electricidad)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                      {spForm.tipo === "cantv" ? "N° de Línea" : spForm.tipo === "hidrocapital" ? "N° de Contrato (NIC)" : "N° de Cuenta Contrato (NCC)"}
+                    </label>
+                    <input
+                      type="text"
+                      value={spForm.identificador}
+                      onChange={(e) => setSpForm({ ...spForm, identificador: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder={spForm.tipo === "cantv" ? "(0212)-731-XXXX" : spForm.tipo === "hidrocapital" ? "1013084" : "1000008177XXX"}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Alias / Descripción</label>
+                    <input
+                      type="text"
+                      value={spForm.alias}
+                      onChange={(e) => setSpForm({ ...spForm, alias: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      placeholder="Ej: Portería, Torre A..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Día del Mes para Consulta</label>
+                    <input
+                      type="number"
+                      min={1} max={28}
+                      value={spForm.diaConsulta}
+                      onChange={(e) => setSpForm({ ...spForm, diaConsulta: parseInt(e.target.value) || 7 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={agregarSpConfig}
+                    disabled={savingSpConfig || !spForm.identificador.trim()}
+                    className="px-5 py-2 bg-blue-600 text-white rounded-lg font-black text-xs uppercase hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {savingSpConfig ? "Guardando..." : "Guardar Servicio"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Info sobre limites */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+              <p className="text-[10px] text-amber-800 font-bold uppercase tracking-wider">
+                ℹ️ Límites por plan Profesional+: hasta 2 líneas CANTV · hasta 2 contratos Hidrocapital · hasta 3 cuentas Corpoelec. Configure el email de la administradora en la pestaña Configuración para enviarle notificaciones directas.
+              </p>
+            </div>
+
+            {/* Lista de servicios */}
+            {loadingSpConfigs ? (
+              <div className="text-center py-12 text-gray-400 font-bold">Cargando servicios configurados...</div>
+            ) : spConfigs.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                <div className="text-5xl mb-4">🏛️</div>
+                <h3 className="text-lg font-black text-gray-700 mb-2">Sin Servicios Configurados</h3>
+                <p className="text-sm text-gray-500">Agregue los servicios públicos del edificio usando el botón superior.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* CANTV */}
+                {spConfigs.filter(c => c.tipo === "cantv").length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-blue-600 px-6 py-3 flex items-center gap-2">
+                      <span className="text-xl">📞</span>
+                      <h3 className="text-white font-black text-sm uppercase tracking-wider">CANTV – Servicio Telefónico</h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {spConfigs.filter(c => c.tipo === "cantv").map(config => {
+                        const res = spResultados[config.id];
+                        const msg = spEmailMsg[config.id];
+                        return (
+                          <div key={config.id} className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="font-black text-blue-900 text-sm">{config.alias || "Línea CANTV"}</div>
+                                <div className="text-xs text-blue-700 font-mono mt-0.5">N° de Línea: <strong>{config.identificador}</strong></div>
+                                <div className="text-[10px] text-gray-500 mt-1">Consulta programada: día <strong>{config.dia_consulta}</strong> del mes</div>
+                                {config.ultima_consulta && (
+                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {new Date(config.ultima_consulta).toLocaleString("es-VE", { timeZone: "America/Caracas" })}</div>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => consultarServicio(config)}
+                                  disabled={spConsultando[config.id]}
+                                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                >
+                                  {spConsultando[config.id] ? "Consultando..." : "🔍 Consultar"}
+                                </button>
+                                <div className="relative group">
+                                  <button
+                                    disabled={spEnviandoEmail[config.id]}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                  >
+                                    📧 Enviar Email ▾
+                                  </button>
+                                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-10 hidden group-hover:block">
+                                    {[
+                                      { label: "→ A la Administradora", val: "administradora" },
+                                      { label: "→ A mí (usuario actual)", val: "yo" },
+                                      { label: "→ A la Junta", val: "junta" },
+                                    ].map(opt => (
+                                      <button
+                                        key={opt.val}
+                                        onClick={() => enviarEmailServicio(config, opt.val)}
+                                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                {user?.isAdmin && (
+                                  <button
+                                    onClick={() => eliminarSpConfig(config.id)}
+                                    className="px-2 py-1.5 bg-red-50 text-red-500 rounded-lg font-black text-[10px] uppercase hover:bg-red-100 transition-colors"
+                                    title="Eliminar servicio"
+                                  >🗑️</button>
+                                )}
+                              </div>
+                            </div>
+                            {msg && (
+                              <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-bold ${msg.startsWith("✅") ? "bg-green-100 text-green-800" : msg.startsWith("❌") ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
+                                {msg}
+                              </div>
+                            )}
+                            {res && res.recordatorio && (
+                              <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-[10px] text-yellow-800 font-bold">
+                                💡 CANTV no dispone de portal de consulta en línea. Use el botón &quot;Enviar Email&quot; para notificar a la administradora y solicitar confirmación del pago.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* HIDROCAPITAL */}
+                {spConfigs.filter(c => c.tipo === "hidrocapital").length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-cyan-600 px-6 py-3 flex items-center gap-2">
+                      <span className="text-xl">💧</span>
+                      <h3 className="text-white font-black text-sm uppercase tracking-wider">Hidrocapital – Servicio de Agua Potable</h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {spConfigs.filter(c => c.tipo === "hidrocapital").map(config => {
+                        const res = spResultados[config.id];
+                        const msg = spEmailMsg[config.id];
+                        return (
+                          <div key={config.id} className="bg-cyan-50 border border-cyan-100 rounded-xl p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="font-black text-cyan-900 text-sm">{config.alias || "Contrato Hidrocapital"}</div>
+                                <div className="text-xs text-cyan-700 font-mono mt-0.5">N° de Contrato (NIC): <strong>{config.identificador}</strong></div>
+                                <div className="text-[10px] text-gray-500 mt-1">Consulta programada: día <strong>{config.dia_consulta}</strong> del mes</div>
+                                {config.ultima_consulta && (
+                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {new Date(config.ultima_consulta).toLocaleString("es-VE", { timeZone: "America/Caracas" })}</div>
+                                )}
+                                {config.ultimo_monto > 0 && (
+                                  <div className="mt-1 text-xs font-black text-red-600">Último saldo: <strong>Bs. {config.ultimo_monto.toLocaleString("es-VE")}</strong></div>
+                                )}
+                                {config.ultimo_monto === 0 && config.ultima_consulta && (
+                                  <div className="mt-1 text-xs font-black text-green-600">Último saldo: <strong>Bs. 0 (Sin deuda)</strong></div>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => consultarServicio(config)}
+                                  disabled={spConsultando[config.id]}
+                                  className="px-3 py-1.5 bg-cyan-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-cyan-700 disabled:opacity-50 transition-colors"
+                                >
+                                  {spConsultando[config.id] ? "Consultando..." : "🔍 Consultar Saldo"}
+                                </button>
+                                <div className="relative group">
+                                  <button
+                                    disabled={spEnviandoEmail[config.id]}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                  >
+                                    📧 Enviar Email ▾
+                                  </button>
+                                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-10 hidden group-hover:block">
+                                    {[
+                                      { label: "→ A la Administradora", val: "administradora" },
+                                      { label: "→ A mí (usuario actual)", val: "yo" },
+                                      { label: "→ A la Junta", val: "junta" },
+                                    ].map(opt => (
+                                      <button
+                                        key={opt.val}
+                                        onClick={() => enviarEmailServicio(config, opt.val)}
+                                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-cyan-50 hover:text-cyan-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                {user?.isAdmin && (
+                                  <button onClick={() => eliminarSpConfig(config.id)} className="px-2 py-1.5 bg-red-50 text-red-500 rounded-lg font-black text-[10px] uppercase hover:bg-red-100 transition-colors" title="Eliminar">🗑️</button>
+                                )}
+                              </div>
+                            </div>
+                            {/* Resultado consulta */}
+                            {res && res.exitoso && !res.recordatorio && (
+                              <div className="mt-3 grid grid-cols-3 gap-3">
+                                <div className="bg-white rounded-lg p-3 border border-cyan-100 text-center">
+                                  <div className="text-[10px] text-gray-500 font-bold uppercase">N° Contrato</div>
+                                  <div className="text-sm font-black text-cyan-800">{res.contrato}</div>
+                                </div>
+                                <div className="bg-white rounded-lg p-3 border border-cyan-100 text-center">
+                                  <div className="text-[10px] text-gray-500 font-bold uppercase">Recibos Pendientes</div>
+                                  <div className={`text-lg font-black ${res.recibos > 0 ? "text-red-600" : "text-green-600"}`}>{res.recibos}</div>
+                                </div>
+                                <div className="bg-white rounded-lg p-3 border border-cyan-100 text-center">
+                                  <div className="text-[10px] text-gray-500 font-bold uppercase">Deuda Total</div>
+                                  <div className={`text-lg font-black ${res.deuda > 0 ? "text-red-600" : "text-green-600"}`}>Bs. {res.deuda?.toLocaleString("es-VE") ?? "0"}</div>
+                                </div>
+                              </div>
+                            )}
+                            {msg && (
+                              <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-bold ${msg.startsWith("✅") ? "bg-green-100 text-green-800" : msg.startsWith("❌") ? "bg-red-100 text-red-700" : "bg-cyan-100 text-cyan-700"}`}>
+                                {msg}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* CORPOELEC */}
+                {spConfigs.filter(c => c.tipo === "corpoelec").length > 0 && (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="bg-yellow-600 px-6 py-3 flex items-center gap-2">
+                      <span className="text-xl">⚡</span>
+                      <h3 className="text-white font-black text-sm uppercase tracking-wider">Corpoelec – Servicio Eléctrico</h3>
+                    </div>
+                    <div className="p-4 space-y-4">
+                      {spConfigs.filter(c => c.tipo === "corpoelec").map(config => {
+                        const res = spResultados[config.id];
+                        const msg = spEmailMsg[config.id];
+                        return (
+                          <div key={config.id} className="bg-yellow-50 border border-yellow-100 rounded-xl p-4">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="font-black text-yellow-900 text-sm">{config.alias || "Cuenta Corpoelec"}</div>
+                                <div className="text-xs text-yellow-700 font-mono mt-0.5">N° de Cuenta Contrato (NCC): <strong>{config.identificador}</strong></div>
+                                <div className="text-[10px] text-gray-500 mt-1">Consulta programada: día <strong>{config.dia_consulta}</strong> del mes</div>
+                                {config.ultima_consulta && (
+                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {new Date(config.ultima_consulta).toLocaleString("es-VE", { timeZone: "America/Caracas" })}</div>
+                                )}
+                                {config.ultimo_monto > 0 && (
+                                  <div className="mt-1 text-xs font-black text-red-600">Último saldo: <strong>Bs. {config.ultimo_monto.toLocaleString("es-VE")}</strong></div>
+                                )}
+                                {config.ultimo_monto === 0 && config.ultima_consulta && (
+                                  <div className="mt-1 text-xs font-black text-green-600">Último saldo: <strong>Bs. 0 (Sin deuda)</strong></div>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => consultarServicio(config)}
+                                  disabled={spConsultando[config.id]}
+                                  className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+                                >
+                                  {spConsultando[config.id] ? "Consultando..." : "🔍 Consultar Saldo"}
+                                </button>
+                                <div className="relative group">
+                                  <button
+                                    disabled={spEnviandoEmail[config.id]}
+                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                                  >
+                                    📧 Enviar Email ▾
+                                  </button>
+                                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-10 hidden group-hover:block">
+                                    {[
+                                      { label: "→ A la Administradora", val: "administradora" },
+                                      { label: "→ A mí (usuario actual)", val: "yo" },
+                                      { label: "→ A la Junta", val: "junta" },
+                                    ].map(opt => (
+                                      <button
+                                        key={opt.val}
+                                        onClick={() => enviarEmailServicio(config, opt.val)}
+                                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                {user?.isAdmin && (
+                                  <button onClick={() => eliminarSpConfig(config.id)} className="px-2 py-1.5 bg-red-50 text-red-500 rounded-lg font-black text-[10px] uppercase hover:bg-red-100 transition-colors" title="Eliminar">🗑️</button>
+                                )}
+                              </div>
+                            </div>
+                            {/* Resultado consulta */}
+                            {res && res.exitoso && (
+                              <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {res.titular && (
+                                  <div className="bg-white rounded-lg p-3 border border-yellow-100">
+                                    <div className="text-[10px] text-gray-500 font-bold uppercase">Titular</div>
+                                    <div className="text-xs font-black text-yellow-800">{res.titular}</div>
+                                  </div>
+                                )}
+                                {res.cuentaContrato && (
+                                  <div className="bg-white rounded-lg p-3 border border-yellow-100">
+                                    <div className="text-[10px] text-gray-500 font-bold uppercase">Cta. Contrato</div>
+                                    <div className="text-xs font-black text-yellow-800">{res.cuentaContrato}</div>
+                                  </div>
+                                )}
+                                <div className="bg-white rounded-lg p-3 border border-yellow-100">
+                                  <div className="text-[10px] text-gray-500 font-bold uppercase">Energía Vencida</div>
+                                  <div className="text-sm font-black text-red-600">{res.energiaVencida || "0,00"}</div>
+                                </div>
+                                <div className="bg-white rounded-lg p-3 border border-yellow-100 col-span-2 md:col-span-1">
+                                  <div className="text-[10px] text-gray-500 font-bold uppercase">Total a Pagar</div>
+                                  <div className={`text-lg font-black ${res.deuda > 0 ? "text-red-600" : "text-green-600"}`}>Bs. {res.totalPagarStr || "0,00"}</div>
+                                </div>
+                              </div>
+                            )}
+                            {msg && (
+                              <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-bold ${msg.startsWith("✅") ? "bg-green-100 text-green-800" : msg.startsWith("❌") ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
+                                {msg}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Modal de Bienvenida e Instrucciones */}
       {showOnboarding && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-500 border-4 border-white">

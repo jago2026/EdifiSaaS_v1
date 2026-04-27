@@ -83,9 +83,6 @@ export async function GET(request: NextRequest) {
       if (!force && currentHourVET !== configHour) {
         console.log(`[CRON] [.] Saltando ${edificio.nombre} - Hora no coincide (${currentHourVET} != ${configHour})`);
         
-        // Registrar rastro de verificación en alertas para depuración mañana
-        await logAlerta(supabase, edificioId, "debug", "⏱️ Verificación de Cron", `El cron se llamó a las ${currentFullTimeVET} VET. Se saltó porque su hora configurada es ${cronTime} VET.`);
-        
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }

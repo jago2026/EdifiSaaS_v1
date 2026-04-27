@@ -18,33 +18,71 @@ Mejorar la página de ayuda (Manual de Usuario) y diagnosticar/corregir fallos e
     - Uso de `SUPABASE_SERVICE_ROLE_KEY` para backend.
 - [x] **Mejora de Email (`src/app/api/email/route.ts`)**:
     - Añadido log de alerta al enviar correos con éxito para confirmar despacho.
-    - Actualizado el asunto del correo de bienvenida a miembros para hacerlo más profesional: "📊 Bienvenido al Sistema de Control Financiero...".
+    - Actualizado el asunto del correo de bienvenida a miembros.
 
-### Resumen de Cambios Técnicos
-- **Navegación Manual**: Se cambió a `scrollIntoView` para funcionar dentro del contenedor con scroll del dashboard.
-- **Visibilidad de Procesos**: El usuario ahora podrá ver en la sección "Alertas" por qué el cron no se ejecutó (ej: "Hora no coincide") o confirmar que se ejecutó correctamente.
+---
 
-### Fecha: 27 de Abril, 2026
+## Fecha: 27 de Abril, 2026
 
 ### Objetivo
-Desarrollar un módulo de Proyección de Ingresos Diaria hasta fin de mes basado en patrones históricos y escenarios probabilísticos.
+Módulo de Proyección de Ingresos + Corrección cron + Módulo Servicios Públicos completo.
 
 ### Tareas Realizadas
-- [x] **Módulo de Proyección de Ingresos**: Implementado el algoritmo de estimación basado en la especificación técnica (logic AppScript v3.6).
-- [x] **API de Proyección (`/api/proyeccion`)**: Creada para extraer historial de pagos (6 meses) y deudas pendientes.
-- [x] **Interfaz UI Premium**: Añadida la pestaña "🔮 Proyección de Ingresos" en el grupo de Finanzas.
-    - Resumen Ejecutivo con KPIs (Días restantes, Techo de cobranza, Promedio por recibo).
-    - Tabla de Escenarios (Optimista 1.3x, Conservador 1.0x, Pesimista 0.6x).
-    - Proyección Detallada Día por Día con validación de historial.
-    - Segmentación de Deuda por cantidad de recibos pendientes.
-    - Recomendaciones automáticas basadas en IA/Lógica de negocio.
-- [x] **Actualización de Tipos y Navegación**: Integrado el nuevo tab en el estado del Dashboard.
 
-### Resumen de Cambios Técnicos
-- **Lógica de Predicción**: El sistema ahora calcula el promedio de recibos cobrados por día del mes históricamente para predecir el comportamiento futuro.
-- **Cálculo Monetario**: Se utiliza el "Promedio por Recibo" actual para convertir las probabilidades de cobro en montos financieros (Bs/USD).
-- **Refuerzo de Plan**: Se asignó esta funcionalidad como parte de los planes Premium e IA para incentivar el upgrade.
+#### Módulo Proyección de Ingresos
+- [x] API `/api/proyeccion` para estimación basada en historial de 6 meses.
+- [x] Pestaña "🔮 Proyección de Ingresos" con tabla de escenarios (Optimista/Conservador/Pesimista).
+- [x] Proyección día por día y segmentación de deuda por recibos pendientes.
 
-### Próximos Pasos
-- Monitorear la precisión de las proyecciones comparando con la cobranza real al final de mes.
-- Refactorizar `DashboardPage` en sub-componentes más pequeños para mejorar la mantenibilidad.
+#### Corrección Cron (CRÍTICA)
+- [x] **Bug raíz identificado**: `vercel.json` tenía `"schedule": "0 5 * * *"` = 5:00 AM UTC = 1:00 AM VET. Pero el sistema comparaba la hora VET con la hora configurada (05:00 VET) → nunca coincidían.
+- [x] **Fix aplicado**: Cambiado a `"schedule": "0 9 * * *"` = 9:00 AM UTC = 5:00 AM VET (Venezuela UTC-4).
+- [x] Eliminada la alerta de debug `⏱️ Verificación de Cron` que spam-eaba la tabla de alertas con mensajes de "Se saltó" en cada invocación del cron.
+
+#### Módulo Servicios Públicos (NUEVO)
+- [x] **Pestaña "🏛️ Servicios Públicos"** añadida al sidebar de navegación.
+- [x] **Tab type** extendido con `"servicios-publicos"`.
+- [x] **Interface Building** actualizada con campo `email_administradora`.
+- [x] **editConfig state** añadido campo `email_administradora`.
+- [x] **Campo config en pestaña Configuración**: "📬 Email(s) de la Administradora" para configurar a quién enviar notificaciones de servicios públicos.
+
+##### Estado: Servicios soportados
+- **CANTV** (📞): Hasta 2 N° de Línea. Sin portal de consulta directa → botón envía email de solicitud.
+- **Hidrocapital** (💧): Hasta 2 N° de Contrato (NIC). Consulta saldo real en `pagoenlinea.hidrocapital.gob.ve`.
+- **Corpoelec** (⚡): Hasta 3 N° de Cuenta Contrato (NCC). Consulta saldo real en `ov-capital.corpoelec.gob.ve`.
+
+##### Funcionalidades implementadas en la UI
+- Botón **"Consultar Saldo"** por servicio (manual, en cualquier momento).
+- Botón **"Enviar Email ▾"** con dropdown: → A la Administradora / → A mí / → A la Junta.
+- Resultado de consulta mostrado en tarjetas (N° Contrato, Recibos, Deuda para Hidrocapital; Titular, Cta.Contrato, Energía Vencida, Total a Pagar para Corpoelec).
+- Mensajes de estado (✅/❌) visibles al usuario tras cada acción.
+- Formulario para **agregar nuevos servicios** (tipo + identificador + alias + día del mes).
+- Botón **eliminar** (solo para admins).
+- Visualización de **última consulta** y **último monto** almacenado.
+
+##### APIs modificadas/creadas
+- **`/api/servicios-publicos/consultar/route.ts`** — Reescrito completo:
+  - Console.log detallado en cada paso (HTTP status, bytes recibidos, datos extraídos).
+  - Schema corregido: usa columnas `monto`, `detalle`, `exitoso`, `error` (sin `recibos_pendientes`, `estado`, `error_msg` que no existen en Supabase).
+  - Mensajes de error descriptivos para el usuario.
+- **`/api/email/route.ts`** — Nueva acción `"servicios_publicos_email"`:
+  - Genera emails formales para CANTV, Hidrocapital y Corpoelec.
+  - Incluye bloque de mensaje listo para copiar a WhatsApp.
+  - Soporte de destinatario: administradora / usuario actual / junta / lista personalizada.
+
+##### Schema Supabase de referencia
+```sql
+-- servicios_publicos_config
+id, edificio_id, tipo (cantv|hidrocapital|corpoelec), identificador, alias, 
+dia_consulta (int), ultima_consulta (timestamptz), ultimo_monto (numeric), created_at
+
+-- servicios_publicos_consultas
+id, config_id, edificio_id, monto (numeric), detalle (jsonb), 
+exitoso (bool), error (text), fecha_consulta (timestamptz)
+```
+
+### Próximos Pasos Sugeridos
+- Implementar consulta automática de servicios públicos en el cron diario (si el día del mes coincide con `dia_consulta`).
+- Agregar campo `email_administradora` al schema de `edificios` en Supabase si no existe (ALTER TABLE edificios ADD COLUMN email_administradora TEXT).
+- Agregar botón en el cron para enviar resumen consolidado de servicios al final del proceso.
+- Refactorizar `DashboardPage` en sub-componentes para mejorar mantenibilidad (el archivo supera 6800 líneas).
