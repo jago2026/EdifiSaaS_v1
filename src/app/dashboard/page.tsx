@@ -1946,29 +1946,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleMaintenance = async () => {
-    if (!building?.id) return;
-    setMaintenanceLoading(true);
-    setMaintenanceMessage("Iniciando mantenimiento de tablas...");
-    try {
-      const res = await fetch("/api/config/maintenance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edificioId: building.id })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setMaintenanceMessage(`✅ ${data.message || "Mantenimiento completado. Se ha enviado el reporte por email."}`);
-      } else {
-        setMaintenanceMessage(`❌ Error: ${data.error || "Fallo en mantenimiento"}`);
-      }
-    } catch (error: any) {
-      setMaintenanceMessage(`❌ Error de red: ${error.message}`);
-    } finally {
-      setMaintenanceLoading(false);
-    }
-  };
-
   const handleTestConnection = async () => {
     setSaving(true);
     setSyncMessage("Probando conexión...");
