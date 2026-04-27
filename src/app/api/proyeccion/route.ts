@@ -15,6 +15,10 @@ export async function GET(request: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Get current month for debt snapshot
+    const today = new Date();
+    const currentMes = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
     // 1. Fetch historical payments (last 6 months)
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
@@ -28,11 +32,12 @@ export async function GET(request: Request) {
 
     if (errorPagos) throw errorPagos;
 
-    // 2. Fetch current pending receipts
+    // 2. Fetch current pending receipts (ONLY current month snapshot)
     const { data: currentRecibos, error: errorRecibos } = await supabase
       .from("recibos")
       .select("unidad, propietario, num_recibos, deuda, deuda_usd")
       .eq("edificio_id", edificioId)
+      .eq("mes", currentMes)
       .gt("num_recibos", 0);
 
     if (errorRecibos) throw errorRecibos;

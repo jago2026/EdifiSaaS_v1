@@ -5424,7 +5424,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4 font-black text-green-700 flex items-center gap-2">
                                 <span className="w-3 h-3 bg-green-500 rounded-full"></span> 🟢 OPTIMISTA
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{Math.floor(totalReceiptsOpt)}</td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsOpt.toFixed(1)}</td>
                               <td className="px-6 py-4 text-right font-black text-green-700">{formatBs(montoOptBs)}</td>
                               <td className="px-6 py-4 text-right font-black text-green-700 text-lg">${formatUsd(montoOptUsd)}</td>
                               <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 1.3x</td>
@@ -5433,7 +5433,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4 font-black text-amber-600 flex items-center gap-2">
                                 <span className="w-3 h-3 bg-amber-400 rounded-full"></span> 🟡 CONSERVADOR
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{Math.floor(totalReceiptsCons)}</td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsCons.toFixed(1)}</td>
                               <td className="px-6 py-4 text-right font-black text-amber-600">{formatBs(montoConsBs)}</td>
                               <td className="px-6 py-4 text-right font-black text-amber-600 text-lg">${formatUsd(montoConsUsd)}</td>
                               <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial Real + 1.0x</td>
@@ -5442,7 +5442,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4 font-black text-red-600 flex items-center gap-2">
                                 <span className="w-3 h-3 bg-red-500 rounded-full"></span> 🔴 PESIMISTA
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{Math.floor(totalReceiptsPes)}</td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsPes.toFixed(1)}</td>
                               <td className="px-6 py-4 text-right font-black text-red-600">{formatBs(montoPesBs)}</td>
                               <td className="px-6 py-4 text-right font-black text-red-600 text-lg">${formatUsd(montoPesUsd)}</td>
                               <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 0.6x</td>
@@ -5532,7 +5532,7 @@ export default function DashboardPage() {
                               <div>
                                 <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Déficit Proyectado</h4>
                                 <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                  Quedarían <span className="text-red-600 font-bold">{Math.max(0, totalReceiptsPending - Math.floor(totalReceiptsCons))} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
+                                  Quedarían <span className="text-red-600 font-bold">{(totalReceiptsPending - totalReceiptsCons).toFixed(1)} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
                                 </p>
                               </div>
                             </div>
