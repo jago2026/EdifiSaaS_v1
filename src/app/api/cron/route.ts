@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data: edificios, error: edErr } = await supabase
       .from("edificios")
-      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency");
+      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, plan");
 
     if (edErr) throw edErr;
 
