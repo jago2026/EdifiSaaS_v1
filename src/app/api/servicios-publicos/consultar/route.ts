@@ -16,6 +16,7 @@ async function consultarHidrocapital(nic: string) {
       body: formData,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },
     });
 
@@ -23,7 +24,7 @@ async function consultarHidrocapital(nic: string) {
     
     const html = await response.text();
     
-    // Extracción usando Regex similar al AppScript
+    // Extracción usando Regex idéntico al AppScript v2
     const contratoMatch = html.match(/id="nic"[^>]*value='([^']+)'/);
     const recibosMatch = html.match(/id="numerorecibos"[^>]*value='([^']+)'/);
     const deudaMatch = html.match(/id="deudatotal"[^>]*value='([^']+)'/);
@@ -36,7 +37,13 @@ async function consultarHidrocapital(nic: string) {
         deuda: parseFloat(deudaMatch[1].replace(/,/g, '')),
       };
     }
-    return { exitoso: false, error: "No se pudieron extraer los datos del HTML" };
+    
+    // Plan B: Si no hay match, buscar en el texto plano
+    if (html.includes("No se encontraron registros") || html.includes("Cero deuda")) {
+       return { exitoso: true, contrato: nic, recibos: 0, deuda: 0 };
+    }
+
+    return { exitoso: false, error: "No se pudieron extraer los datos del portal de Hidrocapital" };
   } catch (error: any) {
     return { exitoso: false, error: error.message };
   }
@@ -55,6 +62,7 @@ async function consultarCorpoelec(nic: string) {
       body: formData,
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0'
       },
     });
 
@@ -62,7 +70,6 @@ async function consultarCorpoelec(nic: string) {
     
     const html = await response.text();
     
-    // Extracción de datos basada en los IDs confirmados en el AppScript
     const getTxt = (id: string) => {
       let m = html.match(new RegExp(`id=${id}>([^<]+)`, 'i'));
       if (m) return m[1].replace(/&nbsp;/g, ' ').trim();
@@ -71,12 +78,12 @@ async function consultarCorpoelec(nic: string) {
       return null;
     };
 
+    // IDs confirmados por la versión 2.0 del AppScript
     const totalPagarStr = getTxt('l0012051');
     const titular = getTxt('l0004018');
-    const cuentaContrato = getTxt('l0003018');
+    const cuentaContrato = getTxt('l0003018') || getTxt('l0003002');
 
     if (totalPagarStr) {
-      // Formato venezolano: 1.234,56 -> 1234.56
       const deuda = parseFloat(totalPagarStr.replace(/\./g, '').replace(',', '.'));
       return {
         exitoso: true,
@@ -85,9 +92,38 @@ async function consultarCorpoelec(nic: string) {
         deuda,
       };
     }
-    return { exitoso: false, error: "No se pudo parsear el saldo" };
+    return { exitoso: false, error: "El portal de Corpoelec no devolvió un saldo válido" };
   } catch (error: any) {
     return { exitoso: false, error: error.message };
+  }
+}
+
+async function enviarEmailCANTV(edificioNombre: string, numeroTelf: string) {
+  // Esta función llamaría internamente a la API de email para disparar la solicitud a la administradora
+  try {
+    const host = process.env.NEXT_PUBLIC_BASE_URL || "https://edifi-saa-s-v1.vercel.app";
+    await fetch(`${host}/api/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "custom_support", // Reutilizamos custom_support o creamos una nueva acción
+        overrideRecipient: "adm_laideal@hotmail.com", // Por defecto segun AppScript
+        subject: `Solicitud de Pago CANTV - ${edificioNombre}`,
+        customBody: `
+          <p>Buen día, representantes de Administradora La Ideal,</p>
+          <p>En nombre de la Junta de Condominio de <strong>${edificioNombre}</strong>, solicitamos confirmación del pago del servicio CANTV:</p>
+          <ul>
+            <li>Línea: <strong>${numeroTelf}</strong></li>
+          </ul>
+          <p>Agradecemos nos confirmen fecha y monto cancelado para nuestros registros.</p>
+          <p>Saludos cordiales.</p>
+        `
+      })
+    });
+    return true;
+  } catch (e) {
+    console.error("Error enviando email CANTV:", e);
+    return false;
   }
 }
 
@@ -96,10 +132,9 @@ export async function POST(request: Request) {
     const { configId, edificioId } = await request.json();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get config
     const { data: config, error: configError } = await supabase
       .from("servicios_publicos_config")
-      .select("*")
+      .select("*, edificios(nombre)")
       .eq("id", configId)
       .single();
 
@@ -114,9 +149,8 @@ export async function POST(request: Request) {
     } else if (config.tipo === 'corpoelec') {
       result = await consultarCorpoelec(config.identificador);
     } else if (config.tipo === 'cantv') {
-      // CANTV en el AppScript era una solicitud de confirmación por email, no un scraper
-      // Por ahora lo marcamos como recordatorio enviado
-      result = { exitoso: true, recordatorio: true, deuda: 0 };
+      const sent = await enviarEmailCANTV(config.edificios?.nombre || "Edificio", config.identificador);
+      result = { exitoso: sent, recordatorio: true, deuda: 0, msg: "Solicitud enviada a la administradora" };
     }
 
     // Save result to history

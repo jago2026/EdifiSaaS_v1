@@ -65,13 +65,19 @@ export async function GET(request: NextRequest) {
     const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
     const currentHourVET = nowVET.getHours();
     const currentFullTimeVET = nowVET.toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
+    const todayVET = nowVET.toISOString().split("T")[0];
 
     for (const edificio of edificios) {
       const edificioId = edificio.id;
       const cronTime = edificio.cron_time || "05:00";
       const configHour = parseInt(cronTime.split(":")[0]);
 
-      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${currentFullTimeVET} VET`);
+      // Verificar si ya corrió hoy (usando ultima_sincronizacion de edificios)
+      const { data: edFull } = await supabase.from("edificios").select("ultima_sincronizacion").eq("id", edificioId).single();
+      const lastSync = edFull?.ultima_sincronizacion ? new Date(new Date(edFull.ultima_sincronizacion).toLocaleString("en-US", { timeZone: "America/Caracas" })).toISOString().split("T")[0] : null;
+      const alreadyRunToday = lastSync === todayVET;
+
+      console.log(`[CRON] Edificio: ${edificio.nombre} | Config: ${cronTime} VET | Ahora: ${currentFullTimeVET} VET | Ya corrió hoy: ${alreadyRunToday}`);
 
       if (!edificio.cron_enabled) {
         console.log(`[CRON] [!] Saltando ${edificio.nombre} - Cron DESACTIVADO en config`);
@@ -79,14 +85,28 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Verificar si es la hora correcta (basado en hora de Venezuela)
-      if (!force && currentHourVET !== configHour) {
-        console.log(`[CRON] [.] Saltando ${edificio.nombre} - Hora no coincide (${currentHourVET} != ${configHour})`);
+      // Lógica flexible: 
+      // 1. Si es forzado.
+      // 2. Si es la hora exacta (configHour).
+      // 3. Si ya pasó la hora (currentHourVET > configHour) y NO ha corrido hoy.
+      const isTime = currentHourVET === configHour;
+      const isPastTimeAndNotRun = currentHourVET > configHour && !alreadyRunToday;
+
+      if (!force && !isTime && !isPastTimeAndNotRun) {
+        console.log(`[CRON] [.] Saltando ${edificio.nombre} - No es el momento (Ahora: ${currentHourVET}, Config: ${configHour}, Ya corrió: ${alreadyRunToday})`);
         
-        // Registrar rastro de verificación en alertas para depuración mañana
-        await logAlerta(supabase, edificioId, "debug", "⏱️ Verificación de Cron", `El cron se llamó a las ${currentFullTimeVET} VET. Se saltó porque su hora configurada es ${cronTime} VET.`);
-        
-        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
+        // Solo registrar debug si no ha corrido hoy y estamos antes de la hora, o si ya corrió y estamos después
+        if (!alreadyRunToday || isTime) {
+           // No saturar con logs si todo está bien
+        }
+
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `No es el momento` });
+        continue;
+      }
+
+      if (alreadyRunToday && !force) {
+        console.log(`[CRON] [!] Saltando ${edificio.nombre} - Ya se ejecutó hoy (${lastSync})`);
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "Ya se ejecutó hoy" });
         continue;
       }
 
@@ -144,6 +164,15 @@ export async function GET(request: NextRequest) {
         await logAlerta(supabase, edificioId, "success", "✅ Cron Completado", `Sincronización exitosa (${syncMovimientos} mov.) e informe enviado a: ${emailData.recipient}`);
         
         console.log(`[CRON] Email enviado para ${edificio.nombre} a ${emailData.recipient}`);
+
+        // 3. Consulta de Servicios Públicos (Si el plan lo permite)
+        if (edificio.plan !== 'Esencial') {
+          console.log(`[CRON] Disparando consulta de servicios para ${edificio.nombre}`);
+          await fetch(`${BASE_URL}/api/servicios-publicos/cron`, {
+            method: "GET", // Note: the SP cron is a GET
+            headers: { "Authorization": authHeader || "" }
+          });
+        }
 
         resultados.push({ 
           edificio: edificio.nombre, 

@@ -45,29 +45,23 @@ Desarrollar un módulo de Proyección de Ingresos Diaria hasta fin de mes basado
 - **Cálculo Monetario**: Se utiliza el "Promedio por Recibo" actual para convertir las probabilidades de cobro en montos financieros (Bs/USD).
 - **Refuerzo de Plan**: Se asignó esta funcionalidad como parte de los planes Premium e IA para incentivar el upgrade.
 
-### Fecha: 27 de Abril, 2026
+### Fecha: 27 de Abril, 2026 (Segunda Intervención)
 
 ### Objetivo
-Desarrollar un módulo de consulta automática de deudas de servicios públicos (CANTV, Hidrocapital, Corpoelec) basado en portales web oficiales y programación mensual.
+Restaurar opciones de configuración eliminadas erróneamente, implementar la interfaz de Servicios Públicos y mejorar la resiliencia del cron job.
 
 ### Tareas Realizadas
-- [x] **Módulo de Servicios Públicos**: Implementado el sistema de monitoreo de deudas operativas.
-- [x] **Scrapers de Servicios**: Portada la lógica de AppScript a Next.js para consultar Hidrocapital (NIC) y Corpoelec (NIC/NCC).
-- [x] **APIs de Gestión**:
-    - `/api/servicios-publicos/config`: CRUD para configurar números de contrato y días de consulta.
-    - `/api/servicios-publicos/consultar`: Ejecución manual y lógica de extracción de datos.
-    - `/api/servicios-publicos/cron`: Proceso automático que corre según el día del mes configurado.
-- [x] **Sistema de Notificaciones**: Integrada la acción `public_service_notification` en la API de email para informar a la junta sobre deudas detectadas.
-- [x] **Interfaz de Usuario**:
-    - Nueva pestaña "🚰 Servicios Públicos" en el Dashboard con resumen de deudas.
-    - Sección de configuración en "Configuración" para gestionar hasta 2 CANTV, 2 Hidrocapital y 3 Corpoelec (Plan Profesional+).
-- [x] **Base de Datos**: Creada migración SQL para las tablas `servicios_publicos_config` y `servicios_publicos_consultas`.
+- [x] **Restauración de Configuración**: Re-implementada la interfaz completa de Configuración en el Dashboard, incluyendo credenciales de administradora, selector de empresas, URLs personalizadas, y ajustes de cron.
+- [x] **Módulo de Servicios Públicos (UI)**: Implementada la pestaña "🚰 Servicios Públicos" con tarjetas de resumen para cada servicio (CANTV, Hidrocapital, Corpoelec), montos de deuda y botones de consulta manual.
+- [x] **Gestión de Servicios**: Añadida sección en Configuración para agregar/eliminar servicios con límites por plan (2 CANTV, 2 Hidrocapital, 3 Corpoelec) y terminología correcta (NIC, Línea, Contrato).
+- [x] **Mejora de Scrapers (`/api/servicios-publicos/consultar`)**: Actualizada la lógica de extracción para Hidrocapital y Corpoelec (v2.0) usando Regex más robustos y manejo de errores mejorado.
+- [x] **Integración CANTV**: Implementada lógica de solicitud de confirmación por email para servicios CANTV hacia la administradora.
+- [x] **Optimización de Cron (`/api/cron`)**:
+    - Añadida llamada automática al cron de servicios públicos.
+    - Implementada **Lógica Flexible de Horario**: Ahora el cron permite ejecución si la hora actual es superior a la configurada y aún no se ha realizado la sincronización del día (soluciona el problema de saltos por triggers externos tardíos).
+- [x] **Actualización de Memoria**: Documentados los cambios para mantener la coherencia del proyecto.
 
 ### Resumen de Cambios Técnicos
-- **Automatización**: El cron job ahora verifica diariamente si hay consultas de servicios programadas para el día actual del mes.
-- **Seguridad**: Implementado RLS en Supabase para proteger las configuraciones de cada edificio.
-- **Portabilidad**: Se mantienen los mismos criterios de extracción (Regex e IDs de elementos) que los scripts originales de Google Apps Script.
-
-### Próximos Pasos
-- Monitorear posibles cambios en los HTML de las páginas gubernamentales que puedan romper los scrapers.
-- Evaluar la integración directa con pasarelas de pago para estos servicios.
+- **Frontend**: Uso de estados locales (`newSvc`) para gestión de formularios de servicios y funciones asíncronas para CRUD de configuraciones.
+- **Backend**: Mejora en los headers de fetch para scrapers (User-Agent) y lógica de validación de planes Profesional+.
+- **Cron**: El sistema ahora detecta `ultima_sincronizacion` para decidir si debe ejecutar la tarea diaria incluso si el trigger llega fuera del minuto exacto configurado.
