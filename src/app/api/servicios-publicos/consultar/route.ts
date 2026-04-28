@@ -122,9 +122,17 @@ async function consultarCorpoelec(ncc: string) {
   } catch (error: any) {
     console.error("Error Corpoelec:", error);
     let errorMsg = error.message;
-    if (error.name === 'TimeoutError') errorMsg = "El portal de Corpoelec no responde (Timeout)";
-    if (errorMsg.includes("fetch failed")) errorMsg = "Error de conexión con Corpoelec (Portal caído o IP bloqueada)";
-    return { exitoso: false, error: errorMsg };
+    
+    // Detección de error SSL específico por firmas obsoletas
+    if (error.code === 'ERR_SSL_WRONG_SIGNATURE_TYPE' || error.stack?.includes('wrong signature type')) {
+        errorMsg = "Seguridad incompatible: El portal de Corpoelec usa protocolos obsoletos no permitidos por servidores modernos. Intente de nuevo en unos minutos o consulte manualmente.";
+    } else if (error.name === 'TimeoutError') {
+        errorMsg = "El portal de Corpoelec no responde (Tiempo de espera agotado)";
+    } else if (errorMsg.includes("fetch failed")) {
+        errorMsg = "Error de conexión: El portal de Corpoelec está caído o bloquea conexiones desde nubes externas (Vercel/AWS).";
+    }
+    
+    return { exitoso: false, error: errorMsg, debug: error.code || "unknown" };
   }
 }
 

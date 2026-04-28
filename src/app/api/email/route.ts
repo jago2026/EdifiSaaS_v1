@@ -69,13 +69,23 @@ export async function POST(request: Request) {
         destinatario, emailAdministradora, nombreEdificio
       } = body;
 
-      console.log(`[SP][EMAIL] tipoServicio=${tipoServicio} id=${identificador} dest=${destinatario}`);
+      const deuda = resultadoConsulta?.deuda ?? 0;
+      const isDeudaCero = Number(deuda) === 0;
+
+      // Si la deuda es cero y el destino es la administradora, cancelamos el envío
+      if (isDeudaCero && destinatario === "administradora") {
+        return NextResponse.json({ success: true, message: "Consulta con deuda Bs. 0. No se requiere enviar a administradora." });
+      }
+
+      console.log(`[SP][EMAIL] tipoServicio=${tipoServicio} id=${identificador} dest=${destinatario} deuda=${deuda}`);
 
       let toList: string[] = [];
+      const isDestUser = destinatario === "yo";
+
       if (destinatario === "administradora") {
         toList = (emailAdministradora || "").split(",").map((e: string) => e.trim()).filter(Boolean);
         if (!toList.length) return NextResponse.json({ error: "No hay email de administradora configurado" }, { status: 400 });
-      } else if (destinatario === "yo") {
+      } else if (isDestUser) {
         toList = [recipient || "correojago@gmail.com"];
       } else if (destinatario === "junta") {
         toList = (edificio.email_junta || "").split(",").map((e: string) => e.trim()).filter(Boolean);
@@ -90,20 +100,23 @@ export async function POST(request: Request) {
       let asunto = "";
       let whatsappMsg = "";
 
+      const introText = isDestUser 
+        ? `<p>Hola, este es el resultado de la consulta solicitada para el servicio <strong>${tipoServicio.toUpperCase()}</strong>:</p>`
+        : `<p>Buen día, estimados/as representantes de la Administradora,</p><p>En nombre de la Junta de Condominio de <strong>${edificioNombre}</strong>, enviamos el reporte del servicio <strong>${tipoServicio.toUpperCase()}</strong>:</p>`;
+
       if (tipoServicio === "cantv") {
-        asunto = `Solicitud de confirmación de pago – Servicio CANTV – ${edificioNombre}`;
-        servicioHtml = `<p>Buen día, estimados/as representantes de la Administradora,</p>
-          <p>En nombre de la Junta de Condominio de <strong>${edificioNombre}</strong>, solicitamos información del servicio telefónico CANTV:</p>
+        asunto = isDestUser ? `Resultado Consulta CANTV - ${edificioNombre}` : `Solicitud de confirmación de pago – Servicio CANTV – ${edificioNombre}`;
+        servicioHtml = `${introText}
           <ul><li><strong>N° de Línea CANTV:</strong> ${identificador}${alias ? ` (${alias})` : ""}</li></ul>
-          <p>Agradeceríamos confirmación de: pago realizado, fecha del pago y monto cancelado.</p>
-          <p>La factura CANTV se genera mensualmente y debe cancelarse antes de la fecha de corte para evitar interrupciones.</p>`;
+          <p>La consulta se realizó el día <strong>${fechaConsulta}</strong>.</p>
+          <p>${isDeudaCero ? "✅ <strong>No se detectó deuda pendiente en el portal.</strong>" : `💰 <strong>Deuda detectada: Bs. ${deuda}</strong>`}</p>
+          <p>Agradeceríamos confirmación de: pago realizado, fecha del pago y monto cancelado.</p>`;
         whatsappMsg = `Buen día, consultamos el estatus de pago del servicio *CANTV* (N° Línea: ${identificador}) del edificio ${edificioNombre}. ¿Confirman si el pago fue realizado, fecha y monto? Gracias, Junta de Condominio.`;
       } else if (tipoServicio === "hidrocapital") {
-        const deuda = resultadoConsulta?.deuda ?? "N/D";
         const recibos = resultadoConsulta?.recibos ?? "N/D";
         const contrato = resultadoConsulta?.contrato || identificador;
-        asunto = `Notificación de Deuda Hidrocapital – ${edificioNombre} – N° Contrato: ${contrato}`;
-        servicioHtml = `<p>Buen día, estimados/as representantes de la Administradora,</p>
+        asunto = isDestUser ? `Resultado Hidrocapital: Bs. ${deuda} - ${edificioNombre}` : `Notificación de Deuda Hidrocapital – ${edificioNombre} – N° Contrato: ${contrato}`;
+        servicioHtml = `${introText}
           <p>Resultado de consulta del servicio de agua potable (Hidrocapital) realizada el <strong>${fechaConsulta}</strong>:</p>
           <table border="1" style="border-collapse:collapse;width:100%;margin:16px 0;">
             <thead style="background:#0066b3;color:white;">
@@ -112,16 +125,14 @@ export async function POST(request: Request) {
             <tbody>
               <tr><td style="padding:8px;"><strong>${contrato}</strong></td><td style="padding:8px;text-align:center;">${recibos}</td><td style="padding:8px;text-align:right;color:${Number(deuda)>0?'#c0392b':'#27ae60'};"><strong>Bs. ${deuda}</strong></td></tr>
             </tbody>
-          </table>
-          <p>Agradeceríamos confirmación de pago realizado, fecha y monto cancelado.</p>`;
+          </table>`;
         whatsappMsg = `Buen día, consulta Hidrocapital del ${fechaConsulta} – N° Contrato *${contrato}* (${edificioNombre}):\n• Recibos pendientes: ${recibos}\n• Deuda: Bs. ${deuda}\n¿Confirman si el pago fue realizado? Junta de Condominio.`;
       } else if (tipoServicio === "corpoelec") {
-        const deuda = resultadoConsulta?.deuda ?? "N/D";
         const titular = resultadoConsulta?.titular || "N/D";
         const cuentaContrato = resultadoConsulta?.cuentaContrato || identificador;
         const totalPagarStr = resultadoConsulta?.totalPagarStr || String(deuda);
-        asunto = `Estado de Cuenta Corpoelec – ${edificioNombre} – N° Cta. Contrato: ${cuentaContrato}`;
-        servicioHtml = `<p>Buen día, estimados/as representantes de la Administradora,</p>
+        asunto = isDestUser ? `Resultado Corpoelec: Bs. ${totalPagarStr} - ${edificioNombre}` : `Estado de Cuenta Corpoelec – ${edificioNombre} – N° Cta. Contrato: ${cuentaContrato}`;
+        servicioHtml = `${introText}
           <p>Estado de cuenta Corpoelec consultado el <strong>${fechaConsulta}</strong> para <strong>${edificioNombre}</strong>:</p>
           <table border="1" style="border-collapse:collapse;width:100%;margin:16px 0;">
             <thead style="background:#0273bc;color:white;">
@@ -130,8 +141,7 @@ export async function POST(request: Request) {
             <tbody>
               <tr><td style="padding:8px;"><strong>${cuentaContrato}</strong><br><small style="color:#666;">${titular}</small></td><td style="padding:8px;text-align:right;color:${Number(deuda)>0?'#c0392b':'#27ae60'};font-size:1.1em;"><strong>Bs. ${totalPagarStr}</strong></td></tr>
             </tbody>
-          </table>
-          <p>Agradeceríamos confirmación de pago realizado, fecha y monto cancelado.</p>`;
+          </table>`;
         whatsappMsg = `Buen día, estado Corpoelec del ${fechaConsulta} – N° Cta. Contrato *${cuentaContrato}* (${titular}, ${edificioNombre}): *Total a Pagar: Bs. ${totalPagarStr}*. ¿Confirman si el pago fue realizado? Junta de Condominio.`;
       }
 
