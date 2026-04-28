@@ -3,18 +3,11 @@
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
+import { formatNumber, formatCurrency, formatBs } from "@/lib/formatters";
+
 export function SaludFinanciera({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  const formatCurrency = (amount: number | undefined | null, decimals: number = 2): string => {
-    if (amount === undefined || amount === null || isNaN(amount)) return "-";
-    const parts = amount.toFixed(decimals).split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return parts.join(',');
-  };
-
-  const formatBs = (num: number) => formatCurrency(num, 2);
 
   useEffect(() => {
     async function loadData() {

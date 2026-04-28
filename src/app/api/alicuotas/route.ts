@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { formatNumber } from "@/lib/formatters";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
       if (alicuotaSum < 99.5 || alicuotaSum > 100) {
         const expectedUnits = building?.unidades || count;
         validationWarning = {
-          message: `La suma de alícuotas (${alicuotaSum.toFixed(2)}%) no está en el rango esperado (99.5%-100%). Verifica que la cantidad de inmuebles (${expectedUnits}) sea correcta.`,
+          message: `La suma de alícuotas (${formatNumber(alicuotaSum, 2)}%) no está en el rango esperado (99.5%-100%). Verifica que la cantidad de inmuebles (${expectedUnits}) sea correcta.`,
           sum: alicuotaSum,
           expected: expectedUnits,
           actual: count

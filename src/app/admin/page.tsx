@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { formatNumber, formatDate } from '@/lib/formatters';
 import { useRouter } from 'next/navigation';
 import { 
   Building, Users, BarChart3, Settings, LogOut, Trash2, Edit, 
@@ -514,7 +515,7 @@ export default function AdminPage() {
                               <td className="px-6 py-5">
                                 {b.ultima_sincronizacion
                                   ? <div className="space-y-0.5">
-                                      <p className="text-slate-200 font-bold text-xs">{new Date(b.ultima_sincronizacion).toLocaleDateString('es-ES')}</p>
+                                      <p className="text-slate-200 font-bold text-xs">{formatDate(b.ultima_sincronizacion)}</p>
                                       <p className="text-indigo-400 font-black text-[9px] uppercase tracking-widest">{new Date(b.ultima_sincronizacion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}</p>
                                     </div>
                                   : <span className="text-slate-600 italic text-[10px] font-bold uppercase">Sin Actividad</span>}
@@ -536,7 +537,7 @@ export default function AdminPage() {
                               </td>
                               <td className="px-6 py-5">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-black text-slate-100 text-lg tracking-tighter">${(b.monthly_fee || 0).toLocaleString()}</span>
+                                  <span className="font-black text-slate-100 text-lg tracking-tighter">${formatNumber(b.monthly_fee || 0)}</span>
                                   {b.discount_pct > 0 && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full">-{b.discount_pct}%</span>}
                                 </div>
                               </td>
@@ -573,7 +574,7 @@ export default function AdminPage() {
                                       <p className="text-indigo-400 text-[10px] font-black uppercase tracking-widest border-b border-indigo-500/10 pb-2">Información del Cliente</p>
                                       <div className="space-y-1">
                                         <p className="text-slate-500 text-[10px] uppercase font-bold">Fecha de Registro</p>
-                                        <p className="text-slate-100 font-bold text-sm">{new Date(b.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                        <p className="text-slate-100 font-bold text-sm">{formatDate(b.created_at)}</p>
                                       </div>
                                       <div className="space-y-1 pt-2">
                                         <p className="text-slate-500 text-[10px] uppercase font-bold">Día de Facturación</p>
@@ -586,13 +587,13 @@ export default function AdminPage() {
                                       <div className="space-y-1">
                                         <p className="text-slate-500 text-[10px] uppercase font-bold">Último Pago</p>
                                         <div className="flex items-center gap-2">
-                                          <p className="text-slate-100 font-bold text-sm">{b.last_payment_date ? new Date(b.last_payment_date).toLocaleDateString('es-ES') : 'SIN PAGOS'}</p>
+                                          <p className="text-slate-100 font-bold text-sm">{b.last_payment_date ? formatDate(b.last_payment_date) : 'SIN PAGOS'}</p>
                                           {b.last_payment_amount > 0 && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-lg font-black text-[10px] tracking-tighter">${b.last_payment_amount}</span>}
                                         </div>
                                       </div>
                                       <div className="space-y-1 pt-2">
                                         <p className="text-slate-500 text-[10px] uppercase font-bold">Proyectado Mensual</p>
-                                        <p className="text-slate-100 font-bold text-sm">${((b.monthly_fee || 0) * (1 - (b.discount_pct || 0)/100)).toFixed(2)}</p>
+                                        <p className="text-slate-100 font-bold text-sm">${formatNumber(((b.monthly_fee || 0) * (1 - (b.discount_pct || 0)/100)), 2)}</p>
                                       </div>
                                     </div>
 

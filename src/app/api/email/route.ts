@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { getPlanPermissions } from "@/lib/planLimits";
+import { formatNumber, formatDate } from "@/lib/formatters";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -20,22 +21,7 @@ const transporter = nodemailer.createTransport({
   auth: { user: SMTP_USER, pass: SMTP_PASS },
 });
 
-function formatNumber(num: number, decimals: number = 2): string {
-  if (num === undefined || num === null || isNaN(num)) return "-";
-  const parts = num.toFixed(decimals).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return parts.join(',');
-}
-
-function formatDate(date: string | Date | undefined | null): string {
-  if (!date) return "-";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "-";
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
+import { formatNumber, formatDate } from "@/lib/formatters";
 
 function formatBs(amount: number): string {
   return formatNumber(amount) + " Bs";
@@ -257,7 +243,7 @@ export async function POST(request: Request) {
 
       let alicuotasHtml = dist.map((g: any) => `
         <tr>
-          <td style="border-bottom: 1px solid #eee; padding: 6px;">(${g.count}) ${g.alicuota.toFixed(7)}%</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px;">(${g.count}) ${formatNumber(g.alicuota, 7)}%</td>
           <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right;">${format(totalGastosComunes * (g.alicuota/100))}</td>
           <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-weight: bold;">${format((totalGastosComunes * (g.alicuota/100)) * 1.10)}</td>
           <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #2e7d32;">$${formatUsd(((totalGastosComunes * (g.alicuota/100)) * 1.10) / (tasaDolar || 45))}</td>
@@ -735,7 +721,7 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
             <table class="metric-table">
               <tr><td class="metric-label">Recibos Pendientes:</td><td class="metric-value ${unidadesConDeuda > (totalAptosMain * 0.5) ? 'negative' : 'positive'}">${unidadesConDeuda} unidades</td></tr>
             </table>
-            <div style="text-align: center; font-size: 10px; color: #5f6368;">(${(unidadesConDeuda/totalAptosMain*100).toFixed(1)}% de ${totalAptosMain} unidades totales)</div>
+            <div style="text-align: center; font-size: 10px; color: #5f6368;">(${formatNumber(unidadesConDeuda/totalAptosMain*100, 1)}% de ${totalAptosMain} unidades totales)</div>
           </td>
           <td>
             <table class="metric-table">

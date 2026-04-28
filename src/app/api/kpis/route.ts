@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { formatDate } from "@/lib/formatters";
 import { getPlanPermissions } from "@/lib/planLimits";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
@@ -62,11 +63,6 @@ async function limitLogs(supabase: any, table: string, edificioId: string, limit
 
 async function logTasaWarning(supabase: any, edificioId: string, targetDate: string, tasa: number, tasaDate: string | null) {
   try {
-    const formatDate = (dateStr: string) => {
-      const [year, month, day] = dateStr.split("-");
-      return `${day}/${month}/${year}`;
-    };
-
     const targetFormatted = formatDate(targetDate);
     const tasaDateFormatted = tasaDate ? formatDate(tasaDate) : "N/A";
 

@@ -11,33 +11,8 @@ import { SaludFinanciera } from "./SaludFinanciera";
 import { SimuladorInversiones } from "./SimuladorInversiones";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
+import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
 type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "analisis-cobranza" | "semaforo-morosidad" | "salud-financiera" | "simulador-inversiones";
-
-function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
-  if (amount === undefined || amount === null || isNaN(amount)) return "-";
-  // Forzamos el formato con punto para miles y coma para decimales
-  const parts = amount.toFixed(decimals).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return parts.join(',');
-}
-
-function formatBs(amount: number | undefined | null): string {
-  return formatCurrency(amount, 2);
-}
-
-function formatUsd(amount: number | undefined | null): string {
-  return formatCurrency(amount, 2);
-}
-
-function formatDate(date: string | Date | undefined | null): string {
-  if (!date) return "-";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "-";
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
 
 function UpgradeCard({ title, feature, planRequired, onUpgrade }: { title: string, feature: string, planRequired: string, onUpgrade: () => void }) {
   return (
@@ -1625,7 +1600,7 @@ export default function DashboardPage() {
         // Task 1: Check if sum deviates by more than 2% from 100%
         const sum = data.alicuotaSum || 0;
         if (data.count > 0 && (sum < 98 || sum > 102)) {
-          setAlicuotaTotalWarning(`⚠️ La suma de alícuotas es ${sum.toFixed(2)}%, lo cual se desvía más de 2% del 100% esperado. Por favor verifica la cantidad de unidades.`);
+          setAlicuotaTotalWarning(`⚠️ La suma de alícuotas es ${formatNumber(sum, 2)}%, lo cual se desvía más de 2% del 100% esperado. Por favor verifica la cantidad de unidades.`);
           setShowUnitsAlert(true);
         } else {
           setAlicuotaTotalWarning(null);
@@ -2552,7 +2527,7 @@ export default function DashboardPage() {
                       <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
                       <div className="text-xl font-black text-blue-800">
                         {balance?.gastos_facturados && balance.gastos_facturados !== 0 
-                          ? (balance.saldo_disponible / Math.abs(balance.gastos_facturados)).toFixed(2) 
+                          ? formatNumber(balance.saldo_disponible / Math.abs(balance.gastos_facturados), 2) 
                           : "N/A"}
                       </div>
                       <div className="text-[9px] text-blue-500 leading-tight">Veces que el saldo cubre los gastos del mes</div>
@@ -2561,7 +2536,7 @@ export default function DashboardPage() {
                       <div className="text-[10px] font-bold text-green-600 uppercase mb-1">Índice de Cobranza</div>
                       <div className="text-xl font-black text-green-800">
                         {balance?.recibos_mes && balance.recibos_mes !== 0 
-                          ? ((balance.cobranza_mes / balance.recibos_mes) * 100).toFixed(1)
+                          ? formatNumber((balance.cobranza_mes / balance.recibos_mes) * 100, 1)
                           : "0.0"}%
                       </div>
                       <div className="text-[9px] text-green-500 leading-tight">Efectividad de recaudación del mes</div>
@@ -2569,7 +2544,7 @@ export default function DashboardPage() {
                     <div className="bg-red-50 p-3 rounded-lg group" title="Porcentaje de apartamentos que tienen deuda pendiente. Por debajo del 20% es saludable.">
                       <div className="text-[10px] font-bold text-red-600 uppercase mb-1">Morosidad Global</div>
                       <div className="text-xl font-black text-red-800">
-                        {building?.unidades ? ((recibos.length / building.unidades) * 100).toFixed(1) : "0.0"}%
+                        {building?.unidades ? formatNumber((recibos.length / building.unidades) * 100, 1) : "0,0"}%
                       </div>
                       <div className="text-[9px] text-red-500 leading-tight">Aptos con deuda sobre el total</div>
                     </div>
@@ -2577,7 +2552,7 @@ export default function DashboardPage() {
                       <div className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Carga de Deuda</div>
                       <div className="text-xl font-black text-indigo-800">
                         {balance?.total_por_cobrar && balance.recibos_mes && balance.recibos_mes !== 0
-                          ? (balance.total_por_cobrar / balance.recibos_mes).toFixed(1)
+                          ? formatNumber(balance.total_por_cobrar / balance.recibos_mes, 1)
                           : "0.0"}
                       </div>
                       <div className="text-[9px] text-indigo-500 leading-tight">Meses de facturación en deuda total</div>
@@ -2819,7 +2794,7 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-gray-100">
                       {filteredMovements.map((mov) => (
                         <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-3 px-4 text-sm text-gray-900">{mov.fecha}</td>
+                          <td className="py-3 px-4 text-sm text-gray-900">{formatDate(mov.fecha)}</td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               mov.tipo === "pago" ? "bg-green-100 text-green-700" :
@@ -2888,7 +2863,7 @@ export default function DashboardPage() {
                           <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Visualizaci&oacute;n de Recibo de Condominio</h2>
                           <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes {selectedMesRecibos}</p>
                           <div className="mt-2 text-xs font-bold text-blue-600 bg-blue-50 inline-block px-2 py-1 rounded border border-blue-100">
-                            Tasa de cambio: {rate.toFixed(2)} Bs/USD
+                            Tasa de cambio: {formatNumber(rate, 2)} Bs/USD
                           </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -3136,7 +3111,7 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-gray-100">
                     {egresos.filter((e: any) => !e.isTotal && e.fecha !== "2099-12-31" && !e.beneficiario?.includes("TOTAL")).map((egreso: any) => (
                       <tr key={egreso.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-sm text-gray-900">{egreso.fecha}</td>
+                        <td className="py-3 px-4 text-sm text-gray-900">{formatDate(egreso.fecha)}</td>
                         <td className="py-3 px-4 text-sm text-gray-600 font-medium">{egreso.beneficiario}</td>
                         <td className="py-3 px-4 text-xs text-gray-500 italic">{egreso.operacion}</td>
                         <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
@@ -3209,7 +3184,7 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-gray-100">
                     {gastos.filter(g => !g.isTotal).map((gasto: any) => (
                       <tr key={gasto.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-sm text-gray-900">{gasto.fecha}</td>
+                        <td className="py-3 px-4 text-sm text-gray-900">{formatDate(gasto.fecha)}</td>
                         <td className="py-3 px-4 text-sm text-gray-600 font-medium">{gasto.descripcion}</td>
                         <td className="py-3 px-4 text-xs text-gray-400">{gasto.codigo || "-"}</td>
                         <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
@@ -3543,7 +3518,7 @@ export default function DashboardPage() {
                       <tr key={a.id} className="hover:bg-gray-50 transition-colors">
                         <td className="py-2 px-2 font-bold text-gray-900">{a.unidad}</td>
                         <td className="py-2 px-2 text-gray-600 max-w-[120px] truncate text-xs">{a.propietario || "-"}</td>
-                        <td className="py-2 px-2 text-right text-xs">{a.alicuota?.toFixed(5) || "-"}%</td>
+                        <td className="py-2 px-2 text-right text-xs">{formatNumber(a.alicuota, 5) || "-"}%</td>
                         <td className="py-2 px-1">
                           <input type="text" defaultValue={a.email1 || ""} onBlur={(e) => updateAlicuota(a.id, "email1", e.target.value)} className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 focus:border-blue-500" placeholder="Correo 1" />
                         </td>
@@ -3567,7 +3542,7 @@ export default function DashboardPage() {
                       <td className="py-3 px-2 text-xs uppercase" colSpan={2}>TOTAL UNIDADES Y SUMA</td>
                       <td className="py-3 px-2 text-right text-xs bg-gray-200">{alicuotasCount} APTOS</td>
                       <td className={`py-3 px-2 text-right text-xs ${alicuotaSum >= 99.9 && alicuotaSum <= 100.1 ? "text-green-700" : "text-red-600"}`}>
-                        SUMA: {alicuotaSum.toFixed(3)}%
+                        SUMA: {formatNumber(alicuotaSum, 3)}%
                       </td>
                       <td className="py-3 px-2" colSpan={4}>
                         {alicuotaWarning && (
@@ -3947,7 +3922,7 @@ export default function DashboardPage() {
                     <BarChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Cobranza"]} />
                       <Legend verticalAlign="top" height={36} />
                       <Bar dataKey="cobranza_mes_usd" fill="#10b981" name="Cobranza ($)" radius={[4, 4, 0, 0]} />
@@ -3967,7 +3942,7 @@ export default function DashboardPage() {
                     <AreaChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Cuentas por Cobrar"]} />
                       <Legend verticalAlign="top" height={36} />
                       <Area type="monotone" dataKey="total_por_cobrar_usd" stroke="#f59e0b" fill="#fef3c7" name="Por Cobrar ($)" />
@@ -3987,7 +3962,7 @@ export default function DashboardPage() {
                     <LineChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Saldo"]} />
                       <Legend verticalAlign="top" height={36} />
                       <Line type="monotone" dataKey="saldo_disponible_usd" stroke="#2563eb" strokeWidth={3} name="Saldo Disponible ($)" dot={{ r: 4 }} />
@@ -4008,7 +3983,7 @@ export default function DashboardPage() {
                   <BarChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }} barGap={0}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                     <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                     <Tooltip cursor={{fill: '#f9fafb'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value: any) => [`$${formatUsd(value as number)}`]} />
                     <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
                     <Bar dataKey="cobranza_mes_usd" fill="#22c55e" name="Cobranza ($)" radius={[4, 4, 0, 0]} />
@@ -4036,7 +4011,7 @@ export default function DashboardPage() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Gastos"]} />
                       <Area type="monotone" dataKey="gastos_facturados_usd" stroke="#f97316" fillOpacity={1} fill="url(#colorGastos)" name="Gastos ($)" />
                     </AreaChart>
@@ -4055,7 +4030,7 @@ export default function DashboardPage() {
                     <BarChart data={kpisData.egresos} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Egresos"]} />
                       <Bar dataKey="monto_usd" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Egresos ($)" />
                     </BarChart>
@@ -4076,7 +4051,7 @@ export default function DashboardPage() {
                     <LineChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Fondo Reserva"]} />
                       <Line type="monotone" dataKey="fondo_reserva_usd" stroke="#8b5cf6" strokeWidth={2} name="Fondo Reserva ($)" dot={{ r: 3 }} />
                     </LineChart>
@@ -4095,7 +4070,7 @@ export default function DashboardPage() {
                     <AreaChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Int. Moratorios"]} />
                       <Area type="monotone" dataKey="fondo_intereses_usd" stroke="#ec4899" fill="#fbcfe8" name="Intereses ($)" />
                     </AreaChart>
@@ -4116,7 +4091,7 @@ export default function DashboardPage() {
                     <LineChart data={kpisData.balances} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Dif. Cambiario"]} />
                       <Line type="monotone" dataKey="fondo_diferencial_cambiario_usd" stroke="#06b6d4" strokeWidth={2} name="Dif. Cambiario ($)" dot={{ r: 3 }} />
                     </LineChart>
@@ -4135,7 +4110,7 @@ export default function DashboardPage() {
                     <AreaChart data={kpisData.balances} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
                       <XAxis dataKey="label" tick={{ fontSize: 9 }} />
-                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${v.toFixed(0)}`} />
+                      <YAxis tick={{ fontSize: 9 }} tickFormatter={(v: any) => `$${formatNumber(v, 0)}`} />
                       <Tooltip formatter={(value: any) => [`$${formatUsd(value as number)}`, "Monto Recibo"]} />
                       <Area type="monotone" dataKey="recibos_mes_usd" stroke="#10b981" fill="#d1fae5" name="Recibo ($)" />
                     </AreaChart>
@@ -4364,7 +4339,7 @@ export default function DashboardPage() {
                 <div className="bg-gray-50 p-8 rounded-2xl border border-gray-200 shadow-inner">
                   <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
                     <h3 className="font-black text-indigo-900 uppercase tracking-tighter text-xl">
-                      Fotografía Financiera: {informeFecha.split("-").reverse().join("/")}
+                      Fotografía Financiera: {formatDate(informeFecha)}
                     </h3>
                     <div className="bg-indigo-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Sincronizado</div>
                   </div>
@@ -4834,8 +4809,8 @@ export default function DashboardPage() {
               }
 
               const balanceMes = grandTotalIng - grandTotalEgr;
-              const pct = (v: number) => grandTotalIng > 0 ? ((v / grandTotalIng) * 100).toFixed(1) : "0.0";
-              const pctEgr = (v: number) => grandTotalEgr > 0 ? ((v / grandTotalEgr) * 100).toFixed(1) : "0.0";
+              const pct = (v: number) => grandTotalIng > 0 ? formatNumber((v / grandTotalIng) * 100, 1) : "0,0";
+              const pctEgr = (v: number) => grandTotalEgr > 0 ? formatNumber((v / grandTotalEgr) * 100, 1) : "0,0";
 
               // Preparar datos para gráfico
               const chartData = [];
@@ -4954,11 +4929,11 @@ export default function DashboardPage() {
                             <div className="text-[9px] uppercase opacity-80">Días c/Movimiento</div>
                           </div>
                           <div className="text-center">
-                            <div className="text-2xl font-black text-green-300">{grandTotalIng > 0 ? ((grandTotalIng / (grandTotalIng + grandTotalEgr)) * 100).toFixed(0) : 0}%</div>
+                            <div className="text-2xl font-black text-green-300">{grandTotalIng > 0 ? formatNumber((grandTotalIng / (grandTotalIng + grandTotalEgr)) * 100, 0) : 0}%</div>
                             <div className="text-[9px] uppercase opacity-80">% Ingresos</div>
                           </div>
                           <div className="text-center">
-                            <div className="text-2xl font-black text-red-300">{grandTotalEgr > 0 ? ((grandTotalEgr / (grandTotalIng + grandTotalEgr)) * 100).toFixed(0) : 0}%</div>
+                            <div className="text-2xl font-black text-red-300">{grandTotalEgr > 0 ? formatNumber((grandTotalEgr / (grandTotalIng + grandTotalEgr)) * 100, 0) : 0}%</div>
                             <div className="text-[9px] uppercase opacity-80">% Egresos</div>
                           </div>
                         </div>
@@ -4973,7 +4948,7 @@ export default function DashboardPage() {
                           <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                             <XAxis dataKey="dia" tick={{ fontSize: 9 }} stroke="#9ca3af" />
-                            <YAxis tick={{ fontSize: 9 }} stroke="#9ca3af" tickFormatter={(v) => `${(v/1000).toFixed(0)}k`} />
+                            <YAxis tick={{ fontSize: 9 }} stroke="#9ca3af" tickFormatter={(v) => `${formatNumber(v/1000, 0)}k`} />
                             <Tooltip
                               formatter={(value: any, name: any) => [`Bs. ${formatBs(value as number)}`, name === 'ingresos' ? 'Ingresos' : 'Egresos']}
                               contentStyle={{ fontSize: 11, borderRadius: 8 }}
@@ -5267,7 +5242,7 @@ export default function DashboardPage() {
                                   
                                   return (
                                     <tr key={group.val} className="hover:bg-white transition-colors">
-                                      <td className="py-2 uppercase font-black text-indigo-600">({group.count}) {group.val.toFixed(7)}%</td>
+                                      <td className="py-2 uppercase font-black text-indigo-600">({group.count}) {formatNumber(group.val, 7)}%</td>
                                       <td className="py-2 text-right font-mono">{formatBs(cpUnit)}</td>
                                       <td className="py-2 text-right font-mono">{formatBs(cpUnit * 1.10)}</td>
                                       <td className="py-2 text-right font-mono text-gray-400">{formatBs(subTotalComunes)}</td>
@@ -5654,7 +5629,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4 font-black text-green-700 flex items-center gap-2">
                                 <span className="w-3 h-3 bg-green-500 rounded-full"></span> 🟢 OPTIMISTA
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsOpt.toFixed(1)}</td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{formatNumber(totalReceiptsOpt, 1)}</td>
                               <td className="px-6 py-4 text-right font-black text-green-700">{formatBs(montoOptBs)}</td>
                               <td className="px-6 py-4 text-right font-black text-green-700 text-lg">${formatUsd(montoOptUsd)}</td>
                               <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 1.3x</td>
@@ -5663,7 +5638,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4 font-black text-amber-600 flex items-center gap-2">
                                 <span className="w-3 h-3 bg-amber-400 rounded-full"></span> 🟡 CONSERVADOR
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsCons.toFixed(1)}</td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{formatNumber(totalReceiptsCons, 1)}</td>
                               <td className="px-6 py-4 text-right font-black text-amber-600">{formatBs(montoConsBs)}</td>
                               <td className="px-6 py-4 text-right font-black text-amber-600 text-lg">${formatUsd(montoConsUsd)}</td>
                               <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial Real + 1.0x</td>
@@ -5672,7 +5647,7 @@ export default function DashboardPage() {
                               <td className="px-6 py-4 font-black text-red-600 flex items-center gap-2">
                                 <span className="w-3 h-3 bg-red-500 rounded-full"></span> 🔴 PESIMISTA
                               </td>
-                              <td className="px-6 py-4 text-center font-bold text-lg">{totalReceiptsPes.toFixed(1)}</td>
+                              <td className="px-6 py-4 text-center font-bold text-lg">{formatNumber(totalReceiptsPes, 1)}</td>
                               <td className="px-6 py-4 text-right font-black text-red-600">{formatBs(montoPesBs)}</td>
                               <td className="px-6 py-4 text-right font-black text-red-600 text-lg">${formatUsd(montoPesUsd)}</td>
                               <td className="px-6 py-4 text-xs font-bold text-gray-400 italic">Historial + Factor 0.6x</td>
@@ -5709,12 +5684,12 @@ export default function DashboardPage() {
                                         <span className="bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase">No</span>
                                       )}
                                     </td>
-                                    <td className="px-6 py-3 text-center font-mono text-sm">{p.avgHistory.toFixed(2)}</td>
+                                    <td className="px-6 py-3 text-center font-mono text-sm">{formatNumber(p.avgHistory, 2)}</td>
                                     <td className="px-6 py-3 text-center font-bold text-indigo-600">
-                                      {p.opt.toFixed(1)} / {p.cons.toFixed(1)} / {p.pes.toFixed(1)}
+                                      {formatNumber(p.opt, 1)} / {formatNumber(p.cons, 1)} / {formatNumber(p.pes, 1)}
                                     </td>
                                     <td className="px-6 py-3 text-xs text-gray-500 font-medium">
-                                      Promedio: {p.avgHistory.toFixed(1)} recibos ({historicalPagos.filter((hp:any) => new Date(hp.fecha_pago).getDate() === p.day).length} veces)
+                                      Promedio: {formatNumber(p.avgHistory, 1)} recibos ({historicalPagos.filter((hp:any) => new Date(hp.fecha_pago).getDate() === p.day).length} veces)
                                     </td>
                                   </tr>
                                 ))}
@@ -5762,7 +5737,7 @@ export default function DashboardPage() {
                               <div>
                                 <h4 className="font-black text-gray-900 uppercase text-xs tracking-widest mb-1">Déficit Proyectado</h4>
                                 <p className="text-sm text-gray-600 leading-relaxed font-medium">
-                                  Quedarían <span className="text-red-600 font-bold">{(totalReceiptsPending - totalReceiptsCons).toFixed(1)} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
+                                  Quedarían <span className="text-red-600 font-bold">{formatNumber(totalReceiptsPending - totalReceiptsCons, 1)} recibos</span> sin cobrar este mes según la tendencia histórica conservadora.
                                 </p>
                               </div>
                             </div>
@@ -5815,7 +5790,7 @@ export default function DashboardPage() {
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold ${showUnitsAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-gray-300 bg-white'} ${!user?.isAdmin ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   />
                   {showUnitsAlert && (
-                    <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Suma alícuotas errónea ({alicuotaSum.toFixed(2)}%). Verifica unidades.</p>
+                    <p className="text-[10px] text-red-600 font-bold mt-1 uppercase">Suma alícuotas errónea ({formatNumber(alicuotaSum, 2)}%). Verifica unidades.</p>
                   )}
                 </div>
               </div>

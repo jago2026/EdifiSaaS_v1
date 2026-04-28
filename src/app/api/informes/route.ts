@@ -1,17 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { formatNumber } from "@/lib/formatters";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
-function formatNumber(num: number, decimals: number = 2): string {
-  if (num === undefined || num === null || isNaN(num)) return "-";
-  const parts = num.toFixed(decimals).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return parts.join(',');
-}
-
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action");
@@ -285,7 +279,7 @@ export async function GET(request: Request) {
                   tipo: 'Presupuesto',
                   severidad: 'media',
                   titulo: `Desvío en Gasto Recurrente: ${r.descripcion}`,
-                  descripcion: `El monto actual (Bs. ${formatNumber(actual)}) se desvía un ${(desviacion * 100).toFixed(1)}% del promedio histórico.`,
+                  descripcion: `El monto actual (Bs. ${formatNumber(actual)}) se desvía un ${formatNumber(desviacion * 100, 1)}% del promedio histórico.`,
                   valor_actual: actual,
                   promedio: promedioAnterior
                 });

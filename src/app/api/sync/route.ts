@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { formatNumber } from "@/lib/formatters";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -37,13 +38,6 @@ function parseMonto(text: string): number {
   }
 
   return parseFloat(cleaned) || 0;
-}
-
-function formatNumber(num: number, decimals: number = 2): string {
-  if (num === undefined || num === null || isNaN(num)) return "-";
-  const parts = num.toFixed(decimals).split('.');
-  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return parts.join(',');
 }
 
 async function generateHash(data: string): Promise<string> {

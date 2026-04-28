@@ -77,7 +77,7 @@ Corregir error de despliegue en Vercel relacionado con la falta del cliente de S
 ### Próximos Pasos Sugeridos
 - Refactorizar las rutas API en `src/app/api/` para utilizar el cliente compartido de `src/lib/supabase.ts` en lugar de reinicializarlo en cada archivo.
 - Implementar validación de tipos más estricta una vez que el entorno local esté sincronizado con `node_modules`.
-- Continuar con la refactorización del Dashboard (6800+ líneas) en componentes más pequeños para mejorar la legibilidad y mantenibilidad.
+- Continuar con la refactorización del Dashboard (7000+ líneas) en componentes más pequeños para mejorar la legibilidad y mantenibilidad.
 
 
 ## Fecha: 28 de Abril, 2026 (Continuación)
@@ -103,3 +103,26 @@ Implementación de módulos analíticos avanzados para la Junta de Condominio: A
     - Refactorizar `src/app/dashboard/page.tsx` para incluir las nuevas pestañas.
     - Actualizado `ManualUsuario.tsx` con documentación de las nuevas herramientas.
     - Diseño coherente con la estética "premium" del proyecto.
+
+---
+
+## Fecha: 28 de Abril, 2026 (Continuación 2)
+
+### Objetivo
+Estandarización de formatos de números y fechas en todo el proyecto.
+
+### Tareas Realizadas
+- [x] **Centralización de Formateadores**: Creado `src/lib/formatters.ts` con funciones `formatNumber`, `formatCurrency`, `formatDate`, `formatBs` y `formatUsd`.
+- [x] **Estandarización de Números**: Implementado formato de miles con punto (.) y decimales con coma (,) en todo el proyecto (UI y Emails), cumpliendo con el estándar solicitado (ej: 1.234.567,89).
+- [x] **Estandarización de Fechas**: Implementado formato `dd/mm/aaaa` en todas las vistas de usuario, formularios y reportes (ej: 28/04/2026).
+- [x] **Refactorización Masiva**:
+    - Reemplazados todos los `.toFixed()` directos en el UI por `formatNumber()` para asegurar consistencia.
+    - Eliminadas definiciones locales duplicadas de `formatCurrency`, `formatNumber` y `formatDate` en múltiples componentes y rutas de API (`page.tsx`, `email/route.ts`, `informes/route.ts`, `sync/route.ts`, etc.).
+    - Actualizados componentes del Dashboard (`SaludFinanciera`, `SemaforoMorosidad`, `SimuladorInversiones`, `AnalisisCobranza`) para usar los formateadores centralizados.
+- [x] **Correcciones en Admin**: Actualizada la página de administración para mostrar fechas de registro y pagos en el nuevo formato estándar.
+
+### Próximos Pasos Sugeridos
+- Continuar la refactorización de `app/dashboard/page.tsx` para extraer componentes grandes (actualmente ~7000 líneas).
+- Implementar una librería de componentes UI compartidos para evitar duplicación de estilos Tailwind.
+- Revisar las entradas de datos (inputs) para que también acepten y validen el formato de coma decimal de forma amigable.
+

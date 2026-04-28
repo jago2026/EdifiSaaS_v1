@@ -3,29 +3,12 @@
 import { useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+import { formatNumber, formatCurrency, formatUsd, formatDate } from "@/lib/formatters";
+
 export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [montoProyecto, setMontoProyecto] = useState<number>(5000);
-
-  const formatCurrency = (amount: number | undefined | null, decimals: number = 2): string => {
-    if (amount === undefined || amount === null || isNaN(amount)) return "-";
-    const parts = amount.toFixed(decimals).split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    return parts.join(',');
-  };
-
-  const formatUsd = (num: number) => formatCurrency(num, 2);
-
-  const formatDate = (date: string | Date | undefined | null): string => {
-    if (!date) return "-";
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return "-";
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const year = d.getUTCFullYear();
-    return `${day}/${month}/${year}`;
-  };
 
   useEffect(() => {
     async function loadData() {

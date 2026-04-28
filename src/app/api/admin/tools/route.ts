@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { transporter } from "@/lib/mail";
+import { formatDate } from "@/lib/formatters";
 import crypto from "crypto";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
@@ -10,15 +11,7 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
 
 const DRIVE_FOLDER_ID = "15UIfIyE78tbRU0zuLs-XDIuTD53OC9gk";
 
-function formatDate(date: string | Date | undefined | null): string {
-  if (!date) return "-";
-  const d = new Date(date);
-  if (isNaN(d.getTime())) return "-";
-  const day = String(d.getUTCDate()).padStart(2, '0');
-  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const year = d.getUTCFullYear();
-  return `${day}/${month}/${year}`;
-}
+import { formatDate } from "@/lib/formatters";
 
 async function checkAdmin() {
   const cookieStore = await cookies();

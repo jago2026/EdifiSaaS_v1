@@ -3,19 +3,11 @@
 import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
 
+import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
+
 export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
-  const formatDate = (date: string | Date | undefined | null): string => {
-    if (!date) return "-";
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return "-";
-    const day = String(d.getUTCDate()).padStart(2, '0');
-    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-    const year = d.getUTCFullYear();
-    return `${day}/${month}/${year}`;
-  };
 
   useEffect(() => {
     async function loadData() {
