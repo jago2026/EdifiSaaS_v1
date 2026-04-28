@@ -7,6 +7,15 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const formatCurrency = (amount: number | undefined | null, decimals: number = 2): string => {
+    if (amount === undefined || amount === null || isNaN(amount)) return "-";
+    const parts = amount.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return parts.join(',');
+  };
+
+  const formatBs = (num: number) => formatCurrency(num, 2);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -16,7 +25,7 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
       } catch (err) {
         console.error("Error loading salud financiera data:", err);
       } finally {
-        setLoading(setLoading(false) as any);
+        setLoading(false);
       }
     }
     loadData();
@@ -29,8 +38,6 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
     name,
     total: stats.total
   }));
-
-  const formatBs = (num: number) => num.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-8 animate-in zoom-in duration-700">
@@ -47,11 +54,10 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
       </header>
 
       <div className="grid md:grid-cols-3 gap-6">
-        {/* Índice de Liquidez */}
         <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col items-center text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Índice de Liquidez</div>
           <div className={`text-6xl font-black mb-4 ${data.liquidez.valor >= 1 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {data.liquidez.valor.toFixed(2)}
+            {formatCurrency(data.liquidez.valor, 2)}
           </div>
           <div className="text-xs font-bold text-gray-500 uppercase mb-6">Caja vs Gastos Facturados</div>
           <div className="w-full bg-gray-50 p-4 rounded-2xl space-y-2">
@@ -71,11 +77,10 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
           </p>
         </div>
 
-        {/* Efectividad de Cobranza */}
         <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 flex flex-col items-center text-center">
           <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-6">Efectividad 1ra Sem.</div>
           <div className="text-6xl font-black text-indigo-600 mb-4">
-            {data.efectividad.valor.toFixed(0)}%
+            {formatCurrency(data.efectividad.valor, 0)}%
           </div>
           <div className="text-xs font-bold text-gray-500 uppercase mb-6">{data.efectividad.aptos} de {data.efectividad.totalAptos} Apartamentos</div>
           
@@ -88,7 +93,6 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
           </p>
         </div>
 
-        {/* Día de Oro */}
         <div className="bg-indigo-900 p-8 rounded-[2rem] text-white flex flex-col items-center text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl">🏆</div>
           <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-6">El Día de Oro</div>
@@ -108,7 +112,6 @@ export function SaludFinanciera({ edificioId }: { edificioId: string }) {
         </div>
       </div>
 
-      {/* Gráfico de Recaudación por Día de la Semana */}
       <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
           <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-8">Flujo de Ingresos por Día de la Semana</h3>
           <div className="h-[300px]">

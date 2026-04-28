@@ -10,6 +10,16 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
 
 const DRIVE_FOLDER_ID = "15UIfIyE78tbRU0zuLs-XDIuTD53OC9gk";
 
+function formatDate(date: string | Date | undefined | null): string {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 async function checkAdmin() {
   const cookieStore = await cookies();
   const userId = cookieStore.get("user_id")?.value;
@@ -86,7 +96,7 @@ export async function POST(request: Request) {
       await transporter.sendMail({
         from: '"EdifiSaaS System" <controlfinancierosaas@gmail.com>',
         to: "correojago@gmail.com",
-        subject: `🔧 REPORTE MANTENIMIENTO: ${new Date().toLocaleDateString('es-VE')}`,
+        subject: `🔧 REPORTE MANTENIMIENTO: ${formatDate(new Date())}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden; background: #ffffff;">
             <div style="background: #0f172a; color: white; padding: 40px 20px; text-align: center;">
@@ -110,7 +120,7 @@ export async function POST(request: Request) {
                 <div style="display: inline-block; width: 30%;"><p style="font-size: 24px; font-weight: 800; margin: 0; color: #0f172a;">${totales.recibos || 0}</p><p style="font-size: 9px; text-transform: uppercase; color: #94a3b8;">Recibos</p></div>
                 <div style="display: inline-block; width: 30%;"><p style="font-size: 24px; font-weight: 800; margin: 0; color: #0f172a;">${totales.movimientos || 0}</p><p style="font-size: 9px; text-transform: uppercase; color: #94a3b8;">Movimientos</p></div>
               </div>
-              <p style="font-size: 10px; color: #94a3b8; text-align: center; margin-top: 30px;">Ejecutado por Vercel Cron | ${new Date().toLocaleString('es-VE')}</p>
+              <p style="font-size: 10px; color: #94a3b8; text-align: center; margin-top: 30px;">Ejecutado por Vercel Cron | ${formatDate(new Date())} a las ${new Date().toLocaleTimeString('es-VE')}</p>
             </div>
           </div>`
       });
@@ -142,7 +152,7 @@ export async function GET(request: Request) {
       if (!token) return NextResponse.json({ backups: [] });
       const res = await fetch(`https://www.googleapis.com/drive/v3/files?q='${DRIVE_FOLDER_ID}'+in+parents+and+trashed=false&orderBy=createdTime+desc&fields=files(id,name,createdTime)`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
-      return NextResponse.json({ backups: (data.files || []).map((f: any) => ({ id: f.id, name: f.name, date: new Date(f.createdTime).toLocaleDateString('es-VE') })) });
+      return NextResponse.json({ backups: (data.files || []).map((f: any) => ({ id: f.id, name: f.name, date: formatDate(f.createdTime) })) });
     }
     if (action === "maintenance") return POST(new Request(request.url, { method: 'POST', body: JSON.stringify({ action: 'maintenance' }) }));
     return NextResponse.json({ error: "Acción no válida" }, { status: 400 });

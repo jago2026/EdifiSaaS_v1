@@ -21,7 +21,20 @@ const transporter = nodemailer.createTransport({
 });
 
 function formatNumber(num: number, decimals: number = 2): string {
-  return num.toLocaleString("es-VE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  if (num === undefined || num === null || isNaN(num)) return "-";
+  const parts = num.toFixed(decimals).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return parts.join(',');
+}
+
+function formatDate(date: string | Date | undefined | null): string {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function formatBs(amount: number): string {
@@ -94,7 +107,7 @@ export async function POST(request: Request) {
         toList = (destinatario || "").split(",").map((e: string) => e.trim()).filter(Boolean);
       }
 
-      const fechaConsulta = new Date().toLocaleDateString("es-VE", { timeZone: "America/Caracas", dateStyle: "long" });
+      const fechaConsulta = formatDate(new Date());
       const edificioNombre = nombreEdificio || edificio.nombre;
       let servicioHtml = "";
       let asunto = "";
@@ -229,8 +242,8 @@ export async function POST(request: Request) {
       const { payload } = body;
       const { mes, items, totalGastosComunes, alicuotas: dist, tasaDolar } = payload;
       
-      const format = (n: number) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const formatUsd = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const format = (n: number) => formatNumber(n, 2);
+      const formatUsd = (n: number) => formatNumber(n, 2);
 
       let rowsHtml = items.map((i: any) => `
         <tr>
@@ -327,7 +340,7 @@ export async function POST(request: Request) {
       const { payload } = body;
       const { mes, rows, summary } = payload;
       
-      const format = (n: number) => n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const format = (n: number) => formatNumber(n, 2);
 
       let tableRowsHtml = rows.map((r: any) => `
         <tr style="background: ${r.dia % 2 === 0 ? '#f8f9fa' : '#ffffff'};">
@@ -395,7 +408,7 @@ export async function POST(request: Request) {
             </div>
             
             <p style="font-size: 10px; color: #999; text-align: center; margin-top: 40px; font-style: italic;">
-              Reporte generado automáticamente por EdifiSaaS v1.0 el ${new Date().toLocaleString('es-VE')}.
+              Reporte generado automáticamente por EdifiSaaS v1.0 el ${formatDate(new Date())} a las ${new Date().toLocaleTimeString('es-VE')}.
             </p>
           </div>
         `
@@ -407,7 +420,7 @@ export async function POST(request: Request) {
       await transporter.sendMail({
         from: `"SaaS - Error de Sincronización" <${SMTP_USER}>`,
         to: recipient || "correojago@gmail.com",
-        subject: `⚠️ ERROR en Sincronización - ${edificio.nombre} - ${new Date().toLocaleDateString()}`,
+        subject: `⚠️ ERROR en Sincronización - ${edificio.nombre} - ${formatDate(new Date())}`,
         text: `Se ha detectado un error durante la sincronización automática o el envío del reporte para el edificio ${edificio.nombre}.\n\nDetalles del error:\n${errorMsg || "Desconocido"}\n\nPor favor, verifica el estado del sistema.`,
       });
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
@@ -421,7 +434,7 @@ export async function POST(request: Request) {
 
     const todayDate = new Date();
     const today = todayDate.toISOString().split("T")[0];
-    const fechaStr = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+    const fechaStr = formatDate(todayDate);
 
     if (action === "whatsapp_report") {
       // Get the latest month available for this building in recibos
@@ -570,7 +583,7 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     // 7-day history
     const { data: movs7days } = await supabase.from("movimientos_dia").select("detectado_en, tipo, monto").eq("edificio_id", edificioId).gte("detectado_en", yesterday).order("detectado_en", { ascending: false });
 
-    const fechaCompleta = todayDate.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+    const fechaCompleta = formatDate(todayDate);
     const horaEnvio = todayDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", timeZone: "America/Caracas" });
 
     const disponibilidadTotal = Number(bal?.saldo_disponible || 0) + Number(bal?.fondo_reserva || 0);

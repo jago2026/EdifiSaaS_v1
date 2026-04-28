@@ -39,6 +39,13 @@ function parseMonto(text: string): number {
   return parseFloat(cleaned) || 0;
 }
 
+function formatNumber(num: number, decimals: number = 2): string {
+  if (num === undefined || num === null || isNaN(num)) return "-";
+  const parts = num.toFixed(decimals).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return parts.join(',');
+}
+
 async function generateHash(data: string): Promise<string> {
   const encoder = new TextEncoder();
   const dataBuffer = encoder.encode(data);
@@ -713,7 +720,7 @@ export async function POST(request: Request) {
               edificio_id: building.id,
               tipo: "ingreso",
               titulo: "✅ Deuda Cancelada (Auto)",
-              descripcion: `La unidad ${unidadPrevia} (${propietario}) ha saldado su deuda total de Bs. ${montoTotalPagado.toLocaleString('es-VE')}. Detectado por conciliación de lista.`,
+              descripcion: `La unidad ${unidadPrevia} (${propietario}) ha saldado su deuda total de Bs. ${formatNumber(montoTotalPagado)}. Detectado por conciliación de lista.`,
               fecha: today
             });
 

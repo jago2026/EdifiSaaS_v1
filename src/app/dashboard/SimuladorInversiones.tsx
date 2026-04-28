@@ -8,6 +8,25 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
   const [loading, setLoading] = useState(true);
   const [montoProyecto, setMontoProyecto] = useState<number>(5000);
 
+  const formatCurrency = (amount: number | undefined | null, decimals: number = 2): string => {
+    if (amount === undefined || amount === null || isNaN(amount)) return "-";
+    const parts = amount.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return parts.join(',');
+  };
+
+  const formatUsd = (num: number) => formatCurrency(num, 2);
+
+  const formatDate = (date: string | Date | undefined | null): string => {
+    if (!date) return "-";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "-";
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -17,7 +36,7 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
       } catch (err) {
         console.error("Error loading inversiones data:", err);
       } finally {
-        setLoading(setLoading(false) as any);
+        setLoading(false);
       }
     }
     loadData();
@@ -28,7 +47,11 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
 
   const mesesNecesarios = Math.ceil(Math.max(0, montoProyecto - data.disponibleParaInvertirUsd) / (data.excedentePromedioUsd || 1));
 
-  const formatUsd = (num: number) => num.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const getEstimatedDate = () => {
+     const d = new Date();
+     d.setMonth(d.getMonth() + mesesNecesarios);
+     return formatDate(d);
+  };
 
   return (
     <div className="space-y-8 animate-in slide-in-from-right duration-700">
@@ -45,7 +68,6 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
       </header>
 
       <div className="grid lg:grid-cols-3 gap-8">
-        {/* Panel de Configuración */}
         <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50 space-y-8">
            <div>
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-4">Costo del Proyecto (USD)</label>
@@ -60,28 +82,27 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
            <div className="space-y-4">
               <div className="flex justify-between items-center">
                  <span className="text-xs font-bold text-gray-500 uppercase">Disponible Hoy</span>
-                 <span className="text-lg font-black text-gray-900">{formatUsd(data.disponibilidadActualUsd)}</span>
+                 <span className="text-lg font-black text-gray-900">$ {formatUsd(data.disponibilidadActualUsd)}</span>
               </div>
               <div className="flex justify-between items-center">
                  <span className="text-xs font-bold text-gray-500 uppercase">Fondo Reserva (Bloqueado)</span>
-                 <span className="text-lg font-black text-rose-500">-{formatUsd(data.fondoReservaUsd)}</span>
+                 <span className="text-lg font-black text-rose-500">-$ {formatUsd(data.fondoReservaUsd)}</span>
               </div>
               <div className="pt-4 border-t flex justify-between items-center">
                  <span className="text-xs font-black text-indigo-600 uppercase">Para Inversión</span>
-                 <span className="text-2xl font-black text-indigo-600">{formatUsd(data.disponibleParaInvertirUsd)}</span>
+                 <span className="text-2xl font-black text-indigo-600">$ {formatUsd(data.disponibleParaInvertirUsd)}</span>
               </div>
            </div>
 
            <div className="p-6 bg-indigo-50 rounded-3xl space-y-2">
               <div className="text-[10px] font-black text-indigo-400 uppercase">Capacidad de Ahorro Mensual</div>
-              <div className="text-2xl font-black text-indigo-700">{formatUsd(data.excedentePromedioUsd)}</div>
+              <div className="text-2xl font-black text-indigo-700">$ {formatUsd(data.excedentePromedioUsd)}</div>
               <p className="text-[9px] font-bold text-indigo-300 uppercase italic leading-tight">
                 * Promedio de los últimos 6 meses (Ingresos - Egresos)
               </p>
            </div>
         </div>
 
-        {/* Resultado de la Simulación */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-10 rounded-[2rem] text-white shadow-xl shadow-amber-100 relative overflow-hidden group">
             <div className="absolute -right-10 -bottom-10 opacity-10 text-[15rem] font-black rotate-12 transition-transform group-hover:rotate-0 duration-1000">🏗️</div>
@@ -91,14 +112,14 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
                     <div className="space-y-4">
                         <div className="text-5xl font-black tracking-tighter leading-none">¡Proyecto Viable <br/> <span className="text-indigo-900">Hoy Mismo</span>!</div>
                         <p className="text-lg font-medium opacity-90 max-w-md">
-                            Su disponibilidad actual de <span className="font-black">{formatUsd(data.disponibleParaInvertirUsd)}</span> cubre el 100% del costo sin tocar el fondo de reserva.
+                            Su disponibilidad actual de <span className="font-black">$ {formatUsd(data.disponibleParaInvertirUsd)}</span> cubre el 100% del costo sin tocar el fondo de reserva.
                         </p>
                     </div>
                 ) : (
                     <div className="space-y-4">
                         <div className="text-5xl font-black tracking-tighter leading-none">Disponible en <br/> <span className="text-indigo-900">{mesesNecesarios} meses</span></div>
                         <p className="text-lg font-medium opacity-90 max-w-md">
-                            Basado en su ritmo de recaudación, podrá iniciar la obra en <span className="font-black uppercase">{new Date(new Date().setMonth(new Date().getMonth() + mesesNecesarios)).toLocaleDateString('es-VE', { month: 'long', year: 'numeric' })}</span>.
+                            Basado en su ritmo de recaudación, podrá iniciar la obra en <span className="font-black uppercase">{getEstimatedDate()}</span>.
                         </p>
                     </div>
                 )}
@@ -121,7 +142,7 @@ export function SimuladorInversiones({ edificioId }: { edificioId: string }) {
                         <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} hide />
                         <Tooltip 
                             contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
-                            formatter={(val: any) => formatUsd(val)}
+                            formatter={(val: any) => `$ ${formatUsd(val)}`}
                         />
                         <Area type="monotone" dataKey="disponibilidad_total_usd" stroke="#f59e0b" strokeWidth={4} fillOpacity={1} fill="url(#colorDisp)" />
                     </AreaChart>

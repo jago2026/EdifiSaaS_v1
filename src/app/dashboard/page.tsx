@@ -15,17 +15,28 @@ type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "reci
 
 function formatCurrency(amount: number | undefined | null, decimals: number = 2): string {
   if (amount === undefined || amount === null || isNaN(amount)) return "-";
-  return amount.toLocaleString("es-VE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  // Forzamos el formato con punto para miles y coma para decimales
+  const parts = amount.toFixed(decimals).split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return parts.join(',');
 }
 
 function formatBs(amount: number | undefined | null): string {
-  if (amount === undefined || amount === null || isNaN(amount)) return "-";
-  return amount.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatCurrency(amount, 2);
 }
 
 function formatUsd(amount: number | undefined | null): string {
-  if (amount === undefined || amount === null || isNaN(amount)) return "-";
-  return amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatCurrency(amount, 2);
+}
+
+function formatDate(date: string | Date | undefined | null): string {
+  if (!date) return "-";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "-";
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const year = d.getUTCFullYear();
+  return `${day}/${month}/${year}`;
 }
 
 function UpgradeCard({ title, feature, planRequired, onUpgrade }: { title: string, feature: string, planRequired: string, onUpgrade: () => void }) {
@@ -1721,6 +1732,7 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok && data.movimiento) {
+        await registrarAlerta('success', '➕ Nuevo Movimiento', `Se ha creado un nuevo registro manual para la fecha ${formatDate(new Date())}.`);
         loadMovimientosManual();
       }
     } catch (error) {
@@ -1733,6 +1745,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch(`/api/movimientos-manual/${id}`, { method: "DELETE" });
       if (res.ok) {
+        await registrarAlerta('warning', '🗑️ Registro Eliminado', 'Se ha eliminado un registro de la tabla de movimientos manuales.');
         loadMovimientosManual();
       }
     } catch (error) {
@@ -1909,7 +1922,8 @@ export default function DashboardPage() {
 
   const handleSync = async () => {
     setSyncing(true);
-    setSyncMessage("");
+    setSyncMessage("🔄 Iniciando sincronización...");
+    await registrarAlerta('info', '🔄 Sincronización Iniciada', 'Se ha solicitado una sincronización manual de los datos del edificio.');
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
@@ -1928,6 +1942,7 @@ export default function DashboardPage() {
         throw new Error(data.error || "Error al sincronizar");
       }
       setSyncMessage(data.message || "Sincronización completada");
+      await registrarAlerta('success', '✅ Sincronización Exitosa', `Se han actualizado los datos correctamente. ${data.message || ''}`);
       if (data.stats) {
         loadMovements();
         loadGastosSummary();
@@ -1939,6 +1954,7 @@ export default function DashboardPage() {
       }
     } catch (error: any) {
       setSyncMessage(error.message);
+      await registrarAlerta('error', '❌ Fallo en Sincronización', `No se pudo completar la carga de datos: ${error.message}`);
     } finally {
       setSyncing(false);
     }
@@ -1950,7 +1966,8 @@ export default function DashboardPage() {
       return;
     }
     setSyncingMes(true);
-    setSyncMessage("");
+    setSyncMessage("🔄 Sincronizando mes específico...");
+    await registrarAlerta('info', '📅 Sincro Mes Histórico', `Iniciando descarga de datos para el período ${syncMes}.`);
     try {
       const res = await fetch("/api/sync", {
         method: "POST",
@@ -1970,6 +1987,7 @@ export default function DashboardPage() {
         throw new Error(data.error || "Error al sincronizar");
       }
       setSyncMessage(`✅ Sincronización realizada y descargados los datos de ${syncMes} satisfactoriamente`);
+      await registrarAlerta('success', '✅ Sincro Mes Exitosa', `Se han descargado satisfactoriamente los datos de ${syncMes}.`);
       if (data.stats) {
         loadMovements();
         loadEgresos();
@@ -1981,6 +1999,7 @@ export default function DashboardPage() {
       }
     } catch (error: any) {
       setSyncMessage(`❌ Error en sincronización: ${error.message}`);
+      await registrarAlerta('error', '❌ Fallo Sincro Mes', `Error al descargar datos de ${syncMes}: ${error.message}`);
     } finally {
       setSyncingMes(false);
     }
@@ -2273,7 +2292,7 @@ export default function DashboardPage() {
               <div className="hidden xl:flex items-center gap-6 mr-6 border-r pr-6 border-gray-100">
                 <div className="text-[10px] text-gray-500 font-bold uppercase">
                   {building?.ultima_sincronizacion 
-                    ? `Sincro: ${new Date(building.ultima_sincronizacion).toLocaleString("es-VE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+                    ? `Sincro: ${formatDate(building.ultima_sincronizacion)}`
                     : "Sin sincronizar"}
                 </div>
                 <button onClick={loadTasaBCV} className="text-[10px] font-black text-green-700 uppercase bg-green-50 px-2 py-1 rounded border border-green-100 hover:bg-green-100 transition-colors">
@@ -2371,26 +2390,26 @@ export default function DashboardPage() {
               <div className="grid md:grid-cols-4 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Saldo actual según el portal de la administradora. Puedes hacer clic para ver más detalles.">
                   <div className="text-sm text-gray-500 mb-1">Saldo Disponible seg&uacute;n Web Admin</div>
-                  <div className="text-2xl font-bold text-blue-600">Bs.{(balance?.saldo_disponible || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.saldo_disponible || 0) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
+                  <div className="text-2xl font-bold text-blue-600">Bs.{formatBs(balance?.saldo_disponible || 0)}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.saldo_disponible || 0) / tasaBCV.dolar)}</div>}
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
                   <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>
-                  <div className="text-2xl font-bold text-green-600">Bs.{(balance?.cobranza_mes || ingresosSummary.monto).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.cobranza_mes || ingresosSummary.monto) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
+                  <div className="text-2xl font-bold text-green-600">Bs.{formatBs(balance?.cobranza_mes || ingresosSummary.monto)}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.cobranza_mes || ingresosSummary.monto) / tasaBCV.dolar)}</div>}
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
                   <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
-                  <div className="text-2xl font-bold text-orange-600">Bs.{Math.abs(balance?.gastos_facturados || gastosSummary.monto).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {Math.abs((balance?.gastos_facturados || gastosSummary.monto) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
+                  <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(balance?.gastos_facturados || gastosSummary.monto))}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((balance?.gastos_facturados || gastosSummary.monto) / tasaBCV.dolar))}</div>}
                   <div className="text-xs text-gray-400 mt-1">
                     {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado para emergencias y mantenimiento mayor.">
                   <div className="text-sm text-gray-500 mb-1">Fondo Reserva</div>
-                  <div className="text-2xl font-bold text-purple-600">Bs.{(balance?.fondo_reserva || 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {((balance?.fondo_reserva || 0) / tasaBCV.dolar).toLocaleString("es-ES", { minimumFractionDigits: 2 })}</div>}
+                  <div className="text-2xl font-bold text-purple-600">Bs.{formatBs(balance?.fondo_reserva || 0)}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
                 </div>
               </div>
             )}
@@ -2571,7 +2590,7 @@ export default function DashboardPage() {
             {(editConfig.dashboard_config?.hs !== false || user?.id === "superuser-id") && (
               <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Movimientos de Hoy ({new Date().toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' })})</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Movimientos de Hoy ({formatDate(new Date())})</h2>
                 </div>
                 {syncMessage && (
                   <div className={`mb-4 p-3 rounded-lg border ${syncMessage.includes("Error") ? "bg-red-50 text-red-600 border-red-100" : "bg-green-50 text-green-600 border-green-100"}`}>
@@ -3603,7 +3622,7 @@ export default function DashboardPage() {
                           return (
                             <tr key={idx} className="hover:bg-gray-50 transition-colors">
                               <td className="py-3 px-4 text-[10px] text-gray-400 whitespace-nowrap">
-                                {new Date(item.created_at).toLocaleString("es-VE")}
+                                {formatDate(item.created_at)}
                               </td>
                               <td className="py-3 px-4">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
@@ -4838,7 +4857,7 @@ export default function DashboardPage() {
                       <div>
                         <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Estado de Flujo de Efectivo</h2>
                         <p className="text-xs text-indigo-600 font-bold uppercase tracking-widest mt-1">
-                          Mes: {new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })} | Generado el: {new Date().toLocaleDateString('es-VE')}
+                          Mes: {new Date().toLocaleString('es-VE', { month: 'long', year: 'numeric' })} | Generado el: {formatDate(new Date())}
                         </p>
                       </div>
                     </div>
@@ -5141,7 +5160,7 @@ export default function DashboardPage() {
                       {/* Cabecera del Reporte */}
                       <div className="text-center mb-8 border-b pb-6">
                         <h1 className="text-xl font-black text-gray-900 uppercase tracking-tighter">PRE-RECIBO DE CONDOMINIO ESTIMADO (E)</h1>
-                        <p className="text-indigo-600 font-black text-sm uppercase mt-1">PERÍODO {new Date().toLocaleDateString('es-VE', { month: '2-digit', year: 'numeric' })}</p>
+                        <p className="text-indigo-600 font-black text-sm uppercase mt-1">PERÍODO {String(new Date().getUTCMonth() + 1).padStart(2, '0')}/{new Date().getUTCFullYear()}</p>
                         <div className="flex justify-center gap-6 mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                           <span>🏢 {building?.nombre}</span>
                           <span>👥 Total Unidades: {building?.unidades || 0}</span>
@@ -5531,7 +5550,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
                     <div className="text-[10px] font-black text-indigo-300 uppercase tracking-widest mb-1">Fecha de Análisis</div>
-                    <div className="text-xl font-black">{new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                    <div className="text-xl font-black">{formatDate(new Date())}</div>
                   </div>
                 </div>
 
@@ -6386,7 +6405,7 @@ export default function DashboardPage() {
                                         <td style="padding:12px;font-size:14px;font-weight:bold;color:#1e293b;">${s.tipo.toUpperCase()}</td>
                                         <td style="padding:12px;font-size:13px;color:#64748b;">${s.identificador}${s.alias ? `<br/><small>(${s.alias})</small>` : ''}</td>
                                         <td style="padding:12px;text-align:right;font-size:14px;font-weight:bold;color:${(spResultados[s.id]?.deuda || 0) > 0 ? '#ef4444' : '#10b981'};">
-                                          Bs. ${(spResultados[s.id]?.deuda || 0).toLocaleString('es-VE')}
+                                          Bs. ${formatBs(spResultados[s.id]?.deuda || 0)}
                                         </td>
                                       </tr>
                                     `).join('')}
@@ -6394,11 +6413,11 @@ export default function DashboardPage() {
                                   <tfoot>
                                     <tr style="background:#f1f5f9;">
                                       <td colspan="2" style="padding:16px;text-align:right;font-weight:900;text-transform:uppercase;font-size:12px;">Total Consolidado:</td>
-                                      <td style="padding:16px;text-align:right;font-weight:900;font-size:18px;color:#1e40af;">Bs. ${totalDeuda.toLocaleString('es-VE')}</td>
+                                      <td style="padding:16px;text-align:right;font-weight:900;font-size:18px;color:#1e40af;">Bs. ${formatBs(totalDeuda)}</td>
                                     </tr>
                                   </tfoot>
                                 </table>
-                                <p style="font-size:12px;color:#94a3b8;font-style:italic;">* Reporte generado automáticamente el ${new Date().toLocaleDateString('es-VE')} a las ${new Date().toLocaleTimeString('es-VE')}.</p>
+                                <p style="font-size:12px;color:#94a3b8;font-style:italic;">* Reporte generado automáticamente el ${formatDate(new Date())} a las ${new Date().toLocaleTimeString('es-VE')}.</p>
                               </div>
                             </div>
                           `;
@@ -6569,7 +6588,7 @@ export default function DashboardPage() {
                                 <div className="text-xs text-blue-700 font-mono mt-0.5">N° de Línea: <strong>{config.identificador}</strong></div>
                                 <div className="text-[10px] text-gray-500 mt-1">Consulta programada: día <strong>{config.dia_consulta}</strong> del mes</div>
                                 {config.ultima_consulta && (
-                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {new Date(config.ultima_consulta).toLocaleString("es-VE", { timeZone: "America/Caracas" })}</div>
+                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {formatDate(config.ultima_consulta)}</div>
                                 )}
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -6657,10 +6676,10 @@ export default function DashboardPage() {
                                 <div className="text-xs text-cyan-700 font-mono mt-0.5">N° de Contrato (NIC): <strong>{config.identificador}</strong></div>
                                 <div className="text-[10px] text-gray-500 mt-1">Consulta programada: día <strong>{config.dia_consulta}</strong> del mes</div>
                                 {config.ultima_consulta && (
-                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {new Date(config.ultima_consulta).toLocaleString("es-VE", { timeZone: "America/Caracas" })}</div>
+                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {formatDate(config.ultima_consulta)}</div>
                                 )}
                                 {config.ultimo_monto > 0 && (
-                                  <div className="mt-1 text-xs font-black text-red-600">Último saldo: <strong>Bs. {config.ultimo_monto.toLocaleString("es-VE")}</strong></div>
+                                  <div className="mt-1 text-xs font-black text-red-600">Último saldo: <strong>Bs. {formatBs(config.ultimo_monto)}</strong></div>
                                 )}
                                 {config.ultimo_monto === 0 && config.ultima_consulta && (
                                   <div className="mt-1 text-xs font-black text-green-600">Último saldo: <strong>Bs. 0 (Sin deuda)</strong></div>
@@ -6724,7 +6743,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="bg-white rounded-lg p-3 border border-cyan-100 text-center">
                                   <div className="text-[10px] text-gray-500 font-bold uppercase">Deuda Total</div>
-                                  <div className={`text-lg font-black ${res.deuda > 0 ? "text-red-600" : "text-green-600"}`}>Bs. {res.deuda?.toLocaleString("es-VE") ?? "0"}</div>
+                                  <div className={`text-lg font-black ${res.deuda > 0 ? "text-red-600" : "text-green-600"}`}>Bs. {formatBs(res.deuda)}</div>
                                 </div>
                               </div>
                             )}
@@ -6759,10 +6778,10 @@ export default function DashboardPage() {
                                 <div className="text-xs text-yellow-700 font-mono mt-0.5">N° de Cuenta Contrato (NCC): <strong>{config.identificador}</strong></div>
                                 <div className="text-[10px] text-gray-500 mt-1">Consulta programada: día <strong>{config.dia_consulta}</strong> del mes</div>
                                 {config.ultima_consulta && (
-                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {new Date(config.ultima_consulta).toLocaleString("es-VE", { timeZone: "America/Caracas" })}</div>
+                                  <div className="text-[10px] text-gray-400 mt-0.5">Última consulta: {formatDate(config.ultima_consulta)}</div>
                                 )}
                                 {config.ultimo_monto > 0 && (
-                                  <div className="mt-1 text-xs font-black text-red-600">Último saldo: <strong>Bs. {config.ultimo_monto.toLocaleString("es-VE")}</strong></div>
+                                  <div className="mt-1 text-xs font-black text-red-600">Último saldo: <strong>Bs. {formatBs(config.ultimo_monto)}</strong></div>
                                 )}
                                 {config.ultimo_monto === 0 && config.ultima_consulta && (
                                   <div className="mt-1 text-xs font-black text-green-600">Último saldo: <strong>Bs. 0 (Sin deuda)</strong></div>

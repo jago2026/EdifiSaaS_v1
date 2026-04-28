@@ -7,6 +7,16 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const formatCurrency = (amount: number | undefined | null, decimals: number = 2): string => {
+    if (amount === undefined || amount === null || isNaN(amount)) return "-";
+    const parts = amount.toFixed(decimals).split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return parts.join(',');
+  };
+
+  const formatBs = (num: number) => formatCurrency(num, 2);
+  const formatUsd = (num: number) => formatCurrency(num, 2);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -16,7 +26,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
       } catch (err) {
         console.error("Error loading morosidad data:", err);
       } finally {
-        setLoading(setLoading(false) as any);
+        setLoading(false);
       }
     }
     loadData();
@@ -31,9 +41,6 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     { name: "7-11 Recibos", value: data.current.g7_11.aptos, monto: data.current.g7_11.monto, color: "#ef4444", costo: data.costoMorosidad.g7_11 },
     { name: "12+ Recibos", value: data.current.g12_mas.aptos, monto: data.current.g12_mas.monto, color: "#7f1d1d", costo: data.costoMorosidad.g12_mas },
   ];
-
-  const formatBs = (num: number) => num.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const formatUsd = (num: number) => num.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom duration-700">
@@ -50,7 +57,6 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
       </header>
 
       <div className="grid lg:grid-cols-2 gap-8">
-        {/* Distribución por Grupos */}
         <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
           <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-8">Concentración de Deudores</h3>
           <div className="h-[350px]">
@@ -74,14 +80,13 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
           <p className="text-[10px] text-gray-400 mt-4 text-center uppercase font-bold tracking-widest">Número de apartamentos por grupo de recibos</p>
         </div>
 
-        {/* Costo de la Morosidad */}
         <div className="space-y-6">
           <div className="bg-gray-900 p-8 rounded-[2rem] text-white relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-10 text-8xl transition-transform group-hover:scale-110 duration-500">📉</div>
             <div className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 mb-2">Pérdida por Devaluación</div>
             <h3 className="text-3xl font-black tracking-tighter leading-tight mb-4">Costo de la <br/>Morosidad Acumulada</h3>
             <div className="text-5xl font-black text-rose-500 mb-6">
-              {formatUsd(Object.values(data.costoMorosidad as Record<string, number>).reduce((a, b) => a + b, 0))}
+              $ {formatUsd(Object.values(data.costoMorosidad as Record<string, number>).reduce((a, b) => a + b, 0))}
             </div>
             <p className="text-xs text-gray-400 leading-relaxed">
               Este es el monto estimado que el edificio ha perdido en <span className="text-white font-bold">poder adquisitivo</span> debido a la inflación sobre las deudas no pagadas a tiempo.

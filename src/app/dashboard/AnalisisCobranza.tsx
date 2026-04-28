@@ -7,6 +7,16 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const formatDate = (date: string | Date | undefined | null): string => {
+    if (!date) return "-";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "-";
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const year = d.getUTCFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -16,7 +26,7 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
       } catch (err) {
         console.error("Error loading cobranza data:", err);
       } finally {
-        setLoading(setLoading(false) as any);
+        setLoading(false);
       }
     }
     loadData();
@@ -34,15 +44,11 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
 
   const predictionDate = () => {
     if (data.stats.diasPara50Actual) {
-      const today = new Date();
       const targetDate = new Date();
-      // Estimación simple: si llegó al 50% en X días, llegará al 100% en 2X días aprox.
-      // Pero mejor usar la velocidad de los últimos 7 días si la tuviéramos.
-      // Por ahora una fecha estimada basada en la velocidad actual.
       const daysTo100 = data.stats.diasPara50Actual * 2;
       targetDate.setDate(1);
       targetDate.setDate(daysTo100);
-      return targetDate.toLocaleDateString('es-VE', { day: 'numeric', month: 'long' });
+      return formatDate(targetDate);
     }
     return "Pendiente de datos";
   };
@@ -64,7 +70,7 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-indigo-100/20">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Curva Comparativa (%)</h3>
+            <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-8">Curva Comparativa (%)</h3>
             <div className="flex gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-full bg-indigo-600"></div>
