@@ -1047,27 +1047,93 @@ export async function POST(request: Request) {
       const tasa = tasaData?.tasa_dolar || 45.50;
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
-      const { data: recs } = await supabase.from("recibos").select("deuda").eq("edificio_id", building.id).gt("deuda", 0);
-      const recPendientes = recs?.length || 0;
+      
+      const { data: recs } = await supabase.from("recibos").select("deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
+      const recPendientesCount = recs?.length || 0;
+      const totalDeudaAcum = (recs || []).reduce((sum, r) => sum + Number(r.deuda), 0);
+      
       const bal = balance || {};
       const dispTotalBs = Number(bal.saldo_disponible || 0) + Number(bal.fondo_reserva || 0);
 
+      // 1. Snapshot Financiero (control_diario)
       await supabase.from("control_diario").upsert({
-        edificio_id: building.id, fecha: today, dia_semana: diaStr,
-        saldo_inicial_bs: bal.saldo_anterior || 0, saldo_inicial_usd: tasa > 0 ? (bal.saldo_anterior || 0) / tasa : 0,
-        ingresos_bs: bal.cobranza_mes || 0, ingresos_usd: tasa > 0 ? (bal.cobranza_mes || 0) / tasa : 0,
-        egresos_bs: bal.gastos_facturados || 0, egresos_usd: tasa > 0 ? (bal.gastos_facturados || 0) / tasa : 0,
-        ajustes_bs: bal.ajuste_pago_tiempo || 0, ajustes_usd: tasa > 0 ? (bal.ajuste_pago_tiempo || 0) / tasa : 0,
-        saldo_final_bs: bal.saldo_disponible || 0, saldo_final_usd: tasa > 0 ? (bal.saldo_disponible || 0) / tasa : 0,
-        tasa_cambio: tasa, recibos_pendientes: recPendientes,
+        edificio_id: building.id, 
+        fecha: today, 
+        dia_semana: diaStr,
+        saldo_inicial_bs: bal.saldo_anterior || 0, 
+        saldo_inicial_usd: tasa > 0 ? (bal.saldo_anterior || 0) / tasa : 0,
+        ingresos_bs: bal.cobranza_mes || 0, 
+        ingresos_usd: tasa > 0 ? (bal.cobranza_mes || 0) / tasa : 0,
+        egresos_bs: bal.gastos_facturados || 0, 
+        egresos_usd: tasa > 0 ? (bal.gastos_facturados || 0) / tasa : 0,
+        ajustes_bs: bal.ajuste_pago_tiempo || 0, 
+        ajustes_usd: tasa > 0 ? (bal.ajuste_pago_tiempo || 0) / tasa : 0,
+        saldo_final_bs: bal.saldo_disponible || 0, 
+        saldo_final_usd: tasa > 0 ? (bal.saldo_disponible || 0) / tasa : 0,
+        tasa_cambio: tasa, 
+        recibos_pendientes: recPendientesCount,
         delta_saldo_bs: Number(bal.cobranza_mes || 0) - Number(bal.gastos_facturados || 0),
-        fondo_reserva_bs: bal.fondo_reserva || 0, fondo_reserva_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
-        fondo_dif_camb_bs: bal.fondo_diferencial_cambiario || 0, fondo_dif_camb_usd: tasa > 0 ? (bal.fondo_diferencial_cambiario || 0) / tasa : 0,
-        fondo_int_mor_bs: bal.fondo_intereses || 0, fondo_int_mor_usd: tasa > 0 ? (bal.fondo_intereses || 0) / tasa : 0,
-        total_fondos_bs: bal.fondo_reserva || 0, total_fondos_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
-        disponibilidad_total_bs: dispTotalBs, disponibilidad_total_usd: tasa > 0 ? dispTotalBs / tasa : 0
+        fondo_reserva_bs: bal.fondo_reserva || 0, 
+        fondo_reserva_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
+        fondo_dif_camb_bs: bal.fondo_diferencial_cambiario || 0, 
+        fondo_dif_camb_usd: tasa > 0 ? (bal.fondo_diferencial_cambiario || 0) / tasa : 0,
+        fondo_int_mor_bs: bal.fondo_intereses || 0, 
+        fondo_int_mor_usd: tasa > 0 ? (bal.fondo_intereses || 0) / tasa : 0,
+        total_fondos_bs: bal.fondo_reserva || 0, 
+        total_fondos_usd: tasa > 0 ? (bal.fondo_reserva || 0) / tasa : 0,
+        disponibilidad_total_bs: dispTotalBs, 
+        disponibilidad_total_usd: tasa > 0 ? dispTotalBs / tasa : 0
       }, { onConflict: 'edificio_id,fecha' });
-    } catch (e) {}
+
+      // 2. Snapshot de Cobranza (historico_cobranza)
+      const distRecibos: any = {};
+      for (let i = 1; i <= 11; i++) {
+        distRecibos[`aptos_${i}_recibo`] = 0;
+        distRecibos[`monto_${i}_recibo`] = 0;
+      }
+      distRecibos[`aptos_12_mas_recibo`] = 0;
+      distRecibos[`monto_12_mas_recibo`] = 0;
+
+      (recs || []).forEach(r => {
+        const n = Math.min(r.num_recibos || 1, 12);
+        const keyApto = n === 12 ? 'aptos_12_mas_recibo' : `aptos_${n}_recibo`;
+        const keyMonto = n === 12 ? 'monto_12_mas_recibo' : `monto_${n}_recibo`;
+        distRecibos[keyApto]++;
+        distRecibos[keyMonto] += Number(r.deuda);
+      });
+
+      // Obtener pagos de hoy registrados en movimientos_dia
+      const { data: pagosHoy } = await supabase.from("movimientos_dia").select("monto").eq("edificio_id", building.id).eq("detectado_en", today).eq("tipo", "ingreso");
+      const aptosPagaronHoy = pagosHoy?.length || 0;
+      const montoPagadoHoy = (pagosHoy || []).reduce((sum, p) => sum + p.monto, 0);
+
+      // Calcular porcentajes
+      const totalAptosEdificio = building.unidades || 43;
+      const pctPendiente = (recPendientesCount / totalAptosEdificio) * 100;
+      const pctPagado = 100 - pctPendiente;
+
+      // Monto Emitido Base (usar el balance si está disponible para saber cuánto se emitió este mes)
+      const montoEmitidoBs = bal.recibos_mes || 0;
+      const montoEmitidoUsd = tasa > 0 ? montoEmitidoBs / tasa : 0;
+
+      await supabase.from("historico_cobranza").upsert({
+        edificio_id: building.id,
+        fecha: today,
+        aptos_pagaron_hoy: aptosPagaronHoy,
+        monto_pagado_hoy: montoPagadoHoy,
+        aptos_pendientes_total: recPendientesCount,
+        monto_pendiente_total: totalDeudaAcum,
+        pct_pagado: pctPagado,
+        pct_pendiente: pctPendiente,
+        monto_emitido_usd_base: montoEmitidoUsd,
+        monto_emitido_bs_base: montoEmitidoBs,
+        tasa_cambio: tasa,
+        ...distRecibos
+      }, { onConflict: 'edificio_id,fecha' });
+
+    } catch (e) {
+      console.error("Error creating snapshots:", e);
+    }
 
     const totalRecs = allRecibos.length + allEgresos.length + allGastos.length;
     
