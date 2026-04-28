@@ -12,6 +12,7 @@ export function ManualUsuario() {
     { id: "modulos", title: "Módulos detallados", icon: "🏠" },
     { id: "config", title: "Configuración", icon: "⚙️" },
     { id: "kpis", title: "Indicadores KPIs", icon: "📊" },
+    { id: "analisis", title: "Análisis Avanzado", icon: "🧠" },
     { id: "guias", title: "Guías por Rol", icon: "🔑" },
     { id: "faq", title: "Preguntas Frecuentes", icon: "❓" },
   ];
@@ -422,7 +423,84 @@ export function ManualUsuario() {
           </div>
         </section>
 
-        {/* SECCIÓN 6: GUIAS */}
+        {/* SECCIÓN 6: ANALISIS AVANZADO */}
+        <section id="manual-analisis" className="scroll-mt-32">
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-1 bg-indigo-600 rounded-full"></div>
+            <div className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">Análisis Avanzado</div>
+          </div>
+          <h3 className="text-4xl font-black text-gray-900 uppercase tracking-tighter mb-8 leading-none">
+            Herramientas de <br /><span className="text-indigo-600">Gestión Estratégica</span>
+          </h3>
+          
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-xl mb-6">📈</div>
+              <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4">Análisis de Cobranza</h4>
+              <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                Visualice la <strong>Curva de Recaudación</strong> que compara la velocidad de ingreso de fondos del mes actual contra el anterior.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-indigo-500">✔</span> Predicción de recaudación 100%
+                </li>
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-indigo-500">✔</span> Alerta de ralentización de pagos
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-xl mb-6">🚦</div>
+              <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4">Semáforo de Morosidad</h4>
+              <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                Mida el riesgo de la cartera basándose en el <strong>Aging de Deuda</strong> (antigüedad de recibos pendientes).
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-rose-500">✔</span> Costo real de la morosidad (Devaluación)
+                </li>
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-rose-500">✔</span> Análisis de desplazamiento de deudores
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-xl mb-6">🏥</div>
+              <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4">Salud Financiera</h4>
+              <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                Indicadores técnicos para juntas de condominio que buscan transparencia y eficiencia.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-emerald-500">✔</span> Índice de Liquidez (Caja vs Compromisos)
+                </li>
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-emerald-500">✔</span> El "Día de Oro" para pagos a proveedores
+                </li>
+              </ul>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-sm">
+              <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center text-xl mb-6">🏗️</div>
+              <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4">Simulador de Proyectos</h4>
+              <p className="text-gray-500 text-sm leading-relaxed mb-4">
+                Planifique reparaciones o mejoras (pintura, ascensores, bombas) basándose en excedentes reales.
+              </p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-amber-500">✔</span> Estimación de meses para alcanzar la meta
+                </li>
+                <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">
+                  <span className="text-amber-500">✔</span> Proyección sin tocar el Fondo de Reserva
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* SECCIÓN 7: GUIAS */}
         <section id="manual-guias" className="scroll-mt-32">
           <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-1 bg-indigo-600 rounded-full"></div>

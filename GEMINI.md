@@ -79,3 +79,27 @@ Corregir error de despliegue en Vercel relacionado con la falta del cliente de S
 - Implementar validación de tipos más estricta una vez que el entorno local esté sincronizado con `node_modules`.
 - Continuar con la refactorización del Dashboard (6800+ líneas) en componentes más pequeños para mejorar la legibilidad y mantenibilidad.
 
+
+## Fecha: 28 de Abril, 2026 (Continuación)
+
+### Objetivo
+Implementación de módulos analíticos avanzados para la Junta de Condominio: Análisis de Cobranza, Semáforo de Morosidad, Salud Financiera y Simulador de Inversiones.
+
+### Tareas Realizadas
+- [x] **Módulo Análisis de Cobranza**:
+    - Crear componente `AnalisisCobranza.tsx` con gráfico de curva de recaudación comparativo (mes actual vs anterior).
+    - Implementar predicción de saldo (estimación de fecha de recaudación 100%).
+- [x] **Módulo Semáforo de Morosidad**:
+    - Crear API `/api/analytics/morosidad` para análisis de aging de deuda.
+    - Implementar visualización de desplazamiento de morosos (flujo entre grupos de 1-3, 6, 12+ meses).
+    - Calcular el "Costo de la Morosidad" por devaluación.
+- [x] **Módulo Salud Financiera**:
+    - Crear API `/api/analytics/salud-financiera` para KPIs ejecutivos.
+    - Calcular Índice de Liquidez, Efectividad de Cobranza y el "Día de Oro".
+- [x] **Módulo Simulador de Inversiones**:
+    - Crear componente `SimuladorInversiones.tsx`.
+    - Lógica de análisis de excedentes mensuales para estimar tiempo de ahorro para proyectos.
+- [x] **Integración en Dashboard**:
+    - Refactorizar `src/app/dashboard/page.tsx` para incluir las nuevas pestañas.
+    - Actualizado `ManualUsuario.tsx` con documentación de las nuevas herramientas.
+    - Diseño coherente con la estética "premium" del proyecto.
