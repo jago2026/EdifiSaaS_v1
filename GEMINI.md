@@ -126,3 +126,25 @@ Estandarización de formatos de números y fechas en todo el proyecto.
 - Implementar una librería de componentes UI compartidos para evitar duplicación de estilos Tailwind.
 - Revisar las entradas de datos (inputs) para que también acepten y validen el formato de coma decimal de forma amigable.
 
+---
+
+## Fecha: 28 de Abril, 2026 (Continuación 3)
+
+### Objetivo
+Corregir errores de compilación y mejorar la accesibilidad de la sincronización en dispositivos móviles.
+
+### Tareas Realizadas
+- [x] **Fix de Build (CRÍTICO)**: 
+    - Eliminados imports duplicados de `formatDate` y `formatNumber` en `src/app/api/admin/tools/route.ts` y `src/app/api/email/route.ts`.
+    - Resuelto el error de Turbopack: `the name formatDate is defined multiple times` que impedía el despliegue en Vercel.
+- [x] **Mejora UI Móvil (Sincronización)**:
+    - **Botón de Sincronización Rápida**: Añadido botón "🔄 Sincronizar" en la barra de navegación horizontal superior (visible solo en móviles).
+    - **Menú Lateral**: Añadido botón de sincronización en el menú de hamburguesa móvil con estilo destacado (color ámbar).
+    - **Cambio de Iconografía**: Se actualizó el emoticon de la pestaña "Movimientos" de 🔄 a 📝 para diferenciarlo claramente de la acción de Sincronizar, siguiendo la solicitud del usuario.
+    - **Lógica de Feedback**: Los nuevos botones muestran un estado de carga ("⌛...") mientras la sincronización está en curso.
+
+### Próximos Pasos Sugeridos
+- Seguir monitoreando el build de Vercel para asegurar que no existan otras duplicidades tras la refactorización masiva de formateadores.
+- Optimizar la carga de la página del Dashboard, ya que el tamaño del archivo sigue siendo considerablemente grande.
+
+

@@ -11,8 +11,6 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
 
 const DRIVE_FOLDER_ID = "15UIfIyE78tbRU0zuLs-XDIuTD53OC9gk";
 
-import { formatDate } from "@/lib/formatters";
-
 async function checkAdmin() {
   const cookieStore = await cookies();
   const userId = cookieStore.get("user_id")?.value;

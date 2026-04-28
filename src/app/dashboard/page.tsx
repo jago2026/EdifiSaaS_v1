@@ -2143,9 +2143,8 @@ export default function DashboardPage() {
             <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Finanzas (Caja/Banco)</div>
             <div className="space-y-1">
               <button onClick={() => setActiveTab("movimientos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'movimientos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🔄</span> Movimientos Consolidados
-              </button>
-              <button onClick={() => setActiveTab("flujo-caja")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'flujo-caja' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📝</span> Movimientos Consolidados
+              </button>              <button onClick={() => setActiveTab("flujo-caja")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'flujo-caja' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📊</span> Flujo de Caja Diario
               </button>
               <button onClick={() => setActiveTab("ingresos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'ingresos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
@@ -2323,7 +2322,19 @@ export default function DashboardPage() {
                 <button onClick={() => {setActiveTab("resumen"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'resumen' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📊 Resumen</button>
                 <button onClick={() => {setActiveTab("kpis"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'kpis' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📈 KPIs</button>
                 <button onClick={() => {setActiveTab("pre-recibo"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'pre-recibo' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📝 Pre-Recibo</button>
-                <button onClick={() => {setActiveTab("movimientos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'movimientos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🔄 Movimientos</button>
+                <button onClick={() => {setActiveTab("movimientos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'movimientos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📝 Movimientos</button>
+                <button 
+                  onClick={() => {
+                    if (!syncing) {
+                      handleSync();
+                      setMobileMenuOpen(false);
+                    }
+                  }} 
+                  disabled={syncing}
+                  className={`text-left px-4 py-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-700 border border-amber-100 ${syncing ? 'opacity-50' : ''}`}
+                >
+                  {syncing ? "⌛..." : "🔄 Sincronizar"}
+                </button>
                 <button onClick={() => {setActiveTab("flujo-caja"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'flujo-caja' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📊 Flujo Caja</button>
                 <button onClick={() => {setActiveTab("ingresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'ingresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>💰 Ingresos</button>
                 <button onClick={() => {setActiveTab("egresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'egresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🧾 Egresos</button>
@@ -2348,8 +2359,15 @@ export default function DashboardPage() {
           {/* Botones de navegación móviles simplificados (Solo visibles en < lg) */}
           <div className="flex gap-2 mb-6 lg:hidden overflow-x-auto pb-2 scrollbar-hide">
             <button onClick={() => setActiveTab("resumen")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "resumen" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📊 Resumen</button>
+            <button 
+              onClick={handleSync} 
+              disabled={syncing}
+              className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all bg-amber-500 text-white shadow-lg disabled:opacity-50`}
+            >
+              {syncing ? "⌛..." : "🔄 Sincronizar"}
+            </button>
             <button onClick={() => setActiveTab("kpis")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "kpis" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 KPIs</button>
-            <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🔄 Movimientos</button>
+            <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📝 Movimientos</button>
             <button onClick={() => setActiveTab("inteligencia")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "inteligencia" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🧠 Inteligencia</button>
             <button onClick={() => setActiveTab("analisis-cobranza")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "analisis-cobranza" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 Análisis Cobro</button>
             <button onClick={() => setActiveTab("semaforo-morosidad")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "semaforo-morosidad" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🚦 Semáforo Mora</button>

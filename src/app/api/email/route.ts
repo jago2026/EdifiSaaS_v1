@@ -21,8 +21,6 @@ const transporter = nodemailer.createTransport({
   auth: { user: SMTP_USER, pass: SMTP_PASS },
 });
 
-import { formatNumber, formatDate } from "@/lib/formatters";
-
 function formatBs(amount: number): string {
   return formatNumber(amount) + " Bs";
 }
