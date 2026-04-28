@@ -472,6 +472,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { userId, mes, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance } = body;
 
+    // Obtener tasa de cambio BCV al inicio para usarla en todos los procesos
+    const { data: tasaDataTop } = await supabase.from("tasas_cambio").select("tasa_dolar").order("fecha", { ascending: false }).limit(1).single();
+    const tasaActual = tasaDataTop?.tasa_dolar || 45.50;
+
     // PROTECTION FOR DEMO MODE
     if (userId === "00000000-0000-0000-0000-000000000000") {
       console.log("[SYNC] Simulated sync for demo user");
@@ -697,6 +701,8 @@ export async function POST(request: Request) {
               propietario: propietario,
               mes: mesEstandar,
               monto: montoTotalPagado,
+              monto_usd: tasaActual > 0 ? (montoTotalPagado / tasaActual) : 0,
+              tasa_bcv: tasaActual,
               fecha_pago: today, // Se asume hoy como fecha de proceso
               source: 'deteccion_automatica',
               verificado: true
