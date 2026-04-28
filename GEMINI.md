@@ -60,8 +60,22 @@ id, config_id, edificio_id, monto (numeric), detalle (jsonb),
 exitoso (bool), error (text), fecha_consulta (timestamptz)
 ```
 
+---
+
+## Fecha: 28 de Abril, 2026
+
+### Objetivo
+Corregir error de despliegue en Vercel relacionado con la falta del cliente de Supabase en el Dashboard y centralizar la configuración de Supabase.
+
+### Tareas Realizadas
+- [x] **Fix de Despliegue (CRÍTICO)**: Corregido error `Type error: Cannot find name 'supabase'` en `src/app/dashboard/page.tsx`.
+- [x] **Centralización de Cliente Supabase**:
+    - Creado `src/lib/supabase.ts` para exportar el cliente configurado con variables de entorno.
+    - Importado `supabase` en `src/app/dashboard/page.tsx`.
+- [x] **Mantenimiento**: Verificación de otros archivos `.tsx` en busca de referencias globales a `supabase` no declaradas.
+
 ### Próximos Pasos Sugeridos
-- Implementar consulta automática de servicios públicos en el cron diario (si el día del mes coincide con `dia_consulta`).
-- Agregar campo `email_administradora` al schema de `edificios` en Supabase si no existe (ALTER TABLE edificios ADD COLUMN email_administradora TEXT).
-- Agregar botón en el cron para enviar resumen consolidado de servicios al final del proceso.
-- Refactorizar `DashboardPage` en sub-componentes para mejorar mantenibilidad (el archivo supera 6800 líneas).
+- Refactorizar las rutas API en `src/app/api/` para utilizar el cliente compartido de `src/lib/supabase.ts` en lugar de reinicializarlo en cada archivo.
+- Implementar validación de tipos más estricta una vez que el entorno local esté sincronizado con `node_modules`.
+- Continuar con la refactorización del Dashboard (6800+ líneas) en componentes más pequeños para mejorar la legibilidad y mantenibilidad.
+
