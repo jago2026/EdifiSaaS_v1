@@ -46,8 +46,13 @@ export async function GET(request: NextRequest) {
 
   // Detectar BASE_URL dinámicamente
   const host = request.headers.get('host');
-  const protocol = host?.includes('localhost') ? 'http' : 'https';
-  const BASE_URL = `${protocol}://${host}`;
+  const protocol = host?.includes('localhost') || host?.includes('127.0.0.1') ? 'http' : 'https';
+  let BASE_URL = `${protocol}://${host}`;
+  
+  // Si estamos en Vercel, preferir la URL del sistema si el host falla
+  if (process.env.VERCEL_URL && (!host || host.includes('internal'))) {
+    BASE_URL = `https://${process.env.VERCEL_URL}`;
+  }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
   const resultados = [];
@@ -100,10 +105,19 @@ export async function GET(request: NextRequest) {
         const syncRes = await fetch(`${BASE_URL}/api/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: edificio.usuario_id })
+          body: JSON.stringify({ userId: edificio.usuario_id }),
+          signal: AbortSignal.timeout(60000) // 60s timeout para sync pesado
         });
 
-        const syncData = await syncRes.json();
+        let syncData: any = {};
+        const syncContentType = syncRes.headers.get("content-type");
+        if (syncContentType && syncContentType.includes("application/json")) {
+            syncData = await syncRes.json();
+        } else {
+            const rawText = await syncRes.text();
+            console.error(`[CRON] syncRes no es JSON. Status: ${syncRes.status}. Body: ${rawText.substring(0, 200)}`);
+            throw new Error(`El servidor de sincronización devolvió un error inesperado (HTML ${syncRes.status}).`);
+        }
         
         if (!syncRes.ok) {
           const errorMsg = syncData.error || "Fallo en sincronización";
@@ -124,10 +138,19 @@ export async function GET(request: NextRequest) {
         const emailRes = await fetch(`${BASE_URL}/api/email`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ edificioId: edificio.id })
+          body: JSON.stringify({ edificioId: edificio.id }),
+          signal: AbortSignal.timeout(30000) // 30s timeout para email
         });
 
-        const emailData = await emailRes.json();
+        let emailData: any = {};
+        const emailContentType = emailRes.headers.get("content-type");
+        if (emailContentType && emailContentType.includes("application/json")) {
+            emailData = await emailRes.json();
+        } else {
+            const rawText = await emailRes.text();
+            console.error(`[CRON] emailRes no es JSON. Status: ${emailRes.status}. Body: ${rawText.substring(0, 200)}`);
+            throw new Error(`El servidor de correos devolvió un error inesperado (HTML ${emailRes.status}).`);
+        }
         
         if (!emailRes.ok) {
           const errorMsg = emailData.error || "Fallo en envío de email";
