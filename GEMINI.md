@@ -142,6 +142,7 @@ Corregir errores de compilación y mejorar la accesibilidad de la sincronizació
     - **Menú Lateral**: Añadido botón de sincronización en el menú de hamburguesa móvil con estilo destacado (color ámbar).
     - **Cambio de Iconografía**: Se actualizó el emoticon de la pestaña "Movimientos" de 🔄 a 📝 para diferenciarlo claramente de la acción de Sincronizar, siguiendo la solicitud del usuario.
     - **Lógica de Feedback**: Los nuevos botones muestran un estado de carga ("⌛...") mientras la sincronización está en curso.
+- [x] **Fix de Error de Tipado (API Informes)**: Corregido error en `src/app/api/informes/route.ts` donde se usaba `request.url` en lugar de `req.url`.
 
 ### Próximos Pasos Sugeridos
 - Seguir monitoreando el build de Vercel para asegurar que no existan otras duplicidades tras la refactorización masiva de formateadores.
