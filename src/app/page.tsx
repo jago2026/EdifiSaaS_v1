@@ -684,9 +684,9 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-16 pt-8 text-center text-gray-500 text-xs font-black uppercase tracking-widest">
-            © 2026 EdifiSaaS. Todos los derechos reservados.
+            © 2026 EdifiSaaS. Todos los derechos reservados. <span className="opacity-30">v1.0.2</span>
           </div>
-        </div>
+
       </footer>
     </main>
   );
