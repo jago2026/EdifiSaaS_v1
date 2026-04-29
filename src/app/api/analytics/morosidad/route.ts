@@ -13,19 +13,34 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Usar hora de Venezuela (UTC-4) para evitar incluir el día "de mañana" cuando ya pasó medianoche UTC
-    const todayStr = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Caracas',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date());
-    
-    // Obtener los snapshots históricos, filtrando fechas futuras
+    // Calcular "ayer" en hora Venezuela (UTC-4) — el gráfico de evolución NUNCA incluye
+    // el día de hoy porque su snapshot es parcial e incompleto, generando picos falsos.
+    // Usamos "ayer" como límite superior ESTRICTO en la query a Supabase.
+    const nowCaracas = new Date(new Date().getTime() - 4 * 60 * 60 * 1000); // UTC-4 fijo
+    const ayerCaracas = new Date(nowCaracas);
+    ayerCaracas.setUTCDate(ayerCaracas.getUTCDate() - 1);
+    const ayerStr = ayerCaracas.toISOString().split('T')[0]; // YYYY-MM-DD de ayer en VET
+
+    // El snapshot "current" (para los KPIs de grupos) sí puede ser de hoy,
+    // así que hacemos dos queries: una para los KPIs (lte hoy) y otra para el gráfico (lte ayer).
+    const todayCaracas = nowCaracas.toISOString().split('T')[0];
+
+    // Query principal para KPIs — incluye hoy
     const { data: snapshots, error } = await supabase
       .from("historico_cobranza")
       .select("*")
       .eq("edificio_id", edificioId)
-      .lte("fecha", todayStr)
+      .lte("fecha", todayCaracas)
       .order("fecha", { ascending: false });
+
+    // Query para el gráfico — excluye hoy, solo hasta ayer inclusive
+    const { data: snapshotsGrafico, error: errorGrafico } = await supabase
+      .from("historico_cobranza")
+      .select("fecha, monto_pendiente_total, tasa_cambio, aptos_pendientes_total, pct_pendiente")
+      .eq("edificio_id", edificioId)
+      .lte("fecha", ayerStr)          // ← tope: ayer (hoy excluido por diseño)
+      .order("fecha", { ascending: false })
+      .limit(60);
 
     if (error) throw error;
     if (!snapshots || snapshots.length === 0) {
@@ -102,36 +117,27 @@ export async function GET(request: Request) {
         g12_mas: calcularCostoUSD(currentGroups!.g12_mas.monto, 18),
     };
 
-    // Fecha de hoy en Venezuela (UTC-4) — usada para excluir el día en curso del gráfico
-    // El snapshot del día de hoy es parcial (el cron aún no terminó) y genera saltos falsos
-    const hoyVET = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Caracas',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date());
-
-    // Historial para el gráfico de evolución
-    // IMPORTANTE: se excluye ESTRICTAMENTE el día de hoy (fecha < hoyVET) para evitar
-    // el salto brusco causado por snapshots parciales del día en curso.
-    const evolution = snapshots
-        .filter(s => s.fecha < hoyVET)   // ← excluir día de hoy
+    // Historial para el gráfico — usa snapshotsGrafico (solo hasta ayer, hoy excluido por query)
+    // No se necesita ningún filtro adicional porque la query ya garantiza fecha <= ayer.
+    const evolution = (snapshotsGrafico || [])
         .slice(0, 30)
         .reverse()
-        .map(s => {
+        .map((s: any) => {
             const t = Number(s.tasa_cambio || tasaActual) || tasaActual || 1;
             const montoTotal = Math.max(0, Number(s.monto_pendiente_total) || 0);
             const pctRaw = Number(s.pct_pendiente || 0);
-            // Sanear porcentaje: si supera 200% es un dato corrupto, lo descartamos (null)
-            const pctSano = (pctRaw > 0 && pctRaw <= 200) ? pctRaw : null;
+            // Porcentaje saneado: valores > 150% son datos corruptos, se dejan como null
+            // (connectNulls=false en Recharts los omitirá sin conectar la línea)
+            const porcentaje = (pctRaw > 0 && pctRaw <= 150) ? pctRaw : null;
             return {
                 fecha: s.fecha,
                 monto: montoTotal,
                 montoUsd: montoTotal / t,
                 aptos: Number(s.aptos_pendientes_total) || 0,
-                porcentaje: pctSano
+                porcentaje
             };
         })
-        // Eliminar puntos con porcentaje null si el modo activo es porcentaje
-        .filter(s => s.monto > 0);
+        .filter((s: any) => s.monto > 0);
 
     return NextResponse.json({
       current: currentGroups,

@@ -37,17 +37,10 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     return "Porcentaje (%)";
   };
 
-  // Obtener fecha de hoy en Venezuela para filtro de corte en el front
-  const hoyCaracas = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Caracas',
-    year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
-
-  // Double-check: excluir cualquier punto del día de hoy o futuro que haya pasado el filtro del backend
-  // También excluir puntos con porcentaje inválido cuando el modo es porcentaje
+  // El backend ya garantiza que evolution solo contiene datos hasta AYER (hoy excluido).
+  // Aquí solo filtramos puntos con porcentaje inválido cuando el modo es porcentaje.
   const cleanEvolution = (data.evolution || []).filter((e: any) => {
-    if (e.fecha >= hoyCaracas) return false;           // excluir hoy y futuro
-    if (viewMode === "porcentaje" && (e.porcentaje === null || e.porcentaje > 200)) return false;
+    if (viewMode === "porcentaje" && (e.porcentaje === null || e.porcentaje <= 0)) return false;
     return true;
   });
 

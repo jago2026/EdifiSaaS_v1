@@ -5,7 +5,35 @@ Este archivo registra todo lo trabajado por Claude en el proyecto EdifiSaaS para
 
 ---
 
-## Sesión 1 — 2026-04-29
+## Sesión 2 — 2026-04-29 (corrección definitiva del gráfico de morosidad)
+
+### Problema persistente
+El gráfico "Evolución de la Morosidad" seguía mostrando un salto brusco a ~348% el día de hoy aunque las sesiones anteriores ya aplicaban filtros de fecha. El filtro `s.fecha < hoyVET` en el backend no era suficiente porque:
+- La comparación de strings de fecha puede fallar si hay diferencias de formato.
+- El filtro se aplicaba **después** de que Supabase ya devolvía todos los registros incluyendo hoy.
+
+### Solución definitiva aplicada — `src/app/api/analytics/morosidad/route.ts`
+**Dos queries separadas a Supabase:**
+
+1. **Query KPIs** (`snapshots`): `lte("fecha", todayCaracas)` — incluye hoy, para mostrar los grupos de deudores actuales correctamente.
+2. **Query gráfico** (`snapshotsGrafico`): `lte("fecha", ayerStr)` — **ayer** calculado en hora Venezuela (UTC-4), garantizando a nivel de SQL que hoy nunca llega al gráfico, sin importar ningún filtro de JS posterior.
+
+Tabla y campos que usa el gráfico de Evolución de la Morosidad:
+- **Tabla:** `historico_cobranza`
+- **Campos graficados:**
+  - `fecha` → eje X
+  - `monto_pendiente_total` → modo "Bs." (monto total de deuda en Bolívares)
+  - `monto_pendiente_total / tasa_cambio` → modo "USD"
+  - `pct_pendiente` → modo "%" (porcentaje de deuda sobre total facturado)
+- **Campos auxiliares:** `tasa_cambio`, `aptos_pendientes_total`
+
+**Por qué el pico era tan alto (348%):** El campo `pct_pendiente` del snapshot del día de hoy contenía un valor incorrecto (probablemente calculado con datos incompletos durante el día, o con una tasa BCV distinta). Al ser el último punto del array, Recharts lo graficaba como el punto final de la línea, creando el salto visible.
+
+### `src/app/dashboard/SemaforoMorosidad.tsx`
+- Simplificado `cleanEvolution`: ya no necesita comparar fechas porque el backend garantiza el corte.
+- Solo filtra `porcentaje === null || <= 0` cuando el modo activo es `"porcentaje"`.
+
+
 
 ### Archivos modificados
 
