@@ -46,7 +46,8 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   ];
 
   // Filtrar evolution para que no tenga nada desde HOY en adelante (solo pasado)
-  const caracasNow = new Intl.DateTimeFormat('en-CA', {
+  // Usar zona horaria de Caracas para consistencia
+  const caracasDateStr = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Caracas',
     year: 'numeric',
     month: '2-digit',
@@ -56,12 +57,10 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   // Solo incluimos datos ESTRICTAMENTE anteriores a hoy para evitar el brinco del día en curso parcial
   // Se asegura de filtrar cualquier dato que sea de hoy o futuro
   const cleanEvolution = (data.evolution || []).filter((e: any) => {
-    const itemDate = new Date(e.fecha + "T00:00:00Z");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    // Convertir itemDate a la misma base para comparar solo fechas
-    const compareDate = new Date(itemDate.getUTCFullYear(), itemDate.getUTCMonth(), itemDate.getUTCDate());
-    return compareDate < today;
+    // Comparar fechas como strings en formato YYYY-MM-DD (zona horaria Caracas)
+    // Esto evita problemas de parsing con zonas horarias
+    const itemDateStr = e.fecha;
+    return itemDateStr < caracasDateStr;
   });
 
   return (

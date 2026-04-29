@@ -26,17 +26,24 @@ export async function GET(request: Request) {
 
     // Organizar datos por mes actual y mes anterior para comparar días (1-31)
     const now = new Date();
-    // Ajustar a zona horaria de Venezuela (UTC-4) para consistencia
-    const vetTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
-    const currentDayVET = vetTime.getUTCDate();
-    const currentMonth = now.toISOString().substring(0, 7);
+
+    // Obtener día actual en zona horaria de Caracas (formato YYYY-MM-DD)
+    const caracasDateStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Caracas',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(now);
+    const caracasDay = parseInt(caracasDateStr.split('-')[2], 10);
+
+    const currentMonth = caracasDateStr.substring(0, 7); // YYYY-MM
     const lastMonthDate = new Date();
     lastMonthDate.setMonth(now.getMonth() - 1);
     const lastMonth = lastMonthDate.toISOString().substring(0, 7);
 
     const processData = (monthStr: string, isCurrentMonth: boolean) => {
       const monthData = new Array(31).fill(null);
-      
+
       // Filtrar y asignar datos existentes
       history
         ?.filter(h => h.fecha.startsWith(monthStr))
@@ -46,7 +53,7 @@ export async function GET(request: Request) {
             // Asegurar que el porcentaje sea lógico (0-100)
             const rawPct = Number(h.pct_pagado);
             const sanitizedPct = Math.max(0, Math.min(100, rawPct));
-            
+
             monthData[day] = {
               pct: sanitizedPct,
               monto: Number(h.monto_pagado_hoy),
@@ -54,22 +61,23 @@ export async function GET(request: Request) {
             };
           }
         });
-      
-      // Rellenar huecos para la curva suave
-      let lastValue = 0;
-      
+
+      // Para el mes actual, EXCLUIMOS el día en curso (no debe graficarse)
+      // Solo mostramos días HASTA el día anterior al actual
       return monthData.map((d, i) => {
-        const isFuture = isCurrentMonth && (i + 1) > currentDayVET;
-        
-        if (isFuture) {
-          return { dia: i + 1, pct: null }; // NULL para el futuro
+        const dia = i + 1;
+
+        // Para mes actual: solo días menores al día de hoy en Caracas
+        const isFutureOrToday = isCurrentMonth && dia >= caracasDay;
+
+        if (isFutureOrToday) {
+          return { dia, pct: null }; // NULL para el día actual y futuros
         }
 
         if (d === null) {
-          return { dia: i + 1, pct: lastValue };
+          return { dia, pct: 0 };
         } else {
-          lastValue = d.pct;
-          return { dia: i + 1, ...d };
+          return { dia, ...d };
         }
       });
     };
@@ -88,13 +96,18 @@ export async function GET(request: Request) {
     const diasPara50Actual = getDaysToPct(currentCurve, 50);
     const diasPara50Anterior = getDaysToPct(lastCurve, 50);
 
+    // Obtener recaudación del último día válido (día anterior al actual)
+    const lastValidDay = caracasDay - 1;
+    const lastValidData = currentCurve.find(d => d.dia === lastValidDay);
+
     return NextResponse.json({
       mesActual: currentCurve,
       mesAnterior: lastCurve,
       stats: {
         diasPara50Actual,
         diasPara50Anterior,
-        recaudacionHoy: currentCurve[currentDayVET - 1]?.monto || 0
+        diaActualCaracas: caracasDay,
+        recaudacionHoy: lastValidData?.monto || 0
       }
     });
   } catch (err: any) {

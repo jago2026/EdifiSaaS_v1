@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
 
@@ -27,30 +27,56 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   if (loading) return <div className="p-8 text-center animate-pulse text-indigo-600 font-black">Cargando Análisis...</div>;
   if (!data) return <div className="p-8 text-center text-gray-400">No hay datos suficientes para el análisis.</div>;
 
-  // Obtener el día actual en Venezuela
+  // Obtener el día actual en Venezuela (excluyendo el día en curso)
   const caracasDay = Number(new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Caracas',
     day: '2-digit'
   }).format(new Date()));
 
   // Preparar datos para el gráfico comparativo (siempre 31 días)
+  // EXCLUIMOS el día en curso: solo mostramos hasta el día ANTERIOR al actual
   const chartData = Array.from({ length: 31 }, (_, i) => {
     const dia = i + 1;
     const actual = data.mesActual.find((d: any) => d.dia === dia);
     const anterior = data.mesAnterior.find((d: any) => d.dia === dia);
-    
+
+    // El día actual NO se grafica (dia <= caracasDay - 1 significa excluir el día en curso)
+    const diaEsValido = dia < caracasDay;
+
     const item: any = {
       dia,
       "Mes Anterior": anterior ? anterior.pct : 0
     };
 
-    // Solo agregar "Mes Actual" si NO es un día futuro respecto a hoy
-    if (dia < caracasDay && actual && actual.pct !== null) {
+    // Solo agregar "Mes Actual" si es un día válido Y tiene datos
+    if (diaEsValido && actual && actual.pct !== null) {
       item["Mes Actual"] = actual.pct;
     }
-    
+
     return item;
   });
+
+  // Para el tooltip, solo mostrar datos válidos
+  const tooltipContent = (props: any) => {
+    const { active, payload, label } = props;
+    if (active && payload && payload.length) {
+      const diaActual = payload.find((p: any) => p.dataKey === "Mes Actual");
+      // Si no hay dato de mes actual, no mostrar nada para mantener limpio
+      return (
+        <div className="bg-white p-3 rounded-xl shadow-lg border border-gray-100">
+          <p className="text-xs font-bold text-gray-500 mb-1">Día {label}</p>
+          {payload.map((entry: any, index: number) => (
+            entry.value !== undefined && (
+              <p key={index} className="text-sm font-black" style={{ color: entry.color }}>
+                {entry.name}: {entry.value}%
+              </p>
+            )
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
 
   const predictionDate = () => {
     if (data.stats.diasPara50Actual) {
@@ -101,40 +127,23 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
           </div>
           <div className="h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="colorActual" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+              <BarChart data={chartData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis dataKey="dia" axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} unit="%" />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
-                  itemStyle={{ fontSize: '12px', fontWeight: '900', textTransform: 'uppercase' }}
+                <YAxis axisLine={false} tickLine={false} tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}} unit="%" domain={[0, 100]} />
+                <Tooltip
+                  content={tooltipContent}
+                  cursor={{fill: '#f8fafc'}}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="Mes Actual" 
-                  stroke="#4f46e5" 
-                  strokeWidth={4} 
-                  fillOpacity={1} 
-                  fill="url(#colorActual)" 
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="Mes Anterior" 
-                  stroke="#cbd5e1" 
-                  strokeWidth={2} 
-                  fillOpacity={0} 
-                  strokeDasharray="5 5" 
-                  connectNulls={true}
-                />
-              </AreaChart>
+                <Bar dataKey="Mes Anterior" fill="#e2e8f0" radius={[4, 4, 0, 0]} barSize={12} />
+                <Bar dataKey="Mes Actual" radius={[4, 4, 0, 0]} barSize={12}>
+                  {chartData.map((entry, index) => {
+                    // Solo mostrar color si hay dato válido
+                    const hasData = entry["Mes Actual"] !== undefined;
+                    return <Cell key={`cell-${index}`} fill={hasData ? "#4f46e5" : "transparent"} />;
+                  })}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
