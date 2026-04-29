@@ -1055,9 +1055,29 @@ export async function POST(request: Request) {
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
       
-      const { data: recs } = await supabase.from("recibos").select("deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
-      const recPendientesCount = recs?.length || 0;
-      const totalDeudaAcum = (recs || []).reduce((sum, r) => sum + Number(r.deuda), 0);
+      const { data: recs } = await supabase.from("recibos").select("id_apto, deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
+      
+      // Agrupar por apartamento para tener conteos reales de UNIDADES morosas
+      const aptosConDeuda = new Map();
+      (recs || []).forEach(r => {
+        if (!aptosConDeuda.has(r.id_apto)) {
+          aptosConDeuda.set(r.id_apto, {
+            id_apto: r.id_apto,
+            deuda: Number(r.deuda),
+            num_recibos: Number(r.num_recibos || 1)
+          });
+        } else {
+          // Si por alguna razón hay múltiples filas para el mismo apto en esta query, sumamos deuda
+          const existing = aptosConDeuda.get(r.id_apto);
+          existing.deuda += Number(r.deuda);
+          // El num_recibos debería ser el máximo o el valor que ya traía la fila principal
+          existing.num_recibos = Math.max(existing.num_recibos, Number(r.num_recibos || 1));
+        }
+      });
+
+      const uniqueAptosList = Array.from(aptosConDeuda.values());
+      const recPendientesCount = uniqueAptosList.length;
+      const totalDeudaAcum = uniqueAptosList.reduce((sum, r) => sum + r.deuda, 0);
       
       const bal = balance || {};
       const dispTotalBs = Number(bal.saldo_disponible || 0) + Number(bal.fondo_reserva || 0);
@@ -1101,12 +1121,12 @@ export async function POST(request: Request) {
       distRecibos[`aptos_12_mas_recibo`] = 0;
       distRecibos[`monto_12_mas_recibo`] = 0;
 
-      (recs || []).forEach(r => {
+      uniqueAptosList.forEach(r => {
         const n = Math.min(r.num_recibos || 1, 12);
         const keyApto = n === 12 ? 'aptos_12_mas_recibo' : `aptos_${n}_recibo`;
         const keyMonto = n === 12 ? 'monto_12_mas_recibo' : `monto_${n}_recibo`;
         distRecibos[keyApto]++;
-        distRecibos[keyMonto] += Number(r.deuda);
+        distRecibos[keyMonto] += r.deuda;
       });
 
       // Obtener pagos de hoy registrados en movimientos_dia

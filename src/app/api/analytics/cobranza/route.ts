@@ -13,11 +13,13 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Obtener datos históricos de los últimos 60 días
+    // Obtener datos históricos de los últimos 60 días, filtrando el futuro
+    const todayStr = new Date().toISOString().split('T')[0];
     const { data: history, error } = await supabase
       .from("historico_cobranza")
       .select("fecha, pct_pagado, monto_pagado_hoy, aptos_pagaron_hoy")
       .eq("edificio_id", edificioId)
+      .lte("fecha", todayStr)
       .order("fecha", { ascending: true });
 
     if (error) throw error;
@@ -25,7 +27,8 @@ export async function GET(request: Request) {
     // Organizar datos por mes actual y mes anterior para comparar días (1-31)
     const now = new Date();
     // Ajustar a zona horaria de Venezuela (UTC-4) para consistencia
-    const currentDayVET = new Date(now.getTime() - (4 * 60 * 60 * 1000)).getUTCDate();
+    const vetTime = new Date(now.getTime() - (4 * 60 * 60 * 1000));
+    const currentDayVET = vetTime.getUTCDate();
     const currentMonth = now.toISOString().substring(0, 7);
     const lastMonthDate = new Date();
     lastMonthDate.setMonth(now.getMonth() - 1);
@@ -40,8 +43,12 @@ export async function GET(request: Request) {
         .forEach(h => {
           const day = new Date(h.fecha + "T00:00:00Z").getUTCDate() - 1;
           if (day >= 0 && day < 31) {
+            // Asegurar que el porcentaje sea lógico (0-100)
+            const rawPct = Number(h.pct_pagado);
+            const sanitizedPct = Math.max(0, Math.min(100, rawPct));
+            
             monthData[day] = {
-              pct: Number(h.pct_pagado),
+              pct: sanitizedPct,
               monto: Number(h.monto_pagado_hoy),
               aptos: Number(h.aptos_pagaron_hoy)
             };
@@ -50,7 +57,6 @@ export async function GET(request: Request) {
       
       // Rellenar huecos para la curva suave
       let lastValue = 0;
-      let hasFoundFirstData = false;
       
       return monthData.map((d, i) => {
         const isFuture = isCurrentMonth && (i + 1) > currentDayVET;
@@ -63,7 +69,6 @@ export async function GET(request: Request) {
           return { dia: i + 1, pct: lastValue };
         } else {
           lastValue = d.pct;
-          hasFoundFirstData = true;
           return { dia: i + 1, ...d };
         }
       });
@@ -74,17 +79,22 @@ export async function GET(request: Request) {
 
     // Calcular KPIs de velocidad
     const getDaysToPct = (curve: any[], target: number) => {
-      const day = curve.findIndex(d => d.pct >= target);
-      return day !== -1 ? day + 1 : null;
+      // Filtrar puntos que no sean null (futuros)
+      const validPoints = curve.filter(d => d.pct !== null);
+      const dayIndex = validPoints.findIndex(d => d.pct >= target);
+      return dayIndex !== -1 ? dayIndex + 1 : null;
     };
+
+    const diasPara50Actual = getDaysToPct(currentCurve, 50);
+    const diasPara50Anterior = getDaysToPct(lastCurve, 50);
 
     return NextResponse.json({
       mesActual: currentCurve,
       mesAnterior: lastCurve,
       stats: {
-        diasPara50Actual: getDaysToPct(currentCurve, 50),
-        diasPara50Anterior: getDaysToPct(lastCurve, 50),
-        recaudacionHoy: currentCurve[now.getUTCDate() - 1]?.monto || 0
+        diasPara50Actual,
+        diasPara50Anterior,
+        recaudacionHoy: currentCurve[currentDayVET - 1]?.monto || 0
       }
     });
   } catch (err: any) {

@@ -255,33 +255,29 @@ Corregir errores de visualización en gráficos de analítica y mejorar el proce
 
 ---
 
-## Fecha: 29 de Abril, 2026 (Continuación 4)
+## Fecha: 29 de Abril, 2026 (Continuación 5)
 
 ### Objetivo
-Corregir inconsistencias de datos futuros en gráficos, ajustar cálculos de costo de morosidad y añadir versatilidad monetaria al análisis de deuda.
+Corregir errores críticos de integridad de datos (duplicación de conteos) y saneamiento de porcentajes en analítica.
 
 ### Tareas Realizadas
 
-#### 📈 Gráficos de Analítica (Análisis de Cobranza)
-- [x] **Fix de Proyección**: Corregida la "caída a cero" al final de la gráfica de cobranza. Se cambió el uso de `null` por `undefined` en el frontend, lo que permite que Recharts detenga la línea exactamente en el día actual sin dibujar puntos inexistentes.
+#### 🔄 Sincronización de Datos (Integridad Crítica)
+- [x] **Eliminación de Duplicación**: Se identificó que la lógica de sincronización contaba cada *recibo* como un apartamento moroso. En apartamentos con múltiples recibos pendientes (ej. 3 recibos), el sistema inflaba el conteo de apartamentos (mostrando 80 en lugar de 43) y sumaba la deuda de forma redundante.
+- [x] **Lógica de Unicidad**: Se implementó un `Map` en `src/app/api/sync/route.ts` para agrupar recibos por `id_apto`. Ahora el sistema garantiza que cada apartamento se cuente solo una vez en las estadísticas de morosidad, independientemente de cuántos recibos deba.
+- [x] **Cifras Reales**: Esto corrige automáticamente el salto abrupto de deuda (de $1.5k a $15k) y los conteos imposibles de apartamentos (70, 80 aptos).
 
-#### 🚦 Semáforo de Morosidad (Correcciones Críticas)
-- [x] **Sinceración del Costo de Morosidad**: 
-    - Se identificó que el sistema mostraba la pérdida por devaluación en Bs. pero con el símbolo de $.
-    - **Fix aplicado**: La API `/api/analytics/morosidad` ahora realiza el cálculo de pérdida directamente en USD basado en la tasa BCV del snapshot. Esto redujo la cifra de montos ilógicos (ej. $550k) a valores reales acordes a la deuda del edificio (ej. ~$1k-$2k).
-- [x] **Filtro de Fechas Futuras**: Se añadió una validación en la base de datos (`.lte("fecha", todayStr)`) para ignorar cualquier registro accidental con fecha futura en la tabla `historico_cobranza`. Esto eliminó el salto abrupto de deuda (de 750k a 7.5M) reportado para "mañana".
-
-#### 📊 Evolución de Morosidad (Multimoneda)
-- [x] **Selector de Vista**: Se implementó un control en el encabezado del gráfico de evolución que permite al usuario alternar entre tres dimensiones:
-    - **Bs.** (Bolívares): Para ver el valor nominal de la deuda.
-    - **USD** (Dólares): Para ver la deuda en moneda estable.
-    - **%** (Porcentaje): Para ver el impacto relativo sobre la facturación.
-- [x] **Dinamicidad**: El eje Y y los Tooltips se ajustan automáticamente según la unidad seleccionada para mostrar formatos adecuados (ej: Bs. k, $, %).
+#### 📉 Saneamiento de Analítica de Cobranza
+- [x] **Porcentajes Lógicos**: Se implementó un saneamiento en `src/app/api/analytics/cobranza/route.ts` para que el porcentaje de recaudación (`pct_pagado`) se mantenga estrictamente entre 0 y 100. Valores negativos (como -284%) causados por la duplicación previa han sido eliminados.
+- [x] **Predicción de Recaudación Prudente**: 
+    - Se limitó la predicción de recaudación a un máximo de 60 días para evitar fechas absurdas.
+    - Se añadió una validación: si la fecha estimada ya pasó, el sistema muestra "Finalizando mes" o "En curso" en lugar de una fecha obsoleta.
+- [x] **Filtrado Estricto de Futuro**: Se reforzó el filtrado de fechas futuras en todas las APIs de analítica para asegurar que los gráficos se detengan en el día actual (Hoy).
 
 ### Próximos Pasos Sugeridos
-- Revisar el proceso de carga masiva de datos históricos para evitar la inserción de fechas futuras.
-- Añadir un resumen de "Poder Adquisitivo Recuperado" si se logran cobrar las deudas más antiguas.
-- Refactorizar `AnalisisCobranza.tsx` para permitir también la visualización en montos además de porcentajes.
+- Realizar una sincronización manual para limpiar los snapshots corruptos del día de hoy en la base de datos (se sobrescribirán por el `upsert` con la nueva lógica corregida).
+- Validar la consistencia de los montos totales de deuda contra el reporte consolidado de recibos.
+- Seguir monitoreando el comportamiento del "Día de Oro" con los datos ya saneados.
 
 
 \n---\n*Nota: Re-push para activar despliegue.*

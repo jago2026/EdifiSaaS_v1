@@ -43,12 +43,19 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   const predictionDate = () => {
     if (data.stats.diasPara50Actual) {
       const targetDate = new Date();
-      const daysTo100 = data.stats.diasPara50Actual * 2;
+      // Si llegamos al 50% en X días, estimamos el 100% en X*2 días
+      // Pero limitamos a que no sea una fecha absurdamente lejana o pasada
+      const daysTo100 = Math.min(60, data.stats.diasPara50Actual * 2);
       targetDate.setDate(1);
       targetDate.setDate(daysTo100);
+      
+      // Si la fecha estimada ya pasó, simplemente decimos "En curso" o "Finalizando"
+      if (targetDate < new Date()) {
+        return "Finalizando mes";
+      }
       return formatDate(targetDate);
     }
-    return "Pendiente de datos";
+    return "Pendiente de más datos";
   };
 
   return (
