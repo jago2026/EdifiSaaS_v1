@@ -1150,7 +1150,6 @@ export async function POST(request: Request) {
       const montoPagadoHoy = (pagosHoy || []).reduce((sum, p) => sum + p.monto, 0);
 
       // Calcular porcentajes
-      const totalAptosEdificio = building.unidades || 43;
       const pctPendiente = (recPendientesCount / totalAptosEdificio) * 100;
       const pctPagado = 100 - pctPendiente;
 
