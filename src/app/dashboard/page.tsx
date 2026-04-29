@@ -1529,7 +1529,14 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingManual(true);
     try {
-      const res = await fetch(`/api/movimientos-manual?edificioId=${building.id}`);
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/movimientos-manual?edificioId=${building.id}&t=${timestamp}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await res.json();
       if (res.ok && data.movimientos) {
         // Calcular saldo acumulado de forma dinámica
@@ -1539,6 +1546,11 @@ export default function DashboardPage() {
           if (a.fecha_corte !== b.fecha_corte) {
             return a.fecha_corte.localeCompare(b.fecha_corte);
           }
+          // Priorizar created_at si existe para orden cronológico real dentro del mismo día
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          if (dateA && dateB && dateA !== dateB) return dateA - dateB;
+          
           return a.id.localeCompare(b.id);
         });
         
@@ -1546,13 +1558,18 @@ export default function DashboardPage() {
         const processed = sorted.map((m: any) => {
           // El saldo final de la fila es inicial - egresos + ingresos
           const saldoFinalFila = (Number(m.saldo_inicial) || 0) - (Number(m.egresos) || 0) + (Number(m.ingresos) || 0);
-          // El saldo acumulado es la suma progresiva de los saldos finales
-          currentRunningBalance += saldoFinalFila;
+          // El saldo acumulado es la suma progresiva de los movimientos (ingresos - egresos)
+          // Si saldo_inicial es 0 en el primero, el saldo acumulado es correcto.
+          // Pero si cada registro trae su propio saldo_inicial, el "acumulado" real 
+          // es simplemente el saldo_final de esa fila en una secuencia cronológica.
+          const saldoEfectivo = (Number(m.ingresos) || 0) - (Number(m.egresos) || 0);
+          currentRunningBalance += saldoEfectivo;
+          
           return { 
             ...m, 
-            saldo_final: saldoFinalFila, 
-            saldo_acumulado: currentRunningBalance, 
-            computed_saldo_final: saldoFinalFila 
+            saldo_final: (Number(m.saldo_inicial) || 0) + saldoEfectivo, 
+            saldo_acumulado: (Number(m.saldo_inicial) || 0) + saldoEfectivo, // En este sistema, el saldo final ES el acumulado de esa fila
+            computed_saldo_final: (Number(m.saldo_inicial) || 0) + saldoEfectivo 
           };
         });
         setMovimientosManual(processed.reverse());
@@ -1710,8 +1727,9 @@ export default function DashboardPage() {
       const tasa = manualForm.tasa_bcv || tasaBCV.dolar || 45.50;
       const montoBs = manualForm.moneda === "Bs" ? manualForm.monto : manualForm.monto * tasa;
       
-      const lastMov = movimientosManual[0]; // La lista está invertida, el primero es el más reciente
-      const saldoInicial = lastMov ? lastMov.saldo_final : 0;
+      // La lista está invertida, el primero es el más reciente
+      const lastMov = movimientosManual[0]; 
+      const saldoInicial = lastMov ? (Number(lastMov.saldo_final) || 0) : 0;
       
       const payload = {
         edificio_id: building.id,
@@ -1731,6 +1749,8 @@ export default function DashboardPage() {
         body: JSON.stringify(payload),
       });
       
+      const data = await res.json();
+
       if (res.ok) {
         await registrarAlerta('success', '➕ Nuevo Movimiento', `Se ha registrado un ${manualForm.tipo} por ${manualForm.moneda} ${manualForm.monto}.`);
         setShowManualForm(false);
@@ -1742,10 +1762,16 @@ export default function DashboardPage() {
           descripcion: "",
           tasa_bcv: 0
         });
-        loadMovimientosManual();
+        // Esperar un momento para asegurar que Supabase haya procesado el insert antes de recargar
+        setTimeout(() => {
+          loadMovimientosManual();
+        }, 500);
+      } else {
+        alert("Error al crear registro: " + (data.error || "Desconocido"));
       }
     } catch (error) {
       console.error("Error creating movimiento:", error);
+      alert("Error de red al crear registro");
     }
   };
 

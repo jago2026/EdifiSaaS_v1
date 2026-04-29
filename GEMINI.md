@@ -300,3 +300,21 @@ Corregir visualización de datos futuros en gráficos y mejorar la entrada/visua
 - [x] **Seguimiento**: Creado archivo `MANUS.md` para registro de actividades de esta sesión.
 
 ---
+
+## Fecha: 29 de Abril, 2026 (Continuación 3)
+
+### Objetivo
+Corregir persistencia y visualización al agregar ingresos/egresos manuales y sanear anomalías en el gráfico de semáforo de morosidad.
+
+### Tareas Realizadas
+- [x] **Módulo de Movimientos Manuales (Fix Carga)**:
+    - Se optimizó la recarga de datos en `src/app/dashboard/page.tsx` agregando un `setTimeout` de 500ms tras la creación del registro para permitir que Supabase complete la inserción antes de hacer `fetch`.
+    - Se incluyó manejo de errores para mostrar advertencias si falla la creación.
+    - Se agregó el `timestamp` y cabeceras de exclusión de cache (`no-cache`, `no-store`) al fetch de la lista manual para asegurar la obtención de los últimos datos registrados.
+- [x] **Gráficos y Analítica de Morosidad (Fix Saltos)**:
+    - Se corrigió el error en `src/app/dashboard/SemaforoMorosidad.tsx` donde los porcentajes pegaban "saltos bruscos" al sobrepasar el 100%. La data procesada ahora se "capea" lógicamente (ej. máximo 100%) para evitar distorsión visual en caso de datos corruptos arrastrados en `historico_cobranza`.
+    - En el API de sincronización (`src/app/api/sync/route.ts`), se introdujo un límite estricto matemático `Math.max(1, Number(building.unidades || 43))` para asegurar que nunca se divida por cero al calcular los porcentajes de morosidad del edificio, previniendo porcentajes infinitos o nulos.
+- [x] **Despliegue y GitHub**:
+    - Commit y push automáticos a la rama `main` del repositorio `jago2026/EdifiSaaS_v1` utilizando GitHub REST API.
+
+---

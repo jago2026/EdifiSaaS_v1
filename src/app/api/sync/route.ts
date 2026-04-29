@@ -1095,7 +1095,7 @@ export async function POST(request: Request) {
       const uniqueAptosList = Array.from(aptosConDeuda.values());
       
       // Límite de seguridad: El número de morosos no puede ser mayor que el total de aptos
-      const totalAptosEdificio = Number(building.unidades || 43);
+      const totalAptosEdificio = Math.max(1, Number(building.unidades || 43));
       const recPendientesCount = Math.min(totalAptosEdificio, uniqueAptosList.length);
       const totalDeudaAcum = uniqueAptosList.reduce((sum, r) => sum + r.deuda, 0);
       
