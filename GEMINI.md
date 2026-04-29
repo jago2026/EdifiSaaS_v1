@@ -281,3 +281,22 @@ Corregir errores críticos de integridad de datos (duplicación de conteos) y sa
 
 
 \n---\n*Nota: Re-push para activar despliegue.*
+
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación 2)
+
+### Objetivo
+Corregir visualización de datos futuros en gráficos y mejorar la entrada/visualización multimoneda en movimientos manuales.
+
+### Tareas Realizadas
+- [x] **Fix de Gráficos (Datos Futuros)**:
+    - **AnalisisCobranza.tsx**: Se limitó la curva del mes actual para que no grafique datos desde el día en curso hasta fin de mes.
+    - **SemaforoMorosidad.tsx**: Se filtró la evolución histórica para excluir datos del día actual y futuros.
+- [x] **Módulo de Movimientos Manuales (Premium Update)**:
+    - **Soporte Multimoneda**: Visualización simultánea de Bs. y USD en todas las columnas de la tabla y totales.
+    - **Formulario Modal**: Implementado popup para la creación de nuevos registros con selección de moneda (Bs/USD) y conversión automática.
+    - **Validación**: Mejora en la integridad de datos al requerir descripción y monto antes de guardar.
+- [x] **Seguimiento**: Creado archivo `MANUS.md` para registro de actividades de esta sesión.
+
+---

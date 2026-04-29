@@ -273,6 +273,15 @@ export default function DashboardPage() {
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
   const [manualFilter, setManualFilter] = useState<"todos" | "pendientes" | "ingresos" | "egresos" | "ambos">("todos");
   const [loadingManual, setLoadingManual] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    fecha_corte: new Date().toISOString().split("T")[0],
+    tipo: "ingreso" as "ingreso" | "egreso",
+    monto: 0,
+    moneda: "Bs" as "Bs" | "USD",
+    descripcion: "",
+    tasa_bcv: 0
+  });
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
   const [loadingAlicuotas, setLoadingAlicuotas] = useState(false);
   const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
@@ -1698,22 +1707,41 @@ export default function DashboardPage() {
   const createMovimientoManual = async () => {
     if (!building?.id) return;
     try {
+      const tasa = manualForm.tasa_bcv || tasaBCV.dolar || 45.50;
+      const montoBs = manualForm.moneda === "Bs" ? manualForm.monto : manualForm.monto * tasa;
+      
+      const lastMov = movimientosManual[0]; // La lista está invertida, el primero es el más reciente
+      const saldoInicial = lastMov ? lastMov.saldo_final : 0;
+      
+      const payload = {
+        edificio_id: building.id,
+        fecha_corte: manualForm.fecha_corte,
+        saldo_inicial: saldoInicial,
+        egresos: manualForm.tipo === "egreso" ? montoBs : 0,
+        ingresos: manualForm.tipo === "ingreso" ? montoBs : 0,
+        obs_egresos: manualForm.tipo === "egreso" ? manualForm.descripcion : "",
+        obs_ingresos: manualForm.tipo === "ingreso" ? manualForm.descripcion : "",
+        saldo_final: manualForm.tipo === "ingreso" ? (saldoInicial + montoBs) : (saldoInicial - montoBs),
+        tasa_bcv: tasa,
+      };
+
       const res = await fetch("/api/movimientos-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          edificio_id: building.id,
-          fecha_corte: new Date().toISOString().split("T")[0],
-          saldo_inicial: 0,
-          egresos: 0,
-          ingresos: 0,
-          saldo_final: 0,
-          tasa_bcv: tasaBCV.dolar || 45.50,
-        }),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (res.ok && data.movimiento) {
-        await registrarAlerta('success', '➕ Nuevo Movimiento', `Se ha creado un nuevo registro manual para la fecha ${formatDate(new Date())}.`);
+      
+      if (res.ok) {
+        await registrarAlerta('success', '➕ Nuevo Movimiento', `Se ha registrado un ${manualForm.tipo} por ${manualForm.moneda} ${manualForm.monto}.`);
+        setShowManualForm(false);
+        setManualForm({
+          fecha_corte: new Date().toISOString().split("T")[0],
+          tipo: "ingreso",
+          monto: 0,
+          moneda: "Bs",
+          descripcion: "",
+          tasa_bcv: 0
+        });
         loadMovimientosManual();
       }
     } catch (error) {
@@ -4170,11 +4198,113 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 
-                <button onClick={createMovimientoManual} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase">
+                <button onClick={() => setShowManualForm(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase">
                   + Nuevo Registro
                 </button>
               </div>
             </div>
+
+            {/* Modal de Nuevo Registro Manual */}
+            {showManualForm && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-300">
+                  <div className="bg-blue-600 p-6 text-white">
+                    <h3 className="text-xl font-black uppercase tracking-tight">Nuevo Movimiento Manual</h3>
+                    <p className="text-blue-100 text-xs font-medium">Ingrese los detalles del ingreso o egreso.</p>
+                  </div>
+                  <div className="p-8 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Fecha</label>
+                        <input 
+                          type="date" 
+                          value={manualForm.fecha_corte} 
+                          onChange={(e) => setManualForm({...manualForm, fecha_corte: e.target.value})}
+                          className="w-full bg-gray-50 border-gray-200 rounded-xl text-sm font-bold focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Tipo</label>
+                        <select 
+                          value={manualForm.tipo} 
+                          onChange={(e) => setManualForm({...manualForm, tipo: e.target.value as any})}
+                          className="w-full bg-gray-50 border-gray-200 rounded-xl text-sm font-bold focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="ingreso">Ingreso (+)</option>
+                          <option value="egreso">Egreso (-)</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Monto</label>
+                        <input 
+                          type="number" 
+                          placeholder="0.00"
+                          value={manualForm.monto || ""} 
+                          onChange={(e) => setManualForm({...manualForm, monto: Number(e.target.value)})}
+                          className="w-full bg-gray-50 border-gray-200 rounded-xl text-sm font-bold focus:ring-blue-500 focus:border-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Moneda</label>
+                        <select 
+                          value={manualForm.moneda} 
+                          onChange={(e) => setManualForm({...manualForm, moneda: e.target.value as any})}
+                          className="w-full bg-gray-50 border-gray-200 rounded-xl text-sm font-bold focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="Bs">Bs.</option>
+                          <option value="USD">USD $</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Descripción / Observación</label>
+                      <textarea 
+                        rows={2}
+                        value={manualForm.descripcion} 
+                        onChange={(e) => setManualForm({...manualForm, descripcion: e.target.value})}
+                        className="w-full bg-gray-50 border-gray-200 rounded-xl text-sm font-bold focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Ej: Pago de reparacion de bomba..."
+                      />
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] font-black text-blue-600 uppercase">Tasa de Cambio (BCV)</span>
+                        <span className="text-xs font-black text-blue-800">Bs. {tasaBCV.dolar}</span>
+                      </div>
+                      <div className="flex justify-between items-center font-black">
+                        <span className="text-xs text-gray-500 uppercase">Equivalente:</span>
+                        <span className="text-lg text-blue-700">
+                          {manualForm.moneda === "Bs" 
+                            ? `$ ${formatUsd(manualForm.monto / (tasaBCV.dolar || 1))}`
+                            : `Bs. ${formatBs(manualForm.monto * (tasaBCV.dolar || 1))}`
+                          }
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-6 bg-gray-50 flex gap-3">
+                    <button 
+                      onClick={() => setShowManualForm(false)}
+                      className="flex-1 px-4 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-100 transition-all uppercase text-xs"
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      onClick={createMovimientoManual}
+                      disabled={!manualForm.monto || !manualForm.descripcion}
+                      className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none uppercase text-xs"
+                    >
+                      Guardar Registro
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {loadingManual ? (
               <p className="text-gray-500 text-center py-8 font-medium">Cargando registros...</p>
@@ -4186,12 +4316,12 @@ export default function DashboardPage() {
                   <thead>
                     <tr className="border-b-2 bg-gray-50 uppercase tracking-tighter">
                       <th className="text-left py-3 px-2 font-black text-gray-500">Corte</th>
-                      <th className="text-right py-3 px-2 font-black text-gray-500 bg-gray-100">Saldo Inicial</th>
+                      <th className="text-right py-3 px-2 font-black text-gray-500 bg-gray-100">Saldo Inicial (Bs/$)</th>
                       <th className="text-right py-3 px-2 font-black text-red-600">Egresos (-)</th>
                       <th className="text-left py-3 px-2 font-bold text-gray-400">Obs Egresos</th>
                       <th className="text-right py-3 px-2 font-black text-green-600">Ingresos (+)</th>
                       <th className="text-left py-3 px-2 font-bold text-gray-400">Obs Ingresos</th>
-                      <th className="text-right py-3 px-2 font-black text-blue-700 bg-blue-50">Saldo Final</th>
+                      <th className="text-right py-3 px-2 font-black text-blue-700 bg-blue-50">Saldo Final (Bs/$)</th>
                       <th className="text-right py-3 px-2 font-black text-gray-500 bg-gray-200">Saldo Acum.</th>
                       <th className="text-center py-3 px-2 font-black text-gray-600">Conciliado?</th>
                       <th className="text-center py-3 px-2 font-black text-gray-400">Acción</th>
@@ -4212,22 +4342,31 @@ export default function DashboardPage() {
                           <input type="date" defaultValue={m.fecha_corte} onBlur={(e) => updateMovimientoManual(m.id, "fecha_corte", e.target.value)} className="border-none bg-transparent focus:ring-0 w-24 text-[10px] p-0" />
                         </td>
                         <td className="py-2 px-2 text-right bg-gray-100/50">
-                          <input type="number" defaultValue={m.saldo_inicial} onBlur={(e) => updateMovimientoManual(m.id, "saldo_inicial", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0" />
+                          <div className="font-black text-gray-700">Bs. {formatBs(m.saldo_inicial)}</div>
+                          <div className="text-[9px] text-gray-400">$ {formatUsd(m.saldo_inicial / (m.tasa_bcv || tasaBCV.dolar || 1))}</div>
                         </td>
                         <td className="py-2 px-2 text-right bg-red-50/20">
-                          <input type="number" defaultValue={m.egresos} onBlur={(e) => updateMovimientoManual(m.id, "egresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-red-600 font-black" />
+                          <div className="text-red-600 font-black">Bs. {formatBs(m.egresos)}</div>
+                          <div className="text-[9px] text-red-400">$ {formatUsd(m.egresos / (m.tasa_bcv || tasaBCV.dolar || 1))}</div>
                         </td>
                         <td className="py-2 px-2">
                           <input type="text" defaultValue={m.obs_egresos || ""} onBlur={(e) => updateMovimientoManual(m.id, "obs_egresos", e.target.value)} className="text-left border-none bg-transparent focus:ring-0 w-full p-0 text-[10px] italic text-gray-500" placeholder="..." />
                         </td>
                         <td className="py-2 px-2 text-right bg-green-50/20">
-                          <input type="number" defaultValue={m.ingresos} onBlur={(e) => updateMovimientoManual(m.id, "ingresos", e.target.value)} className="text-right border-none bg-transparent focus:ring-0 w-full p-0 text-green-700 font-black" />
+                          <div className="text-green-700 font-black">Bs. {formatBs(m.ingresos)}</div>
+                          <div className="text-[9px] text-green-500">$ {formatUsd(m.ingresos / (m.tasa_bcv || tasaBCV.dolar || 1))}</div>
                         </td>
                         <td className="py-2 px-2">
                           <input type="text" defaultValue={m.obs_ingresos || ""} onBlur={(e) => updateMovimientoManual(m.id, "obs_ingresos", e.target.value)} className="text-left border-none bg-transparent focus:ring-0 w-full p-0 text-[10px] italic text-gray-500" placeholder="..." />
                         </td>
-                        <td className="py-2 px-2 text-right font-black text-blue-800 bg-blue-50/50">{formatBs(m.saldo_final)}</td>
-                        <td className="py-2 px-2 text-right font-black text-gray-700 bg-gray-200/30">{formatBs(m.saldo_acumulado)}</td>
+                        <td className="py-2 px-2 text-right font-black text-blue-800 bg-blue-50/50">
+                          <div>Bs. {formatBs(m.saldo_final)}</div>
+                          <div className="text-[9px] text-blue-400">$ {formatUsd(m.saldo_final / (m.tasa_bcv || tasaBCV.dolar || 1))}</div>
+                        </td>
+                        <td className="py-2 px-2 text-right font-black text-gray-700 bg-gray-200/30">
+                          <div>Bs. {formatBs(m.saldo_acumulado)}</div>
+                          <div className="text-[9px] text-gray-400">$ {formatUsd((m.saldo_acumulado || 0) / (m.tasa_bcv || tasaBCV.dolar || 1))}</div>
+                        </td>
                         <td className="py-2 px-1 text-center">
                           <select 
                             value={m.comparado ? "true" : "false"} 
@@ -4249,12 +4388,21 @@ export default function DashboardPage() {
                       <tr className="uppercase tracking-tighter text-gray-700">
                         <td className="py-3 px-2">TOTALES</td>
                         <td className="bg-gray-100/50"></td>
-                        <td className="py-3 px-2 text-right text-red-600 bg-red-50/20">-{formatBs(movimientosManual.reduce((sum, m) => sum + (Number(m.egresos) || 0), 0))}</td>
+                        <td className="py-3 px-2 text-right text-red-600 bg-red-50/20">
+                          <div>-{formatBs(movimientosManual.reduce((sum, m) => sum + (Number(m.egresos) || 0), 0))}</div>
+                          <div className="text-[9px] text-red-400">-$ {formatUsd(movimientosManual.reduce((sum, m) => sum + ((Number(m.egresos) || 0) / (m.tasa_bcv || tasaBCV.dolar || 1)), 0))}</div>
+                        </td>
                         <td></td>
-                        <td className="py-3 px-2 text-right text-green-700 bg-green-50/20">+{formatBs(movimientosManual.reduce((sum, m) => sum + (Number(m.ingresos) || 0), 0))}</td>
+                        <td className="py-3 px-2 text-right text-green-700 bg-green-50/20">
+                          <div>+{formatBs(movimientosManual.reduce((sum, m) => sum + (Number(m.ingresos) || 0), 0))}</div>
+                          <div className="text-[9px] text-green-500">+$ {formatUsd(movimientosManual.reduce((sum, m) => sum + ((Number(m.ingresos) || 0) / (m.tasa_bcv || tasaBCV.dolar || 1)), 0))}</div>
+                        </td>
                         <td></td>
                         <td className="py-3 px-2 text-right text-blue-800 bg-blue-50/50"></td>
-                        <td className="py-3 px-2 text-right text-gray-900 bg-gray-200/50">{formatBs(movimientosManual[0]?.saldo_acumulado || 0)}</td>
+                        <td className="py-3 px-2 text-right text-gray-900 bg-gray-200/50">
+                          <div>{formatBs(movimientosManual[0]?.saldo_acumulado || 0)}</div>
+                          <div className="text-[9px] text-gray-500">$ {formatUsd((movimientosManual[0]?.saldo_acumulado || 0) / (movimientosManual[0]?.tasa_bcv || tasaBCV.dolar || 1))}</div>
+                        </td>
                         <td colSpan={2}></td>
                       </tr>
                     </tfoot>

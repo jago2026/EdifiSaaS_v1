@@ -54,7 +54,15 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   }).format(new Date());
 
   // Solo incluimos datos ESTRICTAMENTE anteriores a hoy para evitar el brinco del día en curso parcial
-  const cleanEvolution = (data.evolution || []).filter((e: any) => e.fecha < caracasNow);
+  // Se asegura de filtrar cualquier dato que sea de hoy o futuro
+  const cleanEvolution = (data.evolution || []).filter((e: any) => {
+    const itemDate = new Date(e.fecha + "T00:00:00Z");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    // Convertir itemDate a la misma base para comparar solo fechas
+    const compareDate = new Date(itemDate.getUTCFullYear(), itemDate.getUTCMonth(), itemDate.getUTCDate());
+    return compareDate < today;
+  });
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom duration-700">

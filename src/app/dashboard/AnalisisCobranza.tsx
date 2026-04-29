@@ -27,8 +27,14 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   if (loading) return <div className="p-8 text-center animate-pulse text-indigo-600 font-black">Cargando Análisis...</div>;
   if (!data) return <div className="p-8 text-center text-gray-400">No hay datos suficientes para el análisis.</div>;
 
+  // Obtener el día actual en Venezuela
+  const caracasDay = Number(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    day: '2-digit'
+  }).format(new Date()));
+
   // Preparar datos para el gráfico comparativo (siempre 31 días)
-  const fullChartData = Array.from({ length: 31 }, (_, i) => {
+  const chartData = Array.from({ length: 31 }, (_, i) => {
     const dia = i + 1;
     const actual = data.mesActual.find((d: any) => d.dia === dia);
     const anterior = data.mesAnterior.find((d: any) => d.dia === dia);
@@ -38,23 +44,13 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
       "Mes Anterior": anterior ? anterior.pct : 0
     };
 
-    // Solo agregar "Mes Actual" si el valor no es null (no es futuro)
-    if (actual && actual.pct !== null) {
+    // Solo agregar "Mes Actual" si NO es un día futuro respecto a hoy
+    if (dia < caracasDay && actual && actual.pct !== null) {
       item["Mes Actual"] = actual.pct;
     }
     
     return item;
   });
-
-  // Recortar el arreglo para que termine físicamente en el día de hoy
-  // Buscamos el último día que tiene dato en "Mes Actual"
-  const lastActiveDay = [...fullChartData].reverse().findIndex(d => d["Mes Actual"] !== undefined);
-  const cutoffIndex = lastActiveDay === -1 ? 0 : 31 - lastActiveDay;
-  
-  // El gráfico comparativo debe mostrar todo el mes anterior, pero el actual solo hasta hoy
-  // Para que el eje X siga siendo de 31 días pero la línea se corte, usamos la propiedad de Recharts
-  // pero aquí recortamos para asegurar que no hay residuos.
-  const chartData = fullChartData;
 
   const predictionDate = () => {
     if (data.stats.diasPara50Actual) {
