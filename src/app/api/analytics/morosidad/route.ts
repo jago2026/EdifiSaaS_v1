@@ -13,20 +13,18 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Obtener la fecha actual en zona horaria de Caracas
-    const caracasDateStr = new Intl.DateTimeFormat('en-CA', {
+    // Usar hora de Venezuela (UTC-4) para evitar incluir el día "de mañana" cuando ya pasó medianoche UTC
+    const todayStr = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Caracas',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
+      year: 'numeric', month: '2-digit', day: '2-digit'
     }).format(new Date());
-
-    // Filtrar fechas estrictamente menores a hoy (excluir el día actual)
+    
+    // Obtener los snapshots históricos, filtrando fechas futuras
     const { data: snapshots, error } = await supabase
       .from("historico_cobranza")
       .select("*")
       .eq("edificio_id", edificioId)
-      .lt("fecha", caracasDateStr) // Estrictamente menor que hoy
+      .lte("fecha", todayStr)
       .order("fecha", { ascending: false });
 
     if (error) throw error;
@@ -36,33 +34,33 @@ export async function GET(request: Request) {
 
     const current = snapshots[0];
     const tasaActual = Number(current.tasa_cambio || 36);
-
+    
     // Buscar el snapshot de hace aproximadamente un mes
     const lastMonthDate = new Date();
     lastMonthDate.setMonth(new Date().getMonth() - 1);
     const lastMonthStr = lastMonthDate.toISOString().split('T')[0];
-
+    
     const previous = snapshots.find(s => s.fecha <= lastMonthStr) || snapshots[snapshots.length - 1];
 
     // Agrupar por categorías: 1 recibo, 2-3 recibos, 4-6 recibos, 7-11 recibos, 12+ recibos
     const getGrouped = (snap: any) => {
         if (!snap) return null;
-
+        
         const g1_aptos = (snap.aptos_1_recibo || 0);
         const g1_monto = (snap.monto_1_recibo || 0);
 
         const g2_3_aptos = (snap.aptos_2_recibo || 0) + (snap.aptos_3_recibo || 0);
         const g2_3_monto = (snap.monto_2_recibo || 0) + (snap.monto_3_recibo || 0);
-
+        
         const g4_6_aptos = (snap.aptos_4_recibo || 0) + (snap.aptos_5_recibo || 0) + (snap.aptos_6_recibo || 0);
         const g4_6_monto = (snap.monto_4_recibo || 0) + (snap.monto_5_recibo || 0) + (snap.monto_6_recibo || 0);
-
+        
         const g7_11_aptos = (snap.aptos_7_recibo || 0) + (snap.aptos_8_recibo || 0) + (snap.aptos_9_recibo || 0) + (snap.aptos_10_recibo || 0) + (snap.aptos_11_recibo || 0);
         const g7_11_monto = (snap.monto_7_recibo || 0) + (snap.monto_8_recibo || 0) + (snap.monto_9_recibo || 0) + (snap.monto_10_recibo || 0) + (snap.monto_11_recibo || 0);
-
+        
         const g12_mas_aptos = (snap.aptos_12_mas_recibo || 0);
         const g12_mas_monto = (snap.monto_12_mas_recibo || 0);
-
+        
         return {
             g1: { aptos: g1_aptos, monto: g1_monto },
             g2_3: { aptos: g2_3_aptos, monto: g2_3_monto },
@@ -88,7 +86,7 @@ export async function GET(request: Request) {
 
     // Costo de morosidad (calculado en USD para evitar confusión)
     const calcularCostoUSD = (montoBs: number, meses: number) => {
-        const tasaDevalMensual = 0.03;
+        const tasaDevalMensual = 0.03; 
         const montoUSD = montoBs / tasaActual;
         // El costo es cuánto más valdría hoy ese dinero si se hubiera cobrado a tiempo
         // pero aquí lo calculamos como pérdida de poder adquisitivo proyectada.
@@ -104,23 +102,36 @@ export async function GET(request: Request) {
         g12_mas: calcularCostoUSD(currentGroups!.g12_mas.monto, 18),
     };
 
+    // Fecha de hoy en Venezuela (UTC-4) — usada para excluir el día en curso del gráfico
+    // El snapshot del día de hoy es parcial (el cron aún no terminó) y genera saltos falsos
+    const hoyVET = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Caracas',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+
     // Historial para el gráfico de evolución
-    // Ya está filtrado en la query, pero también filtramos por fecha en zona horaria Caracas
+    // IMPORTANTE: se excluye ESTRICTAMENTE el día de hoy (fecha < hoyVET) para evitar
+    // el salto brusco causado por snapshots parciales del día en curso.
     const evolution = snapshots
+        .filter(s => s.fecha < hoyVET)   // ← excluir día de hoy
         .slice(0, 30)
         .reverse()
         .map(s => {
-            const t = Number(s.tasa_cambio || tasaActual);
+            const t = Number(s.tasa_cambio || tasaActual) || tasaActual || 1;
+            const montoTotal = Math.max(0, Number(s.monto_pendiente_total) || 0);
+            const pctRaw = Number(s.pct_pendiente || 0);
+            // Sanear porcentaje: si supera 200% es un dato corrupto, lo descartamos (null)
+            const pctSano = (pctRaw > 0 && pctRaw <= 200) ? pctRaw : null;
             return {
                 fecha: s.fecha,
-                monto: Number(s.monto_pendiente_total),
-                montoUsd: Number(s.monto_pendiente_total) / t,
-                aptos: Number(s.aptos_pendientes_total),
-                porcentaje: Number(s.pct_pendiente || 0)
+                monto: montoTotal,
+                montoUsd: montoTotal / t,
+                aptos: Number(s.aptos_pendientes_total) || 0,
+                porcentaje: pctSano
             };
         })
-        // Doble verificación: filtrar por si acaso hay datos del día actual
-        .filter(e => e.fecha < caracasDateStr);
+        // Eliminar puntos con porcentaje null si el modo activo es porcentaje
+        .filter(s => s.monto > 0);
 
     return NextResponse.json({
       current: currentGroups,
@@ -129,8 +140,7 @@ export async function GET(request: Request) {
       costoMorosidad: costoMorosidadUSD,
       evolution,
       tasaBCV: tasaActual,
-      fecha: current.fecha,
-      fechaConsulta: caracasDateStr
+      fecha: current.fecha
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

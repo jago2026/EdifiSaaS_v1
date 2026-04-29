@@ -14,7 +14,11 @@ export async function GET(request: Request) {
 
   try {
     // Obtener datos históricos de los últimos 60 días, filtrando el futuro
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Usar hora de Venezuela (UTC-4) para consistencia con el resto del sistema
+    const todayStr = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Caracas',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
     const { data: history, error } = await supabase
       .from("historico_cobranza")
       .select("fecha, pct_pagado, monto_pagado_hoy, aptos_pagaron_hoy")

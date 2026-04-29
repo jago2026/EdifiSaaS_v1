@@ -37,6 +37,23 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     return "Porcentaje (%)";
   };
 
+  // Obtener fecha de hoy en Venezuela para filtro de corte en el front
+  const hoyCaracas = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
+
+  // Double-check: excluir cualquier punto del día de hoy o futuro que haya pasado el filtro del backend
+  // También excluir puntos con porcentaje inválido cuando el modo es porcentaje
+  const cleanEvolution = (data.evolution || []).filter((e: any) => {
+    if (e.fecha >= hoyCaracas) return false;           // excluir hoy y futuro
+    if (viewMode === "porcentaje" && (e.porcentaje === null || e.porcentaje > 200)) return false;
+    return true;
+  });
+
+  // dataKey según modo de visualización
+  const activeDataKey = viewMode === "monto" ? "monto" : viewMode === "montoUsd" ? "montoUsd" : "porcentaje";
+
   const chartData = [
     { name: "1 Recibo", value: Math.min(43, data.current.g1.aptos), monto: data.current.g1.monto, color: "#10b981", key: "g1" },
     { name: "2-3 Recibos", value: Math.min(43, data.current.g2_3.aptos), monto: data.current.g2_3.monto, color: "#84cc16", key: "g2_3" },
@@ -147,7 +164,69 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
             </button>
           </div>
         </header>
-
+        {cleanEvolution.length === 0 ? (
+          <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm font-medium">
+            No hay datos históricos suficientes para graficar la evolución.
+          </div>
+        ) : (
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={cleanEvolution}>
+                <defs>
+                  <linearGradient id="colorMorosidad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis
+                  dataKey="fecha"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                  tickFormatter={(str) => {
+                    const d = new Date(str + "T00:00:00Z");
+                    return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+                  }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
+                  domain={['auto', 'auto']}
+                  tickFormatter={(val) => {
+                    if (viewMode === "porcentaje") return `${val}%`;
+                    if (viewMode === "montoUsd") return `$${formatNumber(val)}`;
+                    return `Bs.${formatNumber(val / 1000)}k`;
+                  }}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
+                  formatter={(value: any) => {
+                    if (viewMode === "porcentaje") return [`${formatNumber(value)}%`, 'Porcentaje'];
+                    if (viewMode === "montoUsd") return [formatUsd(value), 'Monto USD'];
+                    return [`Bs. ${formatBs(value)}`, 'Monto Bs.'];
+                  }}
+                  labelFormatter={(label) => {
+                    const d = new Date(label + "T00:00:00Z");
+                    return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey={activeDataKey}
+                  stroke="#ef4444"
+                  strokeWidth={4}
+                  fillOpacity={1}
+                  fill="url(#colorMorosidad)"
+                  connectNulls={false}
+                  dot={false}
+                  activeDot={{ r: 6, strokeWidth: 0, fill: '#ef4444' }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
   );
