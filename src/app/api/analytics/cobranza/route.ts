@@ -24,17 +24,21 @@ export async function GET(request: Request) {
 
     // Organizar datos por mes actual y mes anterior para comparar días (1-31)
     const now = new Date();
+    // Ajustar a zona horaria de Venezuela (UTC-4) para consistencia
+    const currentDayVET = new Date(now.getTime() - (4 * 60 * 60 * 1000)).getUTCDate();
     const currentMonth = now.toISOString().substring(0, 7);
     const lastMonthDate = new Date();
     lastMonthDate.setMonth(now.getMonth() - 1);
     const lastMonth = lastMonthDate.toISOString().substring(0, 7);
 
-    const processData = (monthStr: string) => {
+    const processData = (monthStr: string, isCurrentMonth: boolean) => {
       const monthData = new Array(31).fill(null);
+      
+      // Filtrar y asignar datos existentes
       history
         ?.filter(h => h.fecha.startsWith(monthStr))
         .forEach(h => {
-          const day = new Date(h.fecha).getUTCDate() - 1;
+          const day = new Date(h.fecha + "T00:00:00Z").getUTCDate() - 1;
           if (day >= 0 && day < 31) {
             monthData[day] = {
               pct: Number(h.pct_pagado),
@@ -46,15 +50,27 @@ export async function GET(request: Request) {
       
       // Rellenar huecos para la curva suave
       let lastValue = 0;
+      let hasFoundFirstData = false;
+      
       return monthData.map((d, i) => {
-        if (d === null) return { dia: i + 1, pct: lastValue };
-        lastValue = d.pct;
-        return { dia: i + 1, ...d };
+        const isFuture = isCurrentMonth && (i + 1) > currentDayVET;
+        
+        if (isFuture) {
+          return { dia: i + 1, pct: null }; // NULL para el futuro
+        }
+
+        if (d === null) {
+          return { dia: i + 1, pct: lastValue };
+        } else {
+          lastValue = d.pct;
+          hasFoundFirstData = true;
+          return { dia: i + 1, ...d };
+        }
       });
     };
 
-    const currentCurve = processData(currentMonth);
-    const lastCurve = processData(lastMonth);
+    const currentCurve = processData(currentMonth, true);
+    const lastCurve = processData(lastMonth, false);
 
     // Calcular KPIs de velocidad
     const getDaysToPct = (curve: any[], target: number) => {

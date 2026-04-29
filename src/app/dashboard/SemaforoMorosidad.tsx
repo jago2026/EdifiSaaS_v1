@@ -132,8 +132,9 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                 tickLine={false} 
                 tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
                 tickFormatter={(str) => {
-                  const d = new Date(str);
-                  return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+                  // Forzar interpretación UTC para evitar saltos de día
+                  const d = new Date(str + "T00:00:00Z");
+                  return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', timeZone: 'UTC' });
                 }}
               />
               <YAxis 

@@ -204,4 +204,53 @@ Resolver problemas críticos de autenticación (401) y sincronización horaria e
 - Validar que el reporte de email diario se genere correctamente con la nueva lógica de llamada directa.
 - Seguir con la extracción de lógica de negocio pesada a archivos en `src/lib` para facilitar su reutilización sin peticiones HTTP.
 
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación 2)
+
+### Objetivo
+Análisis técnico de la utilización de la tabla `historico_cobranza` y revisión general del proyecto.
+
+### Tareas Realizadas
+
+#### 📊 Análisis de la Tabla `historico_cobranza`
+Se realizó un mapeo completo de la dependencia de datos de esta tabla, identificando su rol crítico en el motor de analítica:
+- **Módulos de Backend**:
+    - `src/app/api/sync/route.ts`: Punto de entrada de datos. Crea snapshots históricos durante cada sincronización exitosa.
+    - `src/app/api/analytics/cobranza/route.ts`: Calcula KPIs de rendimiento comparativo mensual.
+    - `src/app/api/analytics/morosidad/route.ts`: Procesa el aging de deuda y cálculos de pérdida por devaluación.
+- **Componentes de Frontend (Dashboard)**:
+    - `AnalisisCobranza.tsx`: Visualiza la **Curva de Recaudación** comparando el mes actual vs el anterior.
+    - `SemaforoMorosidad.tsx`: Gestiona el **Semáforo de Antigüedad** (1, 2-3, 4-6, 7-11, 12+ recibos) y el gráfico de **Evolución de Deuda** (tendencia de los últimos 12 meses/registros).
+- **Reportes Generados**:
+    - **Velocidad de Cobranza**: Días estimados para alcanzar hitos de recaudación (50%, 100%).
+    - **Costo de Morosidad**: Cálculo financiero de la depreciación de la deuda pendiente.
+    - **Desplazamiento de Cartera**: Análisis de flujo de apartamentos entre los distintos rangos de morosidad.
+
+### Próximos Pasos Sugeridos
+- Optimizar la consulta de `historico_cobranza` añadiendo índices en Supabase por `edificio_id` y `fecha` si la tabla crece significativamente.
+- Implementar un sistema de "Limpieza" (Pruning) para mantener solo los últimos 24-36 meses de historial si es necesario para el rendimiento.
+
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación 3)
+
+### Objetivo
+Corregir errores de visualización en gráficos de analítica y mejorar el procesamiento de datos históricos de `historico_cobranza`.
+
+### Tareas Realizadas
+
+#### 📉 Corrección de Gráficos de Cobranza
+- [x] **Eliminación de "Caída a Cero"**: Se modificó la lógica en el backend y frontend para que el gráfico de cobranza del mes actual se detenga en el día de hoy. Ya no proyecta líneas a cero ni planas hasta el día 31, manteniendo la estética profesional.
+- [x] **Comparativa Dinámica**: El gráfico ahora superpone la curva actual (parcial) sobre la del mes anterior (completa) de forma correcta.
+
+#### 🏛️ Procesamiento de Datos Históricos
+- [x] **Ampliación de Historial**: Se aumentó de 12 a 24 los registros visualizados en el gráfico de Evolución de Morosidad para dar cabida a los datos cargados manualmente desde 2025.
+- [x] **Fix de Zona Horaria**: Implementado parseo robusto con `T00:00:00Z` y `timeZone: 'UTC'` en el formateo de etiquetas del eje X. Esto evita que los datos históricos se desplacen de día por el huso horario del servidor.
+- [x] **Sanitización de Datos**: Asegurada la conversión a `Number` de todos los campos monetarios y porcentajes provenientes de la tabla `historico_cobranza` para evitar fallos de renderizado en Recharts.
+
+### Próximos Pasos Sugeridos
+- Implementar un selector de "Rango de Tiempo" (3 meses, 6 meses, 1 año) en el gráfico de evolución de morosidad.
+- Añadir un tooltip detallado en el gráfico de cobranza que muestre el monto exacto recaudado por día además del porcentaje acumulado.
+
 

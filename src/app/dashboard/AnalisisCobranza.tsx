@@ -27,12 +27,18 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   if (loading) return <div className="p-8 text-center animate-pulse text-indigo-600 font-black">Cargando Análisis...</div>;
   if (!data) return <div className="p-8 text-center text-gray-400">No hay datos suficientes para el análisis.</div>;
 
-  // Preparar datos para el gráfico comparativo
-  const chartData = data.mesActual.map((d: any, i: number) => ({
-    dia: d.dia,
-    "Mes Actual": d.pct,
-    "Mes Anterior": data.mesAnterior[i]?.pct || 0
-  }));
+  // Preparar datos para el gráfico comparativo (siempre 31 días)
+  const chartData = Array.from({ length: 31 }, (_, i) => {
+    const dia = i + 1;
+    const actual = data.mesActual.find((d: any) => d.dia === dia);
+    const anterior = data.mesAnterior.find((d: any) => d.dia === dia);
+    
+    return {
+      dia,
+      "Mes Actual": actual ? actual.pct : null,
+      "Mes Anterior": anterior ? anterior.pct : 0
+    };
+  });
 
   const predictionDate = () => {
     if (data.stats.diasPara50Actual) {

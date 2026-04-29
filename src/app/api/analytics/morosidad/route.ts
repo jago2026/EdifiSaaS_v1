@@ -92,12 +92,16 @@ export async function GET(request: Request) {
         g12_mas: calcularCosto(currentGroups!.g12_mas.monto, 18),
     };
 
-    // Historial para el gráfico de evolución (últimos 12 registros)
-    const evolution = snapshots.slice(0, 12).reverse().map(s => ({
-        fecha: s.fecha,
-        monto: s.monto_pendiente_total,
-        aptos: s.aptos_pendientes_total
-    }));
+    // Historial para el gráfico de evolución
+    // Tomamos hasta 24 registros para tener una buena perspectiva si hay datos viejos
+    const evolution = snapshots
+        .slice(0, 24) 
+        .reverse()
+        .map(s => ({
+            fecha: s.fecha,
+            monto: Number(s.monto_pendiente_total),
+            aptos: Number(s.aptos_pendientes_total)
+        }));
 
     return NextResponse.json({
       current: currentGroups,
@@ -105,7 +109,7 @@ export async function GET(request: Request) {
       desplazamiento,
       costoMorosidad,
       evolution,
-      tasaBCV: current.tasa_cambio,
+      tasaBCV: Number(current.tasa_cambio),
       fecha: current.fecha
     });
   } catch (err: any) {
