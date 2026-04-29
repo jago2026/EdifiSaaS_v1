@@ -45,9 +45,16 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     { name: "12+ Recibos", value: Math.min(43, data.current.g12_mas.aptos), monto: data.current.g12_mas.monto, color: "#7f1d1d", key: "g12_mas" },
   ];
 
-  // Filtrar evolution para que no tenga nada futuro (aunque el API debería hacerlo, reforzamos aquí)
-  const todayStr = new Date().toISOString().split('T')[0];
-  const cleanEvolution = (data.evolution || []).filter((e: any) => e.fecha <= todayStr);
+  // Filtrar evolution para que no tenga nada desde HOY en adelante (solo pasado)
+  const caracasNow = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+
+  // Solo incluimos datos ESTRICTAMENTE anteriores a hoy para evitar el brinco del día en curso parcial
+  const cleanEvolution = (data.evolution || []).filter((e: any) => e.fecha < caracasNow);
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom duration-700">

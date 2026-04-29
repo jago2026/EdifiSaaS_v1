@@ -28,7 +28,7 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
   if (!data) return <div className="p-8 text-center text-gray-400">No hay datos suficientes para el análisis.</div>;
 
   // Preparar datos para el gráfico comparativo (siempre 31 días)
-  const chartData = Array.from({ length: 31 }, (_, i) => {
+  const fullChartData = Array.from({ length: 31 }, (_, i) => {
     const dia = i + 1;
     const actual = data.mesActual.find((d: any) => d.dia === dia);
     const anterior = data.mesAnterior.find((d: any) => d.dia === dia);
@@ -45,6 +45,16 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
     
     return item;
   });
+
+  // Recortar el arreglo para que termine físicamente en el día de hoy
+  // Buscamos el último día que tiene dato en "Mes Actual"
+  const lastActiveDay = [...fullChartData].reverse().findIndex(d => d["Mes Actual"] !== undefined);
+  const cutoffIndex = lastActiveDay === -1 ? 0 : 31 - lastActiveDay;
+  
+  // El gráfico comparativo debe mostrar todo el mes anterior, pero el actual solo hasta hoy
+  // Para que el eje X siga siendo de 31 días pero la línea se corte, usamos la propiedad de Recharts
+  // pero aquí recortamos para asegurar que no hay residuos.
+  const chartData = fullChartData;
 
   const predictionDate = () => {
     if (data.stats.diasPara50Actual) {
@@ -109,8 +119,25 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
                   contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
                   itemStyle={{ fontSize: '12px', fontWeight: '900', textTransform: 'uppercase' }}
                 />
-                <Area type="monotone" dataKey="Mes Actual" stroke="#4f46e5" strokeWidth={4} fillOpacity={1} fill="url(#colorActual)" />
-                <Area type="monotone" dataKey="Mes Anterior" stroke="#cbd5e1" strokeWidth={2} fillOpacity={0} strokeDasharray="5 5" />
+                <Area 
+                  type="monotone" 
+                  dataKey="Mes Actual" 
+                  stroke="#4f46e5" 
+                  strokeWidth={4} 
+                  fillOpacity={1} 
+                  fill="url(#colorActual)" 
+                  connectNulls={false}
+                  isAnimationActive={false}
+                />
+                <Area 
+                  type="monotone" 
+                  dataKey="Mes Anterior" 
+                  stroke="#cbd5e1" 
+                  strokeWidth={2} 
+                  fillOpacity={0} 
+                  strokeDasharray="5 5" 
+                  connectNulls={true}
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>

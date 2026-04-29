@@ -51,12 +51,23 @@ async function generateHash(data: string): Promise<string> {
 function normalizeFecha(fecha: string): string {
   const match = fecha?.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (match) return `${match[3]}-${match[2]}-${match[1]}`;
-  return new Date().toISOString().split('T')[0];
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
 }
 
 function normalizeMes(mesStr: string): string {
   const match = mesStr?.match(/^(\d{2})-(\d{4})$/);
-  return match ? `${match[2]}-${match[1]}` : new Date().toISOString().substring(0, 7);
+  if (match) return `${match[2]}-${match[1]}`;
+  const caracasNow = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    year: 'numeric',
+    month: '2-digit'
+  }).format(new Date());
+  return caracasNow;
 }
 
 function cleanHtml(text: string): string {
@@ -466,7 +477,12 @@ async function limitLogs(supabase: any, table: string, edificioId: string, limit
 
 export async function POST(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
   let currentBuildingId: string | null = null;
 
   try {
