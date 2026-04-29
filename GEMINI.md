@@ -284,3 +284,4 @@ Corregir inconsistencias de datos futuros en gráficos, ajustar cálculos de cos
 - Refactorizar `AnalisisCobranza.tsx` para permitir también la visualización en montos además de porcentajes.
 
 
+\n---\n*Nota: Re-push para activar despliegue.*
