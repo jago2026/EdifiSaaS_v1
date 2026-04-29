@@ -318,3 +318,33 @@ Corregir persistencia y visualización al agregar ingresos/egresos manuales y sa
     - Commit y push automáticos a la rama `main` del repositorio `jago2026/EdifiSaaS_v1` utilizando GitHub REST API.
 
 ---
+
+## Fecha: 29 de Abril, 2026 (Continuación 6)
+
+### Objetivo
+Eliminar saltos bruscos y visualización de datos proyectados en el gráfico de evolución de morosidad (SemaforoMorosidad).
+
+### Tareas Realizadas
+- [x] **Eliminación de filtrado redundante en SemaforoMorosidad.tsx**:
+    - Se eliminó el filtrado duplicado de `evolution` en el frontend (bloques de código líneas 49-69) ya que la API (`/api/analytics/morosidad`) ya filtra correctamente con `.lt("fecha", caracasDateStr)` y verifica doblemente `e.fecha < caracasDateStr`.
+    - Esto evita inconsistencias y simplifica el flujo de datos.
+- [x] **Corrección de interpolación visual en gráfico AreaChart**:
+    - Se cambió `type="monotone"` a `type="linear"` en el componente `Area` para evitar que Recharts interpole/extrapole la curva suavemente más allá de los datos reales, eliminando la apariencia de "salto brusco desde el día en curso hasta fin de mes".
+    - Se agregó `isAnimationActive={false}` para evitar animaciones que podían confundir la visualización.
+    - Se agregó `connectNulls={false}` para no conectar puntos faltantes artificialmente.
+- [x] **Ajuste de dominio del eje X**:
+    - Se añadió `domain={['dataMin', 'dataMax']}` al `XAxis` para forzar que el gráfico muestre exactamente el rango de fechas de los datos reales, sin extenderse más allá.
+    - Se añadió `padding={{"left": 20, "right": 20}}` para que los puntos en los bordes no queden cortados visualmente, manteniendo una presentación limpia.
+- [x] **Tipado explícito en formatters**:
+    - Se añadió tipo `str: any` al `tickFormatter` de XAxis para claridad y consistencia de tipos (los errores LSP de recharts son preexistentes por configuración del proyecto).
+
+### Verificación
+- El gráfico ahora muestra únicamente datos históricos reales sin proyecciones ni interpolaciones indebidas.
+- No hay visualización de datos desde el día en curso hasta fin de mes (como se reportó).
+- La API ya garantiza no enviar datos de hoy o futuros; el frontend ahora confía en esos datos y renderiza fielmente.
+
+### Próximos Pasos Sugeridos
+- Validar que los snapshots históricos de `historico_cobranza` no contengan registros con fechas futuras (sanity check en base de datos).
+- Considerar añadir un selector de rango de tiempo en el gráfico de evolución (12/24/36 meses) para flexibilidad.
+
+---

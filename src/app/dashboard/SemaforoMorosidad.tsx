@@ -45,28 +45,14 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     { name: "12+ Recibos", value: Math.min(43, data.current.g12_mas.aptos), monto: data.current.g12_mas.monto, color: "#7f1d1d", key: "g12_mas" },
   ];
 
-  // Filtrar evolution para que no tenga nada desde HOY en adelante (solo pasado)
-  // Usar zona horaria de Caracas para consistencia
-  const caracasDateStr = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Caracas',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
-
-    // Solo incluimos datos ESTRICTAMENTE anteriores a hoy para evitar el brinco del día en curso parcial
-    // Se asegura de filtrar cualquier dato que sea de hoy o futuro
-    const cleanEvolution = (data.evolution || [])
-        .filter((e: any) => {
-            // Comparar fechas como strings en formato YYYY-MM-DD (zona horaria Caracas)
-            const itemDateStr = e.fecha;
-            return itemDateStr < caracasDateStr;
-        })
-        .map((e: any) => ({
-            ...e,
-            // Cap al 100% para evitar saltos ilógicos en el gráfico si la data en DB está corrupta
-            porcentaje: e.porcentaje > 100 ? 100 : e.porcentaje
-        }));
+  // La evolución ya viene filtrada desde la API (solo datos históricos < hoy)
+  // Eliminamos filtrado redundante en frontend. Solo aseguramos límite de porcentaje.
+  const cleanEvolution = (data.evolution || [])
+      .map((e: any) => ({
+          ...e,
+          // Cap al 100% para evitar saltos ilógicos en el gráfico si la data en DB está corrupta
+          porcentaje: e.porcentaje > 100 ? 100 : e.porcentaje
+      }));
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom duration-700">
@@ -183,11 +169,13 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                 axisLine={false} 
                 tickLine={false} 
                 tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
-                tickFormatter={(str) => {
+                tickFormatter={(str: any) => {
                   // Forzar interpretación UTC para evitar saltos de día
                   const d = new Date(str + "T00:00:00Z");
                   return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', timeZone: 'UTC' });
                 }}
+                domain={['dataMin', 'dataMax']}
+                padding={{"left": 20, "right": 20}}
               />
               <YAxis 
                 axisLine={false} 
@@ -207,14 +195,16 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                   return [`Bs. ${formatBs(value)}`, 'Monto Bs.'];
                 }}
               />
-              <Area 
-                type="monotone" 
-                dataKey={viewMode} 
-                stroke="#ef4444" 
-                strokeWidth={4}
-                fillOpacity={1} 
-                fill="url(#colorMonto)" 
-              />
+               <Area 
+                 type="linear" 
+                 dataKey={viewMode} 
+                 stroke="#ef4444" 
+                 strokeWidth={4}
+                 fillOpacity={1} 
+                 fill="url(#colorMonto)" 
+                 isAnimationActive={false}
+                 connectNulls={false}
+               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
