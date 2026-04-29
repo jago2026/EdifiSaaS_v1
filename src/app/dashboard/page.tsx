@@ -6590,7 +6590,7 @@ export default function DashboardPage() {
                                   disabled={spConsultando[config.id]}
                                   className="px-3 py-1.5 bg-blue-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-blue-700 disabled:opacity-50 transition-colors"
                                 >
-                                  {spConsultando[config.id] ? "Consultando..." : "🔍 Consultar"}
+                                  {spConsultando[config.id] ? "Consultando..." : "🔍 Consultar Saldo"}
                                 </button>
                                 <div className="relative group">
                                   <button
@@ -6755,9 +6755,12 @@ export default function DashboardPage() {
                 {/* CORPOELEC */}
                 {spConfigs.filter(c => c.tipo === "corpoelec").length > 0 && (
                   <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="bg-yellow-600 px-6 py-3 flex items-center gap-2">
-                      <span className="text-xl">⚡</span>
-                      <h3 className="text-white font-black text-sm uppercase tracking-wider">Corpoelec – Servicio Eléctrico</h3>
+                    <div className="bg-yellow-600 px-6 py-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">⚡</span>
+                        <h3 className="text-white font-black text-sm uppercase tracking-wider">Corpoelec – Servicio Eléctrico</h3>
+                      </div>
+                      <span className="bg-white/20 text-white text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">Próximamente</span>
                     </div>
                     <div className="p-4 space-y-4">
                       {spConfigs.filter(c => c.tipo === "corpoelec").map(config => {
@@ -6782,40 +6785,19 @@ export default function DashboardPage() {
                               </div>
                               <div className="flex flex-wrap gap-2">
                                 <button
-                                  onClick={() => consultarServicio(config)}
-                                  disabled={spConsultando[config.id]}
-                                  className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+                                  onClick={() => alert("Esta sección se encuentra en Desarrollo. Estamos buscando una API que permita realizar la consulta de Corpoelec, próximamente estará disponible.")}
+                                  className="px-3 py-1.5 bg-yellow-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-yellow-700 transition-colors"
                                 >
-                                  {spConsultando[config.id] ? "Consultando..." : "🔍 Consultar Saldo"}
+                                  🔍 Consultar Saldo
                                 </button>
-                                <div className="relative group">
-                                  <button
-                                    disabled={spEnviandoEmail[config.id]}
-                                    className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-1"
-                                  >
-                                    📧 Enviar Email ▾
-                                  </button>
-                                  <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 z-10 hidden group-hover:block">
-                                    {[
-                                      { label: "→ A la Administradora", val: "administradora" },
-                                      { label: "→ A mí (usuario actual)", val: "yo" },
-                                      { label: "→ A la Junta", val: "junta" },
-                                    ].map(opt => (
-                                      <button
-                                        key={opt.val}
-                                        onClick={() => enviarEmailServicio(config, opt.val)}
-                                        className="w-full text-left px-4 py-2.5 text-xs font-bold text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 transition-colors first:rounded-t-xl last:rounded-b-xl"
-                                      >
-                                        {opt.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
                                 <button
-                                  onClick={() => {
-                                    if (serviciosParaReporte.find(x => x.id === config.id)) return;
-                                    setServiciosParaReporte([...serviciosParaReporte, config]);
-                                  }}
+                                  onClick={() => alert("Esta sección se encuentra en Desarrollo. El envío de emails para Corpoelec estará disponible próximamente.")}
+                                  className="px-3 py-1.5 bg-green-600 text-white rounded-lg font-black text-[10px] uppercase hover:bg-green-700 transition-colors flex items-center gap-1"
+                                >
+                                  📧 Enviar Email
+                                </button>
+                                <button
+                                  onClick={() => alert("Esta sección se encuentra en Desarrollo. El reporte de Corpoelec estará disponible próximamente.")}
                                   className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg font-black text-[10px] uppercase hover:bg-yellow-200 transition-colors"
                                 >
                                   ➕ Reporte

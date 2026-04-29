@@ -13,37 +13,37 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Obtener los 2 últimos snapshots históricos para comparar (hoy y hace 30 días aprox)
-    // O mejor, el último de hoy y el último del mes anterior
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    
-    const lastMonthDate = new Date();
-    lastMonthDate.setMonth(now.getMonth() - 1);
-    const lastMonthStr = lastMonthDate.toISOString().split('T')[0];
-
+    // Obtener los snapshots históricos
     const { data: snapshots, error } = await supabase
       .from("historico_cobranza")
       .select("*")
       .eq("edificio_id", edificioId)
-      .or(`fecha.eq.${today},fecha.lte.${lastMonthStr}`)
       .order("fecha", { ascending: false });
 
     if (error) throw error;
-
-    const current = snapshots?.find(s => s.fecha === today) || snapshots?.[0];
-    const previous = snapshots?.find(s => s.fecha.startsWith(lastMonthStr.substring(0, 7))) || snapshots?.find(s => s.fecha < today);
-
-    if (!current) {
+    if (!snapshots || snapshots.length === 0) {
         return NextResponse.json({ error: "No hay datos suficientes para el análisis" }, { status: 404 });
     }
 
-    // Agrupar por categorías: 1-3 recibos, 4-6 recibos, 7-11 recibos, 12+ recibos
+    const current = snapshots[0];
+    
+    // Buscar el snapshot de hace aproximadamente un mes
+    const now = new Date();
+    const lastMonthDate = new Date();
+    lastMonthDate.setMonth(now.getMonth() - 1);
+    const lastMonthStr = lastMonthDate.toISOString().split('T')[0];
+    
+    const previous = snapshots.find(s => s.fecha <= lastMonthStr) || snapshots[snapshots.length - 1];
+
+    // Agrupar por categorías: 1 recibo, 2-3 recibos, 4-6 recibos, 7-11 recibos, 12+ recibos
     const getGrouped = (snap: any) => {
         if (!snap) return null;
         
-        const g1_3_aptos = (snap.aptos_1_recibo || 0) + (snap.aptos_2_recibo || 0) + (snap.aptos_3_recibo || 0);
-        const g1_3_monto = (snap.monto_1_recibo || 0) + (snap.monto_2_recibo || 0) + (snap.monto_3_recibo || 0);
+        const g1_aptos = (snap.aptos_1_recibo || 0);
+        const g1_monto = (snap.monto_1_recibo || 0);
+
+        const g2_3_aptos = (snap.aptos_2_recibo || 0) + (snap.aptos_3_recibo || 0);
+        const g2_3_monto = (snap.monto_2_recibo || 0) + (snap.monto_3_recibo || 0);
         
         const g4_6_aptos = (snap.aptos_4_recibo || 0) + (snap.aptos_5_recibo || 0) + (snap.aptos_6_recibo || 0);
         const g4_6_monto = (snap.monto_4_recibo || 0) + (snap.monto_5_recibo || 0) + (snap.monto_6_recibo || 0);
@@ -55,7 +55,8 @@ export async function GET(request: Request) {
         const g12_mas_monto = (snap.monto_12_mas_recibo || 0);
         
         return {
-            g1_3: { aptos: g1_3_aptos, monto: g1_3_monto },
+            g1: { aptos: g1_aptos, monto: g1_monto },
+            g2_3: { aptos: g2_3_aptos, monto: g2_3_monto },
             g4_6: { aptos: g4_6_aptos, monto: g4_6_monto },
             g7_11: { aptos: g7_11_aptos, monto: g7_11_monto },
             g12_mas: { aptos: g12_mas_aptos, monto: g12_mas_monto },
@@ -69,14 +70,14 @@ export async function GET(request: Request) {
 
     // Calcular desplazamiento
     const desplazamiento = previousGroups ? {
-        g1_3: currentGroups!.g1_3.aptos - previousGroups.g1_3.aptos,
+        g1: currentGroups!.g1.aptos - previousGroups.g1.aptos,
+        g2_3: currentGroups!.g2_3.aptos - previousGroups.g2_3.aptos,
         g4_6: currentGroups!.g4_6.aptos - previousGroups.g4_6.aptos,
         g7_11: currentGroups!.g7_11.aptos - previousGroups.g7_11.aptos,
         g12_mas: currentGroups!.g12_mas.aptos - previousGroups.g12_mas.aptos,
     } : null;
 
-    // Costo de morosidad (Simulado basado en inflación/devaluación estimada si no hay historial de tasas completo)
-    // Asumiremos un 3% de devaluación mensual promedio para el cálculo del "valor perdido"
+    // Costo de morosidad
     const calcularCosto = (monto: number, meses: number) => {
         const tasaDevalMensual = 0.03; 
         const valorOriginal = monto / Math.pow(1 - tasaDevalMensual, meses);
@@ -84,17 +85,26 @@ export async function GET(request: Request) {
     };
 
     const costoMorosidad = {
-        g1_3: calcularCosto(currentGroups!.g1_3.monto, 2),
-        g4_6: calcularCosto(currentGroups!.g4_6.monto, 5),
+        g1: calcularCosto(currentGroups!.g1.monto, 1),
+        g2_3: calcularCosto(currentGroups!.g2_3.monto, 3),
+        g4_6: calcularCosto(currentGroups!.g4_6.monto, 6),
         g7_11: calcularCosto(currentGroups!.g7_11.monto, 9),
         g12_mas: calcularCosto(currentGroups!.g12_mas.monto, 18),
     };
+
+    // Historial para el gráfico de evolución (últimos 12 registros)
+    const evolution = snapshots.slice(0, 12).reverse().map(s => ({
+        fecha: s.fecha,
+        monto: s.monto_pendiente_total,
+        aptos: s.aptos_pendientes_total
+    }));
 
     return NextResponse.json({
       current: currentGroups,
       previous: previousGroups,
       desplazamiento,
       costoMorosidad,
+      evolution,
       tasaBCV: current.tasa_cambio,
       fecha: current.fecha
     });

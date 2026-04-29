@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend } from "recharts";
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, 
+  LineChart, Line, AreaChart, Area 
+} from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd } from "@/lib/formatters";
 
@@ -28,10 +31,11 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   if (!data || !data.current) return <div className="p-8 text-center text-gray-400">No hay datos suficientes para el análisis de morosidad.</div>;
 
   const chartData = [
-    { name: "1-3 Recibos", value: data.current.g1_3.aptos, monto: data.current.g1_3.monto, color: "#10b981", costo: data.costoMorosidad.g1_3 },
-    { name: "4-6 Recibos", value: data.current.g4_6.aptos, monto: data.current.g4_6.monto, color: "#f59e0b", costo: data.costoMorosidad.g4_6 },
-    { name: "7-11 Recibos", value: data.current.g7_11.aptos, monto: data.current.g7_11.monto, color: "#ef4444", costo: data.costoMorosidad.g7_11 },
-    { name: "12+ Recibos", value: data.current.g12_mas.aptos, monto: data.current.g12_mas.monto, color: "#7f1d1d", costo: data.costoMorosidad.g12_mas },
+    { name: "1 Recibo", value: data.current.g1.aptos, monto: data.current.g1.monto, color: "#10b981", key: "g1" },
+    { name: "2-3 Recibos", value: data.current.g2_3.aptos, monto: data.current.g2_3.monto, color: "#84cc16", key: "g2_3" },
+    { name: "4-6 Recibos", value: data.current.g4_6.aptos, monto: data.current.g4_6.monto, color: "#f59e0b", key: "g4_6" },
+    { name: "7-11 Recibos", value: data.current.g7_11.aptos, monto: data.current.g7_11.monto, color: "#ef4444", key: "g7_11" },
+    { name: "12+ Recibos", value: data.current.g12_mas.aptos, monto: data.current.g12_mas.monto, color: "#7f1d1d", key: "g12_mas" },
   ];
 
   return (
@@ -41,7 +45,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
           🚦 Semáforo de Riesgo
         </div>
         <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-4">
-          Aging de <span className="text-rose-600">Deuda</span>
+          Antigüedad de <span className="text-rose-600">Deuda</span>
         </h2>
         <p className="text-gray-500 max-w-2xl font-medium">
           Identifique la concentración de deuda por antigüedad y el impacto financiero de la morosidad crónica.
@@ -60,6 +64,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                 <Tooltip 
                    cursor={{fill: '#f8fafc'}}
                    contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
+                   formatter={(value: any, name: any, props: any) => [value, 'Apartamentos']}
                 />
                 <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={40}>
                   {chartData.map((entry, index) => (
@@ -94,14 +99,63 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                     <div className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: g.color}}></div>
                     <span className="text-[10px] font-bold text-gray-500">{g.value} Aptos</span>
                   </div>
-                  {data.desplazamiento && (
-                    <div className={`mt-3 text-[9px] font-black uppercase p-1.5 rounded-lg text-center ${data.desplazamiento[Object.keys(data.desplazamiento)[i]] <= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {data.desplazamiento[Object.keys(data.desplazamiento)[i]] > 0 ? `+${data.desplazamiento[Object.keys(data.desplazamiento)[i]]} Nuevos` : `${data.desplazamiento[Object.keys(data.desplazamiento)[i]]} Reducción`}
+                  {data.desplazamiento && data.desplazamiento[g.key] !== undefined && (
+                    <div className={`mt-3 text-[9px] font-black uppercase p-1.5 rounded-lg text-center ${data.desplazamiento[g.key] <= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {data.desplazamiento[g.key] > 0 ? `+${data.desplazamiento[g.key]} Nuevos` : `${data.desplazamiento[g.key]} Reducción`}
                     </div>
                   )}
                </div>
              ))}
           </div>
+        </div>
+      </div>
+
+      {/* Gráfico de Evolución de Morosidad */}
+      <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
+        <header className="mb-8">
+          <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Evolución de la Morosidad</h3>
+          <p className="text-sm text-gray-500 font-medium">Tendencia del monto total pendiente en los últimos meses</p>
+        </header>
+        <div className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data.evolution}>
+              <defs>
+                <linearGradient id="colorMonto" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="fecha" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
+                tickFormatter={(str) => {
+                  const d = new Date(str);
+                  return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+                }}
+              />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
+                tickFormatter={(val) => `Bs. ${formatNumber(val/1000)}k`}
+              />
+              <Tooltip 
+                contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
+                formatter={(value: any) => [`Bs. ${formatBs(value)}`, 'Monto Pendiente']}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="monto" 
+                stroke="#ef4444" 
+                strokeWidth={4}
+                fillOpacity={1} 
+                fill="url(#colorMonto)" 
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

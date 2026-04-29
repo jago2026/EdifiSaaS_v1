@@ -454,7 +454,7 @@ export function ManualUsuario() {
               <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center text-xl mb-6">🚦</div>
               <h4 className="text-lg font-black text-gray-900 uppercase tracking-tight mb-4">Semáforo de Morosidad</h4>
               <p className="text-gray-500 text-sm leading-relaxed mb-4">
-                Mida el riesgo de la cartera basándose en el <strong>Aging de Deuda</strong> (antigüedad de recibos pendientes).
+                Mida el riesgo de la cartera basándose en la <strong>Antigüedad de Deuda</strong> (antigüedad de recibos pendientes).
               </p>
               <ul className="space-y-2">
                 <li className="flex items-start gap-2 text-xs font-bold text-gray-600 uppercase">

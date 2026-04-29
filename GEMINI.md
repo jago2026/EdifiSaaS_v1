@@ -145,7 +145,34 @@ Corregir errores de compilación y mejorar la accesibilidad de la sincronizació
 - [x] **Fix de Error de Tipado (API Informes)**: Corregido error en `src/app/api/informes/route.ts` donde se usaba `request.url` en lugar de `req.url`.
 
 ### Próximos Pasos Sugeridos
-- Seguir monitoreando el build de Vercel para asegurar que no existan otras duplicidades tras la refactorización masiva de formateadores.
-- Optimizar la carga de la página del Dashboard, ya que el tamaño del archivo sigue siendo considerablemente grande.
+---
+
+## Fecha: 29 de Abril, 2026
+
+### Objetivo
+Mejoras estéticas, expansión de rangos de morosidad y correcciones en el módulo de Servicios Públicos.
+
+### Tareas Realizadas
+- [x] **Semáforo de Morosidad**:
+    - **Internacionalización**: Se eliminó la palabra inglesa "Aging" y se reemplazó por "Antigüedad" en todo el módulo y en el manual de usuario, cumpliendo con el requerimiento de no usar inglés en el proyecto.
+    - **Expansión de Rangos**: Se segmentaron los grupos de morosidad de forma más detallada para reflejar la realidad del edificio:
+        - 1 Recibo (ahora como categoría independiente).
+        - 2 y 3 Recibos.
+        - 4-6 Recibos.
+        - 7-11 Recibos.
+        - 12+ Recibos.
+    - **Gráfico de Evolución**: Se añadió un nuevo gráfico de área premium que visualiza la tendencia histórica del monto total pendiente en los últimos 12 registros, permitiendo ver la evolución de la deuda.
+    - **Actualización de API**: Se modificó `/api/analytics/morosidad` para soportar los nuevos rangos y devolver datos históricos para el gráfico de evolución.
+- [x] **Servicios Públicos**:
+    - **Teléfonos (CANTV)**: Se cambió el nombre del botón "Consultar" a "Consultar Saldo" para mantener la consistencia visual y funcional con los otros servicios.
+    - **Corpoelec (Electricidad)**: 
+        - Se añadió un badge de "Próximamente" en el encabezado de la sección.
+        - Se implementaron mensajes de aviso ("Sección en Desarrollo") en los botones de "Consultar Saldo", "Enviar Email" y "Reporte", informando al usuario que la funcionalidad está en desarrollo debido a limitaciones técnicas de los portales externos.
+- [x] **Memoria de Trabajo**: Actualización de `GEMINI.md` con las tareas realizadas hoy.
+
+### Próximos Pasos Sugeridos
+- Implementar "Skeleton Loaders" en las gráficas de morosidad para suavizar la transición de carga.
+- Investigar APIs alternativas de terceros para la consulta de Corpoelec.
+- Continuar con la división de `page.tsx` en componentes más pequeños para mejorar la mantenibilidad.
 
 
