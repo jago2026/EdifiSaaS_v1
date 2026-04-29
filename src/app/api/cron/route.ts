@@ -1,3 +1,4 @@
+// CRON EXECUTOR - EdifiSaaS v1.0.1
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { POST as syncPOST } from "../sync/route";
