@@ -1,8 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { POST as consultarPOST } from "../consultar/route";
+import { POST as emailPOST } from "../../email/route";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder";
+
+async function logAlerta(supabase: any, edificioId: string, tipo: string, titulo: string, descripcion: string) {
+  try {
+    await supabase.from("alertas").insert({
+      edificio_id: edificioId,
+      tipo,
+      titulo,
+      descripcion,
+      fecha: new Date().toISOString().split("T")[0]
+    });
+  } catch (e) {
+    console.error("Error logging alerta:", e);
+  }
+}
 
 export async function GET(request: NextRequest) {
   const host = request.headers.get('host');
@@ -37,31 +53,35 @@ export async function GET(request: NextRequest) {
       console.log(`[SP-CRON] Consultando ${config.tipo} (${config.identificador}) para ${config.edificios?.nombre}`);
 
       try {
-        // Llamar a la API de consulta
-        const res = await fetch(`${BASE_URL}/api/servicios-publicos/consultar`, {
+        // Llamar a la API de consulta (Llamada Directa)
+        const consultReq = new Request("http://localhost/api/servicios-publicos/consultar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ configId: config.id, edificioId: config.edificio_id })
+          body: JSON.stringify({ tipo: config.tipo, identificador: config.identificador })
         });
-
-        const data = await res.json();
         
-        // Si la consulta fue exitosa, enviar email
+        const consultRes = await consultarPOST(consultReq);
+        const data = await consultRes.json();
+        
+        // Si la consulta fue exitosa, enviar email (Llamada Directa)
         if (data.exitoso) {
-          await fetch(`${BASE_URL}/api/email`, {
+          const emailReq = new Request("http://localhost/api/email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              action: "public_service_notification",
+              action: "servicios_publicos_email", // Cambiado para coincidir con la acción en email/route.ts
               edificioId: config.edificio_id,
-              serviceType: config.tipo,
+              tipoServicio: config.tipo,
               identificador: config.identificador,
               alias: config.alias,
-              monto: data.deuda,
-              recibos: data.recibos,
-              details: data
+              resultadoConsulta: data,
+              destinatario: "junta" // Enviar a la junta por defecto en el cron
             })
           });
+          await emailPOST(emailReq);
+          await logAlerta(supabase, config.edificio_id, "info", `⚡ Consulta ${config.tipo.toUpperCase()} (Auto)`, `Consulta automática exitosa para ${config.alias || config.identificador}. Deuda: Bs. ${data.deuda}. Notificación enviada a la junta.`);
+        } else {
+          await logAlerta(supabase, config.edificio_id, "error", `❌ Fallo Consulta ${config.tipo.toUpperCase()} (Auto)`, `No se pudo obtener datos para ${config.alias || config.identificador}. Error: ${data.error || 'Desconocido'}`);
         }
 
         resultados.push({ id: config.id, status: data.exitoso ? "success" : "error", data });

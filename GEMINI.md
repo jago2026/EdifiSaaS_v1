@@ -301,22 +301,27 @@ Corregir visualización de datos futuros en gráficos y mejorar la entrada/visua
 
 ---
 
-## Fecha: 29 de Abril, 2026 (Continuación 3)
+## Fecha: 30 de Abril, 2026
 
 ### Objetivo
-Corregir persistencia y visualización al agregar ingresos/egresos manuales y sanear anomalías en el gráfico de semáforo de morosidad.
+Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de errores en el panel de alertas y optimizar la ejecución de servicios públicos.
 
 ### Tareas Realizadas
-- [x] **Módulo de Movimientos Manuales (Fix Carga)**:
-    - Se optimizó la recarga de datos en `src/app/dashboard/page.tsx` agregando un `setTimeout` de 500ms tras la creación del registro para permitir que Supabase complete la inserción antes de hacer `fetch`.
-    - Se incluyó manejo de errores para mostrar advertencias si falla la creación.
-    - Se agregó el `timestamp` y cabeceras de exclusión de cache (`no-cache`, `no-store`) al fetch de la lista manual para asegurar la obtención de los últimos datos registrados.
-- [x] **Gráficos y Analítica de Morosidad (Fix Saltos)**:
-    - Se corrigió el error en `src/app/dashboard/SemaforoMorosidad.tsx` donde los porcentajes pegaban "saltos bruscos" al sobrepasar el 100%. La data procesada ahora se "capea" lógicamente (ej. máximo 100%) para evitar distorsión visual en caso de datos corruptos arrastrados en `historico_cobranza`.
-    - En el API de sincronización (`src/app/api/sync/route.ts`), se introdujo un límite estricto matemático `Math.max(1, Number(building.unidades || 43))` para asegurar que nunca se divida por cero al calcular los porcentajes de morosidad del edificio, previniendo porcentajes infinitos o nulos.
-- [x] **Despliegue y GitHub**:
-    - Commit y push automáticos a la rama `main` del repositorio `jago2026/EdifiSaaS_v1` utilizando GitHub REST API.
+
+#### 🚀 Optimización de Cron (Estabilidad Mañana)
+- [x] **Frecuencia Horaria**: Se actualizó `vercel.json` para ejecutar el cron `/api/cron` cada hora (`0 * * * *`). Esto permite que el sistema procese edificios con diferentes configuraciones horarias y ofrece más intentos en caso de fallos momentáneos de red.
+- [x] **Integración de Servicios Públicos**: Se incluyó la ejecución automática del cron de Servicios Públicos (`/api/servicios-publicos/cron`) dentro del flujo principal del cron diario (se dispara a las 05:00 AM VET).
+- [x] **Eliminación de Errores de Red (Internal calls)**: Se refactorizaron las llamadas en el cron de servicios públicos para usar importaciones directas de los manejadores de API, eliminando definitivamente los errores 401 y fallos de conexión por "Deployment Protection" de Vercel.
+
+#### 🔔 Mejora de Alertas y Diagnóstico
+- [x] **Logs de Servicios Públicos**: Añadida lógica de `logAlerta` en el cron de servicios públicos. Ahora el usuario verá en su pestaña de "Alertas" si la consulta automática de CANTV, Hidrocapital o Corpoelec fue exitosa o por qué falló.
+- [x] **Trazabilidad en Cron**: Se añadieron mensajes preventivos en la tabla de alertas cuando un edificio tiene el cron desactivado en configuración, facilitando el soporte técnico.
+- [x] **Validación de Datos Vacíos**: Añadido control de flujo para evitar ejecuciones innecesarias si no hay edificios configurados en la base de datos.
+
+### Recomendaciones y Sugerencias de Mejora
+1. **Retry Logic Exponencial**: Implementar una cola de reintentos para las consultas de portales públicos (Hidrocapital/Corpoelec), ya que estos suelen estar caídos intermitentemente.
+2. **Dashboard de Salud del Sistema**: Crear una vista administrativa que muestre el estado del último cron de todos los edificios en una sola tabla (actualmente es por edificio).
+3. **Optimización de Scrapers**: Migrar los scrapers de `servicios-publicos` a una arquitectura de Actions de Convex o un microservicio con Puppeteer/Playwright si los portales gubernamentales aumentan sus protecciones antibots.
+4. **Cache de Consultas**: Implementar un cache de 12 horas para las consultas de servicios públicos para no saturar los portales si el cron corre varias veces por error.
 
 ---
-
-

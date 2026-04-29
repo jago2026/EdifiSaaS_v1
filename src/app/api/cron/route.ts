@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { POST as syncPOST } from "../sync/route";
 import { POST as emailPOST } from "../email/route";
+import { GET as spCronGET } from "../servicios-publicos/cron/route";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -58,6 +59,11 @@ export async function GET(request: NextRequest) {
 
     console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso para ${edificios?.length || 0} edificios.`);
 
+    if (!edificios || edificios.length === 0) {
+      console.log("[CRON] No se encontraron edificios para procesar.");
+      return NextResponse.json({ success: true, message: "No buildings found" });
+    }
+
     // Obtener hora actual en Venezuela de forma robusta
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Caracas',
@@ -66,6 +72,18 @@ export async function GET(request: NextRequest) {
     });
     const currentHourVET = parseInt(formatter.format(new Date()), 10);
     const currentFullTimeVET = new Date().toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
+
+    // 0. Ejecutar Cron de Servicios Públicos (Solo a las 05:00 AM VET o si es forzado)
+    if (force || currentHourVET === 5) {
+      console.log("[CRON] Ejecutando Cron de Servicios Públicos...");
+      try {
+        const spReq = new NextRequest(new Request("http://localhost/api/servicios-publicos/cron"));
+        await spCronGET(spReq);
+        console.log("[CRON] Cron de Servicios Públicos completado.");
+      } catch (spErr) {
+        console.error("[CRON] Error en Cron de Servicios Públicos:", spErr);
+      }
+    }
 
     for (const edificio of edificios) {
       const edificioId = edificio.id;
@@ -76,6 +94,9 @@ export async function GET(request: NextRequest) {
 
       if (!edificio.cron_enabled) {
         console.log(`[CRON] [!] Saltando ${edificio.nombre} - Cron DESACTIVADO en config`);
+        if (force) {
+          await logAlerta(supabase, edificioId, "warning", "⚠️ Cron Desactivado", `El edificio ${edificio.nombre} tiene la automatización desactivada en su configuración.`);
+        }
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "cron_enabled = false" });
         continue;
       }
@@ -83,6 +104,7 @@ export async function GET(request: NextRequest) {
       // Verificar si es la hora correcta (basado en hora de Venezuela)
       if (!force && currentHourVET !== configHour) {
         console.log(`[CRON] [.] Saltando ${edificio.nombre} - Hora no coincide (${currentHourVET} != ${configHour})`);
+        // Opcional: No loguear esto para no saturar la tabla, solo en consola
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }
