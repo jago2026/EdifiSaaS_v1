@@ -45,13 +45,22 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     { name: "12+ Recibos", value: Math.min(43, data.current.g12_mas.aptos), monto: data.current.g12_mas.monto, color: "#7f1d1d", key: "g12_mas" },
   ];
 
-  // La evolución ya viene filtrada desde la API (solo datos históricos < hoy)
-  // Eliminamos filtrado redundante en frontend. Solo aseguramos límite de porcentaje.
+  // Filtrado estricto: excluir cualquier dato con fecha >= hoy (protección redundante)
+  // La API ya filtra, pero aseguramos integridad visual en el frontend
+  const caracasToday = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Caracas',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+
   const cleanEvolution = (data.evolution || [])
+      .filter((e: any) => e.fecha < caracasToday)
       .map((e: any) => ({
           ...e,
-          // Cap al 100% para evitar saltos ilógicos en el gráfico si la data en DB está corrupta
-          porcentaje: e.porcentaje > 100 ? 100 : e.porcentaje
+          porcentaje: e.porcentaje > 100 ? 100 : e.porcentaje,
+          monto: Math.max(0, e.monto || 0),
+          montoUsd: Math.max(0, e.montoUsd || 0)
       }));
 
   return (
@@ -154,60 +163,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
             </button>
           </div>
         </header>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={cleanEvolution}>
-              <defs>
-                <linearGradient id="colorMonto" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis 
-                dataKey="fecha" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
-                tickFormatter={(str: any) => {
-                  // Forzar interpretación UTC para evitar saltos de día
-                  const d = new Date(str + "T00:00:00Z");
-                  return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-                }}
-                domain={['dataMin', 'dataMax']}
-                padding={{"left": 20, "right": 20}}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
-                tickFormatter={(val) => {
-                  if (viewMode === "porcentaje") return `${val}%`;
-                  if (viewMode === "montoUsd") return `$${formatNumber(val)}`;
-                  return `Bs.${formatNumber(val/1000)}k`;
-                }}
-              />
-              <Tooltip 
-                contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
-                formatter={(value: any) => {
-                  if (viewMode === "porcentaje") return [`${formatNumber(value)}%`, 'Porcentaje'];
-                  if (viewMode === "montoUsd") return [formatUsd(value), 'Monto USD'];
-                  return [`Bs. ${formatBs(value)}`, 'Monto Bs.'];
-                }}
-              />
-               <Area 
-                 type="linear" 
-                 dataKey={viewMode} 
-                 stroke="#ef4444" 
-                 strokeWidth={4}
-                 fillOpacity={1} 
-                 fill="url(#colorMonto)" 
-                 isAnimationActive={false}
-                 connectNulls={false}
-               />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
+
       </div>
     </div>
   );
