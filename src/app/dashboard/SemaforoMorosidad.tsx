@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, 
-  LineChart, Line, AreaChart, Area 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd } from "@/lib/formatters";
@@ -37,14 +36,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
     return "Porcentaje (%)";
   };
 
-  // El backend ya garantiza que evolution solo contiene datos hasta AYER (hoy excluido).
-  // Aquí solo filtramos puntos con porcentaje inválido cuando el modo es porcentaje.
-  const cleanEvolution = (data.evolution || []).filter((e: any) => {
-    if (viewMode === "porcentaje" && (e.porcentaje === null || e.porcentaje <= 0)) return false;
-    return true;
-  });
-
-  // dataKey según modo de visualización
+  // dataKey según modo de visualización (usado en el BarChart)
   const activeDataKey = viewMode === "monto" ? "monto" : viewMode === "montoUsd" ? "montoUsd" : "porcentaje";
 
   const chartData = [
@@ -129,27 +121,44 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
         </div>
       </div>
 
-      {/* Gráfico de Evolución de Morosidad */}
+      {/* Gráfico de barras: Mes Anterior vs Mes Actual */}
       <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
         <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Evolución de la Morosidad</h3>
-            <p className="text-sm text-gray-500 font-medium">Tendencia del monto pendiente ({getChartLabel()})</p>
+            <p className="text-sm text-gray-500 font-medium">
+              Comparativo por día — {getChartLabel()}
+            </p>
+            {/* Leyenda de meses */}
+            <div className="flex items-center gap-6 mt-3">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-slate-400"></div>
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Mes Ant. ({data.mesAnteriorLabel || ""})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-sm bg-rose-500"></div>
+                <span className="text-[10px] font-black text-gray-700 uppercase tracking-widest">
+                  Mes Act. ({data.mesActualLabel || ""})
+                </span>
+              </div>
+            </div>
           </div>
           <div className="flex bg-gray-100 p-1 rounded-xl self-start">
-            <button 
+            <button
               onClick={() => setViewMode("monto")}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === "monto" ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
             >
               Bs.
             </button>
-            <button 
+            <button
               onClick={() => setViewMode("montoUsd")}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === "montoUsd" ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
             >
               USD
             </button>
-            <button 
+            <button
               onClick={() => setViewMode("porcentaje")}
               className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === "porcentaje" ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
             >
@@ -157,36 +166,27 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
             </button>
           </div>
         </header>
-        {cleanEvolution.length === 0 ? (
-          <div className="h-[300px] flex items-center justify-center text-gray-400 text-sm font-medium">
-            No hay datos históricos suficientes para graficar la evolución.
+
+        {(!data.barData || data.barData.length === 0) ? (
+          <div className="h-[340px] flex items-center justify-center text-gray-400 text-sm font-medium">
+            No hay datos suficientes para comparar los dos meses.
           </div>
         ) : (
-          <div className="h-[300px]">
+          <div className="h-[340px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={cleanEvolution}>
-                <defs>
-                  <linearGradient id="colorMorosidad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
+              <BarChart data={data.barData} barCategoryGap="30%" barGap={2}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis
-                  dataKey="fecha"
+                  dataKey="dia"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
-                  tickFormatter={(str) => {
-                    const d = new Date(str + "T00:00:00Z");
-                    return d.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', timeZone: 'UTC' });
-                  }}
+                  tickFormatter={(v) => `${v}`}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
-                  domain={['auto', 'auto']}
                   tickFormatter={(val) => {
                     if (viewMode === "porcentaje") return `${val}%`;
                     if (viewMode === "montoUsd") return `$${formatNumber(val)}`;
@@ -194,29 +194,32 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                   }}
                 />
                 <Tooltip
-                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
-                  formatter={(value: any) => {
-                    if (viewMode === "porcentaje") return [`${formatNumber(value)}%`, 'Porcentaje'];
-                    if (viewMode === "montoUsd") return [formatUsd(value), 'Monto USD'];
-                    return [`Bs. ${formatBs(value)}`, 'Monto Bs.'];
-                  }}
-                  labelFormatter={(label) => {
-                    const d = new Date(label + "T00:00:00Z");
-                    return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+                  contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px', minWidth: '220px' }}
+                  labelFormatter={(label) => `Día ${label} del mes`}
+                  formatter={(value: any, name: string) => {
+                    if (value === null || value === undefined) return ["-", name];
+                    const isMesAct = name.startsWith("mesActual");
+                    const label = isMesAct ? `Mes actual (${data.mesActualLabel})` : `Mes anterior (${data.mesAnteriorLabel})`;
+                    if (viewMode === "porcentaje") return [`${formatNumber(value)}%`, label];
+                    if (viewMode === "montoUsd") return [formatUsd(value), label];
+                    return [`Bs. ${formatBs(value)}`, label];
                   }}
                 />
-                <Area
-                  type="monotone"
-                  dataKey={activeDataKey}
-                  stroke="#ef4444"
-                  strokeWidth={4}
-                  fillOpacity={1}
-                  fill="url(#colorMorosidad)"
-                  connectNulls={false}
-                  dot={false}
-                  activeDot={{ r: 6, strokeWidth: 0, fill: '#ef4444' }}
+                {/* Mes Anterior — gris */}
+                <Bar
+                  dataKey={`mesAnterior_${activeDataKey}`}
+                  fill="#94a3b8"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={18}
                 />
-              </AreaChart>
+                {/* Mes Actual — rojo */}
+                <Bar
+                  dataKey={`mesActual_${activeDataKey}`}
+                  fill="#ef4444"
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={18}
+                />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         )}

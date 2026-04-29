@@ -5,7 +5,25 @@ Este archivo registra todo lo trabajado por Claude en el proyecto EdifiSaaS para
 
 ---
 
-## Sesión 2 — 2026-04-29 (corrección definitiva del gráfico de morosidad)
+## Sesión 3 — 2026-04-29 (gráfico barras mes anterior vs mes actual)
+
+### Cambios aplicados
+
+#### `src/app/api/analytics/morosidad/route.ts`
+- Nueva query `snapshotsGrafico` con `lte("fecha", ayerStr)` — garantiza que hoy nunca se grafica.
+- Nueva función `buildBarPoints()` que transforma snapshots en puntos con `dia`, `monto`, `montoUsd`, `porcentaje`.
+- Nuevo array `barData`: une por día del mes los datos de `mesActualStr` y `mesAnteriorStr`, con claves `mesActual_monto`, `mesActual_montoUsd`, `mesActual_porcentaje`, `mesAnterior_monto`, `mesAnterior_montoUsd`, `mesAnterior_porcentaje`.
+- El endpoint ahora devuelve también `barData`, `mesActualLabel`, `mesAnteriorLabel`.
+
+#### `src/app/dashboard/SemaforoMorosidad.tsx`
+- Reemplazado el `AreaChart` de evolución por un `BarChart` agrupado.
+- Eje X = día del mes (1-31), barras grises = mes anterior, barras rojas = mes actual.
+- Leyenda con los labels de mes (YYYY-MM) de cada barra.
+- Tooltip muestra el mes completo y el valor formateado según el modo (Bs/USD/%).
+- Limpiados imports no usados (`AreaChart`, `Area`, `LineChart`, `Line`).
+- Eliminada variable `cleanEvolution` que ya no se necesita.
+
+
 
 ### Problema persistente
 El gráfico "Evolución de la Morosidad" seguía mostrando un salto brusco a ~348% el día de hoy aunque las sesiones anteriores ya aplicaban filtros de fecha. El filtro `s.fecha < hoyVET` en el backend no era suficiente porque:

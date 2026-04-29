@@ -117,8 +117,58 @@ export async function GET(request: Request) {
         g12_mas: calcularCostoUSD(currentGroups!.g12_mas.monto, 18),
     };
 
-    // Historial para el gráfico — usa snapshotsGrafico (solo hasta ayer, hoy excluido por query)
-    // No se necesita ningún filtro adicional porque la query ya garantiza fecha <= ayer.
+    // ── Gráfico de barras: mes anterior vs mes actual ──────────────────────────
+    // Calculamos el mes actual y el mes anterior en hora Caracas
+    const mesActualStr  = `${nowCaracas.getUTCFullYear()}-${String(nowCaracas.getUTCMonth() + 1).padStart(2, '0')}`;
+    const prevDate      = new Date(nowCaracas);
+    prevDate.setUTCMonth(prevDate.getUTCMonth() - 1);
+    const mesAnteriorStr = `${prevDate.getUTCFullYear()}-${String(prevDate.getUTCMonth() + 1).padStart(2, '0')}`;
+
+    // Filtrar snapshots de cada mes (snapshotsGrafico ya excluye hoy)
+    const snapsMesActual   = (snapshotsGrafico || []).filter((s: any) => s.fecha.startsWith(mesActualStr));
+    const snapsMesAnterior = (snapshotsGrafico || []).filter((s: any) => s.fecha.startsWith(mesAnteriorStr));
+
+    // Para cada mes construimos un mapa fecha→valor para los 3 modos
+    const buildBarPoints = (snaps: any[]) =>
+      [...snaps]
+        .sort((a: any, b: any) => a.fecha.localeCompare(b.fecha))
+        .map((s: any) => {
+          const t    = Number(s.tasa_cambio || tasaActual) || tasaActual || 1;
+          const monto = Math.max(0, Number(s.monto_pendiente_total) || 0);
+          const pctRaw = Number(s.pct_pendiente || 0);
+          return {
+            fecha:      s.fecha,
+            dia:        Number(s.fecha.split('-')[2]),   // día del mes (1-31)
+            monto,
+            montoUsd:   monto / t,
+            porcentaje: (pctRaw > 0 && pctRaw <= 150) ? pctRaw : null,
+          };
+        });
+
+    const barMesActual   = buildBarPoints(snapsMesActual);
+    const barMesAnterior = buildBarPoints(snapsMesAnterior);
+
+    // Unir por día para el gráfico agrupado (eje X = día del mes)
+    const allDias = Array.from(new Set([
+      ...barMesActual.map((d: any) => d.dia),
+      ...barMesAnterior.map((d: any) => d.dia),
+    ])).sort((a, b) => a - b);
+
+    const barData = allDias.map(dia => {
+      const act = barMesActual.find((d: any) => d.dia === dia);
+      const ant = barMesAnterior.find((d: any) => d.dia === dia);
+      return {
+        dia,
+        mesActual_monto:      act?.monto      ?? null,
+        mesActual_montoUsd:   act?.montoUsd   ?? null,
+        mesActual_porcentaje: act?.porcentaje ?? null,
+        mesAnterior_monto:      ant?.monto      ?? null,
+        mesAnterior_montoUsd:   ant?.montoUsd   ?? null,
+        mesAnterior_porcentaje: ant?.porcentaje ?? null,
+      };
+    });
+
+    // También mantenemos evolution lineal (últimos 30 días hasta ayer) para compatibilidad
     const evolution = (snapshotsGrafico || [])
         .slice(0, 30)
         .reverse()
@@ -126,8 +176,6 @@ export async function GET(request: Request) {
             const t = Number(s.tasa_cambio || tasaActual) || tasaActual || 1;
             const montoTotal = Math.max(0, Number(s.monto_pendiente_total) || 0);
             const pctRaw = Number(s.pct_pendiente || 0);
-            // Porcentaje saneado: valores > 150% son datos corruptos, se dejan como null
-            // (connectNulls=false en Recharts los omitirá sin conectar la línea)
             const porcentaje = (pctRaw > 0 && pctRaw <= 150) ? pctRaw : null;
             return {
                 fecha: s.fecha,
@@ -145,6 +193,9 @@ export async function GET(request: Request) {
       desplazamiento,
       costoMorosidad: costoMorosidadUSD,
       evolution,
+      barData,
+      mesActualLabel:   mesActualStr,
+      mesAnteriorLabel: mesAnteriorStr,
       tasaBCV: tasaActual,
       fecha: current.fecha
     });
