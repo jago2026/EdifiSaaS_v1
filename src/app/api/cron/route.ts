@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { POST as syncPOST } from "../sync/route";
+import { POST as emailPOST } from "../email/route";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -44,16 +46,6 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  // Detectar BASE_URL dinámicamente
-  const host = request.headers.get('host');
-  const protocol = host?.includes('localhost') || host?.includes('127.0.0.1') ? 'http' : 'https';
-  let BASE_URL = `${protocol}://${host}`;
-  
-  // Si estamos en Vercel, preferir la URL del sistema si el host falla
-  if (process.env.VERCEL_URL && (!host || host.includes('internal'))) {
-    BASE_URL = `https://${process.env.VERCEL_URL}`;
-  }
-
   const supabase = createClient(supabaseUrl, supabaseKey);
   const resultados = [];
 
@@ -64,12 +56,16 @@ export async function GET(request: NextRequest) {
 
     if (edErr) throw edErr;
 
-    console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso para ${edificios?.length || 0} edificios. BASE_URL: ${BASE_URL}`);
+    console.log(`[CRON] ${force ? 'FORCE ' : ''}Iniciando proceso para ${edificios?.length || 0} edificios.`);
 
-    // Obtener hora actual en Venezuela
-    const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));
-    const currentHourVET = nowVET.getHours();
-    const currentFullTimeVET = nowVET.toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
+    // Obtener hora actual en Venezuela de forma robusta
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Caracas',
+      hour: '2-digit',
+      hour12: false
+    });
+    const currentHourVET = parseInt(formatter.format(new Date()), 10);
+    const currentFullTimeVET = new Date().toLocaleTimeString("es-VE", { timeZone: "America/Caracas", hour12: false });
 
     for (const edificio of edificios) {
       const edificioId = edificio.id;
@@ -87,7 +83,6 @@ export async function GET(request: NextRequest) {
       // Verificar si es la hora correcta (basado en hora de Venezuela)
       if (!force && currentHourVET !== configHour) {
         console.log(`[CRON] [.] Saltando ${edificio.nombre} - Hora no coincide (${currentHourVET} != ${configHour})`);
-        
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }
@@ -98,26 +93,18 @@ export async function GET(request: NextRequest) {
       try {
         await logAlerta(supabase, edificioId, "info", "🚀 Iniciando Cron Diario", `Iniciando proceso automático de sincronización y envío de informes (${force ? 'Ejecución Forzada' : 'Ejecución Programada'}).`);
 
-        // 1. Sincronización
+        // 1. Sincronización (Llamada Directa)
         console.log(`[CRON] Ejecutando sync para ${edificio.nombre}`);
         await logSincronizacion(supabase, edificioId, "sync", "iniciando", 0, null, { fecha: new Date().toISOString(), mode: "cron" });
         
-        const syncRes = await fetch(`${BASE_URL}/api/sync`, {
+        const syncReq = new Request("http://localhost/api/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: edificio.usuario_id }),
-          signal: AbortSignal.timeout(60000) // 60s timeout para sync pesado
+          body: JSON.stringify({ userId: edificio.usuario_id })
         });
-
-        let syncData: any = {};
-        const syncContentType = syncRes.headers.get("content-type");
-        if (syncContentType && syncContentType.includes("application/json")) {
-            syncData = await syncRes.json();
-        } else {
-            const rawText = await syncRes.text();
-            console.error(`[CRON] syncRes no es JSON. Status: ${syncRes.status}. Body: ${rawText.substring(0, 200)}`);
-            throw new Error(`El servidor de sincronización devolvió un error inesperado (HTML ${syncRes.status}).`);
-        }
+        
+        const syncRes = await syncPOST(syncReq);
+        const syncData = await syncRes.json();
         
         if (!syncRes.ok) {
           const errorMsg = syncData.error || "Fallo en sincronización";
@@ -131,26 +118,18 @@ export async function GET(request: NextRequest) {
         await logSincronizacion(supabase, edificioId, "sync", "completado", syncMovimientos, null, syncData.stats);
         console.log(`[CRON] Sync completado para ${edificio.nombre}: ${syncMovimientos} movimientos`);
 
-        // 2. Envío de Email
+        // 2. Envío de Email (Llamada Directa)
         console.log(`[CRON] Enviando email para ${edificio.nombre}`);
         await logSincronizacion(supabase, edificioId, "email_diario", "iniciando", 0, null, { recipients_badge: false });
 
-        const emailRes = await fetch(`${BASE_URL}/api/email`, {
+        const emailReq = new Request("http://localhost/api/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ edificioId: edificio.id }),
-          signal: AbortSignal.timeout(30000) // 30s timeout para email
+          body: JSON.stringify({ edificioId: edificio.id })
         });
-
-        let emailData: any = {};
-        const emailContentType = emailRes.headers.get("content-type");
-        if (emailContentType && emailContentType.includes("application/json")) {
-            emailData = await emailRes.json();
-        } else {
-            const rawText = await emailRes.text();
-            console.error(`[CRON] emailRes no es JSON. Status: ${emailRes.status}. Body: ${rawText.substring(0, 200)}`);
-            throw new Error(`El servidor de correos devolvió un error inesperado (HTML ${emailRes.status}).`);
-        }
+        
+        const emailRes = await emailPOST(emailReq);
+        const emailData = await emailRes.json();
         
         if (!emailRes.ok) {
           const errorMsg = emailData.error || "Fallo en envío de email";
@@ -173,26 +152,28 @@ export async function GET(request: NextRequest) {
         });
 
       } catch (err: any) {
-        console.error(`[CRON] Error general para ${edificio.nombre}:`, err.message);
-        await logAlerta(supabase, edificioId, "error", "🚨 Error Crítico en Cron", `El proceso falló: ${err.message}`);
+        console.error(`[CRON] Error detallado para ${edificio.nombre}:`, err);
+        const errorDetail = err.message || JSON.stringify(err);
+        await logAlerta(supabase, edificioId, "error", "🚨 Error Crítico en Cron", `El proceso falló: ${errorDetail}`);
         
-        // Notificar error al admin
+        // Notificar error al admin (Llamada Directa)
         try {
-          await fetch(`${BASE_URL}/api/email`, {
+          const adminEmailReq = new Request("http://localhost/api/email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
               action: "error_notification",
               edificioId: edificio.id,
-              error: err.message,
+              error: errorDetail,
               recipient: ADMIN_EMAIL
             })
           });
+          await emailPOST(adminEmailReq);
         } catch (e) {
           console.error(`[CRON] No se pudo notificar error al admin`);
         }
 
-        resultados.push({ edificio: edificio.nombre, status: "error", error: err.message });
+        resultados.push({ edificio: edificio.nombre, status: "error", error: errorDetail });
       }
     }
 
@@ -204,7 +185,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("[CRON] Error general:", error);
+    console.error("[CRON] Error general catastrófico:", error);
     return NextResponse.json({ error: error.message, results: resultados }, { status: 500 });
   }
 }

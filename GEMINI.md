@@ -175,4 +175,33 @@ Mejoras estéticas, expansión de rangos de morosidad y correcciones en el módu
 - Investigar APIs alternativas de terceros para la consulta de Corpoelec.
 - Continuar con la división de `page.tsx` en componentes más pequeños para mejorar la mantenibilidad.
 
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación)
+
+### Objetivo
+Resolver problemas críticos de autenticación (401) y sincronización horaria en el Cron, y añadir descargos de responsabilidad en Servicios Públicos.
+
+### Tareas Realizadas
+
+#### 🏛️ Servicios Públicos (Disclaimer)
+- [x] **Aviso de Advertencia**: Se añadió un bloque de aviso en color morado (`purple`) con un emoticon de advertencia (⚠️) en las secciones de CANTV, Hidrocapital y Corpoelec.
+- [x] **Texto del Aviso**: "⚠️ IMPORTANTE: aunque es el resultado de una consulta realizada en la página web del proveedor que quizás pueda tener desactualización, o error al realizar la consulta, No se garantiza que la información aquí mostrada sea correcta, por lo que se recomienda al usuario que verifique manualmente con su proveedor de servicios públicos en su página web el monto y saldo correspondiente."
+- [x] **Visibilidad**: El aviso solo aparece cuando hay un resultado de consulta presente (`msg`).
+
+#### 🚀 Cron Job & Automatización (Fix Crítico)
+- [x] **Eliminación del Error 401**: Se identificó que las llamadas internas vía `fetch` a `/api/sync` y `/api/email` fallaban debido a protecciones de red de Vercel (Deployment Protection).
+- [x] **Refactorización a Llamadas Directas**: Se modificó `src/app/api/cron/route.ts` para importar directamente los manejadores `POST` de `sync` y `email`. Ahora el cron ejecuta la lógica en memoria pasando un objeto `Request` simulado, eliminando la dependencia de la red externa y los errores de autorización.
+- [x] **Corrección de Zona Horaria (VET)**:
+    - Se reemplazó la lógica inconsistente de `new Date().toLocaleString()` por `Intl.DateTimeFormat` con la zona horaria `America/Caracas` configurada de forma explícita.
+    - Esto garantiza que el cron compare correctamente la hora de ejecución con la hora configurada por el edificio (ej. 05:00 AM VET), independientemente de la hora del servidor (UTC).
+- [x] **Mejora de Alertas y Diagnóstico**:
+    - Se amplió la captura de errores en el Cron para registrar mensajes detallados en la bitácora de alertas en caso de fallos internos.
+    - Se eliminó la dependencia de `BASE_URL` para las tareas principales, haciendo el sistema más robusto frente a cambios de dominio.
+
+### Próximos Pasos Sugeridos
+- Monitorear la ejecución del cron en el próximo ciclo de las 05:00 AM VET.
+- Validar que el reporte de email diario se genere correctamente con la nueva lógica de llamada directa.
+- Seguir con la extracción de lógica de negocio pesada a archivos en `src/lib` para facilitar su reutilización sin peticiones HTTP.
+
 

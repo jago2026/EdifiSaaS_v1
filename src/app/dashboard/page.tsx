@@ -6638,6 +6638,11 @@ export default function DashboardPage() {
                                 {msg}
                               </div>
                             )}
+                            {msg && (
+                              <div className="mt-2 p-3 bg-purple-50 border border-purple-100 rounded-lg text-[10px] text-purple-800 font-bold leading-relaxed">
+                                ⚠️ <span className="uppercase">Importante:</span> aunque es el resultado de una consulta realizada en la página web del proveedor que quizás pueda tener desactualización, o error al realizar la consulta, No se garantiza que la información aquí mostrada sea correcta, por lo que se recomienda al usuario que verifique manualmente con su proveedor de servicios públicos en su página web el monto y saldo correspondiente.
+                              </div>
+                            )}
                             {res && res.recordatorio && (
                               <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-[10px] text-yellow-800 font-bold">
                                 💡 CANTV no dispone de portal de consulta en línea. Use el botón &quot;Enviar Email&quot; para notificar a la administradora y solicitar confirmación del pago.
@@ -6745,6 +6750,11 @@ export default function DashboardPage() {
                                 {msg}
                               </div>
                             )}
+                            {msg && (
+                              <div className="mt-2 p-3 bg-purple-50 border border-purple-100 rounded-lg text-[10px] text-purple-800 font-bold leading-relaxed">
+                                ⚠️ <span className="uppercase">Importante:</span> aunque es el resultado de una consulta realizada en la página web del proveedor que quizás pueda tener desactualización, o error al realizar la consulta, No se garantiza que la información aquí mostrada sea correcta, por lo que se recomienda al usuario que verifique manualmente con su proveedor de servicios públicos en su página web el monto y saldo correspondiente.
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -6835,6 +6845,11 @@ export default function DashboardPage() {
                             {msg && (
                               <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-bold ${msg.startsWith("✅") ? "bg-green-100 text-green-800" : msg.startsWith("❌") ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-700"}`}>
                                 {msg}
+                              </div>
+                            )}
+                            {msg && (
+                              <div className="mt-2 p-3 bg-purple-50 border border-purple-100 rounded-lg text-[10px] text-purple-800 font-bold leading-relaxed">
+                                ⚠️ <span className="uppercase">Importante:</span> aunque es el resultado de una consulta realizada en la página web del proveedor que quizás pueda tener desactualización, o error al realizar la consulta, No se garantiza que la información aquí mostrada sea correcta, por lo que se recomienda al usuario que verifique manualmente con su proveedor de servicios públicos en su página web el monto y saldo correspondiente.
                               </div>
                             )}
                           </div>
