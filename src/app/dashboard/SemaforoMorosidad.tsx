@@ -11,6 +11,7 @@ import { formatNumber, formatCurrency, formatBs, formatUsd } from "@/lib/formatt
 export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"monto" | "montoUsd" | "porcentaje">("montoUsd");
 
   useEffect(() => {
     async function loadData() {
@@ -29,6 +30,12 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
 
   if (loading) return <div className="p-8 text-center animate-pulse text-indigo-600 font-black">Cargando Semáforo...</div>;
   if (!data || !data.current) return <div className="p-8 text-center text-gray-400">No hay datos suficientes para el análisis de morosidad.</div>;
+
+  const getChartLabel = () => {
+    if (viewMode === "monto") return "Bolívares (Bs.)";
+    if (viewMode === "montoUsd") return "Dólares (USD)";
+    return "Porcentaje (%)";
+  };
 
   const chartData = [
     { name: "1 Recibo", value: data.current.g1.aptos, monto: data.current.g1.monto, color: "#10b981", key: "g1" },
@@ -83,7 +90,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
             <div className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-400 mb-2">Pérdida por Devaluación</div>
             <h3 className="text-3xl font-black tracking-tighter leading-tight mb-4">Costo de la <br/>Morosidad Acumulada</h3>
             <div className="text-5xl font-black text-rose-500 mb-6">
-              $ {formatUsd(Object.values(data.costoMorosidad as Record<string, number>).reduce((a, b) => a + b, 0))}
+              $ {formatCurrency(Object.values(data.costoMorosidad as Record<string, number>).reduce((a, b) => a + b, 0))}
             </div>
             <p className="text-xs text-gray-400 leading-relaxed">
               Este es el monto estimado que el edificio ha perdido en <span className="text-white font-bold">poder adquisitivo</span> debido a la inflación sobre las deudas no pagadas a tiempo.
@@ -112,9 +119,31 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
 
       {/* Gráfico de Evolución de Morosidad */}
       <div className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/50">
-        <header className="mb-8">
-          <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Evolución de la Morosidad</h3>
-          <p className="text-sm text-gray-500 font-medium">Tendencia del monto total pendiente en los últimos meses</p>
+        <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-black text-gray-900 uppercase tracking-tight">Evolución de la Morosidad</h3>
+            <p className="text-sm text-gray-500 font-medium">Tendencia del monto pendiente ({getChartLabel()})</p>
+          </div>
+          <div className="flex bg-gray-100 p-1 rounded-xl self-start">
+            <button 
+              onClick={() => setViewMode("monto")}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === "monto" ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              Bs.
+            </button>
+            <button 
+              onClick={() => setViewMode("montoUsd")}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === "montoUsd" ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              USD
+            </button>
+            <button 
+              onClick={() => setViewMode("porcentaje")}
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${viewMode === "porcentaje" ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+            >
+              %
+            </button>
+          </div>
         </header>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -141,15 +170,23 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                 axisLine={false} 
                 tickLine={false} 
                 tick={{fontSize: 10, fontWeight: 700, fill: '#94a3b8'}}
-                tickFormatter={(val) => `Bs. ${formatNumber(val/1000)}k`}
+                tickFormatter={(val) => {
+                  if (viewMode === "porcentaje") return `${val}%`;
+                  if (viewMode === "montoUsd") return `$${formatNumber(val)}`;
+                  return `Bs.${formatNumber(val/1000)}k`;
+                }}
               />
               <Tooltip 
                 contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '15px' }}
-                formatter={(value: any) => [`Bs. ${formatBs(value)}`, 'Monto Pendiente']}
+                formatter={(value: any) => {
+                  if (viewMode === "porcentaje") return [`${formatNumber(value)}%`, 'Porcentaje'];
+                  if (viewMode === "montoUsd") return [formatUsd(value), 'Monto USD'];
+                  return [`Bs. ${formatBs(value)}`, 'Monto Bs.'];
+                }}
               />
               <Area 
                 type="monotone" 
-                dataKey="monto" 
+                dataKey={viewMode} 
                 stroke="#ef4444" 
                 strokeWidth={4}
                 fillOpacity={1} 

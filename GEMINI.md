@@ -253,4 +253,34 @@ Corregir errores de visualización en gráficos de analítica y mejorar el proce
 - Implementar un selector de "Rango de Tiempo" (3 meses, 6 meses, 1 año) en el gráfico de evolución de morosidad.
 - Añadir un tooltip detallado en el gráfico de cobranza que muestre el monto exacto recaudado por día además del porcentaje acumulado.
 
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación 4)
+
+### Objetivo
+Corregir inconsistencias de datos futuros en gráficos, ajustar cálculos de costo de morosidad y añadir versatilidad monetaria al análisis de deuda.
+
+### Tareas Realizadas
+
+#### 📈 Gráficos de Analítica (Análisis de Cobranza)
+- [x] **Fix de Proyección**: Corregida la "caída a cero" al final de la gráfica de cobranza. Se cambió el uso de `null` por `undefined` en el frontend, lo que permite que Recharts detenga la línea exactamente en el día actual sin dibujar puntos inexistentes.
+
+#### 🚦 Semáforo de Morosidad (Correcciones Críticas)
+- [x] **Sinceración del Costo de Morosidad**: 
+    - Se identificó que el sistema mostraba la pérdida por devaluación en Bs. pero con el símbolo de $.
+    - **Fix aplicado**: La API `/api/analytics/morosidad` ahora realiza el cálculo de pérdida directamente en USD basado en la tasa BCV del snapshot. Esto redujo la cifra de montos ilógicos (ej. $550k) a valores reales acordes a la deuda del edificio (ej. ~$1k-$2k).
+- [x] **Filtro de Fechas Futuras**: Se añadió una validación en la base de datos (`.lte("fecha", todayStr)`) para ignorar cualquier registro accidental con fecha futura en la tabla `historico_cobranza`. Esto eliminó el salto abrupto de deuda (de 750k a 7.5M) reportado para "mañana".
+
+#### 📊 Evolución de Morosidad (Multimoneda)
+- [x] **Selector de Vista**: Se implementó un control en el encabezado del gráfico de evolución que permite al usuario alternar entre tres dimensiones:
+    - **Bs.** (Bolívares): Para ver el valor nominal de la deuda.
+    - **USD** (Dólares): Para ver la deuda en moneda estable.
+    - **%** (Porcentaje): Para ver el impacto relativo sobre la facturación.
+- [x] **Dinamicidad**: El eje Y y los Tooltips se ajustan automáticamente según la unidad seleccionada para mostrar formatos adecuados (ej: Bs. k, $, %).
+
+### Próximos Pasos Sugeridos
+- Revisar el proceso de carga masiva de datos históricos para evitar la inserción de fechas futuras.
+- Añadir un resumen de "Poder Adquisitivo Recuperado" si se logran cobrar las deudas más antiguas.
+- Refactorizar `AnalisisCobranza.tsx` para permitir también la visualización en montos además de porcentajes.
+
 

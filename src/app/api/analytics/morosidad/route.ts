@@ -13,11 +13,14 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Obtener los snapshots históricos
+    const todayStr = new Date().toISOString().split('T')[0];
+    
+    // Obtener los snapshots históricos, filtrando fechas futuras
     const { data: snapshots, error } = await supabase
       .from("historico_cobranza")
       .select("*")
       .eq("edificio_id", edificioId)
+      .lte("fecha", todayStr)
       .order("fecha", { ascending: false });
 
     if (error) throw error;
@@ -26,11 +29,11 @@ export async function GET(request: Request) {
     }
 
     const current = snapshots[0];
+    const tasaActual = Number(current.tasa_cambio || 36);
     
     // Buscar el snapshot de hace aproximadamente un mes
-    const now = new Date();
     const lastMonthDate = new Date();
-    lastMonthDate.setMonth(now.getMonth() - 1);
+    lastMonthDate.setMonth(new Date().getMonth() - 1);
     const lastMonthStr = lastMonthDate.toISOString().split('T')[0];
     
     const previous = snapshots.find(s => s.fecha <= lastMonthStr) || snapshots[snapshots.length - 1];
@@ -77,39 +80,46 @@ export async function GET(request: Request) {
         g12_mas: currentGroups!.g12_mas.aptos - previousGroups.g12_mas.aptos,
     } : null;
 
-    // Costo de morosidad
-    const calcularCosto = (monto: number, meses: number) => {
+    // Costo de morosidad (calculado en USD para evitar confusión)
+    const calcularCostoUSD = (montoBs: number, meses: number) => {
         const tasaDevalMensual = 0.03; 
-        const valorOriginal = monto / Math.pow(1 - tasaDevalMensual, meses);
-        return valorOriginal - monto;
+        const montoUSD = montoBs / tasaActual;
+        // El costo es cuánto más valdría hoy ese dinero si se hubiera cobrado a tiempo
+        // pero aquí lo calculamos como pérdida de poder adquisitivo proyectada.
+        const valorOriginalUSD = montoUSD / Math.pow(1 - tasaDevalMensual, meses);
+        return valorOriginalUSD - montoUSD;
     };
 
-    const costoMorosidad = {
-        g1: calcularCosto(currentGroups!.g1.monto, 1),
-        g2_3: calcularCosto(currentGroups!.g2_3.monto, 3),
-        g4_6: calcularCosto(currentGroups!.g4_6.monto, 6),
-        g7_11: calcularCosto(currentGroups!.g7_11.monto, 9),
-        g12_mas: calcularCosto(currentGroups!.g12_mas.monto, 18),
+    const costoMorosidadUSD = {
+        g1: calcularCostoUSD(currentGroups!.g1.monto, 1),
+        g2_3: calcularCostoUSD(currentGroups!.g2_3.monto, 2.5), // Promedio entre 2 y 3
+        g4_6: calcularCostoUSD(currentGroups!.g4_6.monto, 5),   // Promedio entre 4 y 6
+        g7_11: calcularCostoUSD(currentGroups!.g7_11.monto, 9),
+        g12_mas: calcularCostoUSD(currentGroups!.g12_mas.monto, 18),
     };
 
     // Historial para el gráfico de evolución
-    // Tomamos hasta 24 registros para tener una buena perspectiva si hay datos viejos
     const evolution = snapshots
-        .slice(0, 24) 
+        .slice(0, 30) 
         .reverse()
-        .map(s => ({
-            fecha: s.fecha,
-            monto: Number(s.monto_pendiente_total),
-            aptos: Number(s.aptos_pendientes_total)
-        }));
+        .map(s => {
+            const t = Number(s.tasa_cambio || tasaActual);
+            return {
+                fecha: s.fecha,
+                monto: Number(s.monto_pendiente_total),
+                montoUsd: Number(s.monto_pendiente_total) / t,
+                aptos: Number(s.aptos_pendientes_total),
+                porcentaje: Number(s.pct_pendiente || 0)
+            };
+        });
 
     return NextResponse.json({
       current: currentGroups,
       previous: previousGroups,
       desplazamiento,
-      costoMorosidad,
+      costoMorosidad: costoMorosidadUSD,
       evolution,
-      tasaBCV: Number(current.tasa_cambio),
+      tasaBCV: tasaActual,
       fecha: current.fecha
     });
   } catch (err: any) {

@@ -35,7 +35,7 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
     
     return {
       dia,
-      "Mes Actual": actual ? actual.pct : null,
+      "Mes Actual": actual && actual.pct !== null ? actual.pct : undefined,
       "Mes Anterior": anterior ? anterior.pct : 0
     };
   });

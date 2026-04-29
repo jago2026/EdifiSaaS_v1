@@ -9,6 +9,12 @@ import { AnalisisCobranza } from "./AnalisisCobranza";
 import { SemaforoMorosidad } from "./SemaforoMorosidad";
 import { SaludFinanciera } from "./SaludFinanciera";
 import { SimuladorInversiones } from "./SimuladorInversiones";
+import { ResumenTab } from "./ResumenTab";
+import { IngresosTab } from "./IngresosTab";
+import { MovimientosTab } from "./MovimientosTab";
+import { RecibosTab } from "./RecibosTab";
+import { EgresosTab } from "./EgresosTab";
+import { GastosTab } from "./GastosTab";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
