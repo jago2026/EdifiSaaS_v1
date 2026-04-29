@@ -411,10 +411,19 @@ export async function POST(request: Request) {
     }
 
     const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
-    const toEmailsRaw = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    let toEmailsRaw = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    
+    // Fallback: Si no hay miembros en la tabla junta, usar los emails configurados en el edificio
+    if (toEmailsRaw.length === 0 && edificio.email_junta) {
+      toEmailsRaw = edificio.email_junta.split(",").map((e: string) => e.trim()).filter(Boolean);
+    }
+    
     const toEmails = toEmailsRaw.slice(0, permissions.maxEmailRecipients);
     
-    if (toEmails.length === 0) return NextResponse.json({ error: "No hay emails en la junta" }, { status: 400 });
+    if (toEmails.length === 0) {
+      console.error(`[EMAIL] No hay destinatarios para el edificio ${edificio.nombre}`);
+      return NextResponse.json({ error: "No hay destinatarios configurados (Junta o Email Config)" }, { status: 400 });
+    }
 
     const todayDate = new Date();
     const today = todayDate.toISOString().split("T")[0];
