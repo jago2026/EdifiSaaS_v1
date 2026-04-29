@@ -1055,20 +1055,21 @@ export async function POST(request: Request) {
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
       
-      const { data: recs } = await supabase.from("recibos").select("id_apto, deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
+      const { data: recs } = await supabase.from("recibos").select("unidad, deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
       
-      // Agrupar por apartamento para tener conteos reales de UNIDADES morosas
+      // Agrupar por UNIDAD (nombre del apto) para garantizar unicidad real
       const aptosConDeuda = new Map();
       (recs || []).forEach(r => {
-        if (!aptosConDeuda.has(r.id_apto)) {
-          aptosConDeuda.set(r.id_apto, {
-            id_apto: r.id_apto,
+        const key = String(r.unidad || 'S/N').trim().toUpperCase();
+        if (!aptosConDeuda.has(key)) {
+          aptosConDeuda.set(key, {
+            unidad: key,
             deuda: Number(r.deuda),
             num_recibos: Number(r.num_recibos || 1)
           });
         } else {
           // Si por alguna razón hay múltiples filas para el mismo apto en esta query, sumamos deuda
-          const existing = aptosConDeuda.get(r.id_apto);
+          const existing = aptosConDeuda.get(key);
           existing.deuda += Number(r.deuda);
           // El num_recibos debería ser el máximo o el valor que ya traía la fila principal
           existing.num_recibos = Math.max(existing.num_recibos, Number(r.num_recibos || 1));
@@ -1076,7 +1077,10 @@ export async function POST(request: Request) {
       });
 
       const uniqueAptosList = Array.from(aptosConDeuda.values());
-      const recPendientesCount = uniqueAptosList.length;
+      
+      // Límite de seguridad: El número de morosos no puede ser mayor que el total de aptos
+      const totalAptosEdificio = Number(building.unidades || 43);
+      const recPendientesCount = Math.min(totalAptosEdificio, uniqueAptosList.length);
       const totalDeudaAcum = uniqueAptosList.reduce((sum, r) => sum + r.deuda, 0);
       
       const bal = balance || {};
@@ -1122,12 +1126,23 @@ export async function POST(request: Request) {
       distRecibos[`monto_12_mas_recibo`] = 0;
 
       uniqueAptosList.forEach(r => {
-        const n = Math.min(r.num_recibos || 1, 12);
+        const n = Math.min(Number(r.num_recibos || 1), 12);
         const keyApto = n === 12 ? 'aptos_12_mas_recibo' : `aptos_${n}_recibo`;
         const keyMonto = n === 12 ? 'monto_12_mas_recibo' : `monto_${n}_recibo`;
         distRecibos[keyApto]++;
         distRecibos[keyMonto] += r.deuda;
       });
+
+      // Validar que la suma de aptos en la distribución tampoco supere el total
+      let sumaAptosDist = 0;
+      for (let i = 1; i <= 11; i++) sumaAptosDist += distRecibos[`aptos_${i}_recibo`];
+      sumaAptosDist += distRecibos[`aptos_12_mas_recibo`];
+
+      if (sumaAptosDist > totalAptosEdificio) {
+          const factor = totalAptosEdificio / sumaAptosDist;
+          for (let i = 1; i <= 11; i++) distRecibos[`aptos_${i}_recibo`] = Math.floor(distRecibos[`aptos_${i}_recibo`] * factor);
+          distRecibos[`aptos_12_mas_recibo`] = Math.floor(distRecibos[`aptos_12_mas_recibo`] * factor);
+      }
 
       // Obtener pagos de hoy registrados en movimientos_dia
       const { data: pagosHoy } = await supabase.from("movimientos_dia").select("monto").eq("edificio_id", building.id).eq("detectado_en", today).eq("tipo", "ingreso");

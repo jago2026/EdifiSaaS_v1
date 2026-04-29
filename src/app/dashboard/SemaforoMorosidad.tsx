@@ -38,12 +38,16 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
   };
 
   const chartData = [
-    { name: "1 Recibo", value: data.current.g1.aptos, monto: data.current.g1.monto, color: "#10b981", key: "g1" },
-    { name: "2-3 Recibos", value: data.current.g2_3.aptos, monto: data.current.g2_3.monto, color: "#84cc16", key: "g2_3" },
-    { name: "4-6 Recibos", value: data.current.g4_6.aptos, monto: data.current.g4_6.monto, color: "#f59e0b", key: "g4_6" },
-    { name: "7-11 Recibos", value: data.current.g7_11.aptos, monto: data.current.g7_11.monto, color: "#ef4444", key: "g7_11" },
-    { name: "12+ Recibos", value: data.current.g12_mas.aptos, monto: data.current.g12_mas.monto, color: "#7f1d1d", key: "g12_mas" },
+    { name: "1 Recibo", value: Math.min(43, data.current.g1.aptos), monto: data.current.g1.monto, color: "#10b981", key: "g1" },
+    { name: "2-3 Recibos", value: Math.min(43, data.current.g2_3.aptos), monto: data.current.g2_3.monto, color: "#84cc16", key: "g2_3" },
+    { name: "4-6 Recibos", value: Math.min(43, data.current.g4_6.aptos), monto: data.current.g4_6.monto, color: "#f59e0b", key: "g4_6" },
+    { name: "7-11 Recibos", value: Math.min(43, data.current.g7_11.aptos), monto: data.current.g7_11.monto, color: "#ef4444", key: "g7_11" },
+    { name: "12+ Recibos", value: Math.min(43, data.current.g12_mas.aptos), monto: data.current.g12_mas.monto, color: "#7f1d1d", key: "g12_mas" },
   ];
+
+  // Filtrar evolution para que no tenga nada futuro (aunque el API debería hacerlo, reforzamos aquí)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const cleanEvolution = (data.evolution || []).filter((e: any) => e.fecha <= todayStr);
 
   return (
     <div className="space-y-8 animate-in slide-in-from-bottom duration-700">
@@ -147,7 +151,7 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
         </header>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data.evolution}>
+            <AreaChart data={cleanEvolution}>
               <defs>
                 <linearGradient id="colorMonto" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#ef4444" stopOpacity={0.1}/>

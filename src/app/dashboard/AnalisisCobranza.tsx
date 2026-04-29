@@ -33,11 +33,17 @@ export function AnalisisCobranza({ edificioId }: { edificioId: string }) {
     const actual = data.mesActual.find((d: any) => d.dia === dia);
     const anterior = data.mesAnterior.find((d: any) => d.dia === dia);
     
-    return {
+    const item: any = {
       dia,
-      "Mes Actual": actual && actual.pct !== null ? actual.pct : undefined,
       "Mes Anterior": anterior ? anterior.pct : 0
     };
+
+    // Solo agregar "Mes Actual" si el valor no es null (no es futuro)
+    if (actual && actual.pct !== null) {
+      item["Mes Actual"] = actual.pct;
+    }
+    
+    return item;
   });
 
   const predictionDate = () => {
