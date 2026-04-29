@@ -196,9 +196,9 @@ export function SemaforoMorosidad({ edificioId }: { edificioId: string }) {
                 <Tooltip
                   contentStyle={{ borderRadius: '20px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '16px', minWidth: '220px' }}
                   labelFormatter={(label) => `Día ${label} del mes`}
-                  formatter={(value: any, name: string) => {
+                  formatter={(value: any, name: any) => {
                     if (value === null || value === undefined) return ["-", name];
-                    const isMesAct = name.startsWith("mesActual");
+                    const isMesAct = String(name).startsWith("mesActual");
                     const label = isMesAct ? `Mes actual (${data.mesActualLabel})` : `Mes anterior (${data.mesAnteriorLabel})`;
                     if (viewMode === "porcentaje") return [`${formatNumber(value)}%`, label];
                     if (viewMode === "montoUsd") return [formatUsd(value), label];
