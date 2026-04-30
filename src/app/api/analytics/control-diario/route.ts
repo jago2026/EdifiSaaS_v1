@@ -155,10 +155,34 @@ export async function GET(request: Request) {
         const rawMontoTotal = Number(r.monto_pendiente_total) || 0;
         const rawMontoBuckets = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
                              + (Number(r.monto_12_mas_recibo) || 0);
-        // Si el monto total es > 1000, probablemente está en Bs. y debe convertirse a USD
-        const estaEnBs = rawMontoTotal > 1000 && tasa > 1;
-        const montoUsd = estaEnBs ? rawMontoTotal / tasa : rawMontoTotal;
-        const montoSum = estaEnBs ? rawMontoBuckets / tasa : rawMontoBuckets;
+
+        // Determinar si los datos están en Bs. o USD basado en la RELACIÓN entre monto_total y suma de buckets:
+        // - Si la suma de buckets es > 0 y el ratio monto_total / monto_sum es muy diferente de 1,
+        //   significa que el monto_total está en una moneda diferente (probablemente Bs.)
+        // - Un ratio < 0.1 o > 10 indica monedas diferentes
+        // - El umbral de 1000 aún se mantiene como fallback adicional
+        let montoUsd: number;
+        let montoSum: number;
+
+        if (rawMontoBuckets > 0) {
+          const ratio = rawMontoTotal / rawMontoBuckets;
+          // Si ratio está entre 0.5 y 2, ambos están en la misma moneda (USD o Bs correcto)
+          // Si ratio es muy diferente (< 0.1 o > 10), el monto_total está en moneda diferente
+          if (ratio < 0.1 || ratio > 10) {
+            // monto_total está en Bs, convertir a USD
+            montoUsd = tasa > 1 ? rawMontoTotal / tasa : rawMontoTotal;
+            montoSum = rawMontoBuckets; // Los buckets ya están en USD (después de nuestra corrección)
+          } else {
+            // Datos consistentes, usar directamente
+            montoUsd = rawMontoTotal;
+            montoSum = rawMontoBuckets;
+          }
+        } else {
+          // Fallback: usar el umbral histórico de 1000
+          const estaEnBs = rawMontoTotal > 1000 && tasa > 1 && rawMontoTotal / tasa > 1000;
+          montoUsd = estaEnBs ? rawMontoTotal / tasa : rawMontoTotal;
+          montoSum = rawMontoTotal; // Fallback
+        }
         const pct        = Number(r.pct_pendiente) || 0;
         // % de aptos con 2+ cuotas sobre total con deuda
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
