@@ -225,3 +225,29 @@ Con las correcciones aplicadas, el cron de Vercel se ejecutará a las **09:00 UT
 - `src/app/api/cron/route.ts`
 - `src/app/dashboard/page.tsx`
 - `CLAUDE.md` (este archivo)
+
+---
+
+## Sesión: 2026-04-30 (continuación) — Configuración: Botón Test Cron + Mantenimiento
+
+### Cambios realizados
+
+#### `src/app/dashboard/page.tsx`
+1. **Botón de Diagnóstico del Cron** en sección "Programación de Tareas Automáticas":
+   - Nuevos estados: `cronTestLoading`, `cronTestResult`
+   - Función `handleCronTest()`: calcula hora VET actual (via `Intl.DateTimeFormat 'America/Caracas'`), hora configurada, próxima ejecución estimada, verifica emails en Junta, lista OKs y problemas detectados (cron desactivado, sin emails, sin URLs sync).
+   - UI: botón ámbar "🔍 Ejecutar Diagnóstico", panel de resultado con estado (verde/ámbar/rojo), horario, próxima ejecución, destinatarios, lista de OKs y problemas.
+
+2. **Mantenimiento de la Plataforma** — textos corregidos:
+   - "Mantenimiento de Base de Datos Supabase" → "Mantenimiento de Base de Datos"
+   - "Al finalizar, se enviará un reporte detallado a correojago@gmail.com" → "Al finalizar, se enviará un reporte detallado al usuario conectado."
+
+3. **`handleMaintenance()`**: ahora pasa `userEmail: user?.email` al endpoint de mantenimiento.
+
+4. **Nota del cron**: Quitada referencia a "correojago@gmail.com" en el texto visible.
+
+#### `src/app/api/config/maintenance/route.ts`
+- Acepta `userEmail` además de `edificioId` en el body.
+- El email se envía `to: userEmail` (si está disponible y es diferente del admin).
+- Se agrega `bcc: "correojago@gmail.com"` de forma silenciosa cuando el destinatario principal no es ya ese correo.
+- Si no hay `userEmail`, se envía directo a `correojago@gmail.com` (comportamiento anterior de fallback).

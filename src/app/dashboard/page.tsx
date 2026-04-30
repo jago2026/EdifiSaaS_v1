@@ -254,6 +254,8 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
+  const [cronTestLoading, setCronTestLoading] = useState(false);
+  const [cronTestResult, setCronTestResult] = useState<any>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -2073,6 +2075,92 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCronTest = async () => {
+    if (!building?.id) return;
+    setCronTestLoading(true);
+    setCronTestResult(null);
+    try {
+      // Diagnostico: hora VET actual, próxima ejecución, estado configuración
+      const cronTime = editConfig.cron_time || "05:00";
+      const cronEnabled = editConfig.cron_enabled;
+      const cronFrequency = editConfig.cron_frequency || "diaria";
+
+      // Calcular hora VET actual
+      const nowUTC = new Date();
+      const vetFormatter = new Intl.DateTimeFormat('es-VE', {
+        timeZone: 'America/Caracas',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+      const vetNow = vetFormatter.format(nowUTC);
+      const vetHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Caracas', hour: '2-digit', hour12: false }).format(nowUTC), 10);
+      const configHour = parseInt(cronTime.split(":")[0], 10);
+
+      // Calcular próxima ejecución
+      const nextExecVET = new Date(nowUTC);
+      const minuteVET = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Caracas', minute: '2-digit', hour12: false }).format(nowUTC), 10);
+      // Avanzar al próximo día si ya pasó la hora config
+      if (vetHour > configHour || (vetHour === configHour && minuteVET > 0)) {
+        nextExecVET.setUTCDate(nextExecVET.getUTCDate() + 1);
+      }
+      // Setear hora configurada en VET (VET = UTC-4)
+      const [h, m] = cronTime.split(":").map(Number);
+      nextExecVET.setUTCHours(h + 4, m, 0, 0);
+      const nextExecStr = new Intl.DateTimeFormat('es-VE', {
+        timeZone: 'America/Caracas',
+        weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(nextExecVET);
+
+      // Verificar si hay emails configurados en junta
+      const resJunta = await fetch(`/api/junta?edificioId=${building.id}`);
+      const dataJunta = await resJunta.json();
+      const emailsJunta = (dataJunta.junta || []).map((m: any) => m.email).filter(Boolean);
+
+      // Verificar status del endpoint cron (dry-run sin ejecutar)
+      const resCronStatus = await fetch(`/api/cron?diagnostico=true`, { method: 'GET' });
+      const dataCronStatus = resCronStatus.ok ? await resCronStatus.json() : null;
+
+      // Construir diagnóstico
+      const issues: string[] = [];
+      const oks: string[] = [];
+
+      if (!cronEnabled) issues.push("⚠️ El cron está DESACTIVADO. Actívalo para recibir informes automáticos.");
+      else oks.push("✅ Cron activado");
+
+      if (emailsJunta.length === 0) issues.push("⚠️ No hay emails configurados en la Junta. El informe no tendrá destinatarios.");
+      else oks.push(`✅ ${emailsJunta.length} email(s) en Junta: ${emailsJunta.join(", ")}`);
+
+      if (!building.url_balance && !building.url_recibos && !building.url_egresos) {
+        issues.push("⚠️ No hay URLs de sincronización configuradas. El informe diario tendrá datos limitados.");
+      } else {
+        oks.push("✅ URLs de sincronización configuradas");
+      }
+
+      if (vetHour === configHour) {
+        oks.push(`✅ Ejecución en curso ahora (hora actual VET ${vetHour}h == hora configurada ${configHour}h)`);
+      }
+
+      setCronTestResult({
+        ok: issues.length === 0,
+        vetNow,
+        utcNow: nowUTC.toISOString(),
+        cronEnabled,
+        cronTime,
+        cronFrequency,
+        nextExec: nextExecStr,
+        emailsJunta,
+        issues,
+        oks,
+        schedule: "0 9 * * * (Vercel) → 09:00 UTC = 05:00 VET"
+      });
+    } catch (err: any) {
+      setCronTestResult({ ok: false, error: err.message });
+    } finally {
+      setCronTestLoading(false);
+    }
+  };
+
   const handleMaintenance = async () => {
     if (!building?.id) return;
     setMaintenanceLoading(true);
@@ -2081,7 +2169,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/config/maintenance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edificioId: building.id })
+        body: JSON.stringify({ edificioId: building.id, userEmail: user?.email })
       });
       const data = await res.json();
       if (res.ok) {
@@ -6408,19 +6496,109 @@ export default function DashboardPage() {
                     {window.location.origin}/api/cron
                   </div>
                 </div>
+
+                {/* Botón de Prueba del Cron */}
+                <div className="border-t border-indigo-100 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-gray-800">🧪 Prueba de Configuración</h4>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Verifica el estado del cron, la próxima ejecución y detecta posibles problemas.</p>
+                    </div>
+                    <button
+                      onClick={handleCronTest}
+                      disabled={cronTestLoading}
+                      className={`px-5 py-2 rounded-xl font-black uppercase text-xs transition-all shadow-sm flex items-center gap-2 ${
+                        cronTestLoading
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-amber-500 text-white hover:bg-amber-600 active:scale-95"
+                      }`}
+                    >
+                      {cronTestLoading ? (
+                        <><span className="animate-spin">⏳</span> Diagnosticando...</>
+                      ) : (
+                        <><span>🔍</span> Ejecutar Diagnóstico</>
+                      )}
+                    </button>
+                  </div>
+
+                  {cronTestResult && (
+                    <div className={`rounded-xl border p-4 space-y-3 ${cronTestResult.error ? 'bg-red-50 border-red-200' : cronTestResult.ok ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                      {cronTestResult.error ? (
+                        <p className="text-red-700 font-bold text-sm">❌ Error al ejecutar diagnóstico: {cronTestResult.error}</p>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg ${cronTestResult.ok ? '✅' : '⚠️'}`}>{cronTestResult.ok ? '✅' : '⚠️'}</span>
+                            <span className={`font-black text-sm uppercase ${cronTestResult.ok ? 'text-green-800' : 'text-amber-800'}`}>
+                              {cronTestResult.ok ? 'Configuración correcta — El cron funcionará bien' : 'Se detectaron problemas en la configuración'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                            <div className="bg-white rounded-lg p-3 border border-gray-100 space-y-1">
+                              <p className="font-black text-gray-500 uppercase text-[9px] mb-1">⏰ Horario</p>
+                              <p><span className="text-gray-500">Hora VET actual:</span> <span className="font-bold text-gray-800">{cronTestResult.vetNow}</span></p>
+                              <p><span className="text-gray-500">Hora configurada:</span> <span className="font-bold text-indigo-700">{cronTestResult.cronTime} VET</span></p>
+                              <p><span className="text-gray-500">Frecuencia:</span> <span className="font-bold text-gray-800 uppercase">{cronTestResult.cronFrequency}</span></p>
+                              <p><span className="text-gray-500">Schedule Vercel:</span> <span className="font-mono text-[9px] text-gray-600">{cronTestResult.schedule}</span></p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-gray-100 space-y-1">
+                              <p className="font-black text-gray-500 uppercase text-[9px] mb-1">📅 Próxima Ejecución</p>
+                              <p className="font-bold text-gray-800 leading-snug">{cronTestResult.nextExec}</p>
+                              <p className="mt-2 text-[9px] text-gray-400 uppercase font-bold">Estado del Cron</p>
+                              <p>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${cronTestResult.cronEnabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {cronTestResult.cronEnabled ? '● ACTIVO' : '○ INACTIVO'}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {cronTestResult.emailsJunta?.length > 0 && (
+                            <div className="bg-white rounded-lg p-3 border border-gray-100">
+                              <p className="font-black text-gray-500 uppercase text-[9px] mb-1">📧 Destinatarios del Informe</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {cronTestResult.emailsJunta.map((e: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">{e}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {cronTestResult.oks?.length > 0 && (
+                            <div className="space-y-1">
+                              {cronTestResult.oks.map((ok: string, i: number) => (
+                                <p key={i} className="text-[11px] text-green-700 font-bold">{ok}</p>
+                              ))}
+                            </div>
+                          )}
+
+                          {cronTestResult.issues?.length > 0 && (
+                            <div className="space-y-1 border-t border-amber-200 pt-2 mt-2">
+                              <p className="text-[9px] font-black text-amber-700 uppercase mb-1">Problemas detectados:</p>
+                              {cronTestResult.issues.map((issue: string, i: number) => (
+                                <p key={i} className="text-[11px] text-amber-800 font-bold">{issue}</p>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <p className="text-[10px] text-gray-400 mt-4 italic font-bold uppercase tracking-tighter">
-                Nota: El envío automático utiliza los emails configurados en la pestaña &quot;Junta&quot;. Si hay un error, se notificará a correojago@gmail.com.
+                Nota: El envío automático utiliza los emails configurados en la pestaña &quot;Junta&quot;. Si hay un error, se notificará al administrador del sistema.
               </p>
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight">Mantenimiento de la Plataforma</h2>              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
                 <div className="flex-1">
-                  <h3 className="text-blue-800 font-bold mb-1">Mantenimiento de Base de Datos Supabase</h3>
+                  <h3 className="text-blue-800 font-bold mb-1">Mantenimiento de Base de Datos</h3>
                   <p className="text-xs text-blue-600 leading-relaxed font-medium">
                     Realiza una operaci&oacute;n de mantenimiento preventivo para optimizar el rendimiento de las tablas, compactar el almacenamiento y reindexar los datos. 
-                    Al finalizar, se enviar&aacute; un reporte detallado a <strong>correojago@gmail.com</strong>.
+                    Al finalizar, se enviar&aacute; un reporte detallado al usuario conectado.
                   </p>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-center gap-2">
