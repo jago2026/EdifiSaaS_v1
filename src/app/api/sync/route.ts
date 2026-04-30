@@ -1070,8 +1070,15 @@ export async function POST(request: Request) {
       const tasa = tasaData?.tasa_dolar || 45.50;
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
-      
-      const { data: recs } = await supabase.from("recibos").select("unidad, deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
+
+      // Obtener el mes actual para filtrar recibos (solo deudas del mes actual, como lo hace /api/recibos)
+      const currentMes = today.substring(0, 7);
+
+      const { data: recs } = await supabase.from("recibos")
+        .select("unidad, deuda, num_recibos, mes")
+        .eq("edificio_id", building.id)
+        .gt("deuda", 0)
+        .eq("mes", currentMes);
       
       // Agrupar por UNIDAD (nombre del apto) para garantizar unicidad real
       const aptosConDeuda = new Map();
