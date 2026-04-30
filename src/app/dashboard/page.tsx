@@ -2115,7 +2115,7 @@ export default function DashboardPage() {
       // Verificar si hay emails configurados en junta
       const resJunta = await fetch(`/api/junta?edificioId=${building.id}`);
       const dataJunta = await resJunta.json();
-      const emailsJunta = (dataJunta.junta || []).map((m: any) => m.email).filter(Boolean);
+      const emailsJunta = (dataJunta.miembros || dataJunta.junta || []).map((m: any) => m.email).filter(Boolean);
 
       // Verificar status del endpoint cron (dry-run sin ejecutar)
       const resCronStatus = await fetch(`/api/cron?diagnostico=true`, { method: 'GET' });
