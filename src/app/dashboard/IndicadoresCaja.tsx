@@ -287,11 +287,9 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
             {(() => {
               const ultimo = perfilMorosidad[perfilMorosidad.length - 1];
               if (!ultimo) return null;
-              // Verificar consistencia entre montoUsd y montoSum
               const discrepancia = Math.abs((ultimo.montoUsd || 0) - (ultimo.montoSum || 0));
               const tieneDiscrepancia = ultimo.montoSum > 0 && discrepancia > 1;
               return (
-                <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   <div className="bg-gray-50 p-4 rounded-2xl text-center">
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total con deuda</div>
@@ -314,7 +312,7 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
                     <div className="text-[10px] text-rose-500 font-bold">USD total pendiente</div>
                     {tieneDiscrepancia && (
                       <div className="mt-2 text-[9px] text-amber-600 font-medium">
-                        ⚠️ Verificar: suma buckets = $ {formatNumber(ultimo.montoSum, 0)}
+                        Verificar: suma buckets = $ {formatNumber(ultimo.montoSum, 0)}
                       </div>
                     )}
                   </div>
