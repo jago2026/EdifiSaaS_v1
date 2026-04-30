@@ -5,6 +5,63 @@ Este archivo registra todo lo trabajado por Claude en el proyecto EdifiSaaS para
 
 ---
 
+## Sesión 4 — 2026-04-30 (unificación de pestañas + nuevo dashboard "Indicadores de Caja")
+
+### Resumen ejecutivo
+- Se unificaron las pestañas **Análisis Cobranza**, **Semáforo Morosidad** y **Salud Financiera** en una sola pestaña llamada **Cobranza y Morosidad**, ubicada en el bloque "Recibos y Deudas" del sidebar (entre "Deudas por Unidad" y "Detalle Recibo Mes").
+- Se cambió el gráfico de Análisis Cobranza a **barras agrupadas** con colores corregidos: gris oscuro `#475569` para el mes anterior y azul `#2563eb` para el mes actual.
+- Se eliminó el gráfico **"Flujo de Ingresos por Día de la Semana"** del análisis de cobranza.
+- Se eliminó por completo la pestaña **Simulador de Inversiones** (incluyendo su componente y su API route).
+- Se creó un nuevo dashboard **"Indicadores de Caja"** que consume la tabla `control_diario` de Supabase y expone 5 indicadores: Salud de la Caja (gauge), Brecha Cambiaria (área apilada), Tendencia de Recibos Pendientes (barras + línea de tendencia), Comportamiento de Fondos (multilínea) y Heatmap por Día de la Semana.
+
+### Archivos nuevos
+
+#### `src/app/api/analytics/control-diario/route.ts`
+- Nuevo endpoint `GET /api/analytics/control-diario?edificio_id=...`.
+- Lee la tabla `control_diario` de Supabase y calcula:
+  - `saludCaja` — score 0–100 ponderado por margen efectivo, ratio gastos/ingresos y volatilidad de saldo.
+  - `brechaCambiaria` — diferencial entre tasa BCV y paralelo por día (área apilada).
+  - `tendenciaRecibos` — pendientes diarios + regresión lineal simple (proyección 7 días).
+  - `fondos` — series por tipo de fondo (operativo, reserva, inversión).
+  - `heatmap` — promedio de movimientos agrupados por día de la semana.
+
+#### `src/app/dashboard/CobranzaMorosidad.tsx`
+- Componente unificado que muestra en una sola vista las tres antiguas pestañas.
+- Gráfico de cobranza migrado a `BarChart` agrupado (mes anterior `#475569` vs mes actual `#2563eb`).
+- Eliminada la sección "Flujo de Ingresos por Día de la Semana".
+
+#### `src/app/dashboard/IndicadoresCaja.tsx`
+- Cinco bloques con su gráfico (recharts) y caption explicativa para cada KPI.
+- Llama a `/api/analytics/control-diario` y formatea valores en Bs. y USD.
+
+### Archivos eliminados
+- `src/app/dashboard/AnalisisCobranza.tsx`
+- `src/app/dashboard/SemaforoMorosidad.tsx`
+- `src/app/dashboard/SaludFinanciera.tsx`
+- `src/app/dashboard/SimuladorInversiones.tsx`
+- `src/app/api/analytics/inversiones/route.ts` (carpeta completa)
+
+### Archivos modificados
+
+#### `src/app/dashboard/page.tsx`
+- Imports actualizados: removidos `AnalisisCobranza`, `SemaforoMorosidad`, `SaludFinanciera`, `SimuladorInversiones`; agregados `CobranzaMorosidad` e `IndicadoresCaja`.
+- Tipo `Tab` actualizado: removidos `analisis-cobranza`, `semaforo-morosidad`, `salud-financiera`, `simulador-inversiones`; agregados `cobranza-morosidad`, `indicadores-caja`.
+- **Sidebar**:
+  - Eliminado el grupo completo "Análisis Avanzado (Junta)".
+  - Agregado botón "📊 Indicadores de Caja" al final del grupo "Tablero Principal".
+  - Agregado botón "💼 Cobranza y Morosidad" en el grupo "Recibos y Deudas", entre "Deudas por Unidad" y "Detalle Recibo Mes".
+- **Menú móvil** y **barra de pestañas top móvil**: reemplazados los 4 botones antiguos por los 2 nuevos.
+- **Renderizado condicional**: reemplazadas las 4 condiciones antiguas por las 2 nuevas (`cobranza-morosidad` → `<CobranzaMorosidad />`, `indicadores-caja` → `<IndicadoresCaja />`).
+
+#### `package.json`
+- Corregida versión de `@supabase/supabase-js` de `^2.158.0` (inexistente en npm) a `^2.105.0` (última estable disponible). Bloqueaba la instalación local y los builds de Vercel.
+
+### Verificación
+- `tsc --noEmit` pasa sin errores en todos los archivos del dashboard, en los nuevos componentes y en la nueva API route.
+- Los errores preexistentes en `src/app/page.tsx` (landing page) no fueron tocados en esta sesión y son ajenos a este cambio.
+
+---
+
 ## Sesión 3 — 2026-04-29 (gráfico barras mes anterior vs mes actual)
 
 ### Cambios aplicados

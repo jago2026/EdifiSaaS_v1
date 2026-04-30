@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ManualUsuario } from "./ManualUsuario";
-import { AnalisisCobranza } from "./AnalisisCobranza";
-import { SemaforoMorosidad } from "./SemaforoMorosidad";
-import { SaludFinanciera } from "./SaludFinanciera";
-import { SimuladorInversiones } from "./SimuladorInversiones";
+import { CobranzaMorosidad } from "./CobranzaMorosidad";
+import { IndicadoresCaja } from "./IndicadoresCaja";
 import { ResumenTab } from "./ResumenTab";
 import { IngresosTab } from "./IngresosTab";
 import { MovimientosTab } from "./MovimientosTab";
@@ -18,7 +16,7 @@ import { GastosTab } from "./GastosTab";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "analisis-cobranza" | "semaforo-morosidad" | "salud-financiera" | "simulador-inversiones";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
 
 function UpgradeCard({ title, feature, planRequired, onUpgrade }: { title: string, feature: string, planRequired: string, onUpgrade: () => void }) {
   return (
@@ -2147,27 +2145,11 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("kpis")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'kpis' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📈</span> Indicadores (KPIs)
               </button>
+              <button onClick={() => setActiveTab("indicadores-caja")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'indicadores-caja' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📊</span> Indicadores de Caja
+              </button>
               <button onClick={() => setActiveTab("alertas")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'alertas' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📢</span> Alertas y Cambios
-              </button>
-              </div>
-              </div>
-
-              {/* GRUPO: ANALISIS AVANZADO */}
-              <div>
-              <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Análisis Avanzado (Junta)</div>
-              <div className="space-y-1">
-              <button onClick={() => setActiveTab("analisis-cobranza")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analisis-cobranza' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">📈</span> Análisis de Cobranza
-              </button>
-              <button onClick={() => setActiveTab("semaforo-morosidad")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'semaforo-morosidad' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🚦</span> Semáforo Morosidad
-              </button>
-              <button onClick={() => setActiveTab("salud-financiera")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'salud-financiera' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🏥</span> Salud Financiera
-              </button>
-              <button onClick={() => setActiveTab("simulador-inversiones")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'simulador-inversiones' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🏗️</span> Simulador de Inversiones
               </button>
               </div>
               </div>
@@ -2206,6 +2188,9 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <button onClick={() => setActiveTab("recibos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">👥</span> Deudas por Unidad
+              </button>
+              <button onClick={() => setActiveTab("cobranza-morosidad")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'cobranza-morosidad' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">💼</span> Cobranza y Morosidad
               </button>
               <button onClick={() => setActiveTab("recibo")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibo' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📄</span> Detalle Recibo Mes
@@ -2376,10 +2361,8 @@ export default function DashboardPage() {
                 <button onClick={() => {setActiveTab("recibos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'recibos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>👥 Recibos</button>
                 <button onClick={() => {setActiveTab("balance"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'balance' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>⚖️ Balance</button>
                 <button onClick={() => {setActiveTab("inteligencia"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'inteligencia' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-emerald-600'}`}>🧠 Inteligencia</button>
-                <button onClick={() => {setActiveTab("analisis-cobranza"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'analisis-cobranza' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-indigo-500'}`}>📈 Curva Cobro</button>
-                <button onClick={() => {setActiveTab("semaforo-morosidad"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'semaforo-morosidad' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-rose-500'}`}>🚦 Semáforo Mora</button>
-                <button onClick={() => {setActiveTab("salud-financiera"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'salud-financiera' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-emerald-500'}`}>🏥 Salud Financiera</button>
-                <button onClick={() => {setActiveTab("simulador-inversiones"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'simulador-inversiones' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-amber-500'}`}>🏗️ Simulador Proyectos</button>
+                <button onClick={() => {setActiveTab("cobranza-morosidad"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'cobranza-morosidad' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-blue-600'}`}>💼 Cobranza y Mora</button>
+                <button onClick={() => {setActiveTab("indicadores-caja"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'indicadores-caja' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-amber-600'}`}>📊 Indicadores Caja</button>
                 <button onClick={() => {setActiveTab("configuracion"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'configuracion' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-blue-600'}`}>⚙️ Config</button>
               </div>
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl mt-4">
@@ -2404,10 +2387,8 @@ export default function DashboardPage() {
             <button onClick={() => setActiveTab("kpis")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "kpis" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 KPIs</button>
             <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📝 Movimientos</button>
             <button onClick={() => setActiveTab("inteligencia")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "inteligencia" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🧠 Inteligencia</button>
-            <button onClick={() => setActiveTab("analisis-cobranza")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "analisis-cobranza" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 Análisis Cobro</button>
-            <button onClick={() => setActiveTab("semaforo-morosidad")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "semaforo-morosidad" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🚦 Semáforo Mora</button>
-            <button onClick={() => setActiveTab("salud-financiera")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "salud-financiera" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🏥 Salud Financiera</button>
-            <button onClick={() => setActiveTab("simulador-inversiones")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "simulador-inversiones" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🏗️ Simulador Proyectos</button>
+            <button onClick={() => setActiveTab("cobranza-morosidad")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "cobranza-morosidad" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>💼 Cobranza y Mora</button>
+            <button onClick={() => setActiveTab("indicadores-caja")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "indicadores-caja" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📊 Indicadores Caja</button>
           </div>
 
           {activeTab === "resumen" && (
@@ -6899,20 +6880,12 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {activeTab === "analisis-cobranza" && building && (
-        <AnalisisCobranza edificioId={building.id} />
+      {activeTab === "cobranza-morosidad" && building && (
+        <CobranzaMorosidad edificioId={building.id} />
       )}
 
-      {activeTab === "semaforo-morosidad" && building && (
-        <SemaforoMorosidad edificioId={building.id} />
-      )}
-
-      {activeTab === "salud-financiera" && building && (
-        <SaludFinanciera edificioId={building.id} />
-      )}
-
-      {activeTab === "simulador-inversiones" && building && (
-        <SimuladorInversiones edificioId={building.id} />
+      {activeTab === "indicadores-caja" && building && (
+        <IndicadoresCaja edificioId={building.id} />
       )}
 
       {showOnboarding && (
