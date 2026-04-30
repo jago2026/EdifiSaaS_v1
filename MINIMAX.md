@@ -58,6 +58,47 @@ Fix: Corregir cálculo monto adeudado - filtrar solo mes actual
 
 ---
 
+## Fecha: 1 de Mayo, 2026 (Anexo 3)
+
+### Problema ADICIONAL: tasaActual undefined en morosidad/route.ts
+
+El valor seguía mostrando incorrecto ($6.158.455) porque había un segundo bug:
+
+**tasaActual se usaba ANTES de ser definida:**
+```typescript
+// LÍNEA 70 - tasaActual se usa aquí:
+const realTotalDebtUsd = ... r.deuda / tasaActual ...  // tasaActual NO existe aún!
+
+// LÍNEA 127 - tasaActual se define aquí (TARDE):
+const tasaActual = Number(current.tasa_cambio || 36);
+```
+
+Cuando `tasaActual` es `undefined`, la división `r.deuda / undefined` produce `NaN`, y cuando se convierte a número se convierte en `undefined` otra vez, dando valores incorrectos.
+
+### Solución Aplicada
+
+Definir `tasaActual` **AL INICIO** del bloque `try`, ANTES de usarla:
+
+```typescript
+try {
+  // PRIMERO: Obtener la tasa de cambio actual
+  const { data: tasaData } = await supabase.from("tasas_cambio").select("tasa_dolar")
+    .order("fecha", { ascending: false }).limit(1);
+  const tasaActual = Number(tasaData?.[0]?.tasa_dolar) || 45.50;
+
+  // AHORA ya se puede usar tasaActual en todos los cálculos
+  ...
+}
+```
+
+### Commit Realizado
+```
+422f4da Fix: Definir tasaActual al inicio para evitar undefined en morosidad
+1 file changed, 10 insertions(+), 1 deletion(-)
+```
+
+---
+
 ## Fecha: 1 de Mayo, 2026
 
 ### Objetivo
