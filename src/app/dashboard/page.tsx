@@ -5802,7 +5802,24 @@ export default function DashboardPage() {
         )}
 
       {activeTab === "configuracion" && building && (
-          <div className="space-y-6">
+          <div className={`space-y-6 ${!user?.isAdmin ? 'pointer-events-none opacity-80 select-none' : ''}`}>
+            {!user?.isAdmin && (
+              <div className="bg-amber-100 border-l-4 border-amber-500 p-4 mb-4 rounded-r-xl shadow-sm">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <span className="text-amber-500 text-lg">⚠️</span>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-amber-800 font-bold">
+                      Modo solo lectura
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      No tienes permisos para realizar cambios en la configuración. Adicionalmente, esta es una cuenta de demostración.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Datos del Edificio</h2>
               <div className="grid md:grid-cols-3 gap-6">

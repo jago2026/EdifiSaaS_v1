@@ -119,6 +119,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
+    if (userId === "00000000-0000-0000-0000-000000000000") {
+      return NextResponse.json({ error: "No se puede guardar la configuración en la cuenta de demostración." }, { status: 403 });
+    }
+
     let urls: Record<string, string> = {};
     if (admin_nombre === "La Ideal C.A.") {
       urls = DEFAULT_URLS_LA_IDEAL;
