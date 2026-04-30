@@ -298,3 +298,26 @@ El usuario reportó tres problemas en la pestaña "Pre-Recibo Estimado":
 - `src/app/dashboard/page.tsx` — Sección de tabla del Pre-Recibo Estimado (renombrado columna, totales corregidos, nota agregada).
 - `src/app/api/email/route.ts` — Template HTML del action `send_pre_receipt` reescrito para coincidir con la vista de la página.
 - `CLAUDE.md` — Este archivo (bitácora).
+
+---
+
+## Sesión: 2026-04-30 (continuación) — Gráfico 3/5 Indicadores de Caja rediseñado
+
+### Problema
+El gráfico "Tendencia de Recibos Pendientes" mostraba siempre una línea recta ascendente porque usaba regresión lineal (mínimos cuadrados) sobre el campo `recibos_pendientes` de `control_diario`, que varía muy poco día a día. El resultado era visualmente engañoso: parecía que la morosidad siempre aumentaba en línea recta.
+
+### Solución
+Reemplazado por **"Perfil de Antigüedad de Deuda"** — gráfico de barras apiladas + línea dual:
+
+**API (`control-diario/route.ts`):**
+- Consulta `historico_cobranza` (último snapshot por mes, 12 meses atrás)
+- Agrupa `aptos_N_recibo` en 5 bandas: 1 cuota, 2, 3, 4–6, 7+ cuotas
+- Calcula `aptos2mas` (con 2 o más cuotas), `pct2mas`, `montoUsd` por mes
+- Devuelve `perfilMorosidad[]` en lugar de `tendenciaRecibos[]`
+
+**Componente (`IndicadoresCaja.tsx`):**
+- 4 KPIs del último mes: total con deuda, solo 1 cuota, 2+ cuotas (con %), monto USD
+- ComposedChart: barras apiladas (eje izquierdo = apts) + Line (eje derecho = USD)
+- Paleta de colores por severidad: amarillo → naranja → rojo → rojo intenso → marrón
+- Leyenda de colores con descripción de cada nivel de riesgo
+- Nota explicativa con umbral de alerta: 30–40% de 2+ cuotas = cobranza formal
