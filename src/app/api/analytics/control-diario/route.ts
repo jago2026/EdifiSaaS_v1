@@ -108,29 +108,69 @@ export async function GET(request: Request) {
     });
 
     // -----------------------------------------------------------
-    // 3) Tendencia de recibos pendientes + línea de tendencia lineal
+    // 3) Perfil de Morosidad mensual: distribución de apartamentos
+    //    por antigüedad de deuda (1 cuota, 2-3 cuotas, 4+ cuotas)
+    //    usando la tabla historico_cobranza (un snapshot por día,
+    //    tomamos el último registro de cada mes para el resumen mensual).
     // -----------------------------------------------------------
-    const tendenciaRecibos = records.map((r, i) => ({
-      idx: i,
-      fecha: r.fecha,
-      pendientes: Number(r.recibos_pendientes) || 0,
-    }));
-    // Regresión lineal simple (mínimos cuadrados) sobre idx vs pendientes
-    const n = tendenciaRecibos.length;
-    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-    for (const p of tendenciaRecibos) {
-      sumX += p.idx;
-      sumY += p.pendientes;
-      sumXY += p.idx * p.pendientes;
-      sumXX += p.idx * p.idx;
+    const sinceHC = new Date();
+    sinceHC.setMonth(sinceHC.getMonth() - 12);
+    const sinceHCStr = sinceHC.toISOString().substring(0, 10);
+
+    const { data: hcRows } = await supabase
+      .from("historico_cobranza")
+      .select(
+        "fecha, aptos_pendientes_total, monto_pendiente_total, pct_pendiente, tasa_cambio, " +
+        "aptos_1_recibo, aptos_2_recibo, aptos_3_recibo, aptos_4_recibo, aptos_5_recibo, " +
+        "aptos_6_recibo, aptos_7_recibo, aptos_8_recibo, aptos_9_recibo, aptos_10_recibo, " +
+        "aptos_11_recibo, aptos_12_mas_recibo, monto_pendiente_total"
+      )
+      .eq("edificio_id", edificioId)
+      .gte("fecha", sinceHCStr)
+      .lte("fecha", todayStr)
+      .order("fecha", { ascending: true });
+
+    // Tomar el último snapshot de cada mes
+    const lastPerMonth: Record<string, any> = {};
+    for (const r of (hcRows || [])) {
+      const ym = String(r.fecha).substring(0, 7);
+      lastPerMonth[ym] = r;
     }
-    const denom = n * sumXX - sumX * sumX;
-    const slope = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
-    const intercept = n > 0 ? (sumY - slope * sumX) / n : 0;
-    const tendenciaConTrend = tendenciaRecibos.map((p) => ({
-      ...p,
-      tendencia: Number((intercept + slope * p.idx).toFixed(2)),
-    }));
+
+    const perfilMorosidad = Object.entries(lastPerMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ym, r]) => {
+        const aptos1     = Number(r.aptos_1_recibo) || 0;
+        const aptos2     = Number(r.aptos_2_recibo) || 0;
+        const aptos3     = Number(r.aptos_3_recibo) || 0;
+        const aptos4a6   = (Number(r.aptos_4_recibo) || 0) + (Number(r.aptos_5_recibo) || 0) + (Number(r.aptos_6_recibo) || 0);
+        const aptos7mas  = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
+        const total      = Number(r.aptos_pendientes_total) || 0;
+        const tasa       = Number(r.tasa_cambio) || 1;
+        const montoUsd   = Number(r.monto_pendiente_total) / tasa;
+        const pct        = Number(r.pct_pendiente) || 0;
+        // % de aptos con 2+ cuotas sobre total con deuda
+        const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
+        const pct2mas    = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
+        // Mes legible: "Ene 25"
+        const [y, m] = ym.split("-");
+        const meses  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        const label  = `${meses[parseInt(m, 10) - 1]} ${y.substring(2)}`;
+        return {
+          mes: label,
+          ym,
+          aptos1,
+          aptos2,
+          aptos3,
+          aptos4a6,
+          aptos7mas,
+          total,
+          aptos2mas,
+          pct2mas,
+          montoUsd: Number(montoUsd.toFixed(0)),
+          pctPendiente: Number(pct.toFixed(1)),
+        };
+      });
 
     // -----------------------------------------------------------
     // 4) Comportamiento de fondos específicos (USD)
@@ -203,7 +243,7 @@ export async function GET(request: Request) {
         mesesUsadosEnPromedio: ultimosMeses.length,
       },
       brechaCambiaria,
-      tendenciaRecibos: tendenciaConTrend,
+      perfilMorosidad,
       fondos,
       heatmap,
     });

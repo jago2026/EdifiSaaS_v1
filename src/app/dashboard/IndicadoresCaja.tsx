@@ -71,7 +71,7 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
     );
   }
 
-  const { resumen, saludCaja, brechaCambiaria, tendenciaRecibos, fondos, heatmap } = data;
+  const { resumen, saludCaja, brechaCambiaria, perfilMorosidad, fondos, heatmap } = data;
 
   // --- Salud de caja: clasificación cualitativa
   const meses = saludCaja.mesesCubiertos;
@@ -264,37 +264,131 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
         </div>
       </section>
 
-      {/* 3. TENDENCIA RECIBOS PENDIENTES */}
+      {/* 3. PERFIL DE MOROSIDAD */}
       <section className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-100/40">
         <header className="mb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-3 border border-rose-100">
             3 / 5 · Morosidad
           </div>
-          <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Tendencia de Recibos Pendientes</h2>
+          <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Perfil de Antigüedad de Deuda</h2>
           <p className="text-sm text-gray-500 mt-2 max-w-2xl">
-            Evolución de la tendencia de morosidad. La línea negra
-            muestra la tendencia: si sube, la morosidad se está acumulando.
+            Muestra <strong>cuántos apartamentos deben 1, 2, 3 ó más cuotas</strong> al cierre de cada mes.
+            Las barras apiladas separan por antigüedad y la línea roja indica el monto total adeudado en USD.
           </p>
         </header>
-        <div className="h-[340px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={tendenciaRecibos}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="fecha" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "#94a3b8" }} tickFormatter={(d) => String(d).substring(5)} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "#94a3b8" }} />
-              <Tooltip
-                contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px rgb(0 0 0 / 0.1)", padding: "14px" }}
-                formatter={(v: any) => [v, "Tendencia"]}
-                labelFormatter={(l) => `Fecha: ${l}`}
-              />
-              <Legend wrapperStyle={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase" }} />
-              <Line type="monotone" dataKey="tendencia" name="Tendencia" stroke="#0f172a" strokeWidth={2.5} dot={false} strokeDasharray="6 4" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
+
+        {(!perfilMorosidad || perfilMorosidad.length === 0) ? (
+          <div className="h-[200px] flex items-center justify-center text-gray-400 font-bold text-sm">
+            Sin datos de historico_cobranza para este edificio.
+          </div>
+        ) : (
+          <>
+            {/* KPIs del último mes */}
+            {(() => {
+              const ultimo = perfilMorosidad[perfilMorosidad.length - 1];
+              if (!ultimo) return null;
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                  <div className="bg-gray-50 p-4 rounded-2xl text-center">
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total con deuda</div>
+                    <div className="text-3xl font-black text-gray-900">{ultimo.total}</div>
+                    <div className="text-[10px] text-gray-400 font-bold">apartamentos</div>
+                  </div>
+                  <div className="bg-amber-50 p-4 rounded-2xl text-center">
+                    <div className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">Solo 1 cuota</div>
+                    <div className="text-3xl font-black text-amber-600">{ultimo.aptos1}</div>
+                    <div className="text-[10px] text-amber-400 font-bold">deudores recientes</div>
+                  </div>
+                  <div className="bg-rose-50 p-4 rounded-2xl text-center">
+                    <div className="text-[10px] font-black text-rose-500 uppercase tracking-widest mb-1">2 ó más cuotas</div>
+                    <div className="text-3xl font-black text-rose-600">{ultimo.aptos2mas}</div>
+                    <div className="text-[10px] text-rose-400 font-bold">{ultimo.pct2mas}% del total con deuda</div>
+                  </div>
+                  <div className="bg-rose-100 p-4 rounded-2xl text-center">
+                    <div className="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Monto adeudado</div>
+                    <div className="text-3xl font-black text-rose-800">$ {formatNumber(ultimo.montoUsd, 0)}</div>
+                    <div className="text-[10px] text-rose-500 font-bold">USD total pendiente</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="h-[360px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={perfilMorosidad} margin={{ top: 10, right: 50, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="mes" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "#94a3b8" }} />
+                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "#94a3b8" }} allowDecimals={false} label={{ value: "Aptos", angle: -90, position: "insideLeft", style: { fontSize: 9, fill: "#94a3b8", fontWeight: 700 } }} />
+                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "#f43f5e" }} tickFormatter={(v) => `$${formatNumber(v, 0)}`} />
+                  <Tooltip
+                    contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px rgb(0 0 0 / 0.1)", padding: "14px", fontSize: 11 }}
+                    formatter={(v: any, name: any) => {
+                      const labels: Record<string, string> = {
+                        aptos1: "1 cuota (reciente)",
+                        aptos2: "2 cuotas",
+                        aptos3: "3 cuotas",
+                        aptos4a6: "4 a 6 cuotas",
+                        aptos7mas: "7+ cuotas (crítico)",
+                        montoUsd: "Monto adeudado (USD)",
+                      };
+                      return [name === "montoUsd" ? `$ ${formatNumber(v, 0)}` : `${v} apt.`, labels[name] || name];
+                    }}
+                    labelFormatter={(l) => `Mes: ${l}`}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase" }}
+                    formatter={(value) => {
+                      const map: Record<string, string> = {
+                        aptos1: "1 cuota",
+                        aptos2: "2 cuotas",
+                        aptos3: "3 cuotas",
+                        aptos4a6: "4–6 cuotas",
+                        aptos7mas: "7+ cuotas",
+                        montoUsd: "Monto USD",
+                      };
+                      return map[value] || value;
+                    }}
+                  />
+                  {/* Barras apiladas por antigüedad */}
+                  <Bar yAxisId="left" dataKey="aptos1"   name="aptos1"   stackId="a" fill="#fbbf24" radius={[0,0,0,0]} maxBarSize={40} />
+                  <Bar yAxisId="left" dataKey="aptos2"   name="aptos2"   stackId="a" fill="#f97316" radius={[0,0,0,0]} maxBarSize={40} />
+                  <Bar yAxisId="left" dataKey="aptos3"   name="aptos3"   stackId="a" fill="#ef4444" radius={[0,0,0,0]} maxBarSize={40} />
+                  <Bar yAxisId="left" dataKey="aptos4a6" name="aptos4a6" stackId="a" fill="#dc2626" radius={[0,0,0,0]} maxBarSize={40} />
+                  <Bar yAxisId="left" dataKey="aptos7mas" name="aptos7mas" stackId="a" fill="#7f1d1d" radius={[4,4,0,0]} maxBarSize={40} />
+                  {/* Línea de monto adeudado en USD */}
+                  <Line yAxisId="right" type="monotone" dataKey="montoUsd" name="montoUsd" stroke="#f43f5e" strokeWidth={2.5} dot={{ r: 3, fill: "#f43f5e" }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Leyenda de colores */}
+            <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2 text-[10px] font-black uppercase">
+              {[
+                { color: "#fbbf24", label: "1 cuota", desc: "Reciente · aún recuperable" },
+                { color: "#f97316", label: "2 cuotas", desc: "Atención · 2 meses sin pagar" },
+                { color: "#ef4444", label: "3 cuotas", desc: "Alerta · trimestre en mora" },
+                { color: "#dc2626", label: "4–6 cuotas", desc: "Grave · más de 3 meses" },
+                { color: "#7f1d1d", label: "7+ cuotas", desc: "Crítico · gestión legal" },
+              ].map(({ color, label, desc }) => (
+                <div key={label} className="flex items-start gap-2 p-2 bg-gray-50 rounded-xl">
+                  <span className="w-3 h-3 rounded-sm mt-0.5 flex-shrink-0" style={{ backgroundColor: color }}></span>
+                  <div>
+                    <div style={{ color }}>{label}</div>
+                    <div className="text-gray-400 text-[9px] normal-case font-medium leading-tight mt-0.5">{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
         <div className="mt-4 bg-rose-50 border border-rose-100 p-4 rounded-2xl text-xs text-rose-800 font-medium leading-relaxed">
-          💡 <strong>Acción preventiva:</strong> Si la tendencia inclina hacia arriba, conviene activar
-          jornadas de cobranza preventiva o revisar si un aumento de cuotas reciente impactó la puntualidad.
+          💡 <strong>Cómo leerlo:</strong> Las barras muestran cuántos apartamentos deben 1, 2, 3, 4–6 ó 7+ cuotas en cada mes.
+          Mientras más crece la parte oscura (rojo intenso / marrón), más grave es la morosidad acumulada.
+          La línea roja muestra el dinero total que se le debe al edificio en USD — si sube sostenidamente,
+          la cobranza no está alcanzando para recuperar la deuda.
+          <strong> Alarma preventiva:</strong> Si los apartamentos con 2+ cuotas superan el 30–40% del total, conviene
+          activar gestión de cobranza formal o extrajudicial.
         </div>
       </section>
 
