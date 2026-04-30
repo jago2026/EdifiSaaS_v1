@@ -178,32 +178,14 @@ export async function GET(request: Request) {
         if (ym === currentMonthStr) {
           // Mes actual: usar el total real calculado desde recibos
           montoUsd = Number(realTotalDebtUsd.toFixed(0));
-          // Para montoSum (suma de buckets), también calcular correctamente
-          const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
-            const val = Number(r[`monto_${i}_recibo`]) || 0;
-            const enUsd = val / tasa;
-            return enUsd > 1000 ? val / tasa : val; // Si estaba en Bs, convertir
-          });
-          const bucket12mas = (() => {
-            const val = Number(r.monto_12_mas_recibo) || 0;
-            const enUsd = val / tasa;
-            return enUsd > 1000 ? val / tasa : val;
-          })();
-          montoSum = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
         } else {
-          // Meses anteriores: usar lógica original
-          const rawMontoTotal = Number(r.monto_pendiente_total) || 0;
-          const rawMontoBuckets = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
-                               + (Number(r.monto_12_mas_recibo) || 0);
-
+          // Meses anteriores: usar suma de buckets verificados (más confiable)
+          // Verificar cada bucket individualmente para detectar si está en Bs.
           const estaEnBs = (valor: number, t: number) => {
             if (valor <= 1000) return false;
             if (t <= 1) return false;
-            const enUsd = valor / t;
-            return enUsd > 1000;
+            return (valor / t) > 1000;
           };
-
-          montoUsd = estaEnBs(rawMontoTotal, tasa) ? rawMontoTotal / tasa : rawMontoTotal;
 
           const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
             const val = Number(r[`monto_${i}_recibo`]) || 0;
@@ -212,8 +194,23 @@ export async function GET(request: Request) {
           const bucket12mas = estaEnBs(Number(r.monto_12_mas_recibo) || 0, tasa)
             ? (Number(r.monto_12_mas_recibo) || 0) / tasa
             : (Number(r.monto_12_mas_recibo) || 0);
-          montoSum = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
+          montoUsd = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
         }
+
+        // montoSum = suma de buckets (misma lógica para todos los meses)
+        const estaEnBsSum = (valor: number, t: number) => {
+          if (valor <= 1000) return false;
+          if (t <= 1) return false;
+          return (valor / t) > 1000;
+        };
+        const bucketsParaSum = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
+          const val = Number(r[`monto_${i}_recibo`]) || 0;
+          return estaEnBsSum(val, tasa) ? val / tasa : val;
+        });
+        const bucket12masParaSum = estaEnBsSum(Number(r.monto_12_mas_recibo) || 0, tasa)
+          ? (Number(r.monto_12_mas_recibo) || 0) / tasa
+          : (Number(r.monto_12_mas_recibo) || 0);
+        montoSum = bucketsParaSum.reduce((s, v) => s + v, 0) + bucket12masParaSum;
 
         const pct        = Number(r.pct_pendiente) || 0;
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
