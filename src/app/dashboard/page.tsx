@@ -2129,7 +2129,7 @@ export default function DashboardPage() {
       else oks.push("✅ Cron activado");
 
       if (emailsJunta.length === 0) issues.push("⚠️ No hay emails configurados en la Junta. El informe no tendrá destinatarios.");
-      else oks.push(`✅ ${emailsJunta.length} email(s) en Junta: ${emailsJunta.join(", ")}`);
+      else oks.push(`✅ ${emailsJunta.length} email(s) configurado(s) en la Junta`);
 
       if (!building.url_balance && !building.url_recibos && !building.url_egresos) {
         issues.push("⚠️ No hay URLs de sincronización configuradas. El informe diario tendrá datos limitados.");
@@ -3733,6 +3733,11 @@ export default function DashboardPage() {
                             <tr key={idx} className="hover:bg-gray-50 transition-colors">
                               <td className="py-3 px-4 text-[10px] text-gray-400 whitespace-nowrap">
                                 {formatDate(item.created_at)}
+                                {item.created_at && (
+                                  <div className="text-[9px] text-gray-300 font-bold mt-0.5">
+                                    {new Date(item.created_at).toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} VET
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3 px-4">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
@@ -6559,7 +6564,7 @@ export default function DashboardPage() {
                               <p className="font-black text-gray-500 uppercase text-[9px] mb-1">📧 Destinatarios del Informe</p>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {cronTestResult.emailsJunta.map((e: string, i: number) => (
-                                  <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">{e}</span>
+                                  <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">{maskEmail(e)}</span>
                                 ))}
                               </div>
                             </div>
