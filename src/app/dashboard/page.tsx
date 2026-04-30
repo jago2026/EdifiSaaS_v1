@@ -18,7 +18,20 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
 type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
 
-function UpgradeCard({ title, feature, planRequired, onUpgrade }: { title: string, feature: string, planRequired: string, onUpgrade: () => void }) {
+function UpgradeCard({ title, feature, planRequired, onUpgrade, isDemo, demoContent }: { title: string, feature: string, planRequired: string, onUpgrade: () => void, isDemo?: boolean, demoContent?: React.ReactNode }) {
+  if (isDemo && demoContent) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2 flex items-center gap-2 text-xs text-indigo-700 font-bold">
+          <span>🎯</span>
+          <span>MODO DEMO — Vista de ejemplo de <span className="underline">{feature}</span> (Plan {planRequired})</span>
+        </div>
+        <div className="opacity-90 pointer-events-none select-none">
+          {demoContent}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="relative overflow-hidden bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200 text-center space-y-4">
       <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🔒</div>
@@ -3675,6 +3688,44 @@ export default function DashboardPage() {
                   feature="KPIs, Gráficos de Tendencia y Comparativos" 
                   planRequired="Profesional" 
                   onUpgrade={() => setActiveTab("planes")}
+                  isDemo={user?.isDemo}
+                  demoContent={
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Morosidad del Mes</div>
+                          <div className="text-2xl font-black text-red-500">23%</div>
+                          <div className="text-[9px] text-gray-400 font-bold">9 de 40 aptos</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Recaudación Mes</div>
+                          <div className="text-2xl font-black text-emerald-600">77%</div>
+                          <div className="text-[9px] text-gray-400 font-bold">Bs. 65.700 cobrados</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Gastos vs Presupuesto</div>
+                          <div className="text-2xl font-black text-orange-500">91%</div>
+                          <div className="text-[9px] text-gray-400 font-bold">Bs. 54.600 / 60.000</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Índice de Salud</div>
+                          <div className="text-2xl font-black text-blue-600">B+</div>
+                          <div className="text-[9px] text-gray-400 font-bold">Gestión Estable</div>
+                        </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Tendencia de Gastos — Últimos 6 Meses (Demo)</h3>
+                        <div className="flex items-end gap-2 h-24">
+                          {[45,62,58,71,54,68].map((v, i) => (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                              <div className="w-full bg-indigo-500 rounded-t-md" style={{height: `${v}%`}}></div>
+                              <span className="text-[9px] text-gray-400 font-bold">{['Oct','Nov','Dic','Ene','Feb','Mar'][i]}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  }
                 />
              ) : (
                <>
@@ -5089,6 +5140,40 @@ export default function DashboardPage() {
                   feature="Borrador de recibo estimado y pre-emisión" 
                   planRequired="Premium" 
                   onUpgrade={() => setActiveTab("planes")}
+                  isDemo={user?.isDemo}
+                  demoContent={
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Borrador de Recibo Estimado</h2>
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Selecciona los conceptos que integrarán el próximo recibo</p>
+                        </div>
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black uppercase">Vista Demo</span>
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          { concepto: "Alícuota de Condominio", monto: "Bs. 1.800,00", check: true },
+                          { concepto: "Fondo de Reserva", monto: "Bs. 200,00", check: true },
+                          { concepto: "Mantenimiento Ascensor", monto: "Bs. 150,00", check: false },
+                          { concepto: "Servicio de Electricidad Zona Común", monto: "Bs. 85,00", check: true },
+                        ].map((item, i) => (
+                          <div key={i} className={`flex items-center justify-between p-3 rounded-xl border ${item.check ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${item.check ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                                {item.check && <span className="text-white text-[10px] font-black">✓</span>}
+                              </div>
+                              <span className="text-sm font-bold text-gray-700">{item.concepto}</span>
+                            </div>
+                            <span className="text-sm font-black text-gray-900">{item.monto}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-xl">
+                        <span className="font-black uppercase text-sm">Total Estimado</span>
+                        <span className="font-black text-lg">Bs. 2.235,00</span>
+                      </div>
+                    </div>
+                  }
                 />
             ) : (
               <div className="space-y-6">
@@ -5543,6 +5628,52 @@ export default function DashboardPage() {
                 feature="Predicción de cobranza basada en patrones históricos y escenarios probabilísticos"
                 planRequired="Premium"
                 onUpgrade={() => setActiveTab("planes")}
+                isDemo={user?.isDemo}
+                demoContent={
+                  <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🔮</div>
+                    <div className="relative z-10">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <div>
+                          <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Proyección de Ingresos</h2>
+                          <p className="text-indigo-200 font-bold text-xs uppercase tracking-widest">🔮 Inteligencia Predictiva Financiera — Demo</p>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
+                          <div className="text-xs text-indigo-300 font-bold uppercase">Recaudación Proyectada</div>
+                          <div className="text-2xl font-black text-white">$ 3.840 USD</div>
+                          <div className="text-xs text-indigo-300">Probabilidad: 78%</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        {[
+                          { label: "Escenario Optimista", val: "$ 4.200", prob: "35%", color: "bg-emerald-500/20 border-emerald-400/30" },
+                          { label: "Escenario Base", val: "$ 3.840", prob: "78%", color: "bg-blue-500/20 border-blue-400/30" },
+                          { label: "Escenario Pesimista", val: "$ 3.100", prob: "22%", color: "bg-red-500/20 border-red-400/30" },
+                        ].map((s, i) => (
+                          <div key={i} className={`${s.color} border rounded-2xl p-4 text-center`}>
+                            <div className="text-[10px] font-black text-white/60 uppercase mb-1">{s.label}</div>
+                            <div className="text-xl font-black text-white">{s.val}</div>
+                            <div className="text-[10px] text-white/50 mt-1">Prob: {s.prob}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-white/10 rounded-2xl p-4">
+                        <div className="text-xs font-black text-indigo-200 uppercase tracking-widest mb-3">Histórico + Proyección (6 meses)</div>
+                        <div className="flex items-end gap-2 h-20">
+                          {[62,71,58,80,68,75,78,null,null,null,null,null].map((v, i) => (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                              <div className={`w-full rounded-t-md ${i < 7 ? 'bg-indigo-400' : 'bg-indigo-400/30 border border-dashed border-indigo-400/50'}`}
+                                style={{height: `${v || 78}%`}}></div>
+                              <span className="text-[8px] text-white/40 font-bold">
+                                {['S','O','N','D','E','F','M','A','M','J','J','A'][i]}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
               />
             ) : (
               <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">

@@ -180,3 +180,48 @@ Columnas relevantes para los gráficos de morosidad:
 1. **Columna `pct_pendiente`** debería ser calculada con validación en el cron: si es > 150%, loguear y no guardar ese valor hasta el día siguiente.
 2. **Pestaña Ingr/Egr Manual:** Rediseño con modal popup y soporte Bs./USD (trabajado en sesión anterior, en revisión).
 3. **Tabla `movimientos_manual`:** Agregar columna `moneda` ('bs' | 'usd') para poder registrar el tipo de moneda original del movimiento.
+
+---
+
+## Sesión: 2026-04-30 — Claude Sonnet 4.6
+
+### Trabajo realizado
+
+#### Bugs detectados y corregidos
+
+##### 1. `src/lib/planLimits.ts` — Plan case-insensitive
+**Problema:** `getPlanPermissions("premium")` usaba `.includes('Premium')` case-sensitive. El edificio demo tiene `plan = 'premium'` (minúsculas) en la BD, por lo que caía siempre en el plan `Esencial`, mostrando `UpgradeCard` en las pestañas KPIs, Pre-Recibo y Proyección incluso en modo demo.
+**Corrección:** Se normaliza el planName a minúsculas antes de comparar: `const p = (planName || '').toLowerCase()` y se usa `p.includes('premium')`, etc.
+
+##### 2. `vercel.json` — Cron schedule horario incorrecto
+**Problema:** Schedule `"0 0 * * *"` dispara el cron a medianoche UTC = **20:00 hora Venezuela (VET)**. Los edificios tienen `cron_time = "05:00"`, por lo que la verificación `currentHourVET !== configHour` (20 != 5) siempre fallaba y se saltaba el cron sin ejecutar nada.
+**Corrección:** Schedule cambiado a `"0 9 * * *"` (09:00 UTC = 05:00 VET). **Nota:** Venezuela es UTC-4 sin cambio de horario.
+
+##### 3. `src/app/api/cron/route.ts` — Logging diagnóstico completo
+**Problema:** Los eventos de skip (hora no coincide, cron desactivado) solo se logueaban en `console.log` del servidor (Vercel Functions logs), pero **nunca** insertaban registros en la tabla `alertas` de Supabase. Por eso la pestaña Alertas del dashboard aparecía vacía respecto al cron.
+**Corrección:** 
+- Se agrega `logAlerta(...)` en TODOS los caminos: skip por cron_enabled=false, skip por hora no coincide, inicio de ejecución, éxito de sync, éxito de email, error de sync, error de email, error crítico.
+- Se agregan logs `console.log` y `console.error` detallados con UTC, hora VET, estado de CRON_SECRET, URL de Supabase, todos los edificios encontrados, etc.
+- Se capturan excepciones internas de las llamadas a `/api/sync` y `/api/email` con try/catch individuales.
+- Se incluye `utc_time` en el JSON de respuesta además de `vet_time`.
+
+##### 4. `src/app/dashboard/page.tsx` — UpgradeCard con vista demo
+**Problema:** Las pestañas KPIs, Pre-Recibo y Proyección mostraban un bloqueo total con el componente `UpgradeCard` cuando el plan no tenía los permisos requeridos. En modo demo esto era contraproducente: el usuario demo no podía ver ninguna funcionalidad de esas pestañas.
+**Corrección:** 
+- Se añaden props `isDemo?: boolean` y `demoContent?: React.ReactNode` al componente `UpgradeCard`.
+- Si `isDemo=true` y se provee `demoContent`, se muestra el contenido demo con un banner indicador "MODO DEMO — Vista de ejemplo".
+- Las tres instancias de `UpgradeCard` pasan `isDemo={user?.isDemo}` y un `demoContent` con datos de ejemplo realistas (KPIs con porcentajes, gráfico de barras, tabla de recibo estimado, escenarios de proyección, gráfico histórico + proyección).
+
+### Estado del cron mañana (2026-05-01)
+Con las correcciones aplicadas, el cron de Vercel se ejecutará a las **09:00 UTC = 05:00 VET**. En ese momento:
+1. Leerá todos los edificios de Supabase.
+2. Para cada edificio con `cron_enabled = true` y `cron_time = "05:00"`, ejecutará sync + envío de email.
+3. Registrará alertas detalladas en la tabla `alertas` con el resultado (éxito, skip o error).
+4. La pestaña Alertas del dashboard mostrará toda la trazabilidad de la ejecución.
+
+### Archivos modificados
+- `src/lib/planLimits.ts`
+- `vercel.json`
+- `src/app/api/cron/route.ts`
+- `src/app/dashboard/page.tsx`
+- `CLAUDE.md` (este archivo)

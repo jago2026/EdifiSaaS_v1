@@ -105,8 +105,9 @@ export const PLAN_LIMITS: Record<PlanName, PlanPermissions> = {
 };
 
 export function getPlanPermissions(planName: string): PlanPermissions {
-  if (planName.includes('IA') || planName.includes('Inteligencia')) return PLAN_LIMITS['Inteligencia Artificial'];
-  if (planName.includes('Premium')) return PLAN_LIMITS['Premium'];
-  if (planName.includes('Profesional')) return PLAN_LIMITS['Profesional'];
+  const p = (planName || '').toLowerCase();
+  if (p.includes('ia') || p.includes('inteligencia')) return PLAN_LIMITS['Inteligencia Artificial'];
+  if (p.includes('premium')) return PLAN_LIMITS['Premium'];
+  if (p.includes('profesional') || p.includes('professional')) return PLAN_LIMITS['Profesional'];
   return PLAN_LIMITS['Esencial'];
 }
