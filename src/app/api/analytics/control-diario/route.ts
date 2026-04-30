@@ -123,7 +123,10 @@ export async function GET(request: Request) {
         "fecha, aptos_pendientes_total, monto_pendiente_total, pct_pendiente, tasa_cambio, " +
         "aptos_1_recibo, aptos_2_recibo, aptos_3_recibo, aptos_4_recibo, aptos_5_recibo, " +
         "aptos_6_recibo, aptos_7_recibo, aptos_8_recibo, aptos_9_recibo, aptos_10_recibo, " +
-        "aptos_11_recibo, aptos_12_mas_recibo, monto_pendiente_total"
+        "aptos_11_recibo, aptos_12_mas_recibo, " +
+        "monto_1_recibo, monto_2_recibo, monto_3_recibo, monto_4_recibo, monto_5_recibo, " +
+        "monto_6_recibo, monto_7_recibo, monto_8_recibo, monto_9_recibo, monto_10_recibo, " +
+        "monto_11_recibo, monto_12_mas_recibo"
       )
       .eq("edificio_id", edificioId)
       .gte("fecha", sinceHCStr)
@@ -147,7 +150,10 @@ export async function GET(request: Request) {
         const aptos7mas  = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
         const total      = Number(r.aptos_pendientes_total) || 0;
         const tasa       = Number(r.tasa_cambio) || 1;
-        const montoUsd   = Number(r.monto_pendiente_total) / tasa;
+        // Sumar los montos reales por banda (en Bs.) directamente de los campos monto_N_recibo
+        const montoBs    = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
+                         + (Number(r.monto_12_mas_recibo) || 0);
+        const montoUsd   = tasa > 0 ? montoBs / tasa : 0;
         const pct        = Number(r.pct_pendiente) || 0;
         // % de aptos con 2+ cuotas sobre total con deuda
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
