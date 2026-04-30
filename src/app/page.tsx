@@ -193,6 +193,7 @@ export default function Home() {
             Gestión Inteligente de Condominios v1.0.2
           </h1>
 
+          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
             Automatiza el control financiero de tu edificio. Integra datos de tu administradora, detecta movimientos nuevos y mantén tu contabilidad al día sin esfuerzo.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
