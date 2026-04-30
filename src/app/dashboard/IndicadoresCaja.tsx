@@ -272,8 +272,8 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
           </div>
           <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Tendencia de Recibos Pendientes</h2>
           <p className="text-sm text-gray-500 mt-2 max-w-2xl">
-            Evolución diaria del <strong>número de recibos sin pagar</strong>. La línea negra
-            muestra la tendencia lineal: si sube, la morosidad se está acumulando.
+            Evolución de la tendencia de morosidad. La línea negra
+            muestra la tendencia: si sube, la morosidad se está acumulando.
           </p>
         </header>
         <div className="h-[340px]">
@@ -284,11 +284,10 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
               <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: "#94a3b8" }} />
               <Tooltip
                 contentStyle={{ borderRadius: "16px", border: "none", boxShadow: "0 10px 25px rgb(0 0 0 / 0.1)", padding: "14px" }}
-                formatter={(v: any, n: any) => [v, n === "pendientes" ? "Recibos pendientes" : "Tendencia"]}
+                formatter={(v: any) => [v, "Tendencia"]}
                 labelFormatter={(l) => `Fecha: ${l}`}
               />
               <Legend wrapperStyle={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase" }} />
-              <Bar dataKey="pendientes" name="Recibos pendientes" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={20} />
               <Line type="monotone" dataKey="tendencia" name="Tendencia" stroke="#0f172a" strokeWidth={2.5} dot={false} strokeDasharray="6 4" />
             </ComposedChart>
           </ResponsiveContainer>
