@@ -1173,19 +1173,47 @@ export async function POST(request: Request) {
       const montoEmitidoBs = bal.recibos_mes || 0;
       const montoEmitidoUsd = tasa > 0 ? montoEmitidoBs / tasa : 0;
 
+      // Calcular montos en USD para guardar en historico_cobranza (el frontend espera valores en USD)
+      // Esto asegura consistencia entre monto_pendiente_total y la suma de monto_N_recibo
+      const totalDeudaUsd = tasa > 0 ? totalDeudaAcum / tasa : 0;
+
       await supabase.from("historico_cobranza").upsert({
         edificio_id: building.id,
         fecha: today,
         aptos_pagaron_hoy: aptosPagaronHoy,
         monto_pagado_hoy: montoPagadoHoy,
         aptos_pendientes_total: recPendientesCount,
-        monto_pendiente_total: totalDeudaAcum,
+        monto_pendiente_total: totalDeudaUsd,
         pct_pagado: pctPagado,
         pct_pendiente: pctPendiente,
         monto_emitido_usd_base: montoEmitidoUsd,
         monto_emitido_bs_base: montoEmitidoBs,
         tasa_cambio: tasa,
-        ...distRecibos
+        // Los montos por bucket ahora también en USD
+        aptos_1_recibo: distRecibos.aptos_1_recibo,
+        monto_1_recibo: tasa > 0 ? distRecibos.monto_1_recibo / tasa : 0,
+        aptos_2_recibo: distRecibos.aptos_2_recibo,
+        monto_2_recibo: tasa > 0 ? distRecibos.monto_2_recibo / tasa : 0,
+        aptos_3_recibo: distRecibos.aptos_3_recibo,
+        monto_3_recibo: tasa > 0 ? distRecibos.monto_3_recibo / tasa : 0,
+        aptos_4_recibo: distRecibos.aptos_4_recibo,
+        monto_4_recibo: tasa > 0 ? distRecibos.monto_4_recibo / tasa : 0,
+        aptos_5_recibo: distRecibos.aptos_5_recibo,
+        monto_5_recibo: tasa > 0 ? distRecibos.monto_5_recibo / tasa : 0,
+        aptos_6_recibo: distRecibos.aptos_6_recibo,
+        monto_6_recibo: tasa > 0 ? distRecibos.monto_6_recibo / tasa : 0,
+        aptos_7_recibo: distRecibos.aptos_7_recibo,
+        monto_7_recibo: tasa > 0 ? distRecibos.monto_7_recibo / tasa : 0,
+        aptos_8_recibo: distRecibos.aptos_8_recibo,
+        monto_8_recibo: tasa > 0 ? distRecibos.monto_8_recibo / tasa : 0,
+        aptos_9_recibo: distRecibos.aptos_9_recibo,
+        monto_9_recibo: tasa > 0 ? distRecibos.monto_9_recibo / tasa : 0,
+        aptos_10_recibo: distRecibos.aptos_10_recibo,
+        monto_10_recibo: tasa > 0 ? distRecibos.monto_10_recibo / tasa : 0,
+        aptos_11_recibo: distRecibos.aptos_11_recibo,
+        monto_11_recibo: tasa > 0 ? distRecibos.monto_11_recibo / tasa : 0,
+        aptos_12_mas_recibo: distRecibos.aptos_12_mas_recibo,
+        monto_12_mas_recibo: tasa > 0 ? distRecibos.monto_12_mas_recibo / tasa : 0,
       }, { onConflict: 'edificio_id,fecha' });
 
     } catch (e) {

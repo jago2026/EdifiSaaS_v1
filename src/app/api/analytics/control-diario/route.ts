@@ -150,10 +150,12 @@ export async function GET(request: Request) {
         const aptos7mas  = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
         const total      = Number(r.aptos_pendientes_total) || 0;
         const tasa       = Number(r.tasa_cambio) || 1;
-        // Sumar los montos reales por banda (en Bs.) directamente de los campos monto_N_recibo
-        const montoBs    = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
-                         + (Number(r.monto_12_mas_recibo) || 0);
-        const montoUsd   = tasa > 0 ? montoBs / tasa : 0;
+        // Los montos ya vienen en USD directamente de la sincronización
+        // monto_pendiente_total viene en USD, al igual que monto_N_recibo
+        const montoUsd   = Number(r.monto_pendiente_total) || 0;
+        // Verificación: calcular la suma de todos los montos por bucket para validar consistencia
+        const montoSum = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
+                       + (Number(r.monto_12_mas_recibo) || 0);
         const pct        = Number(r.pct_pendiente) || 0;
         // % de aptos con 2+ cuotas sobre total con deuda
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
@@ -174,6 +176,7 @@ export async function GET(request: Request) {
           aptos2mas,
           pct2mas,
           montoUsd: Number(montoUsd.toFixed(0)),
+          montoSum: Number(montoSum.toFixed(0)),
           pctPendiente: Number(pct.toFixed(1)),
         };
       });

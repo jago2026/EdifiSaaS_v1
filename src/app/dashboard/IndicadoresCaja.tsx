@@ -287,7 +287,11 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
             {(() => {
               const ultimo = perfilMorosidad[perfilMorosidad.length - 1];
               if (!ultimo) return null;
+              // Verificar consistencia entre montoUsd y montoSum
+              const discrepancia = Math.abs((ultimo.montoUsd || 0) - (ultimo.montoSum || 0));
+              const tieneDiscrepancia = ultimo.montoSum > 0 && discrepancia > 1;
               return (
+                <>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
                   <div className="bg-gray-50 p-4 rounded-2xl text-center">
                     <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total con deuda</div>
@@ -304,10 +308,15 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
                     <div className="text-3xl font-black text-rose-600">{ultimo.aptos2mas}</div>
                     <div className="text-[10px] text-rose-400 font-bold">{ultimo.pct2mas}% del total con deuda</div>
                   </div>
-                  <div className="bg-rose-100 p-4 rounded-2xl text-center">
+                  <div className={`p-4 rounded-2xl text-center ${tieneDiscrepancia ? "bg-amber-100 border-2 border-amber-400" : "bg-rose-100"}`}>
                     <div className="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Monto adeudado</div>
                     <div className="text-3xl font-black text-rose-800">$ {formatNumber(ultimo.montoUsd, 0)}</div>
                     <div className="text-[10px] text-rose-500 font-bold">USD total pendiente</div>
+                    {tieneDiscrepancia && (
+                      <div className="mt-2 text-[9px] text-amber-600 font-medium">
+                        ⚠️ Verificar: suma buckets = $ {formatNumber(ultimo.montoSum, 0)}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
