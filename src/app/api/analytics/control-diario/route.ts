@@ -164,25 +164,31 @@ export async function GET(request: Request) {
         let montoUsd: number;
         let montoSum: number;
 
-        if (rawMontoBuckets > 0) {
-          const ratio = rawMontoTotal / rawMontoBuckets;
-          // Si ratio está entre 0.5 y 2, ambos están en la misma moneda (USD o Bs correcto)
-          // Si ratio es muy diferente (< 0.1 o > 10), el monto_total está en moneda diferente
-          if (ratio < 0.1 || ratio > 10) {
-            // monto_total está en Bs, convertir a USD
-            montoUsd = tasa > 1 ? rawMontoTotal / tasa : rawMontoTotal;
-            montoSum = rawMontoBuckets; // Los buckets ya están en USD (después de nuestra corrección)
-          } else {
-            // Datos consistentes, usar directamente
-            montoUsd = rawMontoTotal;
-            montoSum = rawMontoBuckets;
-          }
+        // Función helper para determinar si un valor está en Bs.
+        // Valores > 1000 que al dividir por la tasa siguen siendo > 1000 están en Bs.
+        const valorEstaEnBs = (valor: number, t: number) => {
+          if (valor <= 1000) return false;
+          if (t <= 1) return false;
+          const enUsd = valor / t;
+          return enUsd > 1000; // Si al convertir a USD sigue siendo > 1000, está en Bs.
+        };
+
+        // Convertir monto_total a USD si está en Bs.
+        if (valorEstaEnBs(rawMontoTotal, tasa)) {
+          montoUsd = rawMontoTotal / tasa;
         } else {
-          // Fallback: usar el umbral histórico de 1000
-          const estaEnBs = rawMontoTotal > 1000 && tasa > 1 && rawMontoTotal / tasa > 1000;
-          montoUsd = estaEnBs ? rawMontoTotal / tasa : rawMontoTotal;
-          montoSum = rawMontoTotal; // Fallback
+          montoUsd = rawMontoTotal;
         }
+
+        // Convertir cada bucket a USD si está en Bs., luego sumarlos
+        const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
+          const val = Number(r[`monto_${i}_recibo`]) || 0;
+          return valorEstaEnBs(val, tasa) ? val / tasa : val;
+        });
+        const bucket12mas = valorEstaEnBs(Number(r.monto_12_mas_recibo) || 0, tasa)
+          ? (Number(r.monto_12_mas_recibo) || 0) / tasa
+          : (Number(r.monto_12_mas_recibo) || 0);
+        montoSum = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
         const pct        = Number(r.pct_pendiente) || 0;
         // % de aptos con 2+ cuotas sobre total con deuda
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
