@@ -325,3 +325,29 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
 4. **Cache de Consultas**: Implementar un cache de 12 horas para las consultas de servicios públicos para no saturar los portales si el cron corre varias veces por error.
 
 ---
+
+## Fecha: 30 de Abril, 2026 (Auditoría de Reestructuración)
+
+### Objetivo
+Revisar el estado del proyecto EDIFISAAS, validar la unificación de las pestañas de cobranza/morosidad, verificar la eliminación del simulador de inversiones e inspeccionar el nuevo Dashboard de Indicadores de Caja (basado en `control_diario`).
+
+### Tareas Revisadas y Validadas (Auditoría de Código)
+- [x] **Unificación de Pestaña "Cobranza y Morosidad"**:
+  - Se confirmó la fusión exitosa de "Análisis Cobranza", "Semáforo Morosidad" y "Salud Financiera" en el componente `CobranzaMorosidad.tsx`.
+  - El gráfico de análisis de cobranza opera en formato de barras con colores coherentes (Mes anterior: Gris oscuro, Mes actual: Azul).
+  - Se removió exitosamente la pestaña y el componente de Simulador de Inversiones de forma global.
+  - La nueva pestaña fue ubicada correctamente en el menú de navegación bajo el bloque de "Recibos y Deudas".
+- [x] **Nuevo Dashboard "Indicadores de Caja"**:
+  - Se documentó y validó el componente `IndicadoresCaja.tsx` abastecido por la API `/api/analytics/control-diario/route.ts`.
+  - Cumple satisfactoriamente con los 5 reportes estratégicos: Salud de Caja, Brecha Cambiaria, Tendencia de Recibos Pendientes, Comportamiento de Fondos, y Mapa de Calor del Flujo de Caja.
+
+### Recomendaciones y Propuestas de Mejora (Valor Agregado)
+
+1. **Gestión de Fechas y Zonas Horarias (Prevención de fallos)**: 
+   Las comparaciones de fecha en `/api/analytics/control-diario` utilizan forzadamente el huso America/Caracas. Se recomienda migrar a funciones nativas relacionales de PostgreSQL definiendo un timezone a la base de datos (Ej: `TIMEZONE('America/Caracas', NOW())`).
+2. **Performance del Heatmap en IndicadoresCaja**: 
+   A medida que la tabla `control_diario` crezca, el cálculo agrupado del promedio por día que se iterará generará mayor consumo de memoria en la API de Next.js. Se sugiere iterarlo vía RPC o Views directamente en Supabase.
+3. **Escalabilidad y Usabilidad de la Interfaz (Sidebar Menu)**: 
+   Consideren agrupar submódulos usando componentes *Acordeón* interactivos (Expandibles) agrupando internamente secciones grandes como "Recibos y Deudas" o "Gestión y Reportes". Esto dejaría más limpio visualmente el menú principal.
+
+---
