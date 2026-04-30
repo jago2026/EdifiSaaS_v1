@@ -33,6 +33,74 @@ export async function GET(request: Request) {
       .lte("fecha", todayCaracas)
       .order("fecha", { ascending: false });
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // CONSULTAR RECIBOS DEL MES ACTUAL DIRECTAMENTE PARA CALCULAR TOTALES REALES
+    // Esto evita el problema de que historico_cobranza tenga valores incorrectos
+    // ─────────────────────────────────────────────────────────────────────────────
+    const currentMonthStr = todayCaracas.substring(0, 7); // YYYY-MM del mes actual
+
+    const { data: recibosData } = await supabase
+      .from("recibos")
+      .select("unidad, deuda, num_recibos, deuda_usd")
+      .eq("edificio_id", edificioId)
+      .eq("mes", currentMonthStr)
+      .gt("deuda", 0);
+
+    // Calcular totales directamente desde recibos (como lo hace /api/recibos)
+    const aptosConDeuda = new Map();
+    (recibosData || []).forEach((r: any) => {
+      const key = String(r.unidad || 'S/N').trim().toUpperCase();
+      if (!aptosConDeuda.has(key)) {
+        aptosConDeuda.set(key, {
+          unidad: key,
+          deuda: Number(r.deuda),
+          deuda_usd: Number(r.deuda_usd) || 0,
+          num_recibos: Number(r.num_recibos || 1)
+        });
+      } else {
+        const existing = aptosConDeuda.get(key);
+        existing.deuda += Number(r.deuda);
+        existing.deuda_usd += Number(r.deuda_usd) || 0;
+        existing.num_recibos = Math.max(existing.num_recibos, Number(r.num_recibos || 1));
+      }
+    });
+
+    const uniqueRecibosList = Array.from(aptosConDeuda.values());
+    const realTotalDebtBs = uniqueRecibosList.reduce((sum, r) => sum + r.deuda, 0);
+    const realTotalDebtUsd = uniqueRecibosList.reduce((sum, r) => sum + (r.deuda_usd > 0 ? r.deuda_usd : r.deuda / tasaActual), 0);
+    const realAptosConDeuda = uniqueRecibosList.length;
+
+    // Calcular grupos por cantidad de recibos (igual que hace sync/route.ts)
+    const realGroups: any = {
+      g1: { aptos: 0, monto: 0 },
+      g2_3: { aptos: 0, monto: 0 },
+      g4_6: { aptos: 0, monto: 0 },
+      g7_11: { aptos: 0, monto: 0 },
+      g12_mas: { aptos: 0, monto: 0 },
+    };
+
+    uniqueRecibosList.forEach((r: any) => {
+      const n = Math.min(Number(r.num_recibos || 1), 12);
+      const montoUsd = r.deuda_usd > 0 ? r.deuda_usd : r.deuda / tasaActual;
+
+      if (n === 1) {
+        realGroups.g1.aptos++;
+        realGroups.g1.monto += montoUsd;
+      } else if (n >= 2 && n <= 3) {
+        realGroups.g2_3.aptos++;
+        realGroups.g2_3.monto += montoUsd;
+      } else if (n >= 4 && n <= 6) {
+        realGroups.g4_6.aptos++;
+        realGroups.g4_6.monto += montoUsd;
+      } else if (n >= 7 && n <= 11) {
+        realGroups.g7_11.aptos++;
+        realGroups.g7_11.monto += montoUsd;
+      } else {
+        realGroups.g12_mas.aptos++;
+        realGroups.g12_mas.monto += montoUsd;
+      }
+    });
+
     // Query para el gráfico — excluye hoy, solo hasta ayer inclusive
     const { data: snapshotsGrafico, error: errorGrafico } = await supabase
       .from("historico_cobranza")
@@ -87,7 +155,19 @@ export async function GET(request: Request) {
         };
     };
 
-    const currentGroups = getGrouped(current);
+    // ─────────────────────────────────────────────────────────────────────────────
+    // USAR VALORES CALCULADOS DIRECTAMENTE DESDE RECIBOS PARA EL MES ACTUAL
+    // Esto sobreescribe los valores de historico_cobranza con los reales
+    // ─────────────────────────────────────────────────────────────────────────────
+    const currentGroups = {
+      g1: { aptos: realGroups.g1.aptos, monto: realGroups.g1.monto },
+      g2_3: { aptos: realGroups.g2_3.aptos, monto: realGroups.g2_3.monto },
+      g4_6: { aptos: realGroups.g4_6.aptos, monto: realGroups.g4_6.monto },
+      g7_11: { aptos: realGroups.g7_11.aptos, monto: realGroups.g7_11.monto },
+      g12_mas: { aptos: realGroups.g12_mas.aptos, monto: realGroups.g12_mas.monto },
+      total_aptos: realAptosConDeuda,
+      total_monto: realTotalDebtUsd // ← Valor correcto en USD
+    };
     const previousGroups = getGrouped(previous);
 
     // Calcular desplazamiento
@@ -145,7 +225,25 @@ export async function GET(request: Request) {
           };
         });
 
-    const barMesActual   = buildBarPoints(snapsMesActual);
+    // ─────────────────────────────────────────────────────────────────────────────
+    // AGREGAR EL PUNTO DEL DÍA HOY CON EL VALOR REAL CALCULADO DESDE RECIBOS
+    // ─────────────────────────────────────────────────────────────────────────────
+    const hoyDiaNum = Number(todayCaracas.split('-')[2]);
+
+    let barMesActual = buildBarPoints(snapsMesActual);
+    // Encontrar el último punto del mes actual (si existe) para mantener continuidad
+    const lastPointOfMonth = barMesActual.length > 0 ? barMesActual[barMesActual.length - 1] : null;
+
+    // Agregar el punto de HOY con los valores reales calculados desde recibos
+    barMesActual.push({
+      fecha: todayCaracas,
+      dia: hoyDiaNum,
+      monto: realTotalDebtBs,
+      montoUsd: realTotalDebtUsd,
+      porcentaje: null, // No calculamos porcentaje histórico para el día actual
+    });
+    barMesActual = barMesActual.sort((a: any, b: any) => a.dia - b.dia);
+
     const barMesAnterior = buildBarPoints(snapsMesAnterior);
 
     // Unir por día para el gráfico agrupado (eje X = día del mes)
@@ -168,7 +266,9 @@ export async function GET(request: Request) {
       };
     });
 
-    // También mantenemos evolution lineal (últimos 30 días hasta ayer) para compatibilidad
+    // ─────────────────────────────────────────────────────────────────────────────
+    // EVOLUTION: Agregar el día de HOY con el valor real desde recibos
+    // ─────────────────────────────────────────────────────────────────────────────
     const evolution = (snapshotsGrafico || [])
         .slice(0, 30)
         .reverse()
@@ -186,6 +286,15 @@ export async function GET(request: Request) {
             };
         })
         .filter((s: any) => s.monto > 0);
+
+    // Agregar el día HOY con los valores reales calculados desde recibos
+    evolution.push({
+        fecha: todayCaracas,
+        monto: realTotalDebtBs,
+        montoUsd: realTotalDebtUsd,
+        aptos: realAptosConDeuda,
+        porcentaje: null
+    });
 
     return NextResponse.json({
       current: currentGroups,
