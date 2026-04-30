@@ -249,7 +249,7 @@ export async function POST(request: Request) {
         </tr>
       `}).join('');
 
-      let alicuotasHtml = dist.map((g: any) => {
+      let alicuotasHtml = [...dist].sort((a: any, b: any) => a.alicuota - b.alicuota).map((g: any) => {
         const cpUnit = totalGastosComunes * (g.alicuota / 100);
         const totalBsUnit = cpUnit * 1.10;
         const subTotalComunes = cpUnit * g.count;
