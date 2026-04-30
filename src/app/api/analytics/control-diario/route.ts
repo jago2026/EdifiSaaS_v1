@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       .eq("edificio_id", edificioId)
       .gte("fecha", sinceStr)
       .lte("fecha", todayStr)
-      .order("fecha", { ascending: true });
+      .order("fecha", { ascending: true }) as unknown as { data: any[], error: any };
 
     if (error) throw error;
 

@@ -136,7 +136,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 font-sans">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50 font-sans">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -687,8 +687,8 @@ export default function Home() {
           <div className="border-t border-gray-800 mt-16 pt-8 text-center text-gray-500 text-xs font-black uppercase tracking-widest">
             © 2026 EdifiSaaS. Todos los derechos reservados. <span className="opacity-30">v1.0.2</span>
           </div>
-
+        </div>
       </footer>
-    </div>
+    </main>
   );
 }
