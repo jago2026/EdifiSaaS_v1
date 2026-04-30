@@ -3,6 +3,83 @@
 
 ---
 
+## Fecha: 1 de Mayo, 2026
+
+### Objetivo
+Corregir el cálculo del monto total adeudado en la pestaña "Indicadores de Caja", específicamente en el gráfico de "Perfil de Antigüedad de Deuda".
+
+### Problema Identificado
+El valor "$ 12.643" mostrado en la tarjeta "Monto adeudado" no se correspondía con la suma de los montos de los buckets (1 cuota, 2 cuotas, etc.). La raíz del problema era:
+
+1. **En la sincronización (`sync/route.ts`)**:
+   - `monto_pendiente_total` se almacenaba en **Bolívares (Bs.)** directamente
+   - Los campos `monto_N_recibo` también se almacenaban en Bs.
+   - Pero el frontend esperaba todos los valores en **USD** (dólares)
+
+2. **En el frontend (`IndicadoresCaja.tsx`)**:
+   - La línea roja del gráfico usaba `montoUsd` sin conversión
+   - El KPI de tarjeta también mostraba `montoUsd` directamente
+   - Esto causaba que el valor en Bs. se mostrara como si estuviera en USD
+
+3. **En el API de analytics (`control-diario/route.ts`)**:
+   - Se intentaba hacer la conversión de Bs. a USD dividiendo por `tasa_cambio`
+   - Pero `monto_pendiente_total` ya venía en Bs., no el valor correcto
+
+### Tareas Realizadas
+
+#### 1. sync/route.ts (Línea ~1176-1217)
+- [x] **Conversión correcta**: Ahora `monto_pendiente_total` se calcula en USD: `totalDeudaAcum / tasa`
+- [x] **Buckets en USD**: Todos los campos `monto_N_recibo` ahora se convierten a USD antes de guardar
+- [x] **Consistencia garantizada**: El total y la suma de buckets ahora siempre serán iguales
+
+```typescript
+// ANTES (incorrecto - guardaba en Bs.):
+monto_pendiente_total: totalDeudaAcum, // Bs. como si fuera USD
+
+// DESPUÉS (correcto - guarda en USD):
+const totalDeudaUsd = tasa > 0 ? totalDeudaAcum / tasa : 0;
+monto_pendiente_total: totalDeudaUsd,
+// Y cada bucket:
+monto_1_recibo: tasa > 0 ? distRecibos.monto_1_recibo / tasa : 0,
+// ... mismo para todos los buckets
+```
+
+#### 2. control-diario/route.ts (Línea ~143-182)
+- [x] **Uso directo de USD**: Ahora usa `monto_pendiente_total` directamente (ya viene en USD)
+- [x] **Validación**: Agregado campo `montoSum` para verificar consistencia entre total y suma de buckets
+
+```typescript
+// ANTES:
+const montoBs = [1,2,3,...].reduce(...) // Sumaba en Bs.
+const montoUsd = tasa > 0 ? montoBs / tasa : 0; // Conversión incorrecta
+
+// DESPUÉS:
+const montoUsd = Number(r.monto_pendiente_total) || 0; // Ya viene en USD
+const montoSum = [1,2,3,...].reduce(...) // Para validación
+```
+
+#### 3. IndicadoresCaja.tsx (Línea ~287-323)
+- [x] **Detección de discrepancia**: Si `montoUsd` ≠ `montoSum`, muestra advertencia
+- [x] **Visualización mejorada**: Tarjeta se destaca en amarillo cuando hay inconsistencia
+
+### Archivos Modificados
+1. `src/app/api/sync/route.ts`
+2. `src/app/api/analytics/control-diario/route.ts`
+3. `src/app/dashboard/IndicadoresCaja.tsx`
+
+### Nota Importante
+Los datos históricos existentes en la tabla `historico_cobranza` seguirán teniendo el valor incorrecto (en Bs. guardado como si fuera USD). **Para corregir los datos históricos**, el usuario debe:
+1. Re-sincronizar los meses anteriores desde el panel de administración, o
+2. Ejecutar una corrección directa en la base de datos de Supabase
+
+### Commit Realizado
+```
+Fix: Corregir cálculo monto adeudado en Perfil Antigüedad Deuda
+3 files changed, 47 insertions(+), 7 deletions(-)
+```
+
+---
+
 ## Fecha: 30 de Abril, 2026
 
 ### Objetivo
