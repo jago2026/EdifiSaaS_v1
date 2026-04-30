@@ -13,6 +13,13 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
+    // ─────────────────────────────────────────────────────────────────────────────
+    // PRIMERO: Obtener la tasa de cambio actual
+    // Necesitamos la tasa ANTES de calcular deuda_usd
+    // ─────────────────────────────────────────────────────────────────────────────
+    const { data: tasaData } = await supabase.from("tasas_cambio").select("tasa_dolar").order("fecha", { ascending: false }).limit(1);
+    const tasaActual = Number(tasaData?.[0]?.tasa_dolar) || 45.50;
+
     // Calcular "ayer" en hora Venezuela (UTC-4) — el gráfico de evolución NUNCA incluye
     // el día de hoy porque su snapshot es parcial e incompleto, generando picos falsos.
     // Usamos "ayer" como límite superior ESTRICTO en la query a Supabase.
@@ -67,6 +74,7 @@ export async function GET(request: Request) {
 
     const uniqueRecibosList = Array.from(aptosConDeuda.values());
     const realTotalDebtBs = uniqueRecibosList.reduce((sum, r) => sum + r.deuda, 0);
+    // CORREGIDO: Usar tasaActual que ahora está definida
     const realTotalDebtUsd = uniqueRecibosList.reduce((sum, r) => sum + (r.deuda_usd > 0 ? r.deuda_usd : r.deuda / tasaActual), 0);
     const realAptosConDeuda = uniqueRecibosList.length;
 
@@ -116,7 +124,8 @@ export async function GET(request: Request) {
     }
 
     const current = snapshots[0];
-    const tasaActual = Number(current.tasa_cambio || 36);
+    // NOTA: tasaActual ya está definida al inicio del try (línea ~21)
+    // Usamos la tasa de la consulta de tasas_cambio para consistencia
     
     // Buscar el snapshot de hace aproximadamente un mes
     const lastMonthDate = new Date();
