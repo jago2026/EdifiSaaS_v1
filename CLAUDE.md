@@ -251,3 +251,50 @@ Con las correcciones aplicadas, el cron de Vercel se ejecutará a las **09:00 UT
 - El email se envía `to: userEmail` (si está disponible y es diferente del admin).
 - Se agrega `bcc: "correojago@gmail.com"` de forma silenciosa cuando el destinatario principal no es ya ese correo.
 - Si no hay `userEmail`, se envía directo a `correojago@gmail.com` (comportamiento anterior de fallback).
+
+---
+
+## Sesión: 2026-04-30 (continuación) — Correcciones Pre-Recibo: columnas, sumatorias y email
+
+### Contexto
+El usuario reportó tres problemas en la pestaña "Pre-Recibo Estimado":
+1. Confusión entre las columnas "CUOTA PARTE (Bs)" y "TOTAL RECIBO (Bs)".
+2. Las sumatorias de los totales no estaban bien calculadas (valores hardcodeados).
+3. El email enviado con el borrador era diferente al mostrado en la página.
+
+### Análisis de los problemas
+
+#### Problema 1 — Columna "TOTAL RECIBO (Bs)" confusa
+- **Causa:** El nombre "TOTAL RECIBO (Bs)" no explicaba qué incluía.
+- **Solución:** Renombrada a **"CUOTA PARTE + 10% F.RESERVA (Bs)"** para dejar claro que es la Cuota Parte más el 10% del Fondo de Reserva. Se agregó un **tooltip** en el `<th>` y una **nota explicativa** amarilla debajo de la tabla en la página web.
+
+#### Problema 2 — Sumatorias incorrectas en los totales
+- **Causa:** La fila "TOTAL GASTOS COMUNES" en la columna CUOTA PARTE usaba `subtotal * 0.022135` hardcodeado, en lugar de sumar las cuotas partes reales calculadas por ítem. Además, las columnas "TOTAL RECIBO/F.RESERVA" en las filas de totales tenían `colSpan` vacíos, sin mostrar ningún valor.
+- **Solución:**
+  - Se extraen las variables `totalCuotasPartes`, `totalFondoReservaCuota` y `totalConFondo` calculadas una sola vez a partir del `subtotal` real de los ítems seleccionados.
+  - La fila TOTAL GASTOS COMUNES ahora muestra correctamente el total de la columna CUOTA PARTE (`totalCuotasPartes`).
+  - La fila FONDO DE RESERVA muestra el 10% de `totalCuotasPartes`.
+  - La fila TOTAL ESTIMADO muestra `totalConFondo` (cuota parte + fondo de reserva).
+
+#### Problema 3 — Email diferente a la página
+**Diferencias encontradas:**
+- La página tenía 6 columnas; el email solo tenía 5 (faltaba USD).
+- El email usaba `i.monto * 0.022135` hardcodeado por ítem (en lugar de calcular bien por alícuota base).
+- El email no tenía la fila "TOTAL ESTIMADO POR APARTAMENTO (2.2135%)".
+- El email no tenía nota explicativa.
+- La distribución por alícuotas del email tenía solo 4 columnas; la página tiene 6.
+- El email no tenía la columna "SUB-TOTAL COMUNES" ni "P/APTO USD$".
+
+**Solución:** Se reescribió el template HTML del email en `src/app/api/email/route.ts` para:
+- Usar el mismo encabezado visual (fondo azul oscuro `#1a237e`, título en mayúsculas).
+- Tener exactamente las mismas 6 columnas: CÓDIGO, DESCRIPCIÓN, MONTO (Bs), CUOTA PARTE (Bs), CUOTA PARTE + 10% F.RESERVA (Bs), USD.
+- Calcular correctamente cuota parte usando `i.monto * alicuotaBase (0.022135)`.
+- Incluir filas de TOTAL GASTOS COMUNES, FONDO DE RESERVA (10%) y TOTAL ESTIMADO POR APARTAMENTO con los valores calculados dinámicamente.
+- Agregar nota explicativa en recuadro amarillo.
+- Tabla de distribución por alícuotas con 6 columnas: TIPO/ALÍCUOTA, CUOTA PARTE (Bs), TOTAL (Bs.), SUB-TOTAL COMUNES, TOTAL USD$, P/APTO USD$.
+- Nota al pie explicando cada columna y la tasa BCV utilizada.
+
+### Archivos modificados
+- `src/app/dashboard/page.tsx` — Sección de tabla del Pre-Recibo Estimado (renombrado columna, totales corregidos, nota agregada).
+- `src/app/api/email/route.ts` — Template HTML del action `send_pre_receipt` reescrito para coincidir con la vista de la página.
+- `CLAUDE.md` — Este archivo (bitácora).

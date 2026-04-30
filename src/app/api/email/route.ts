@@ -227,26 +227,45 @@ export async function POST(request: Request) {
       const { mes, items, totalGastosComunes, alicuotas: dist, tasaDolar } = payload;
       
       const format = (n: number) => formatNumber(n, 2);
-      const formatUsd = (n: number) => formatNumber(n, 2);
+      const formatUsdLocal = (n: number) => formatNumber(n, 2);
+      // Alícuota de referencia base para el detalle de filas (2.2135%)
+      const alicuotaBase = 0.022135;
+      const totalCuotasPartes = totalGastosComunes * alicuotaBase;
+      const totalFondoReservaCuota = totalCuotasPartes * 0.10;
+      const totalConFondo = totalCuotasPartes + totalFondoReservaCuota;
 
-      let rowsHtml = items.map((i: any) => `
+      let rowsHtml = items.map((i: any) => {
+        const cuotaParte = i.monto * alicuotaBase;
+        const totalConFondoItem = cuotaParte * 1.10;
+        const usdItem = totalConFondoItem / (tasaDolar || 45);
+        return `
         <tr>
-          <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">${i.codigo}</td>
-          <td style="border: 1px solid #ddd; padding: 8px;">${i.descripcion}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${format(i.monto)}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #666;">${format(i.monto * 0.022135)}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${format((i.monto * 0.022135) * 1.10)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 11px;">${i.codigo}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; font-size: 11px;">${i.descripcion}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-family: monospace;">${format(i.monto)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #666; font-family: monospace;">${format(cuotaParte)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; color: #3730a3; font-family: monospace;">${format(totalConFondoItem)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #2e7d32; font-family: monospace;">$${formatUsdLocal(usdItem)}</td>
         </tr>
-      `).join('');
+      `}).join('');
 
-      let alicuotasHtml = dist.map((g: any) => `
+      let alicuotasHtml = dist.map((g: any) => {
+        const cpUnit = totalGastosComunes * (g.alicuota / 100);
+        const totalBsUnit = cpUnit * 1.10;
+        const subTotalComunes = cpUnit * g.count;
+        const totalBsGrupo = totalBsUnit * g.count;
+        const totalUsdGrupo = totalBsGrupo / (tasaDolar || 45);
+        const usdPorApto = totalBsUnit / (tasaDolar || 45);
+        return `
         <tr>
-          <td style="border-bottom: 1px solid #eee; padding: 6px;">(${g.count}) ${formatNumber(g.alicuota, 7)}%</td>
-          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right;">${format(totalGastosComunes * (g.alicuota/100))}</td>
-          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-weight: bold;">${format((totalGastosComunes * (g.alicuota/100)) * 1.10)}</td>
-          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #2e7d32;">$${formatUsd(((totalGastosComunes * (g.alicuota/100)) * 1.10) / (tasaDolar || 45))}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; font-weight: bold; color: #3730a3;">(${g.count}) ${formatNumber(g.alicuota, 7)}%</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-family: monospace;">${format(cpUnit)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-weight: bold; font-family: monospace;">${format(totalBsUnit)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #666; font-family: monospace;">${format(subTotalComunes)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #2e7d32; font-family: monospace;">$${formatUsdLocal(totalUsdGrupo)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #1a237e; font-weight: bold; font-family: monospace;">$${formatUsdLocal(usdPorApto)}</td>
         </tr>
-      `).join('');
+      `}).join('');
 
       // Configurar destinatarios
       let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
@@ -266,53 +285,75 @@ export async function POST(request: Request) {
         to: recipients,
         subject: `Borrador Recibo Estimado - ${edificio.nombre} - ${mes}`,
         html: `
-          <div style="font-family: sans-serif; color: #333; max-width: 800px; margin: 0 auto;">
-            <h2 style="text-align: center; color: #1a73e8; text-transform: uppercase;">Borrador Recibo Estimado (Referencial)</h2>
-            <p style="text-align: center; font-weight: bold;">Período: ${mes} | Edificio: ${edificio.nombre}</p>
+          <div style="font-family: sans-serif; color: #333; max-width: 900px; margin: 0 auto;">
+            <div style="background: #1a237e; color: white; padding: 20px 24px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h2 style="margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">PRE-RECIBO DE CONDOMINIO ESTIMADO (E)</h2>
+              <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.85;">Período: ${mes} | Edificio: ${edificio.nombre}</p>
+            </div>
             
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px;">
-              <thead>
-                <tr style="background: #f8f9fa;">
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">CÓDIGO</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">DESCRIPCIÓN</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">MONTO (Bs)</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">CUOTA PARTE (Bs)</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">TOTAL RECIBO (Bs)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rowsHtml}
-                <tr style="background: #f1f3f4; font-weight: bold;">
-                  <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right;">TOTAL GASTOS COMUNES:</td>
-                  <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${format(totalGastosComunes)}</td>
-                  <td colspan="2" style="border: 1px solid #ddd;"></td>
-                </tr>
-                <tr style="background: #e8f0fe; font-weight: bold;">
-                  <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right;">FONDO DE RESERVA (10%):</td>
-                  <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${format(totalGastosComunes * 0.10)}</td>
-                  <td colspan="2" style="border: 1px solid #ddd;"></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-              <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase;">Distribución por Alícuotas</h3>
-              <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+            <div style="padding: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse; margin: 0 0 4px; font-size: 11px;">
                 <thead>
-                  <tr style="border-bottom: 2px solid #ccc;">
-                    <th style="text-align: left; padding: 5px;">TIPO / %</th>
-                    <th style="text-align: right; padding: 5px;">CUOTA PARTE (Bs)</th>
-                    <th style="text-align: right; padding: 5px;">TOTAL (Bs.)</th>
-                    <th style="text-align: right; padding: 5px;">TOTAL USD ($)</th>
+                  <tr style="background: #f1f3f4;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; text-transform: uppercase; font-size: 10px;">CÓDIGO</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; text-transform: uppercase; font-size: 10px;">DESCRIPCIÓN</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">MONTO (Bs)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">CUOTA PARTE (Bs)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">CUOTA PARTE + 10% F.RESERVA (Bs)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">USD</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${alicuotasHtml}
+                  ${rowsHtml}
+                  <tr style="background: #f1f3f4; font-weight: bold;">
+                    <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right; text-transform: uppercase; font-size: 10px;">TOTAL GASTOS COMUNES:</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace;">${format(totalGastosComunes)}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace; color: #666;">${format(totalCuotasPartes)}</td>
+                    <td style="border: 1px solid #ddd;"></td>
+                    <td style="border: 1px solid #ddd;"></td>
+                  </tr>
+                  <tr style="background: #e8f0fe; font-weight: bold;">
+                    <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right; text-transform: uppercase; font-size: 10px;">FONDO DE RESERVA (10%):</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace;">${format(totalGastosComunes * 0.10)}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace; color: #666;">${format(totalFondoReservaCuota)}</td>
+                    <td style="border: 1px solid #ddd;"></td>
+                    <td style="border: 1px solid #ddd;"></td>
+                  </tr>
+                  <tr style="background: #1a237e; color: white;">
+                    <td colspan="4" style="padding: 12px 16px; text-align: right; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">TOTAL ESTIMADO POR APARTAMENTO (2.2135%):</td>
+                    <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-family: monospace; font-size: 13px;">Bs. ${format(totalConFondo)}</td>
+                    <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-family: monospace; font-size: 13px; color: #a5f3a5;">USD $${formatUsdLocal(totalConFondo / (tasaDolar || 45))}</td>
+                  </tr>
                 </tbody>
               </table>
-              <p style="font-size: 10px; color: #666; margin-top: 15px; font-style: italic;">
-                * Valores calculados con Tasa BCV: ${format(tasaDolar)} Bs/USD.
-              </p>
+
+              <!-- Nota explicativa -->
+              <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 10px 14px; margin: 8px 0 20px; font-size: 10px; color: #78350f; line-height: 1.5;">
+                <strong>📌 NOTA:</strong> La columna <strong>"CUOTA PARTE (Bs)"</strong> es el monto que corresponde al apartamento según su alícuota de participación en los gastos comunes, sin incluir el Fondo de Reserva. La columna <strong>"CUOTA PARTE + 10% F.RESERVA (Bs)"</strong> es el total a facturar en el recibo, e incluye el 10% de Fondo de Reserva aplicado sobre la cuota parte. Los valores de este detalle corresponden a la alícuota base de referencia (2.2135%). Ver tabla inferior para el detalle exacto por tipo de apartamento.
+              </div>
+
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                <h3 style="margin-top: 0; font-size: 13px; text-transform: uppercase; color: #1a237e;">CÁLCULOS ADICIONALES POR TIPO DE APARTAMENTO</h3>
+                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                      <th style="text-align: left; padding: 6px; text-transform: uppercase; font-size: 10px;">TIPO / ALÍCUOTA</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">CUOTA PARTE (Bs)</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">TOTAL (Bs.)</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">SUB-TOTAL COMUNES</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">TOTAL USD$</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">P/APTO USD$</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${alicuotasHtml}
+                  </tbody>
+                </table>
+                <p style="font-size: 10px; color: #666; margin-top: 12px; font-style: italic;">
+                  * <strong>CUOTA PARTE (Bs)</strong>: monto del apartamento según alícuota (sin fondo de reserva). <strong>TOTAL (Bs.)</strong>: cuota parte + 10% fondo de reserva (total a facturar por apartamento). <strong>SUB-TOTAL COMUNES</strong>: suma de cuotas partes de todos los apartamentos del mismo tipo. <strong>P/APTO USD$</strong>: total por apartamento en dólares.<br>
+                  * Tasa BCV utilizada: ${format(tasaDolar)} Bs/USD.
+                </p>
+              </div>
             </div>
           </div>
         `

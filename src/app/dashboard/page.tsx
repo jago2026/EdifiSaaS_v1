@@ -5356,14 +5356,14 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Tabla de Detalle */}
-                      <table className="w-full text-xs mb-8">
+                      <table className="w-full text-xs mb-2">
                         <thead className="bg-gray-100 text-gray-600">
                           <tr>
                             <th className="py-2 px-3 text-left font-black border uppercase">CÓDIGO</th>
                             <th className="py-2 px-3 text-left font-black border uppercase">DESCRIPCIÓN</th>
                             <th className="py-2 px-3 text-right font-black border uppercase">MONTO (Bs)</th>
                             <th className="py-2 px-3 text-right font-black border uppercase">CUOTA PARTE (Bs)</th>
-                            <th className="py-2 px-3 text-right font-black border uppercase">TOTAL RECIBO (Bs)</th>
+                            <th className="py-2 px-3 text-right font-black border uppercase" title="Cuota Parte + 10% Fondo de Reserva">CUOTA PARTE + 10% F.RESERVA (Bs)</th>
                             <th className="py-2 px-3 text-right font-black border uppercase">USD</th>
                           </tr>
                         </thead>
@@ -5371,12 +5371,16 @@ export default function DashboardPage() {
                           {(() => {
                             const selected = preReciboItems.filter(i => selectedPreReciboIds.has(i.id));
                             const subtotal = selected.reduce((sum, i) => sum + i.monto, 0);
+                            // Alícuota de referencia para la vista previa (alícuota base del edificio)
+                            const alicuotaRef = 2.2135;
+                            const totalCuotasPartes = subtotal * (alicuotaRef / 100);
+                            const totalFondoReservaCuota = totalCuotasPartes * 0.10;
+                            const totalConFondo = totalCuotasPartes + totalFondoReservaCuota;
+                            const tasa = tasaBCV.dolar || 45;
                             
                             return (
                               <>
                                 {selected.map((item, idx) => {
-                                  // Asumimos alícuota promedio 2.2135 para la vista previa de una unidad
-                                  const alicuotaRef = 2.2135; 
                                   const cuotaParte = item.monto * (alicuotaRef / 100);
                                   const fondoReserva = cuotaParte * 0.10;
                                   const totalItem = cuotaParte + fondoReserva;
@@ -5388,7 +5392,7 @@ export default function DashboardPage() {
                                       <td className="py-2 px-3 border text-right font-mono">{formatBs(item.monto)}</td>
                                       <td className="py-2 px-3 border text-right font-mono text-gray-400">{formatBs(cuotaParte)}</td>
                                       <td className="py-2 px-3 border text-right font-black text-indigo-700 font-mono">{formatBs(totalItem)}</td>
-                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / (tasaBCV.dolar || 45))}</td>
+                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / tasa)}</td>
                                     </tr>
                                   );
                                 })}
@@ -5397,25 +5401,31 @@ export default function DashboardPage() {
                                 <tr className="bg-gray-50">
                                   <td colSpan={2} className="py-3 px-3 border font-black text-right uppercase">TOTAL GASTOS COMUNES:</td>
                                   <td className="py-3 px-3 border text-right font-black font-mono text-base">{formatBs(subtotal)}</td>
-                                  <td className="py-3 px-3 border text-right font-bold text-gray-400 font-mono">{formatBs(subtotal * 0.022135)}</td>
-                                  <td colSpan={2} className="border"></td>
+                                  <td className="py-3 px-3 border text-right font-bold text-gray-500 font-mono">{formatBs(totalCuotasPartes)}</td>
+                                  <td className="border"></td>
+                                  <td className="border"></td>
                                 </tr>
                                 <tr className="bg-indigo-50/50">
                                   <td colSpan={2} className="py-3 px-3 border font-black text-right uppercase">FONDO DE RESERVA (10%):</td>
                                   <td className="py-3 px-3 border text-right font-black font-mono">{formatBs(subtotal * 0.10)}</td>
-                                  <td className="py-3 px-3 border text-right font-bold text-gray-400 font-mono">{formatBs((subtotal * 0.022135) * 0.10)}</td>
-                                  <td colSpan={2} className="border"></td>
+                                  <td className="py-3 px-3 border text-right font-bold text-gray-500 font-mono">{formatBs(totalFondoReservaCuota)}</td>
+                                  <td className="border"></td>
+                                  <td className="border"></td>
                                 </tr>
                                 <tr className="bg-indigo-900 text-white">
                                   <td colSpan={4} className="py-4 px-6 border-none font-black text-right uppercase tracking-widest text-sm">TOTAL ESTIMADO POR APARTAMENTO (2.2135%):</td>
-                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono">Bs. {formatBs((subtotal * 0.022135) * 1.10)}</td>
-                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(((subtotal * 0.022135) * 1.10) / (tasaBCV.dolar || 45))}</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono">Bs. {formatBs(totalConFondo)}</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(totalConFondo / tasa)}</td>
                                 </tr>
                               </>
                             );
                           })()}
                         </tbody>
                       </table>
+                      {/* Nota explicativa de columnas */}
+                      <div className="mb-6 px-2 py-3 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 font-bold leading-relaxed">
+                        <span className="font-black uppercase">📌 Nota:</span> La columna <span className="font-black">"CUOTA PARTE (Bs)"</span> representa el monto que corresponde al apartamento según su alícuota (% de participación en los gastos comunes), sin incluir el Fondo de Reserva. La columna <span className="font-black">"CUOTA PARTE + 10% F.RESERVA (Bs)"</span> es el total a facturar en el recibo, incluyendo el 10% de Fondo de Reserva aplicado sobre la cuota parte. Los valores mostrados corresponden a la alícuota de referencia base de 2.2135%. Ver tabla inferior para detalle por tipo de apartamento.
+                      </div>
 
                       {/* Desglose por Alícuotas */}
                       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
