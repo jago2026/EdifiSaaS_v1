@@ -120,13 +120,16 @@ export async function GET(request: Request) {
     const { data: hcRows } = await supabase
       .from("historico_cobranza")
       .select(
-        "fecha, aptos_pendientes_total, monto_pendiente_total, pct_pendiente, tasa_cambio, " +
+        "fecha, aptos_pendientes_total, monto_pendiente_total, monto_pendiente_total_usd, pct_pendiente, tasa_cambio, " +
         "aptos_1_recibo, aptos_2_recibo, aptos_3_recibo, aptos_4_recibo, aptos_5_recibo, " +
         "aptos_6_recibo, aptos_7_recibo, aptos_8_recibo, aptos_9_recibo, aptos_10_recibo, " +
         "aptos_11_recibo, aptos_12_mas_recibo, " +
         "monto_1_recibo, monto_2_recibo, monto_3_recibo, monto_4_recibo, monto_5_recibo, " +
         "monto_6_recibo, monto_7_recibo, monto_8_recibo, monto_9_recibo, monto_10_recibo, " +
-        "monto_11_recibo, monto_12_mas_recibo"
+        "monto_11_recibo, monto_12_mas_recibo, " +
+        "monto_1_recibo_usd, monto_2_recibo_usd, monto_3_recibo_usd, monto_4_recibo_usd, monto_5_recibo_usd, " +
+        "monto_6_recibo_usd, monto_7_recibo_usd, monto_8_recibo_usd, monto_9_recibo_usd, monto_10_recibo_usd, " +
+        "monto_11_recibo_usd, monto_12_mas_recibo_usd, monto_pagado_hoy, monto_pagado_hoy_usd"
       )
       .eq("edificio_id", edificioId)
       .gte("fecha", sinceHCStr)
@@ -170,17 +173,33 @@ export async function GET(request: Request) {
         const total      = Number(r.aptos_pendientes_total) || 0;
         const tasa       = Number(r.tasa_cambio) || 1;
 
-        // Para el mes actual, usar el valor calculado directamente desde la tabla recibos
-        // Para meses anteriores, usar la lógica original con conversión
+        // Calcular montoUsd y montoSum usando los campos USD directamente
+        // Ahora que la tabla tiene campos *_usd, los usamos directamente
         let montoUsd: number;
         let montoSum: number;
 
+        // Intentar usar los campos USD directamente (después de ejecutar fill-usd-fields)
+        const rawMontoTotalUsd = Number(r.monto_pendiente_total_usd) || 0;
+        const rawBucketsUsd = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo_usd`]) || 0), 0)
+                            + (Number(r.monto_12_mas_recibo_usd) || 0);
+
+        // Verificar si los campos USD están poblados (valores > 0)
+        const usdFieldsPoblados = rawMontoTotalUsd > 0 || rawBucketsUsd > 0;
+
         if (ym === currentMonthStr) {
-          // Mes actual: usar el total real calculado desde recibos
+          // Mes actual: usar el total real calculado desde recibos (fuente más actualizada)
           montoUsd = Number(realTotalDebtUsd.toFixed(0));
+          // Para montoSum usar los buckets USD
+          montoSum = rawBucketsUsd > 0 ? rawBucketsUsd : [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => {
+            const val = Number(r[`monto_${i}_recibo`]) || 0;
+            return s + (val / tasa);
+          }, 0) + (Number(r.monto_12_mas_recibo) || 0) / tasa;
+        } else if (usdFieldsPoblados) {
+          // Meses anteriores con campos USD ya calculados: usar directamente
+          montoUsd = rawMontoTotalUsd;
+          montoSum = rawBucketsUsd;
         } else {
-          // Meses anteriores: usar suma de buckets verificados (más confiable)
-          // Verificar cada bucket individualmente para detectar si está en Bs.
+          // Fallback: calcular desde campos Bs (para datos históricos sin actualizar)
           const estaEnBs = (valor: number, t: number) => {
             if (valor <= 1000) return false;
             if (t <= 1) return false;
@@ -195,22 +214,8 @@ export async function GET(request: Request) {
             ? (Number(r.monto_12_mas_recibo) || 0) / tasa
             : (Number(r.monto_12_mas_recibo) || 0);
           montoUsd = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
+          montoSum = montoUsd;
         }
-
-        // montoSum = suma de buckets (misma lógica para todos los meses)
-        const estaEnBsSum = (valor: number, t: number) => {
-          if (valor <= 1000) return false;
-          if (t <= 1) return false;
-          return (valor / t) > 1000;
-        };
-        const bucketsParaSum = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
-          const val = Number(r[`monto_${i}_recibo`]) || 0;
-          return estaEnBsSum(val, tasa) ? val / tasa : val;
-        });
-        const bucket12masParaSum = estaEnBsSum(Number(r.monto_12_mas_recibo) || 0, tasa)
-          ? (Number(r.monto_12_mas_recibo) || 0) / tasa
-          : (Number(r.monto_12_mas_recibo) || 0);
-        montoSum = bucketsParaSum.reduce((s, v) => s + v, 0) + bucket12masParaSum;
 
         const pct        = Number(r.pct_pendiente) || 0;
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
