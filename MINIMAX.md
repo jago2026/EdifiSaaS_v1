@@ -3,6 +3,61 @@
 
 ---
 
+## Fecha: 1 de Mayo, 2026 (Anexo 2)
+
+### Problema CRÍTICO: Deuda Total Mostrando Valor Incorrecto (>12 mil dólares)
+
+El valor "$12,643" seguía siendo incorrecto después de las correcciones anteriores. La raíz del problema:
+
+**El cálculo en `sync/route.ts` SUMABA TODOS los meses** de la tabla `recibos`, no solo el mes actual.
+
+### Análisis Detallado
+
+1. **En sync/route.ts (antes)**:
+   - La query NO filtraba por mes: `.eq("edificio_id", building.id).gt("deuda", 0)`
+   - Esto traía TODOS los recibos con deuda pendiente de CUALQUIER mes
+   - Si un apartamento tiene deuda de 3 meses, se sumaba 3 veces
+
+2. **En /api/recibos (correcto)**:
+   - La query SÍ filtra por mes: `.eq("mes", todayMes)` (mes actual)
+   - Solo muestra deudas del mes actual
+
+3. **En RecibosTab.tsx**:
+   - Usa datos de `/api/recibos` → Solo mes actual
+   - Total: **correcto**
+
+4. **En IndicadoresCaja.tsx**:
+   - Usa datos de `historico_cobranza` → Sync de sync/route.ts → Todos los meses
+   - Total: **INCORRECTO** (suma de TODOS los meses)
+
+### Solución Aplicada
+
+Agregar filtro `.eq("mes", currentMes)` en sync/route.ts para que solo procese deudas del mes actual:
+
+```typescript
+// ANTES (incorrecto - todos los meses):
+const { data: recs } = await supabase.from("recibos")
+  .select("unidad, deuda, num_recibos")
+  .eq("edificio_id", building.id)
+  .gt("deuda", 0);
+
+// DESPUÉS (correcto - solo mes actual):
+const currentMes = today.substring(0, 7);
+const { data: recs } = await supabase.from("recibos")
+  .select("unidad, deuda, num_recibos, mes")
+  .eq("edificio_id", building.id)
+  .gt("deuda", 0)
+  .eq("mes", currentMes);
+```
+
+### Commit Realizado
+```
+Fix: Corregir cálculo monto adeudado - filtrar solo mes actual
+1 file changed, 9 insertions(+), 2 deletions(-)
+```
+
+---
+
 ## Fecha: 1 de Mayo, 2026
 
 ### Objetivo
