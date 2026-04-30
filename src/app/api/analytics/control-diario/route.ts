@@ -133,6 +133,25 @@ export async function GET(request: Request) {
       .lte("fecha", todayStr)
       .order("fecha", { ascending: true });
 
+    // Obtener el mes actual para calcular el monto real desde la tabla recibos
+    const currentMonthStr = todayStr.substring(0, 7);
+
+    // Consultar recibos del mes actual directamente para obtener el total real de deuda
+    const { data: recibosData } = await supabase
+      .from("recibos")
+      .select("deuda, deuda_usd")
+      .eq("edificio_id", edificioId)
+      .eq("mes", currentMonthStr)
+      .gt("deuda", 0);
+
+    // Calcular el monto real en USD directamente desde recibos
+    const realTotalDebtUsd = (recibosData || []).reduce((sum, r: any) => {
+      const deudaUsd = Number(r.deuda_usd) || 0;
+      const deudaBs = Number(r.deuda) || 0;
+      // Usar deuda_usd si existe, sino convertir desde Bs usando la tasa actual
+      return sum + (deudaUsd > 0 ? deudaUsd : deudaBs / tasaActual);
+    }, 0);
+
     // Tomar el último snapshot de cada mes
     const lastPerMonth: Record<string, any> = {};
     for (const r of (hcRows || [])) {
@@ -142,7 +161,7 @@ export async function GET(request: Request) {
 
     const perfilMorosidad = Object.entries(lastPerMonth)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([ym, r]) => {
+      .map(([ym, r], index) => {
         const aptos1     = Number(r.aptos_1_recibo) || 0;
         const aptos2     = Number(r.aptos_2_recibo) || 0;
         const aptos3     = Number(r.aptos_3_recibo) || 0;
@@ -150,50 +169,55 @@ export async function GET(request: Request) {
         const aptos7mas  = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
         const total      = Number(r.aptos_pendientes_total) || 0;
         const tasa       = Number(r.tasa_cambio) || 1;
-        // Auto-detectar si los montos están en Bs. (valores > 1000 típicamente están en Bs.)
-        // Los datos históricos anteriores a la corrección del 1 Mayo 2026 tienen este bug
-        const rawMontoTotal = Number(r.monto_pendiente_total) || 0;
-        const rawMontoBuckets = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
-                             + (Number(r.monto_12_mas_recibo) || 0);
 
-        // Determinar si los datos están en Bs. o USD basado en la RELACIÓN entre monto_total y suma de buckets:
-        // - Si la suma de buckets es > 0 y el ratio monto_total / monto_sum es muy diferente de 1,
-        //   significa que el monto_total está en una moneda diferente (probablemente Bs.)
-        // - Un ratio < 0.1 o > 10 indica monedas diferentes
-        // - El umbral de 1000 aún se mantiene como fallback adicional
+        // Para el mes actual, usar el valor calculado directamente desde la tabla recibos
+        // Para meses anteriores, usar la lógica original con conversión
         let montoUsd: number;
         let montoSum: number;
 
-        // Función helper para determinar si un valor está en Bs.
-        // Valores > 1000 que al dividir por la tasa siguen siendo > 1000 están en Bs.
-        const valorEstaEnBs = (valor: number, t: number) => {
-          if (valor <= 1000) return false;
-          if (t <= 1) return false;
-          const enUsd = valor / t;
-          return enUsd > 1000; // Si al convertir a USD sigue siendo > 1000, está en Bs.
-        };
-
-        // Convertir monto_total a USD si está en Bs.
-        if (valorEstaEnBs(rawMontoTotal, tasa)) {
-          montoUsd = rawMontoTotal / tasa;
+        if (ym === currentMonthStr) {
+          // Mes actual: usar el total real calculado desde recibos
+          montoUsd = Number(realTotalDebtUsd.toFixed(0));
+          // Para montoSum (suma de buckets), también calcular correctamente
+          const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
+            const val = Number(r[`monto_${i}_recibo`]) || 0;
+            const enUsd = val / tasa;
+            return enUsd > 1000 ? val / tasa : val; // Si estaba en Bs, convertir
+          });
+          const bucket12mas = (() => {
+            const val = Number(r.monto_12_mas_recibo) || 0;
+            const enUsd = val / tasa;
+            return enUsd > 1000 ? val / tasa : val;
+          })();
+          montoSum = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
         } else {
-          montoUsd = rawMontoTotal;
+          // Meses anteriores: usar lógica original
+          const rawMontoTotal = Number(r.monto_pendiente_total) || 0;
+          const rawMontoBuckets = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo`]) || 0), 0)
+                               + (Number(r.monto_12_mas_recibo) || 0);
+
+          const estaEnBs = (valor: number, t: number) => {
+            if (valor <= 1000) return false;
+            if (t <= 1) return false;
+            const enUsd = valor / t;
+            return enUsd > 1000;
+          };
+
+          montoUsd = estaEnBs(rawMontoTotal, tasa) ? rawMontoTotal / tasa : rawMontoTotal;
+
+          const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
+            const val = Number(r[`monto_${i}_recibo`]) || 0;
+            return estaEnBs(val, tasa) ? val / tasa : val;
+          });
+          const bucket12mas = estaEnBs(Number(r.monto_12_mas_recibo) || 0, tasa)
+            ? (Number(r.monto_12_mas_recibo) || 0) / tasa
+            : (Number(r.monto_12_mas_recibo) || 0);
+          montoSum = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
         }
 
-        // Convertir cada bucket a USD si está en Bs., luego sumarlos
-        const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
-          const val = Number(r[`monto_${i}_recibo`]) || 0;
-          return valorEstaEnBs(val, tasa) ? val / tasa : val;
-        });
-        const bucket12mas = valorEstaEnBs(Number(r.monto_12_mas_recibo) || 0, tasa)
-          ? (Number(r.monto_12_mas_recibo) || 0) / tasa
-          : (Number(r.monto_12_mas_recibo) || 0);
-        montoSum = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
         const pct        = Number(r.pct_pendiente) || 0;
-        // % de aptos con 2+ cuotas sobre total con deuda
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
         const pct2mas    = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
-        // Mes legible: "Ene 25"
         const [y, m] = ym.split("-");
         const meses  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
         const label  = `${meses[parseInt(m, 10) - 1]} ${y.substring(2)}`;
