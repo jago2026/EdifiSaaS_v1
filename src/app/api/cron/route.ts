@@ -1,4 +1,4 @@
-// CRON EXECUTOR - EdifiSaaS v1.0.2 (Claude fix: timing, logging, diagnostics)
+// CRON EXECUTOR - EdifiSaaS v1.0.3 (Claude fix: status filter, demo skip, login diagnostics)
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { POST as syncPOST } from "../sync/route";
@@ -9,6 +9,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 const ADMIN_EMAIL = "correojago@gmail.com";
+const DEMO_EDIFICIO_ID = "d0000000-0000-0000-0000-000000000001";
+
+// Estados que permiten ejecución del cron diario
+const ESTADOS_ACTIVOS = ["Activo", "Prueba"];
 
 async function logSincronizacion(supabase: any, edificioId: string, tipo: string, estado: string, movimientosNuevos: number = 0, error: string | null = null, detalles: any = null) {
   try {
@@ -39,7 +43,6 @@ async function logAlerta(supabase: any, edificioId: string, tipo: string, titulo
     });
     if (insertErr) {
       console.error("[CRON][logAlerta] Error al insertar alerta en BD:", JSON.stringify(insertErr));
-      console.error("[CRON][logAlerta] Datos que intentó insertar:", { edificioId, tipo, titulo, descripcion });
     } else {
       console.log(`[CRON][logAlerta] ✅ Alerta registrada OK: [${tipo}] ${titulo}`);
     }
@@ -51,21 +54,18 @@ async function logAlerta(supabase: any, edificioId: string, tipo: string, titulo
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const force = searchParams.get('force') === 'true';
-  
+
   const authHeader = request.headers.get('authorization');
   if (!force && process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    console.error("[CRON] ❌ Unauthorized: authHeader no coincide con CRON_SECRET.");
+    console.error("[CRON] Unauthorized: authHeader no coincide con CRON_SECRET.");
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  // ── Hora Venezuela (UTC-4, sin cambio de horario) ──────────────────────────
+  // Hora Venezuela (UTC-4, sin cambio de horario)
   const nowUTC = new Date();
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Caracas',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
   });
   const vetTimeParts = formatter.formatToParts(nowUTC);
   const vetH = vetTimeParts.find(p => p.type === 'hour')?.value ?? '00';
@@ -76,48 +76,43 @@ export async function GET(request: NextRequest) {
   const utcTimeStr = nowUTC.toISOString();
 
   console.log("==========================================================");
-  console.log(`[CRON] 🕐 Ejecución iniciada`);
-  console.log(`[CRON] UTC  : ${utcTimeStr}`);
-  console.log(`[CRON] VET  : ${currentFullTimeVET} (America/Caracas)`);
-  console.log(`[CRON] Modo : ${force ? '⚡ FORZADO (force=true)' : '⏱ PROGRAMADO (Vercel Cron)'}`);
-  console.log(`[CRON] CRON_SECRET configurado: ${process.env.CRON_SECRET ? 'SÍ' : 'NO (sin autenticación)'}`);
-  console.log(`[CRON] SUPABASE_URL: ${supabaseUrl.substring(0, 30)}...`);
+  console.log(`[CRON] Ejecucion iniciada | UTC: ${utcTimeStr} | VET: ${currentFullTimeVET}`);
+  console.log(`[CRON] Modo: ${force ? 'FORZADO' : 'PROGRAMADO'} | CRON_SECRET: ${process.env.CRON_SECRET ? 'SI' : 'NO'}`);
   console.log("==========================================================");
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const resultados = [];
+  const resultados: any[] = [];
 
   try {
     const { data: edificios, error: edErr } = await supabase
       .from("edificios")
-      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency");
+      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, status, url_login, admin_secret");
 
     if (edErr) {
-      console.error("[CRON] ❌ Error al obtener edificios de Supabase:", JSON.stringify(edErr));
+      console.error("[CRON] Error al obtener edificios de Supabase:", JSON.stringify(edErr));
       throw edErr;
     }
 
-    console.log(`[CRON] 🏢 Edificios encontrados en BD: ${edificios?.length || 0}`);
-    if (edificios && edificios.length > 0) {
+    console.log(`[CRON] Edificios en BD: ${edificios?.length || 0}`);
+    if (edificios) {
       edificios.forEach((e: any) => {
-        console.log(`[CRON]   → "${e.nombre}" | cron_enabled=${e.cron_enabled} | cron_time=${e.cron_time}`);
+        console.log(`[CRON]   "${e.nombre}" | status=${e.status || 'N/A'} | cron_enabled=${e.cron_enabled} | cron_time=${e.cron_time}`);
       });
     }
 
     if (!edificios || edificios.length === 0) {
-      console.log("[CRON] ⚠️ No se encontraron edificios para procesar.");
       return NextResponse.json({ success: true, message: "No buildings found" });
     }
 
-    // ── Servicios Públicos: solo a las 05:00 VET o si es forzado ──────────────
+    // Servicios Publicos: solo a las 05:00 VET o si es forzado
     if (force || currentHourVET === 5) {
-      console.log("[CRON] 🔌 Ejecutando Cron de Servicios Públicos...");
+      console.log("[CRON] Ejecutando Cron de Servicios Publicos...");
       try {
         const spReq = new NextRequest(new Request("http://localhost/api/servicios-publicos/cron"));
         await spCronGET(spReq);
-        console.log("[CRON] 🔌 Cron de Servicios Públicos completado OK.");
+        console.log("[CRON] Cron de Servicios Publicos completado OK.");
       } catch (spErr) {
-        console.error("[CRON] 🔌 Error en Cron de Servicios Públicos:", spErr);
+        console.error("[CRON] Error en Cron de Servicios Publicos:", spErr);
       }
     }
 
@@ -125,40 +120,59 @@ export async function GET(request: NextRequest) {
       const edificioId = edificio.id;
       const cronTime = edificio.cron_time || "05:00";
       const configHour = parseInt(cronTime.split(":")[0], 10);
+      const estadoEdificio = edificio.status || "Prueba";
 
       console.log("----------------------------------------------------------");
-      console.log(`[CRON] 🏢 Procesando: "${edificio.nombre}"`);
-      console.log(`[CRON]    cron_enabled  : ${edificio.cron_enabled}`);
-      console.log(`[CRON]    cron_time cfg : ${cronTime} VET (hora configurada: ${configHour})`);
-      console.log(`[CRON]    hora actual   : ${currentHourVET} VET (${currentFullTimeVET})`);
-      console.log(`[CRON]    force         : ${force}`);
+      console.log(`[CRON] "${edificio.nombre}" | status=${estadoEdificio} | cron_enabled=${edificio.cron_enabled} | hora_cfg=${configHour}h | hora_vet=${currentHourVET}h`);
 
+      // 1. Saltar edificio Demo
+      if (edificioId === DEMO_EDIFICIO_ID) {
+        console.log(`[CRON] SKIP "${edificio.nombre}" — es el edificio Demo (nunca sincroniza).`);
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "Demo building" });
+        continue;
+      }
+
+      // 2. Saltar edificios con estado no permitido (Suspendido, Inactivo, etc.)
+      if (!ESTADOS_ACTIVOS.includes(estadoEdificio)) {
+        console.log(`[CRON] SKIP "${edificio.nombre}" — estado "${estadoEdificio}" no permite cron (solo Activo/Prueba).`);
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Estado: ${estadoEdificio}` });
+        continue;
+      }
+
+      // 3. Cron desactivado en el edificio
       if (!edificio.cron_enabled) {
-        const msg = `Cron DESACTIVADO para "${edificio.nombre}". Hora VET actual: ${currentFullTimeVET}. Activa la automatización en Configuración para recibir informes diarios.`;
-        console.log(`[CRON] ⚠️ ${msg}`);
-        await logAlerta(supabase, edificioId, "warning", "⚠️ Cron Desactivado — Sin Ejecución",
-          `${msg} | UTC: ${utcTimeStr}`);
+        console.log(`[CRON] SKIP "${edificio.nombre}" — cron_enabled=false.`);
+        await logAlerta(supabase, edificioId, "warning", "Cron Desactivado",
+          `El envio automatico de informes esta desactivado para este edificio. Activalo en Configuracion para recibir el informe diario. VET: ${currentFullTimeVET}`);
         resultados.push({ edificio: edificio.nombre, status: "skipped", reason: "cron_enabled = false" });
         continue;
       }
 
+      // 4. Hora no coincide
       if (!force && currentHourVET !== configHour) {
-        const msg = `Hora no coincide para "${edificio.nombre}": hora VET actual=${currentHourVET}h, hora configurada=${configHour}h (${cronTime}). El cron se ejecutará automáticamente a las ${cronTime} VET (${configHour + 4}:00 UTC según schedule de Vercel).`;
-        console.log(`[CRON] ⏭ ${msg}`);
-        // Registrar skip detallado en alertas para diagnóstico (solo 1 vez por día)
-        await logAlerta(supabase, edificioId, "info", "⏭ Cron — Hora No Coincide (normal)",
-          `${msg} | Hora UTC actual: ${utcTimeStr} | Schedule Vercel: 0 9 * * * (09:00 UTC = 05:00 VET)`);
-        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (VET actual=${currentHourVET} != configurado=${configHour})` });
+        console.log(`[CRON] SKIP "${edificio.nombre}" — hora VET actual ${currentHourVET}h != hora configurada ${configHour}h.`);
+        resultados.push({ edificio: edificio.nombre, status: "skipped", reason: `Hora no coincide (${currentHourVET} != ${configHour})` });
         continue;
       }
 
-      console.log(`[CRON] 🚀 EJECUTANDO tareas para "${edificio.nombre}"...`);
-      await logAlerta(supabase, edificioId, "info", "🚀 Iniciando Cron Diario",
-        `Iniciando proceso automático. Hora VET: ${currentFullTimeVET} | UTC: ${utcTimeStr} | Modo: ${force ? 'Forzado' : 'Programado'}`);
+      // 5. Validacion previa de credenciales de login
+      if (!edificio.url_login || !edificio.admin_secret) {
+        const msg = `El edificio "${edificio.nombre}" no tiene URL de login o clave de administrador configurada. `
+          + `Sin estas credenciales no es posible sincronizar con el sistema externo de cobranza. `
+          + `Ve a Configuracion > Sincronizacion y verifica los datos del sistema externo. VET: ${currentFullTimeVET}`;
+        console.error(`[CRON] ERROR "${edificio.nombre}" — credenciales faltantes: url_login=${!!edificio.url_login} | admin_secret=${!!edificio.admin_secret}`);
+        await logAlerta(supabase, edificioId, "error", "Credenciales de Sincronizacion Faltantes", msg);
+        resultados.push({ edificio: edificio.nombre, status: "error", reason: "Sin credenciales de login" });
+        continue;
+      }
+
+      // EJECUTAR
+      console.log(`[CRON] EJECUTANDO sync + email para "${edificio.nombre}" (Estado: ${estadoEdificio})...`);
+      await logAlerta(supabase, edificioId, "info", "Iniciando Cron Diario",
+        `Proceso automatico iniciado. Estado edificio: ${estadoEdificio} | VET: ${currentFullTimeVET} | UTC: ${utcTimeStr} | Modo: ${force ? 'Forzado' : 'Programado'}`);
 
       try {
-        // ── 1. Sincronización ────────────────────────────────────────────────
-        console.log(`[CRON] 🔄 [1/2] Ejecutando sync para "${edificio.nombre}"...`);
+        // 1. Sincronizacion
         await logSincronizacion(supabase, edificioId, "sync", "iniciando", 0, null,
           { fecha: utcTimeStr, mode: force ? "force" : "cron", vet_time: currentFullTimeVET });
 
@@ -172,30 +186,44 @@ export async function GET(request: NextRequest) {
         try {
           syncRes = await syncPOST(syncReq);
           syncData = await syncRes.json();
-          console.log(`[CRON] 🔄 Sync response status: ${syncRes.status} | ok: ${syncRes.ok}`);
-          console.log(`[CRON] 🔄 Sync data:`, JSON.stringify(syncData).substring(0, 300));
+          console.log(`[CRON] Sync response: HTTP ${syncRes.status} | data: ${JSON.stringify(syncData).substring(0, 200)}`);
         } catch (syncCallErr: any) {
-          const errMsg = `Excepción al llamar /api/sync: ${syncCallErr?.message || JSON.stringify(syncCallErr)}`;
-          console.error(`[CRON] ❌ ${errMsg}`);
+          const errMsg = `Excepcion al llamar /api/sync: ${syncCallErr?.message || JSON.stringify(syncCallErr)}`;
+          console.error(`[CRON] ${errMsg}`);
           await logSincronizacion(supabase, edificioId, "sync", "error", 0, errMsg);
-          await logAlerta(supabase, edificioId, "error", "❌ Error Crítico en Sync", errMsg);
+          await logAlerta(supabase, edificioId, "error", "Error en Sincronizacion", errMsg);
           throw new Error(errMsg);
         }
 
         if (!syncRes.ok) {
-          const errorMsg = `Sync falló (HTTP ${syncRes.status}): ${syncData?.error || JSON.stringify(syncData)}`;
-          console.error(`[CRON] ❌ ${errorMsg}`);
+          const rawError = syncData?.error || JSON.stringify(syncData);
+          let alertTitle = "Fallo en Sincronizacion";
+          let alertDesc = `Sync fallo (HTTP ${syncRes.status}): ${rawError} | VET: ${currentFullTimeVET}`;
+
+          // Diagnostico detallado para Fallo Login
+          if (rawError.toLowerCase().includes("login") || rawError.toLowerCase().includes("fallo login")) {
+            alertTitle = "Fallo de Login en Sistema de Cobranza";
+            alertDesc = `No se pudo autenticar en el sistema externo de cobranza. `
+              + `Posibles causas: (1) La URL de login configurada es incorrecta o el servidor externo no responde. `
+              + `(2) La clave de administrador ha cambiado o es incorrecta. `
+              + `(3) El sistema externo esta caido o en mantenimiento. `
+              + `URL login configurada: ${edificio.url_login} | `
+              + `ACCION REQUERIDA: Ve a Configuracion y verifica las credenciales del sistema externo de cobranza. `
+              + `VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`;
+          }
+
+          const errorMsg = `Sync fallo (HTTP ${syncRes.status}): ${rawError}`;
+          console.error(`[CRON] ${errorMsg}`);
           await logSincronizacion(supabase, edificioId, "sync", "error", 0, errorMsg, syncData);
-          await logAlerta(supabase, edificioId, "error", "❌ Fallo en Sincronización", errorMsg);
+          await logAlerta(supabase, edificioId, "error", alertTitle, alertDesc);
           throw new Error(errorMsg);
         }
 
         const syncMovimientos = syncData?.stats?.total || 0;
         await logSincronizacion(supabase, edificioId, "sync", "completado", syncMovimientos, null, syncData?.stats);
-        console.log(`[CRON] ✅ Sync OK para "${edificio.nombre}": ${syncMovimientos} movimientos nuevos.`);
+        console.log(`[CRON] Sync OK para "${edificio.nombre}": ${syncMovimientos} movimientos nuevos.`);
 
-        // ── 2. Envío de Email ─────────────────────────────────────────────────
-        console.log(`[CRON] 📧 [2/2] Enviando email para "${edificio.nombre}"...`);
+        // 2. Envio de Email
         await logSincronizacion(supabase, edificioId, "email_diario", "iniciando", 0, null,
           { vet_time: currentFullTimeVET, utc: utcTimeStr });
 
@@ -209,45 +237,37 @@ export async function GET(request: NextRequest) {
         try {
           emailRes = await emailPOST(emailReq);
           emailData = await emailRes.json();
-          console.log(`[CRON] 📧 Email response status: ${emailRes.status} | ok: ${emailRes.ok}`);
-          console.log(`[CRON] 📧 Email data:`, JSON.stringify(emailData).substring(0, 300));
+          console.log(`[CRON] Email response: HTTP ${emailRes.status} | data: ${JSON.stringify(emailData).substring(0, 200)}`);
         } catch (emailCallErr: any) {
-          const errMsg = `Excepción al llamar /api/email: ${emailCallErr?.message || JSON.stringify(emailCallErr)}`;
-          console.error(`[CRON] ❌ ${errMsg}`);
+          const errMsg = `Excepcion al llamar /api/email: ${emailCallErr?.message || JSON.stringify(emailCallErr)}`;
+          console.error(`[CRON] ${errMsg}`);
           await logSincronizacion(supabase, edificioId, "email_diario", "error", 0, errMsg);
-          await logAlerta(supabase, edificioId, "error", "❌ Error Crítico en Envío Email", errMsg);
+          await logAlerta(supabase, edificioId, "error", "Error Critico en Envio Email", errMsg);
           throw new Error(errMsg);
         }
 
         if (!emailRes.ok) {
-          const errorMsg = `Email falló (HTTP ${emailRes.status}): ${emailData?.error || JSON.stringify(emailData)}`;
-          console.error(`[CRON] ❌ ${errorMsg}`);
+          const errorMsg = `Email fallo (HTTP ${emailRes.status}): ${emailData?.error || JSON.stringify(emailData)}`;
+          console.error(`[CRON] ${errorMsg}`);
           await logSincronizacion(supabase, edificioId, "email_diario", "error", 0, errorMsg, emailData);
-          await logAlerta(supabase, edificioId, "error", "⚠️ Error en Envío de Email Diario",
-            `${errorMsg} | Verifica que email_junta esté configurado y que las credenciales SMTP sean válidas.`);
+          await logAlerta(supabase, edificioId, "error", "Error en Envio de Informe Diario",
+            `${errorMsg} | Verifica que haya miembros en la pestana Junta con email configurado. VET: ${currentFullTimeVET}`);
           throw new Error(errorMsg);
         }
 
         await logSincronizacion(supabase, edificioId, "email_diario", "completado", 0, null,
           { recipient: emailData?.recipient });
-        await logAlerta(supabase, edificioId, "success", "✅ Cron Completado Exitosamente",
-          `Sincronización: ${syncMovimientos} movimientos nuevos. Email enviado a: ${emailData?.recipient || '(sin destinatario)'} | VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`);
+        await logAlerta(supabase, edificioId, "success", "Cron Diario Completado Exitosamente",
+          `Sincronizacion: ${syncMovimientos} movimientos nuevos. Informe enviado a la Junta. VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`);
 
-        console.log(`[CRON] ✅ Email enviado para "${edificio.nombre}" a: ${emailData?.recipient}`);
-        resultados.push({
-          edificio: edificio.nombre,
-          status: "success",
-          syncMovimientos,
-          emailRecipient: emailData?.recipient
-        });
+        console.log(`[CRON] OK completado para "${edificio.nombre}".`);
+        resultados.push({ edificio: edificio.nombre, status: "success", syncMovimientos });
 
       } catch (err: any) {
         const errorDetail = err?.message || JSON.stringify(err);
-        console.error(`[CRON] 🚨 Error crítico para "${edificio.nombre}":`, errorDetail);
-        await logAlerta(supabase, edificioId, "error", "🚨 Error Crítico en Cron",
-          `Proceso falló para "${edificio.nombre}": ${errorDetail} | VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`);
+        console.error(`[CRON] ERROR CRITICO para "${edificio.nombre}":`, errorDetail);
 
-        // Notificar al admin
+        // Notificar al admin sin exponer detalles al usuario
         try {
           const adminEmailReq = new Request("http://localhost/api/email", {
             method: "POST",
@@ -260,9 +280,8 @@ export async function GET(request: NextRequest) {
             })
           });
           await emailPOST(adminEmailReq);
-          console.log(`[CRON] 📧 Notificación de error enviada al admin (${ADMIN_EMAIL})`);
         } catch (notifyErr) {
-          console.error("[CRON] ⚠️ No se pudo notificar el error al admin:", notifyErr);
+          console.error("[CRON] No se pudo notificar el error al admin:", notifyErr);
         }
 
         resultados.push({ edificio: edificio.nombre, status: "error", error: errorDetail });
@@ -270,7 +289,7 @@ export async function GET(request: NextRequest) {
     }
 
     console.log("==========================================================");
-    console.log(`[CRON] 🏁 Ejecución finalizada. Resultados: ${JSON.stringify(resultados)}`);
+    console.log(`[CRON] Ejecucion finalizada | Resultados: ${JSON.stringify(resultados)}`);
     console.log("==========================================================");
 
     return NextResponse.json({
@@ -282,7 +301,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("[CRON] 💥 Error general catastrófico:", error);
+    console.error("[CRON] Error catastrofico:", error);
     return NextResponse.json({ error: error.message, results: resultados }, { status: 500 });
   }
 }

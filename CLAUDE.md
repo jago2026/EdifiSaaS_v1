@@ -321,3 +321,25 @@ Reemplazado por **"Perfil de Antigüedad de Deuda"** — gráfico de barras apil
 - Paleta de colores por severidad: amarillo → naranja → rojo → rojo intenso → marrón
 - Leyenda de colores con descripción de cada nivel de riesgo
 - Nota explicativa con umbral de alerta: 30–40% de 2+ cuotas = cobranza formal
+
+---
+
+## Sesión: 2026-05-01 — Filtro de estado + diagnóstico login
+
+### Contexto
+El cron se ejecutó a las 05:01 VET correctamente (schedule 0 9 * * *). Se detectaron 3 problemas:
+
+1. **El edificio Demo sincronizaba** — nunca debe hacerlo (ID fijo `d0000000-0000-0000-0000-000000000001`).
+2. **Edificios Suspendidos/Inactivos ejecutaban el cron** — solo deben ejecutarlo los de estado `Activo` o `Prueba`.
+3. **"Fallo Login" en Torrebela** — el sync llama a `loginToRascaCielo(url_login, admin_secret)`. Si esas credenciales son incorrectas o el servidor externo no responde → HTTP 400 "Fallo Login". El mensaje de error en la alerta no explicaba qué hacer.
+
+### Correcciones en `src/app/api/cron/route.ts` (v1.0.3)
+
+- **DEMO skip**: Si `edificioId === DEMO_EDIFICIO_ID` → skip silencioso, sin alerta ni email.
+- **Status filter**: Se agrega `status` al SELECT. Si el status no está en `["Activo", "Prueba"]` → skip silencioso (sin alerta — para no llenar de ruido la pestaña Alertas de los edificios suspendidos).
+- **Validación previa de credenciales**: Si `url_login` o `admin_secret` están vacíos → alerta descriptiva + skip (evita llamar sync sabiendo que fallará).
+- **Diagnóstico "Fallo Login"**: Si el error de sync contiene "login" → se genera una alerta con título "Fallo de Login en Sistema de Cobranza" y descripción explicando las 3 causas posibles (URL incorrecta, clave cambiada, servidor caído) + la URL configurada + acción recomendada.
+- **Alertas de "Hora no coincide"**: Eliminadas del log de alertas (solo console.log) para evitar ruido diario.
+
+### Causa probable del error Torrebela
+El sync de Torrebela falla login. Esto significa que `url_login` apunta a un servidor RascaCielo externo que no está respondiendo, o que `admin_secret` es incorrecto. El administrador debe revisar en Configuración → Sincronización las credenciales del sistema externo de cobranza.
