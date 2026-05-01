@@ -140,12 +140,23 @@ export async function GET(request: Request) {
     const currentMonthStr = todayStr.substring(0, 7);
 
     // Consultar recibos del mes actual directamente para obtener el total real de deuda
-    const { data: recibosData } = await supabase
+    // Replicar exactamente la misma lógica de /api/recibos (con deduplicación por unidad-mes)
+    const { data: recibosRaw } = await supabase
       .from("recibos")
-      .select("deuda, deuda_usd, num_recibos")
+      .select("unidad, mes, deuda, deuda_usd, num_recibos")
       .eq("edificio_id", edificioId)
       .eq("mes", currentMonthStr)
       .gt("deuda", 0);
+
+    // DEDUPLICAR igual que /api/recibos: una sola fila por unidad+mes
+    const uniqueRecibosMap = new Map<string, any>();
+    (recibosRaw || []).forEach((r: any) => {
+      const key = `${r.unidad}-${r.mes}`;
+      if (!uniqueRecibosMap.has(key)) {
+        uniqueRecibosMap.set(key, r);
+      }
+    });
+    const recibosData = Array.from(uniqueRecibosMap.values());
 
     // Calcular el monto real en USD directamente desde recibos
     const realTotalDebtUsd = (recibosData || []).reduce((sum, r: any) => {
