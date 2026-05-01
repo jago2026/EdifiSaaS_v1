@@ -33,13 +33,11 @@ export async function GET(request: Request) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    // Fecha de hoy (Caracas) para no traer datos futuros
     const todayStr = new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/Caracas",
       year: "numeric", month: "2-digit", day: "2-digit",
     }).format(new Date());
 
-    // Limitar a los últimos 365 días para mantener la query liviana
     const since = new Date();
     since.setDate(since.getDate() - 365);
     const sinceStr = since.toISOString().substring(0, 10);
@@ -70,19 +68,23 @@ export async function GET(request: Request) {
     }
 
     const last = records[records.length - 1];
-    const tasaActual = Number(last.tasa_cambio) || 0;
+
+    // Buscar la última tasa de cambio disponible hacia atrás (puede ser de días anteriores)
+    let tasaActual = 0;
+    for (let i = records.length - 1; i >= 0; i--) {
+      const t = Number(records[i].tasa_cambio);
+      if (t > 0) { tasaActual = t; break; }
+    }
 
     // -----------------------------------------------------------
-    // 1) Salud de Caja: Disponibilidad Total / Egresos prom mensuales
+    // 1) Salud de Caja
     // -----------------------------------------------------------
-    // Agrupamos egresos por mes (YYYY-MM) tomando el TOTAL de egresos del mes
     const egresosPorMes: Record<string, number> = {};
     for (const r of records) {
       const ym = String(r.fecha).substring(0, 7);
       egresosPorMes[ym] = (egresosPorMes[ym] || 0) + (Number(r.egresos_usd) || 0);
     }
     const meses = Object.keys(egresosPorMes).sort();
-    // Promedio sobre los últimos hasta 6 meses con datos (más estable que 12)
     const ultimosMeses = meses.slice(-6);
     const sumEgresos = ultimosMeses.reduce((a, m) => a + (egresosPorMes[m] || 0), 0);
     const egresosPromMensualUsd = ultimosMeses.length > 0 ? sumEgresos / ultimosMeses.length : 0;
@@ -90,10 +92,7 @@ export async function GET(request: Request) {
     const mesesCubiertos = egresosPromMensualUsd > 0 ? disponibilidadUsd / egresosPromMensualUsd : 0;
 
     // -----------------------------------------------------------
-    // 2) Brecha Cambiaria: serie histórica con saldo USD nominal
-    //    vs saldo Bs convertido a USD con la tasa del DÍA actual.
-    //    Esto evidencia cuánto poder adquisitivo se perdió por
-    //    mantener el saldo en Bs en lugar de USD.
+    // 2) Brecha Cambiaria
     // -----------------------------------------------------------
     const brechaCambiaria = records.map((r) => {
       const saldoBs = Number(r.saldo_final_bs) || 0;
@@ -108,10 +107,7 @@ export async function GET(request: Request) {
     });
 
     // -----------------------------------------------------------
-    // 3) Perfil de Morosidad mensual: distribución de apartamentos
-    //    por antigüedad de deuda (1 cuota, 2-3 cuotas, 4+ cuotas)
-    //    usando la tabla historico_cobranza (un snapshot por día,
-    //    tomamos el último registro de cada mes para el resumen mensual).
+    // 3) Perfil de Morosidad
     // -----------------------------------------------------------
     const sinceHC = new Date();
     sinceHC.setMonth(sinceHC.getMonth() - 12);
@@ -136,11 +132,9 @@ export async function GET(request: Request) {
       .lte("fecha", todayStr)
       .order("fecha", { ascending: true });
 
-    // Obtener el mes actual para calcular el monto real desde la tabla recibos
     const currentMonthStr = todayStr.substring(0, 7);
 
-    // Consultar recibos del mes actual directamente para obtener el total real de deuda
-    // Replicar exactamente la misma lógica de /api/recibos (con deduplicación por unidad-mes)
+    // Consultar recibos del mes actual con deduplicación por unidad
     const { data: recibosRaw } = await supabase
       .from("recibos")
       .select("unidad, mes, deuda, deuda_usd, num_recibos")
@@ -148,142 +142,111 @@ export async function GET(request: Request) {
       .eq("mes", currentMonthStr)
       .gt("deuda", 0);
 
-    // DEDUPLICAR igual que /api/recibos: una sola fila por unidad+mes
     const uniqueRecibosMap = new Map<string, any>();
     (recibosRaw || []).forEach((r: any) => {
       const key = `${r.unidad}-${r.mes}`;
-      if (!uniqueRecibosMap.has(key)) {
-        uniqueRecibosMap.set(key, r);
-      }
+      if (!uniqueRecibosMap.has(key)) uniqueRecibosMap.set(key, r);
     });
     const recibosData = Array.from(uniqueRecibosMap.values());
 
- // Calcular el monto real en USD directamente desde recibos
-    // IMPORTANTE: Replicar EXACTAMENTE la misma lógica que RecibosTab usa para el "Total General por Cobrar" en USD.
-    // RecibosTab suma: Number(r.deuda_usd || (r.deuda / tasaBCV.dolar))
-    // Aquí usamos deuda_usd directamente cuando existe, y solo como fallback convertimos desde Bs.
-    // Para el fallback, usamos la tasa implícita del primer recibo que tenga ambos campos.
+    // Tasa implícita derivada de los propios recibos — más confiable que control_diario
     const tasaImplicita = (() => {
       for (const r of recibosData) {
-        const usd = Number(r.deuda_usd) || 0;
-        const bs = Number(r.deuda) || 0;
+        const usd = Number(r.deuda_usd);
+        const bs = Number(r.deuda);
         if (usd > 0 && bs > 0) return bs / usd;
       }
-      return tasaActual || 1;
+      return tasaActual > 0 ? tasaActual : 1;
     })();
-    
-    const realTotalDebtUsd = (recibosData || []).reduce((sum, r: any) => {
+
+    // Total de deuda USD desde recibos (igual que RecibosTab)
+    const realTotalDebtUsd = recibosData.reduce((sum, r: any) => {
       const deudaUsd = Number(r.deuda_usd) || 0;
       const deudaBs = Number(r.deuda) || 0;
-      // Usar deuda_usd si existe, sino convertir desde Bs usando la tasa implícita
-      return sum + (deudaUsd > 0 ? deudaUsd : (tasaImplicita > 0 ? deudaBs / tasaImplicita : 0));
+      return sum + (deudaUsd > 0 ? deudaUsd : deudaBs / tasaImplicita);
     }, 0);
-    
-    // Tomar el último snapshot de cada mes
+
+    // KPIs del mes actual desde recibos (usados para sobreescribir historico_cobranza)
+    const currentMonthKpis = (() => {
+      if (recibosData.length === 0) return null;
+      const total = recibosData.length;
+      const aptos1 = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) === 1).length;
+      const aptos2 = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) === 2).length;
+      const aptos3 = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) === 3).length;
+      const aptos4a6 = recibosData.filter((r: any) => { const n = Number(r.num_recibos) || 1; return n >= 4 && n <= 6; }).length;
+      const aptos7mas = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) >= 7).length;
+      const aptos2mas = total - aptos1;
+      const pct2mas = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
+      const montoUsd = Number(realTotalDebtUsd.toFixed(0));
+      const [y, m] = currentMonthStr.split("-");
+      const mesesNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+      return { mes: `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`, ym: currentMonthStr, aptos1, aptos2, aptos3, aptos4a6, aptos7mas, total, aptos2mas, pct2mas, montoUsd, montoSum: montoUsd, pctPendiente: 0, fromRecibos: true };
+    })();
+
+    // Tomar el último snapshot de cada mes de historico_cobranza
     const lastPerMonth: Record<string, any> = {};
     for (const r of (hcRows || [])) {
       const ym = String(r.fecha).substring(0, 7);
       lastPerMonth[ym] = r;
     }
 
+    const mesesNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
     const perfilMorosidad = Object.entries(lastPerMonth)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([ym, r], index) => {
-        const aptos1     = Number(r.aptos_1_recibo) || 0;
-        const aptos2     = Number(r.aptos_2_recibo) || 0;
-        const aptos3     = Number(r.aptos_3_recibo) || 0;
-        const aptos4a6   = (Number(r.aptos_4_recibo) || 0) + (Number(r.aptos_5_recibo) || 0) + (Number(r.aptos_6_recibo) || 0);
-        const aptos7mas  = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
-        const total      = Number(r.aptos_pendientes_total) || 0;
-        const tasa       = Number(r.tasa_cambio) || 1;
+      .map(([ym, r]) => {
+        // Si es el mes actual Y tenemos datos de recibos, usar exclusivamente esos datos
+        if (ym === currentMonthStr && currentMonthKpis) {
+          return currentMonthKpis;
+        }
+
+        const aptos1 = Number(r.aptos_1_recibo) || 0;
+        const aptos2 = Number(r.aptos_2_recibo) || 0;
+        const aptos3 = Number(r.aptos_3_recibo) || 0;
+        const aptos4a6 = (Number(r.aptos_4_recibo) || 0) + (Number(r.aptos_5_recibo) || 0) + (Number(r.aptos_6_recibo) || 0);
+        const aptos7mas = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
+        const total = Number(r.aptos_pendientes_total) || 0;
+        const tasa = Number(r.tasa_cambio) || tasaActual || 1;
+
+        const rawMontoTotalUsd = Number(r.monto_pendiente_total_usd) || 0;
+        const rawBucketsUsd = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo_usd`]) || 0), 0)
+          + (Number(r.monto_12_mas_recibo_usd) || 0);
+        const usdFieldsPoblados = rawMontoTotalUsd > 0 || rawBucketsUsd > 0;
 
         let montoUsd: number;
         let montoSum: number;
 
-        const rawMontoTotalUsd = Number(r.monto_pendiente_total_usd) || 0;
-        const rawBucketsUsd = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo_usd`]) || 0), 0)
-                            + (Number(r.monto_12_mas_recibo_usd) || 0);
-
-        const usdFieldsPoblados = rawMontoTotalUsd > 0 || rawBucketsUsd > 0;
-
-        if (ym === currentMonthStr) {
-          // Mes actual: siempre usar el total real calculado desde recibos (fuente más actualizada)
-          montoUsd = Number(realTotalDebtUsd.toFixed(0));
-          montoSum = rawBucketsUsd > 0 ? rawBucketsUsd : [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => {
-            const val = Number(r[`monto_${i}_recibo`]) || 0;
-            return s + (val / tasa);
-          }, 0) + (Number(r.monto_12_mas_recibo) || 0) / tasa;
-        } else if (usdFieldsPoblados) {
+        if (usdFieldsPoblados) {
           montoUsd = rawMontoTotalUsd;
           montoSum = rawBucketsUsd;
         } else {
-          const estaEnBs = (valor: number, t: number) => {
-            if (valor <= 1000) return false;
-            if (t <= 1) return false;
-            return (valor / t) > 1000;
-          };
-
+          const estaEnBs = (valor: number, t: number) => valor > 1000 && t > 1 && (valor / t) > 1000;
           const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
             const val = Number(r[`monto_${i}_recibo`]) || 0;
             return estaEnBs(val, tasa) ? val / tasa : val;
           });
-          const bucket12mas = estaEnBs(Number(r.monto_12_mas_recibo) || 0, tasa)
-            ? (Number(r.monto_12_mas_recibo) || 0) / tasa
-            : (Number(r.monto_12_mas_recibo) || 0);
+          const bucket12mas = (() => { const v = Number(r.monto_12_mas_recibo) || 0; return estaEnBs(v, tasa) ? v / tasa : v; })();
           montoUsd = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
           montoSum = montoUsd;
         }
 
-        const pct        = Number(r.pct_pendiente) || 0;
-        const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
-        const pct2mas    = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
+        const aptos2mas = aptos2 + aptos3 + aptos4a6 + aptos7mas;
+        const pct2mas = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
         const [y, m] = ym.split("-");
-        const mesesNames  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-        const label  = `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`;
         return {
-          mes: label,
-          ym,
-          aptos1,
-          aptos2,
-          aptos3,
-          aptos4a6,
-          aptos7mas,
-          total,
-          aptos2mas,
-          pct2mas,
+          mes: `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`,
+          ym, aptos1, aptos2, aptos3, aptos4a6, aptos7mas, total, aptos2mas, pct2mas,
           montoUsd: Number(montoUsd.toFixed(0)),
           montoSum: Number(montoSum.toFixed(0)),
-          pctPendiente: Number(pct.toFixed(1)),
-          fromRecibos: ym === currentMonthStr,
+          pctPendiente: Number((Number(r.pct_pendiente) || 0).toFixed(1)),
+          fromRecibos: false,
         };
       });
 
-    // Si el mes actual no está en historico_cobranza, inyectarlo desde recibos directamente
+    // Si el mes actual no está en historico_cobranza, inyectarlo desde recibos
     const hasCurrentMonth = perfilMorosidad.some(p => p.ym === currentMonthStr);
-    if (!hasCurrentMonth && (recibosData || []).length > 0) {
-      const aptosConDeuda = (recibosData || []).length;
-      const aptos1 = (recibosData || []).filter((r: any) => (Number(r.num_recibos) || 1) === 1).length;
-      const aptos2mas = aptosConDeuda - aptos1;
-      const pct2mas = aptosConDeuda > 0 ? Math.round((aptos2mas / aptosConDeuda) * 100) : 0;
-      const [y, m] = currentMonthStr.split("-");
-      const mesesNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-      perfilMorosidad.push({
-        mes: `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`,
-        ym: currentMonthStr,
-        aptos1,
-        aptos2: aptos2mas,
-        aptos3: 0,
-        aptos4a6: 0,
-        aptos7mas: 0,
-        total: aptosConDeuda,
-        aptos2mas,
-        pct2mas,
-        montoUsd: Number(realTotalDebtUsd.toFixed(0)),
-        montoSum: Number(realTotalDebtUsd.toFixed(0)),
-        pctPendiente: 0,
-        fromRecibos: true,
-      });
-      // Re-sort after injection
+    if (!hasCurrentMonth && currentMonthKpis) {
+      perfilMorosidad.push(currentMonthKpis);
       perfilMorosidad.sort((a, b) => a.ym.localeCompare(b.ym));
     }
 
@@ -299,62 +262,46 @@ export async function GET(request: Request) {
     }));
 
     // -----------------------------------------------------------
-    // 5) Heatmap por día de la semana (promedio ingresos/egresos USD)
+    // 5) Heatmap por día de la semana
     // -----------------------------------------------------------
     const acumPorDia: Record<string, { ingresos: number; egresos: number; count: number }> = {};
     for (const r of records) {
-      let dia = normalizeDia(r.dia_semana);
-      if (!dia) {
-        // Fallback: derivar del campo fecha (1=Lun ... 7=Dom según locale es)
-        const d = new Date(`${r.fecha}T12:00:00-04:00`);
-        const idxJs = d.getUTCDay(); // 0=Dom, 1=Lun, ...
-        const mapJs = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-        dia = mapJs[idxJs];
-      }
+      const dia = normalizeDia(r.dia_semana);
+      if (!dia) continue;
       if (!acumPorDia[dia]) acumPorDia[dia] = { ingresos: 0, egresos: 0, count: 0 };
       acumPorDia[dia].ingresos += Number(r.ingresos_usd) || 0;
       acumPorDia[dia].egresos += Number(r.egresos_usd) || 0;
-      acumPorDia[dia].count += 1;
+      acumPorDia[dia].count++;
     }
-    const heatmap = DIA_ORDER.map((d) => {
-      const a = acumPorDia[d] || { ingresos: 0, egresos: 0, count: 0 };
-      const promIng = a.count > 0 ? a.ingresos / a.count : 0;
-      const promEgr = a.count > 0 ? a.egresos / a.count : 0;
-      return {
-        dia: d,
-        diaCorto: d.substring(0, 3),
-        ingresos: Number(promIng.toFixed(2)),
-        egresos: Number(promEgr.toFixed(2)),
-        movimiento: Number((promIng + promEgr).toFixed(2)),
-        count: a.count,
-      };
-    });
-
-    // -----------------------------------------------------------
-    // Datos resumen actuales (para tarjetas KPI)
-    // -----------------------------------------------------------
-    const resumen = {
-      fecha: last.fecha,
-      tasaCambio: tasaActual,
-      saldoFinalBs: Number(last.saldo_final_bs) || 0,
-      saldoFinalUsd: Number(last.saldo_final_usd) || 0,
-      disponibilidadBs: Number(last.disponibilidad_total_bs) || 0,
-      disponibilidadUsd: disponibilidadUsd,
-      totalFondosBs: Number(last.total_fondos_bs) || 0,
-      totalFondosUsd: Number(last.total_fondos_usd) || 0,
-      recibosPendientes: Number(last.recibos_pendientes) || 0,
-      ingresosUsdHoy: Number(last.ingresos_usd) || 0,
-      egresosUsdHoy: Number(last.egresos_usd) || 0,
-    };
+    const heatmap = DIA_ORDER
+      .filter(dia => acumPorDia[dia])
+      .map(dia => {
+        const { ingresos, egresos, count } = acumPorDia[dia];
+        return {
+          dia,
+          diaCorto: dia.substring(0, 3),
+          ingresos: count > 0 ? Number((ingresos / count).toFixed(2)) : 0,
+          egresos: count > 0 ? Number((egresos / count).toFixed(2)) : 0,
+          movimiento: count > 0 ? Number(((ingresos + egresos) / count).toFixed(2)) : 0,
+          count,
+        };
+      });
 
     return NextResponse.json({
-      empty: false,
-      registros: records.length,
-      resumen,
+      resumen: {
+        disponibilidadUsd: Number(last.disponibilidad_total_usd) || 0,
+        disponibilidadBs: Number(last.disponibilidad_total_bs) || 0,
+        saldoFinalUsd: Number(last.saldo_final_usd) || 0,
+        saldoFinalBs: Number(last.saldo_final_bs) || 0,
+        totalFondosUsd: Number(last.total_fondos_usd) || 0,
+        totalFondosBs: Number(last.total_fondos_bs) || 0,
+        recibosPendientes: Number(last.recibos_pendientes) || 0,
+        tasaActual,
+      },
       saludCaja: {
+        mesesCubiertos: Number(mesesCubiertos.toFixed(2)),
         disponibilidadUsd,
         egresosPromMensualUsd: Number(egresosPromMensualUsd.toFixed(2)),
-        mesesCubiertos: Number(mesesCubiertos.toFixed(2)),
         mesesUsadosEnPromedio: ultimosMeses.length,
       },
       brechaCambiaria,
@@ -362,11 +309,9 @@ export async function GET(request: Request) {
       fondos,
       heatmap,
     });
+
   } catch (err: any) {
-    console.error("Error en /api/analytics/control-diario:", err);
-    return NextResponse.json(
-      { error: err?.message || "Error desconocido" },
-      { status: 500 }
-    );
+    console.error("control-diario error:", err);
+    return NextResponse.json({ error: err.message || "Error interno" }, { status: 500 });
   }
 }
