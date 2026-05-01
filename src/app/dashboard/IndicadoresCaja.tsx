@@ -310,6 +310,11 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
                     <div className="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Monto adeudado</div>
                     <div className="text-3xl font-black text-rose-800">$ {formatNumber(ultimo.montoUsd, 0)}</div>
                     <div className="text-[10px] text-rose-500 font-bold">USD total pendiente</div>
+                    {ultimo.fromRecibos && (
+                      <div className="mt-1.5 text-[9px] text-indigo-600 font-black uppercase tracking-widest bg-indigo-50 rounded-lg px-2 py-0.5">
+                        ✓ Dato directo desde Deudas / Recibos
+                      </div>
+                    )}
                     {tieneDiscrepancia && (
                       <div className="mt-2 text-[9px] text-amber-600 font-medium">
                         Verificar: suma buckets = $ {formatNumber(ultimo.montoSum, 0)}

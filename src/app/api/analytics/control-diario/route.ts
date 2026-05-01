@@ -142,7 +142,7 @@ export async function GET(request: Request) {
     // Consultar recibos del mes actual directamente para obtener el total real de deuda
     const { data: recibosData } = await supabase
       .from("recibos")
-      .select("deuda, deuda_usd")
+      .select("deuda, deuda_usd, num_recibos")
       .eq("edificio_id", edificioId)
       .eq("mes", currentMonthStr)
       .gt("deuda", 0);
@@ -173,33 +173,26 @@ export async function GET(request: Request) {
         const total      = Number(r.aptos_pendientes_total) || 0;
         const tasa       = Number(r.tasa_cambio) || 1;
 
-        // Calcular montoUsd y montoSum usando los campos USD directamente
-        // Ahora que la tabla tiene campos *_usd, los usamos directamente
         let montoUsd: number;
         let montoSum: number;
 
-        // Intentar usar los campos USD directamente (después de ejecutar fill-usd-fields)
         const rawMontoTotalUsd = Number(r.monto_pendiente_total_usd) || 0;
         const rawBucketsUsd = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo_usd`]) || 0), 0)
                             + (Number(r.monto_12_mas_recibo_usd) || 0);
 
-        // Verificar si los campos USD están poblados (valores > 0)
         const usdFieldsPoblados = rawMontoTotalUsd > 0 || rawBucketsUsd > 0;
 
         if (ym === currentMonthStr) {
-          // Mes actual: usar el total real calculado desde recibos (fuente más actualizada)
+          // Mes actual: siempre usar el total real calculado desde recibos (fuente más actualizada)
           montoUsd = Number(realTotalDebtUsd.toFixed(0));
-          // Para montoSum usar los buckets USD
           montoSum = rawBucketsUsd > 0 ? rawBucketsUsd : [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => {
             const val = Number(r[`monto_${i}_recibo`]) || 0;
             return s + (val / tasa);
           }, 0) + (Number(r.monto_12_mas_recibo) || 0) / tasa;
         } else if (usdFieldsPoblados) {
-          // Meses anteriores con campos USD ya calculados: usar directamente
           montoUsd = rawMontoTotalUsd;
           montoSum = rawBucketsUsd;
         } else {
-          // Fallback: calcular desde campos Bs (para datos históricos sin actualizar)
           const estaEnBs = (valor: number, t: number) => {
             if (valor <= 1000) return false;
             if (t <= 1) return false;
@@ -221,8 +214,8 @@ export async function GET(request: Request) {
         const aptos2mas  = aptos2 + aptos3 + aptos4a6 + aptos7mas;
         const pct2mas    = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
         const [y, m] = ym.split("-");
-        const meses  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-        const label  = `${meses[parseInt(m, 10) - 1]} ${y.substring(2)}`;
+        const mesesNames  = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        const label  = `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`;
         return {
           mes: label,
           ym,
@@ -237,8 +230,38 @@ export async function GET(request: Request) {
           montoUsd: Number(montoUsd.toFixed(0)),
           montoSum: Number(montoSum.toFixed(0)),
           pctPendiente: Number(pct.toFixed(1)),
+          fromRecibos: ym === currentMonthStr,
         };
       });
+
+    // Si el mes actual no está en historico_cobranza, inyectarlo desde recibos directamente
+    const hasCurrentMonth = perfilMorosidad.some(p => p.ym === currentMonthStr);
+    if (!hasCurrentMonth && (recibosData || []).length > 0) {
+      const aptosConDeuda = (recibosData || []).length;
+      const aptos1 = (recibosData || []).filter((r: any) => (Number(r.num_recibos) || 1) === 1).length;
+      const aptos2mas = aptosConDeuda - aptos1;
+      const pct2mas = aptosConDeuda > 0 ? Math.round((aptos2mas / aptosConDeuda) * 100) : 0;
+      const [y, m] = currentMonthStr.split("-");
+      const mesesNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+      perfilMorosidad.push({
+        mes: `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`,
+        ym: currentMonthStr,
+        aptos1,
+        aptos2: aptos2mas,
+        aptos3: 0,
+        aptos4a6: 0,
+        aptos7mas: 0,
+        total: aptosConDeuda,
+        aptos2mas,
+        pct2mas,
+        montoUsd: Number(realTotalDebtUsd.toFixed(0)),
+        montoSum: Number(realTotalDebtUsd.toFixed(0)),
+        pctPendiente: 0,
+        fromRecibos: true,
+      });
+      // Re-sort after injection
+      perfilMorosidad.sort((a, b) => a.ym.localeCompare(b.ym));
+    }
 
     // -----------------------------------------------------------
     // 4) Comportamiento de fondos específicos (USD)

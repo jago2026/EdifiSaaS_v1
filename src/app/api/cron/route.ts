@@ -195,33 +195,35 @@ export async function GET(request: NextRequest) {
           throw new Error(errMsg);
         }
 
+        let syncFailed = false;
+        let syncFailedReason = "";
+
         if (!syncRes.ok) {
           const rawError = syncData?.error || JSON.stringify(syncData);
-          let alertTitle = "Fallo en Sincronizacion";
-          let alertDesc = `Sync fallo (HTTP ${syncRes.status}): ${rawError} | VET: ${currentFullTimeVET}`;
+          syncFailed = true;
+          syncFailedReason = rawError;
+          let alertTitle = "Sincronización no disponible — Informe enviado con datos existentes";
+          let alertDesc = `El sistema externo no respondió (HTTP ${syncRes.status}): ${rawError}. `
+            + `Se envió igualmente el informe diario con los últimos datos disponibles en la base de datos. VET: ${currentFullTimeVET}`;
 
-          // Diagnostico detallado para Fallo Login
           if (rawError.toLowerCase().includes("login") || rawError.toLowerCase().includes("fallo login")) {
-            alertTitle = "Fallo de Login en Sistema de Cobranza";
-            alertDesc = `No se pudo autenticar en el sistema externo de cobranza. `
-              + `Posibles causas: (1) La URL de login configurada es incorrecta o el servidor externo no responde. `
-              + `(2) La clave de administrador ha cambiado o es incorrecta. `
-              + `(3) El sistema externo esta caido o en mantenimiento. `
-              + `URL login configurada: ${edificio.url_login} | `
-              + `ACCION REQUERIDA: Ve a Configuracion y verifica las credenciales del sistema externo de cobranza. `
+            alertTitle = "Fallo de Login en Sistema de Cobranza — Informe enviado con datos existentes";
+            alertDesc = `No se pudo autenticar en el sistema externo de cobranza (posibles causas: URL incorrecta, clave cambiada o servidor caído). `
+              + `URL configurada: ${edificio.url_login}. `
+              + `Se envió de igual forma el informe diario con los últimos datos disponibles en la base de datos. `
+              + `Para corregir: ve a Configuración y verifica las credenciales del sistema externo. `
               + `VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`;
           }
 
-          const errorMsg = `Sync fallo (HTTP ${syncRes.status}): ${rawError}`;
-          console.error(`[CRON] ${errorMsg}`);
-          await logSincronizacion(supabase, edificioId, "sync", "error", 0, errorMsg, syncData);
-          await logAlerta(supabase, edificioId, "error", alertTitle, alertDesc);
-          throw new Error(errorMsg);
+          console.warn(`[CRON] ⚠️ Sync falló para "${edificio.nombre}" — enviando email con datos disponibles. Error: ${rawError}`);
+          await logSincronizacion(supabase, edificioId, "sync", "error_fallback", 0, rawError, syncData);
+          await logAlerta(supabase, edificioId, "warning", alertTitle, alertDesc);
+          // NO lanzar excepción — continuar al envío del email con datos de BD
+        } else {
+          const syncMovimientos = syncData?.stats?.total || 0;
+          await logSincronizacion(supabase, edificioId, "sync", "completado", syncMovimientos, null, syncData?.stats);
+          console.log(`[CRON] Sync OK para "${edificio.nombre}": ${syncMovimientos} movimientos nuevos.`);
         }
-
-        const syncMovimientos = syncData?.stats?.total || 0;
-        await logSincronizacion(supabase, edificioId, "sync", "completado", syncMovimientos, null, syncData?.stats);
-        console.log(`[CRON] Sync OK para "${edificio.nombre}": ${syncMovimientos} movimientos nuevos.`);
 
         // 2. Envio de Email
         await logSincronizacion(supabase, edificioId, "email_diario", "iniciando", 0, null,
@@ -230,7 +232,7 @@ export async function GET(request: NextRequest) {
         const emailReq = new Request("http://localhost/api/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ edificioId: edificio.id })
+          body: JSON.stringify({ edificioId: edificio.id, syncFailed, syncFailedReason })
         });
 
         let emailRes, emailData;

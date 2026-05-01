@@ -50,7 +50,7 @@ async function getTasaBCV(): Promise<number> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { edificioId, testMode, action, error: errorMsg, recipient } = body;
+    const { edificioId, testMode, action, error: errorMsg, recipient, syncFailed, syncFailedReason } = body;
     const tasa = await getTasaBCV();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -853,13 +853,32 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
 </body>
 </html>`;
 
-    const subject = `SaaS - Resumen Financiero Condominio - ${fechaStr}`;
+    const subject = syncFailed
+      ? `SaaS - Resumen Financiero Condominio (datos al ${fechaStr}) - ${edificio.nombre}`
+      : `SaaS - Resumen Financiero Condominio - ${fechaStr}`;
+
+    // Banner de aviso si la sincronización falló y se envía con datos disponibles
+    const syncFailedBanner = syncFailed ? `
+      <div style="background:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;margin-bottom:16px;border-radius:4px;">
+        <p style="margin:0;font-size:13px;color:#9a3412;font-weight:bold;">⚠️ Nota sobre la actualización de datos</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#c2410c;">
+          Esta noche no fue posible sincronizar con el sistema externo de cobranza. 
+          La información mostrada en este informe corresponde a los <strong>últimos datos disponibles en nuestra base de datos</strong>.
+          Fecha de la información: <strong>${fechaStr}</strong>.
+        </p>
+      </div>` : '';
+
+    // Insertar el banner justo después del primer div del body del email HTML
+    const htmlConBanner = syncFailed ? html.replace(
+      /<body[^>]*>[\s\S]*?(<div)/,
+      (match: string, firstDiv: string) => match.replace(firstDiv, syncFailedBanner + firstDiv)
+    ) : html;
 
     await transporter.sendMail({
       from: `"SaaS - Sistema Junta de Condominio" <${SMTP_USER}>`,
       to: toEmails.join(", "),
       subject,
-      html,
+      html: htmlConBanner,
     });
 
     // Registrar alerta de envío exitoso
