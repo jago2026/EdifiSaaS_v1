@@ -158,14 +158,27 @@ export async function GET(request: Request) {
     });
     const recibosData = Array.from(uniqueRecibosMap.values());
 
-    // Calcular el monto real en USD directamente desde recibos
+ // Calcular el monto real en USD directamente desde recibos
+    // IMPORTANTE: Replicar EXACTAMENTE la misma lógica que RecibosTab usa para el "Total General por Cobrar" en USD.
+    // RecibosTab suma: Number(r.deuda_usd || (r.deuda / tasaBCV.dolar))
+    // Aquí usamos deuda_usd directamente cuando existe, y solo como fallback convertimos desde Bs.
+    // Para el fallback, usamos la tasa implícita del primer recibo que tenga ambos campos.
+    const tasaImplicita = (() => {
+      for (const r of recibosData) {
+        const usd = Number(r.deuda_usd) || 0;
+        const bs = Number(r.deuda) || 0;
+        if (usd > 0 && bs > 0) return bs / usd;
+      }
+      return tasaActual || 1;
+    })();
+    
     const realTotalDebtUsd = (recibosData || []).reduce((sum, r: any) => {
       const deudaUsd = Number(r.deuda_usd) || 0;
       const deudaBs = Number(r.deuda) || 0;
-      // Usar deuda_usd si existe, sino convertir desde Bs usando la tasa actual
-      return sum + (deudaUsd > 0 ? deudaUsd : deudaBs / tasaActual);
+      // Usar deuda_usd si existe, sino convertir desde Bs usando la tasa implícita
+      return sum + (deudaUsd > 0 ? deudaUsd : (tasaImplicita > 0 ? deudaBs / tasaImplicita : 0));
     }, 0);
-
+    
     // Tomar el último snapshot de cada mes
     const lastPerMonth: Record<string, any> = {};
     for (const r of (hcRows || [])) {
