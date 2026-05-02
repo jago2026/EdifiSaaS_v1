@@ -85,14 +85,14 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
 
 #### 2. Gestión de Miembros (Junta)
 - **Mejora UI:** Se cambió la etiqueta de la columna "Email Cron" por **"Email Diario Informe"**.
-- **Diagnóstico Avanzado:** Para solucionar el problema persistente donde los cambios de email (Sí/No) no se mantienen:
-    - Se implementaron **Logs de Auditoría** en la pestaña de **🔔 Alertas**.
-    - Cada intento de cambio ahora registra un mensaje "👥 Junta Actualizada" (desde el navegador) y "🔌 Backend Junta Update" (desde el servidor).
-    - Esto permitirá ver si el problema es de comunicación, de permisos en Supabase o de refresco de datos en el cliente.
-- **Bug Fix (Persistencia):** ... (soluciones previas de RLS y Cache)
-
+- **Bug Fix (Persistencia):** Se corrigió el problema donde el cambio de preferencia de email (Sí/No) no se guardaba.
+    - **Causa Raíz Final:** Además del cache y RLS, se detectó una validación `isAdmin` en el frontend que impedía la ejecución del clic si el usuario no cumplía con el rol exacto, bloqueando tanto la petición al servidor como los logs de diagnóstico.
+    - **Solución Final:** 
+        1. Se eliminó la restricción `if (!user?.isAdmin)` en el botón de toggle.
+        2. Se mantuvo el uso de `SUPABASE_SERVICE_ROLE_KEY` en el backend para garantizar el éxito de la actualización.
+        3. Se desactivó el cache (`cache: 'no-store'`) en la petición `GET`.
+        4. Se implementaron logs de auditoría en la pestaña de **🔔 Alertas** para frontend y backend.
 
 #### 3. Integridad y Sincronización
 - Se restauró la estabilidad de `page.tsx` tras un error de truncado durante un rebase conflictivo.
-- Se aseguraron los tipos de datos en el registro de alertas.
-- Se sincronizaron los cambios con el repositorio principal (Push).
+- Se sincronizaron los cambios con el repositorio principal y se forzó el despliegue en Vercel.
