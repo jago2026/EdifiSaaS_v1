@@ -1037,13 +1037,12 @@ export async function POST(request: Request) {
     }
 
     if (doSyncGastos) {
-      // Si estamos en un mes histórico, la fecha del gasto debe ser el último día de ese mes
-      // para que aparezca correctamente en los filtros de fecha.
-      let fechaGasto = today;
+      // Si estamos en un mes histórico, la fecha del gasto base debe ser el último día de ese mes
+      let baseFechaGasto = today;
       if (mes && mes.includes("-")) {
         const [mm, yyyy] = mes.split("-");
         const lastDay = new Date(parseInt(yyyy), parseInt(mm), 0).getDate();
-        fechaGasto = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+        baseFechaGasto = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
       }
 
       // Combinar gastos de la tabla de gastos con los del detalle del recibo si la tabla viene vacía
@@ -1088,12 +1087,15 @@ export async function POST(request: Request) {
           continue;
         }
 
+        // DETERMINAR LA FECHA DEL GASTO: Usar fecha del registro o fin de mes
+        const fDB = g.fecha ? normalizeFecha(g.fecha) : baseFechaGasto;
+
         // Incluir la descripción en el hash para evitar colisiones si dos gastos tienen mismo código y monto (ej. ascensores)
         const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${g.descripcion}|${mesEstandar}`);
         const { error: gErr } = await supabase.from("gastos").upsert({ 
           edificio_id: building.id, 
           mes: mesEstandar, 
-          fecha: fechaGasto, 
+          fecha: fDB, 
           codigo: g.codigo, 
           descripcion: g.descripcion, 
           monto: g.monto, 
@@ -1108,18 +1110,19 @@ export async function POST(request: Request) {
           tipo: "gasto", 
           descripcion: g.descripcion, 
           monto: g.monto, 
-          fecha: fechaGasto, 
+          fecha: fDB, 
           hash, 
           sincronizado: true 
         }, { onConflict: 'edificio_id,hash' });
         
-        if (mesEstandar === today.substring(0, 7)) {
+        // SOLO registrar en movimientos_dia si la FECHA DEL GASTO es hoy
+        if (fDB === today) {
           await supabase.from("movimientos_dia").insert({ 
             edificio_id: building.id, 
             tipo: "gasto", 
             descripcion: g.descripcion, 
             monto: g.monto, 
-            fecha: today, 
+            fecha: fDB, 
             fuente: "gastos", 
             detectado_en: today 
           });

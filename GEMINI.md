@@ -109,3 +109,11 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
     - **Ingresos API:** Se implementó una lógica de **deduplicación en tiempo real** en `/api/ingresos` para asegurar que el usuario vea registros únicos, incluso si existen duplicados en la base de datos.
     - **Script de Limpieza SQL:** Se creó un script (`supabase/remove_duplicate_pagos.sql`) para que el usuario pueda eliminar permanentemente los registros duplicados de la tabla `pagos_recibos`.
 - **Resultado:** Vista de cobranza más clara, profesional y con datos precisos sin repeticiones.
+
+#### 6. Corrección de Fechas en Egresos y Gastos
+- **Problema:** Los egresos y gastos detectados hoy pero que pertenecen a meses pasados se estaban registrando con la fecha actual, ensuciando los reportes diarios.
+- **Solución Aplicada:**
+    - **Sync API:** Se corrigió la lógica de asignación de fechas para los **gastos**. Ahora el sistema prioriza la fecha real del registro de la administradora; si no la tiene, usa el último día del mes correspondiente a la facturación, en lugar de usar "hoy".
+    - **Filtro de Movimientos del Día:** Se implementó una validación estricta para que los egresos y gastos solo aparezcan en la vista de "Movimientos de Hoy" si su fecha de ocurrencia es efectivamente el día de hoy.
+    - **Script de Limpieza SQL:** Se creó el script `supabase/limpiar_egresos_gastos_mayo.sql` para eliminar los registros mal fechados del 2 de mayo.
+- **Resultado:** Integridad histórica de datos preservada y vista diaria libre de movimientos de meses anteriores.
