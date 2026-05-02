@@ -49,14 +49,30 @@ async function generateHash(data: string): Promise<string> {
 }
 
 function normalizeFecha(fecha: string): string {
-  const match = fecha?.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+  if (!fecha) return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  // Si ya es ISO (YYYY-MM-DD), devolverla tal cual
+  if (fecha.match(/^\d{4}-\d{2}-\d{2}$/)) return fecha;
+  
+  const match = fecha.match(/^(\d{2})-(\d{2})-(\d{4})$/);
   if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+  
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Caracas',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
   }).format(new Date());
+}
+
+// Función auxiliar para deduplicar arrays de objetos basados en propiedades clave
+function deduplicateItems(items: any[], keys: string[]): any[] {
+  const seen = new Set();
+  return items.filter(item => {
+    const val = keys.map(k => item[k]).join('|');
+    if (seen.has(val)) return false;
+    seen.add(val);
+    return true;
+  });
 }
 
 function normalizeMes(mesStr: string): string {
@@ -654,15 +670,9 @@ export async function POST(request: Request) {
     console.log(`- hGas (Gastos): ${hGas ? hGas.length : 0} chars`);
 
     const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
-    const allEgresos = hEgr ? parseEgresosTableAll(hEgr) : [];
-    const allIngresos = hIng ? parseIngresosTable(hIng) : [];
-    console.log(`[DEBUG-INGRESOS] Registros encontrados en r=1: ${allIngresos.length}`);
-    if (allIngresos.length > 0) {
-      allIngresos.forEach((ing, i) => {
-        console.log(`[DEBUG-INGRESOS] #${i+1}: ${ing.fecha} | ${ing.beneficiario} | Bs. ${ing.monto}`);
-      });
-    }
-    const allGastos = hGas ? parseGastosTable(hGas) : [];
+    const allEgresos = hEgr ? deduplicateItems(parseEgresosTableAll(hEgr), ['fecha', 'beneficiario', 'monto']) : [];
+    const allIngresos = hIng ? deduplicateItems(parseIngresosTable(hIng), ['fecha', 'beneficiario', 'monto']) : [];
+    const allGastos = hGas ? deduplicateItems(parseGastosTable(hGas), ['codigo', 'monto', 'descripcion']) : [];
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
@@ -1011,15 +1021,27 @@ export async function POST(request: Request) {
         }, { onConflict: 'edificio_id,hash' });
 
         // SIEMPRE registrar en movimientos_dia si se detectó hoy (independiente de su fecha real)
-        await supabase.from("movimientos_dia").insert({ 
-          edificio_id: building.id, 
-          tipo: "egreso", 
-          descripcion: desc, 
-          monto: e.monto, 
-          fecha: fDB, 
-          fuente: "egresos", 
-          detectado_en: today 
-        });
+        // Pero primero verificar si ya se insertó hoy para evitar duplicados en re-sync
+        const { data: mExist } = await supabase.from("movimientos_dia")
+          .select("id")
+          .eq("edificio_id", building.id)
+          .eq("tipo", "egreso")
+          .eq("descripcion", desc)
+          .eq("monto", e.monto)
+          .eq("detectado_en", today)
+          .limit(1);
+
+        if (!mExist || mExist.length === 0) {
+          await supabase.from("movimientos_dia").insert({ 
+            edificio_id: building.id, 
+            tipo: "egreso", 
+            descripcion: desc, 
+            monto: e.monto, 
+            fecha: fDB, 
+            fuente: "egresos", 
+            detectado_en: today 
+          });
+        }
       }
     }
 
@@ -1061,15 +1083,26 @@ export async function POST(request: Request) {
           }, { onConflict: 'edificio_id,hash' });
 
           // SIEMPRE registrar en movimientos_dia si se detectó hoy
-          await supabase.from("movimientos_dia").insert({
-            edificio_id: building.id,
-            tipo: "recibo",
-            descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
-            monto: ing.monto,
-            fecha: fDB,
-            fuente: "ingresos",
-            detectado_en: today
-          });
+          const { data: mExistIng } = await supabase.from("movimientos_dia")
+            .select("id")
+            .eq("edificio_id", building.id)
+            .eq("tipo", "recibo")
+            .eq("descripcion", `${ing.descripcion} - ${ing.beneficiario}`)
+            .eq("monto", ing.monto)
+            .eq("detectado_en", today)
+            .limit(1);
+
+          if (!mExistIng || mExistIng.length === 0) {
+            await supabase.from("movimientos_dia").insert({
+              edificio_id: building.id,
+              tipo: "recibo",
+              descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
+              monto: ing.monto,
+              fecha: fDB,
+              fuente: "ingresos",
+              detectado_en: today
+            });
+          }
 
           // Generar alerta de pago detectado
           await supabase.from("alertas").insert({
@@ -1163,15 +1196,26 @@ export async function POST(request: Request) {
         }, { onConflict: 'edificio_id,hash' });
         
         // SIEMPRE registrar en movimientos_dia si se detectó hoy
-        await supabase.from("movimientos_dia").insert({ 
-          edificio_id: building.id, 
-          tipo: "gasto", 
-          descripcion: g.descripcion, 
-          monto: g.monto, 
-          fecha: fDB, 
-          fuente: "gastos", 
-          detectado_en: today 
-        });
+        const { data: mExistGas } = await supabase.from("movimientos_dia")
+          .select("id")
+          .eq("edificio_id", building.id)
+          .eq("tipo", "gasto")
+          .eq("descripcion", g.descripcion)
+          .eq("monto", g.monto)
+          .eq("detectado_en", today)
+          .limit(1);
+
+        if (!mExistGas || mExistGas.length === 0) {
+          await supabase.from("movimientos_dia").insert({ 
+            edificio_id: building.id, 
+            tipo: "gasto", 
+            descripcion: g.descripcion, 
+            monto: g.monto, 
+            fecha: fDB, 
+            fuente: "gastos", 
+            detectado_en: today 
+          });
+        }
       }
     }
 

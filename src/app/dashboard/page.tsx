@@ -1419,41 +1419,12 @@ export default function DashboardPage() {
         const now = new Date();
         const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
 
-        const flujo = [
-          // Solo incluir movimientos_dia que no sean duplicados de las otras tablas
-          ...(movimientos || []).filter((m: any) => !m.fuente || !fuentesSincronizadas.includes(m.fuente)).map((m: any) => ({ 
-            ...m, 
-            tipo: m.tipo === 'recibo' ? 'recibo' : 'egreso',
-            descripcion: (m.descripcion || (m.tipo === 'recibo' ? 'Pago Detectado' : 'Egreso Detectado')) + (m.referencia ? ` (Ref: ${m.referencia})` : ''),
-            fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha,
-            fecha: m.fecha,
-            detectado_en: m.detectado_en
-          })),
-          ...pagos.map((p: any) => ({ 
-            ...p, 
-            tipo: 'recibo', 
-            descripcion: `Apto. ${p.unidad || 'S/N'} - Pago Recibo ${p.mes || ''}`.trim(),
-            fecha_iso: p.fecha_pago,
-            fecha: p.fecha_pago,
-            detectado_en: p.fecha_deteccion || p.fecha_pago
-          })),
-          ...egresos.map((e: any) => ({ 
-            ...e, 
-            tipo: 'egreso', 
-            descripcion: `${e.beneficiario || ''} - ${e.descripcion || 'Egreso'} ${e.nro_documento ? `(Doc: ${e.nro_documento})` : ''}`.trim().replace(/^ - /, ''),
-            fecha_iso: e.fecha,
-            fecha: e.fecha,
-            detectado_en: todayStr // Estos son los que estamos consultando que se detectaron hoy
-          })),
-          ...gastos.map((g: any) => ({ 
-            ...g, 
-            tipo: 'gasto', 
-            descripcion: g.descripcion || 'Gasto registrado',
-            fecha_iso: g.fecha,
-            fecha: g.fecha,
-            detectado_en: todayStr
-          }))
-        ].filter(item => item.fecha_iso === todayStr || (item.detectado_en && item.detectado_en.split('T')[0] === todayStr));
+        // USAR SOLO movimientos de la tabla movimientos_dia para evitar duplicados
+        // ya que la sincronización ya los inserta allí consolidados
+        const flujo = (movimientos || []).map((m: any) => ({
+          ...m,
+          fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha
+        }));
 
         setMovimientosDia(flujo);
         // Actualizar cashFlow con formato correcto para la tabla
