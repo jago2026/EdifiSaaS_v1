@@ -104,14 +104,21 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const { id, recibe_email_cron } = body;
 
-    if (!id || typeof recibe_email_cron !== "boolean") {
-      return NextResponse.json({ error: "Faltan datos requeridos (id, recibe_email_cron)" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const updateData: any = {};
+    if (recibe_email_cron !== undefined) updateData.recibe_email_cron = !!recibe_email_cron;
+    
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
+    }
+
     const { error } = await supabase
       .from("junta")
-      .update({ recibe_email_cron })
+      .update(updateData)
       .eq("id", id);
 
     if (error) throw error;

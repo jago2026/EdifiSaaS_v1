@@ -4902,7 +4902,7 @@ export default function DashboardPage() {
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Email</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Cargo</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acceso</th>
-                      <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs" title="Recibe el email diario del Cron">Email Cron</th>
+                      <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs" title="Recibe el email diario del Cron">Email Diario Informe</th>
                       <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acciones</th>
                     </tr>
                   </thead>
@@ -4928,7 +4928,8 @@ export default function DashboardPage() {
                           <button
                             onClick={async () => {
                               if (!user?.isAdmin) return;
-                              const nuevoValor = m.recibe_email_cron === false ? true : false;
+                              const currentVal = m.recibe_email_cron === false ? false : true;
+                              const nuevoValor = !currentVal;
                               try {
                                 const res = await fetch("/api/junta", {
                                   method: "PATCH",
@@ -4937,8 +4938,14 @@ export default function DashboardPage() {
                                 });
                                 if (res.ok) {
                                   setJunta(junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j));
+                                } else {
+                                  const data = await res.json();
+                                  alert("Error al actualizar: " + (data.error || "Desconocido"));
                                 }
-                              } catch (e) { console.error(e); }
+                              } catch (e) { 
+                                console.error(e);
+                                alert("Error de red al actualizar preferencia.");
+                              }
                             }}
                             disabled={!user?.isAdmin}
                             className={`px-2 py-1 rounded-full text-[10px] font-black uppercase transition-all ${
