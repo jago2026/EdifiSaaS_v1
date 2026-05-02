@@ -1055,18 +1055,30 @@ export async function POST(request: Request) {
       const existingHashes = new Set(ingresosExistentes?.map(i => i.hash) || []);
 
       for (const ing of allIngresos) {
-        const hash = await generateHash(`ING|${mesEstandar}|${ing.beneficiario}|${ing.monto}|${ing.fecha}`);
-        if (!existingHashes.has(hash)) {
-          const fDB = normalizeFecha(ing.fecha);
+        const fDB = normalizeFecha(ing.fecha);
+        const mesDelPago = fDB.substring(0, 7); // Extraer YYYY-MM de la fecha real del pago
+
+        // [BLOQUEO TOTAL] Verificar si ya existe este pago en la historia del edificio
+        const { data: globalExist } = await supabase
+          .from("pagos_recibos")
+          .select("id")
+          .eq("edificio_id", building.id)
+          .eq("unidad", ing.beneficiario)
+          .eq("monto", ing.monto)
+          .limit(1);
+
+        if (!globalExist || globalExist.length === 0) {
+          const hash = await generateHash(`ING_GLOB|${building.id}|${ing.beneficiario}|${ing.monto}|${fDB}`);
+          
           await supabase.from("ingresos").upsert({
             edificio_id: building.id,
             fecha: fDB,
-            unidad: ing.beneficiario, // En admlaideal r=1 el beneficiario es la unidad/nombre
+            unidad: ing.beneficiario,
             descripcion: ing.descripcion,
             monto: ing.monto,
             hash,
             sincronizado: true,
-            mes: mesEstandar
+            mes: mesDelPago // Usar el mes real de la fecha del pago
           }, { onConflict: 'edificio_id,hash' });
 
           // Registrar en movimientos general
@@ -1081,26 +1093,15 @@ export async function POST(request: Request) {
           }, { onConflict: 'edificio_id,hash' });
 
           // SIEMPRE registrar en movimientos_dia si se detectó hoy
-          const { data: mExistIng } = await supabase.from("movimientos_dia")
-            .select("id")
-            .eq("edificio_id", building.id)
-            .eq("tipo", "recibo")
-            .eq("descripcion", `${ing.descripcion} - ${ing.beneficiario}`)
-            .eq("monto", ing.monto)
-            .eq("detectado_en", today)
-            .limit(1);
-
-          if (!mExistIng || mExistIng.length === 0) {
-            await supabase.from("movimientos_dia").insert({
-              edificio_id: building.id,
-              tipo: "recibo",
-              descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
-              monto: ing.monto,
-              fecha: fDB,
-              fuente: "ingresos",
-              detectado_en: today
-            });
-          }
+          await supabase.from("movimientos_dia").insert({
+            edificio_id: building.id,
+            tipo: "recibo",
+            descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
+            monto: ing.monto,
+            fecha: fDB,
+            fuente: "ingresos",
+            detectado_en: today
+          });
 
           // Generar alerta de pago detectado
           await supabase.from("alertas").insert({
