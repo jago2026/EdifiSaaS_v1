@@ -85,13 +85,12 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
 
 #### 2. Gestión de Miembros (Junta)
 - **Mejora UI:** Se cambió la etiqueta de la columna "Email Cron" por **"Email Diario Informe"**.
-- **Bug Fix (Persistencia):** Se corrigió el problema donde el cambio de preferencia de email (Sí/No) no se guardaba.
-    - **Causa Raíz:** Se identificó que las políticas de seguridad (RLS) impedían la actualización usando la clave anónima. Además, el navegador estaba cacheando los resultados del `GET`, haciendo que pareciera que el cambio no se guardó.
-    - **Solución:** 
-        1. Se cambió el handler `PATCH` en `/api/junta` para usar `SUPABASE_SERVICE_ROLE_KEY`.
-        2. Se añadió verificación de filas afectadas en la API para garantizar el éxito de la operación.
-        3. Se desactivó el cache (`cache: 'no-store'`) y se añadió un timestamp dinámico (`t=...`) en la petición `GET` de miembros para forzar datos frescos.
-    - Se mejoró la lógica del frontend para manejar mejor los estados y proporcionar feedback en caso de error.
+- **Diagnóstico Avanzado:** Para solucionar el problema persistente donde los cambios de email (Sí/No) no se mantienen:
+    - Se implementaron **Logs de Auditoría** en la pestaña de **🔔 Alertas**.
+    - Cada intento de cambio ahora registra un mensaje "👥 Junta Actualizada" (desde el navegador) y "🔌 Backend Junta Update" (desde el servidor).
+    - Esto permitirá ver si el problema es de comunicación, de permisos en Supabase o de refresco de datos en el cliente.
+- **Bug Fix (Persistencia):** ... (soluciones previas de RLS y Cache)
+
 
 #### 3. Integridad y Sincronización
 - Se restauró la estabilidad de `page.tsx` tras un error de truncado durante un rebase conflictivo.
