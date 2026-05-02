@@ -4950,7 +4950,11 @@ export default function DashboardPage() {
                                   setJunta(updatedJunta);
                                   await registrarAlerta('success', '👥 Junta Actualizada', `Preferencia de email para ${m.nombre} cambiada a ${finalValue ? 'SÍ' : 'NO'} correctamente.`);
                                 } else {
-                              } catch (e: any) { 
+                                  const data = await res.json();
+                                  await registrarAlerta('error', '❌ Error Junta', `No se pudo cambiar preferencia. Error: ${data.error || 'Desconocido'}`);
+                                  alert("Error al actualizar: " + (data.error || "Desconocido"));
+                                }
+                              } catch (e: any) {
                                 console.error("Error en PATCH junta:", e);
                                 await registrarAlerta('error', '⚠️ Fallo de Red', `Error de red: ${e.message}`);
                               }
