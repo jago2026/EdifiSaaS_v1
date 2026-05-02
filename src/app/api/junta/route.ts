@@ -118,11 +118,23 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
     }
 
+    // First verify the member exists and belongs to the building
+    const { data: miembroExistente, error: verificarError } = await supabaseAdmin
+      .from("junta")
+      .select('id')
+      .eq("id", id)
+      .eq("edificio_id", edificio_id)
+      .single();
+
+    if (verificarError || !miembroExistente) {
+      return NextResponse.json({ error: "Miembro no encontrado o no pertenece a este edificio" }, { status: 404 });
+    }
+
+    // Now perform the update (without edificio_id filter since we already verified)
     const { error, count } = await supabaseAdmin
       .from("junta")
       .update(updateData)
       .eq("id", id)
-      .eq("edificio_id", edificio_id)
       .select('id, nombre', { count: 'exact' });
 
     if (error) throw error;
