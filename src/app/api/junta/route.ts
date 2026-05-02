@@ -147,7 +147,7 @@ export async function PATCH(request: Request) {
     console.log("ACTUALIZACION - Resultado:", updateResult, "Error:", error, "Count:", count);
 
     // If update didn't change anything (count is null/0), try alternative approach
-    if (!updateResult || error || (count !== null && count <= 0)) {
+    if (!updateResult || error || !count || count <= 0) {
       console.log("INTENTO ALTERNATIVO - Usando rpc o update sin select");
       const { error: error2, count: count2 } = await supabaseAdmin
         .from("junta")
