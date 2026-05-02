@@ -109,6 +109,8 @@ export async function PATCH(request: Request) {
     }
 
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
+    console.log("USANDO KEY:", process.env.SUPABASE_SERVICE_ROLE_KEY ? "SERVICE_ROLE_KEY ✓" : "ANON_KEY (¡SIN PERMISOS!)");
+    console.log("SUPABASE_URL:", supabaseUrl);
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     
     const updateData: any = {};
