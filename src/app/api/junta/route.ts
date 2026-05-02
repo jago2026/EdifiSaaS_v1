@@ -108,7 +108,9 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    
     const updateData: any = {};
     if (recibe_email_cron !== undefined) updateData.recibe_email_cron = !!recibe_email_cron;
     
@@ -116,7 +118,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from("junta")
       .update(updateData)
       .eq("id", id);
