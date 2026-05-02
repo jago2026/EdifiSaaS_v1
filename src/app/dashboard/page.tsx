@@ -4941,12 +4941,15 @@ export default function DashboardPage() {
                                 });
                                 if (res.ok) {
                                   setJunta(junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j));
+                                  await registrarAlerta('success', '👥 Junta Actualizada', `Preferencia de email para ${m.nombre} cambiada a ${nuevoValor ? 'SÍ' : 'NO'} correctamente.`);
                                 } else {
                                   const data = await res.json();
+                                  await registrarAlerta('error', '❌ Error Junta', `No se pudo cambiar preferencia de ${m.nombre}. Error: ${data.error || 'Desconocido'}`);
                                   alert("Error al actualizar: " + (data.error || "Desconocido"));
                                 }
-                              } catch (e) { 
+                              } catch (e: any) { 
                                 console.error(e);
+                                await registrarAlerta('error', '⚠️ Fallo de Red', `Error intentando conectar con la API de Junta para ${m.nombre}: ${e.message}`);
                                 alert("Error de red al actualizar preferencia.");
                               }
                             }}

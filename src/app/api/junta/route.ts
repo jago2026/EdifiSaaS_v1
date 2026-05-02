@@ -122,9 +122,21 @@ export async function PATCH(request: Request) {
       .from("junta")
       .update(updateData)
       .eq("id", id)
-      .select('id', { count: 'exact' });
+      .select('id, nombre', { count: 'exact' });
 
     if (error) throw error;
+    
+    // Log success on server side too
+    if (count && count > 0) {
+      await supabaseAdmin.from("alertas").insert({
+        edificio_id: body.edificio_id || (await supabaseAdmin.from("junta").select("edificio_id").eq("id", id).single()).data?.edificio_id,
+        tipo: 'debug',
+        titulo: '🔌 Backend Junta Update',
+        descripcion: `DB update success for member ID ${id}. New value: ${recibe_email_cron}`,
+        fecha: new Date().toISOString().split('T')[0]
+      });
+    }
+
     if (count === 0) {
       return NextResponse.json({ error: "No se encontró el miembro o no se pudo actualizar" }, { status: 404 });
     }
