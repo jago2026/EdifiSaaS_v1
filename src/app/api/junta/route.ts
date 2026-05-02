@@ -158,10 +158,12 @@ export async function PATCH(request: Request) {
       });
     }
 
-    if (count === 0) {
-      return NextResponse.json({ error: "No se encontró el miembro o no se pudo actualizar" }, { status: 404 });
+    if (error || !count || count === 0) {
+      console.log("ACTUALIZACION FALLIDA - Error:", error, "Count:", count);
+      return NextResponse.json({ error: "No se pudo actualizar el miembro" }, { status: 404 });
     }
     
+    console.log("ACTUALIZACION EXITOSA - Count:", count);
     return NextResponse.json({ success: true, updatedCount: count });
   } catch (error: any) {
     console.error("Patch junta error:", error);
