@@ -651,6 +651,9 @@ export async function POST(request: Request) {
     hIng = await fetchWithRetry(`condlin.php?r=1${comboParam}`);
     await new Promise(r => setTimeout(r, 500));
 
+    // Memoria de detección para esta sesión de sync (evitar doble detección r=1 vs deuda)
+    const detectedInSession = new Set<string>();
+
     if (doSyncRecibos) {
       hRec = await fetchWithRetry(`condlin.php?r=5${comboParam}`);
       await new Promise(r => setTimeout(r, 500));
@@ -772,6 +775,9 @@ export async function POST(request: Request) {
           if (montoTotalPagado > 0) {
             console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${normalizedUnitPrev} pagó Bs. ${montoTotalPagado}`);
             
+            // Marcar como detectado en esta sesión para evitar doble detección r=1
+            detectedInSession.add(`${normalizedUnitPrev}|${Number(montoTotalPagado).toFixed(2)}`);
+            
             // [FIX DEFINTIVO] Verificar si ya existe este pago para esta unidad
             // Buscamos por edificio, unidad y monto exacto en toda la historia reciente
             // para evitar re-detecciones si el usuario movió el pago de mes o fecha.
@@ -855,6 +861,9 @@ export async function POST(request: Request) {
             const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
             const normalizedUnitParcial = extractUnitCode(unidadPrevia);
             console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${normalizedUnitParcial} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
+
+            // Marcar como detectado en esta sesión para evitar doble detección r=1
+            detectedInSession.add(`${normalizedUnitParcial}|${Number(montoParcial).toFixed(2)}`);
 
             // [FIX DEFINTIVO] Verificar si ya existe este abono
             const { data: existingParcial } = await supabase
@@ -1070,6 +1079,12 @@ export async function POST(request: Request) {
         const normalizedUnit = extractUnitCode(ing.beneficiario);
         const amountKey = `${normalizedUnit}|${Number(ing.monto).toFixed(2)}`;
 
+        // BLOQUEO: Si ya se detectó por desaparición de deuda en esta misma sesión, saltar
+        if (detectedInSession.has(amountKey)) {
+          console.log(`[Sync] Pago ya detectado por deuda para ${normalizedUnit}, saltando r=1.`);
+          continue;
+        }
+
         // Verificar si ya existe en este mes o si existe globalmente
         if (!existingKeySet.has(amountKey)) {
            // [BLOQUEO GLOBAL ADICIONAL] Por si se movió de mes
@@ -1082,6 +1097,21 @@ export async function POST(request: Request) {
              .limit(1);
 
            if (!globalExist || globalExist.length === 0) {
+             // [Detección de seguridad extra] Verificar por monto con un margen de 0.01 por si acaso
+             const { data: globalExistSoft } = await supabase
+               .from("pagos_recibos")
+               .select("id")
+               .eq("edificio_id", building.id)
+               .eq("unidad", normalizedUnit)
+               .gte("monto", Number(ing.monto) - 0.01)
+               .lte("monto", Number(ing.monto) + 0.01)
+               .limit(1);
+               
+             if (globalExistSoft && globalExistSoft.length > 0) {
+               console.log(`[Sync] Pago global detectado por margen suave para ${normalizedUnit}, saltando.`);
+               continue;
+             }
+             
           // Guardar en pagos_recibos (centralizado)
           await supabase.from("pagos_recibos").insert({
             edificio_id: building.id,
