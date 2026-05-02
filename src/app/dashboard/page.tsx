@@ -4930,8 +4930,8 @@ export default function DashboardPage() {
                         <td className="py-3 px-4 text-center">
                           <button
                             onClick={async () => {
-                              const currentVal = m.recibe_email_cron === false ? false : true;
-                              const nuevoValor = !currentVal;
+                               // Toggle recibe_email_cron, treating null/undefined as true (default)
+                               const nuevoValor = m.recibe_email_cron === false;
                               console.log("Cambiando preferencia para:", m.nombre, "a:", nuevoValor);
                               try {
                                 const res = await fetch("/api/junta", {
