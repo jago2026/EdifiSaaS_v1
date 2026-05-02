@@ -1603,7 +1603,10 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingJunta(true);
     try {
-      const res = await fetch(`/api/junta?edificioId=${building.id}`);
+      const res = await fetch(`/api/junta?edificioId=${building.id}&t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Pragma': 'no-cache', 'Cache-Control': 'no-cache' }
+      });
       const data = await res.json();
       if (res.ok && data.miembros) {
         setJunta(data.miembros);

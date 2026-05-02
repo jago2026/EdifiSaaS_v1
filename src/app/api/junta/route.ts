@@ -118,13 +118,18 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "No hay campos para actualizar" }, { status: 400 });
     }
 
-    const { error } = await supabaseAdmin
+    const { error, count } = await supabaseAdmin
       .from("junta")
       .update(updateData)
-      .eq("id", id);
+      .eq("id", id)
+      .select('id', { count: 'exact' });
 
     if (error) throw error;
-    return NextResponse.json({ success: true });
+    if (count === 0) {
+      return NextResponse.json({ error: "No se encontró el miembro o no se pudo actualizar" }, { status: 404 });
+    }
+    
+    return NextResponse.json({ success: true, updatedCount: count });
   } catch (error: any) {
     console.error("Patch junta error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
