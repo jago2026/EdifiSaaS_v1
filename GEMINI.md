@@ -253,6 +253,7 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
     - El formulario permite ingresar: Fecha, Tipo (Ingreso/Egreso), Moneda (Bs/USD), Monto, Tasa de Cambio (si es USD) y Descripción.
     - Se añadió soporte multimoneda con conversión automática a Bolívares para la base de datos.
     - Se mejoró el feedback al usuario con estados de carga y alertas de éxito/error.
+- **Bug Fix:** Se corrigió el error "cookies is not defined" en la ruta API `/api/movimientos-manual` añadiendo el import correspondiente de `next/headers`.
 - **Integridad de Datos:** 
     - Se restauró la estabilidad de `page.tsx` tras un error de truncado durante el rebase.
     - Se aseguró que `registrarAlerta` incluya el campo `fecha` obligatorio.
