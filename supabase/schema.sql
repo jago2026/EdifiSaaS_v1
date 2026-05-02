@@ -332,6 +332,18 @@ CREATE TABLE IF NOT EXISTS junta (
 -- Migración: agregar recibe_email_cron si no existe
 ALTER TABLE junta ADD COLUMN IF NOT EXISTS recibe_email_cron BOOLEAN DEFAULT true;
 
+-- IMPORTANTE: RLS está DESHABILITADO en esta tabla para permitir
+-- que el service role key pueda actualizar preferencias sin restricciones
+-- No habilitar Row Level Security en la tabla junta
+ALTER TABLE junta DISABLE ROW LEVEL SECURITY;
+
+-- Eliminar cualquier política RLS existente (por si se habilitó por error)
+DROP POLICY IF EXISTS "junta_policy" ON junta;
+DROP POLICY IF EXISTS "junta_view_policy" ON junta;
+DROP POLICY IF EXISTS "junta_update_policy" ON junta;
+DROP POLICY IF EXISTS "junta_insert_policy" ON junta;
+DROP POLICY IF EXISTS "junta_delete_policy" ON junta;
+
 -- 16. Logs de alertas y errores
 CREATE TABLE IF NOT EXISTS alertas_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
