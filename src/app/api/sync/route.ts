@@ -1043,52 +1043,59 @@ export async function POST(request: Request) {
       }
     }
 
-    // PROCESAR INGRESOS DETECTADOS (PAGOS DE CONDOMINIO)
+    // PROCESAR INGRESOS DETECTADOS (PAGOS DE CONDOMINIO DE LA LISTA R=1)
     if (allIngresos.length > 0) {
-      console.log(`Verificando ${allIngresos.length} ingresos para ${mesEstandar}`);
-      const { data: ingresosExistentes } = await supabase
-        .from("ingresos")
-        .select("hash")
+      console.log(`Verificando ${allIngresos.length} ingresos para el mes ${mesEstandar}`);
+      
+      // Obtener pagos ya registrados para este mes en pagos_recibos
+      const { data: pagosExistentes } = await supabase
+        .from("pagos_recibos")
+        .select("unidad, monto")
         .eq("edificio_id", building.id)
         .eq("mes", mesEstandar);
       
-      const existingHashes = new Set(ingresosExistentes?.map(i => i.hash) || []);
+      const existingKeySet = new Set(pagosExistentes?.map(p => `${p.unidad}|${Number(p.monto).toFixed(2)}`) || []);
 
       for (const ing of allIngresos) {
         const fDB = normalizeFecha(ing.fecha);
-        const mesDelPago = fDB.substring(0, 7); // Extraer YYYY-MM de la fecha real del pago
+        const mesDelPago = fDB.substring(0, 7); 
+        const amountKey = `${ing.beneficiario}|${Number(ing.monto).toFixed(2)}`;
 
-        // [BLOQUEO TOTAL] Verificar si ya existe este pago en la historia del edificio
-        const { data: globalExist } = await supabase
-          .from("pagos_recibos")
-          .select("id")
-          .eq("edificio_id", building.id)
-          .eq("unidad", ing.beneficiario)
-          .eq("monto", ing.monto)
-          .limit(1);
+        // Verificar si ya existe en este mes o si existe globalmente
+        if (!existingKeySet.has(amountKey)) {
+           // [BLOQUEO GLOBAL ADICIONAL] Por si se movió de mes
+           const { data: globalExist } = await supabase
+             .from("pagos_recibos")
+             .select("id")
+             .eq("edificio_id", building.id)
+             .eq("unidad", ing.beneficiario)
+             .eq("monto", ing.monto)
+             .limit(1);
 
-        if (!globalExist || globalExist.length === 0) {
-          const hash = await generateHash(`ING_GLOB|${building.id}|${ing.beneficiario}|${ing.monto}|${fDB}`);
-          
-          await supabase.from("ingresos").upsert({
+           if (!globalExist || globalExist.length === 0) {
+          // Guardar en pagos_recibos (centralizado)
+          await supabase.from("pagos_recibos").insert({
             edificio_id: building.id,
-            fecha: fDB,
             unidad: ing.beneficiario,
-            descripcion: ing.descripcion,
+            propietario: ing.descripcion, // Usamos la descripción como nombre temporal
+            mes: mesDelPago,
             monto: ing.monto,
-            hash,
-            sincronizado: true,
-            mes: mesDelPago // Usar el mes real de la fecha del pago
-          }, { onConflict: 'edificio_id,hash' });
+            monto_usd: tasaActual > 0 ? (ing.monto / tasaActual) : 0,
+            tasa_bcv: tasaActual,
+            fecha_pago: fDB,
+            source: 'ingresos_r1',
+            verificado: true
+          });
 
           // Registrar en movimientos general
+          const hashGlob = await generateHash(`ING_GLOB|${building.id}|${ing.beneficiario}|${ing.monto}|${fDB}`);
           await supabase.from("movimientos").upsert({
             edificio_id: building.id,
             tipo: "ingreso",
             descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
             monto: ing.monto,
             fecha: fDB,
-            hash,
+            hash: hashGlob,
             sincronizado: true
           }, { onConflict: 'edificio_id,hash' });
 
