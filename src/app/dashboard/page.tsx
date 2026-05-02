@@ -248,6 +248,16 @@ export default function DashboardPage() {
   const [syncMessage, setSyncMessage] = useState("");
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualModalTipo, setManualModalTipo] = useState<"ingreso" | "egreso">("ingreso");
+  const [manualModalMoneda, setManualModalMoneda] = useState<"bs" | "usd">("bs");
+  const [manualModalForm, setManualModalForm] = useState({
+    fecha_corte: new Date().toISOString().split("T")[0],
+    monto: "",
+    descripcion: "",
+    obs: "",
+    tasa_bcv: ""
+  });
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loadingRecibos, setLoadingRecibos] = useState(false);
   const [movimientosDia, setMovimientosDia] = useState<any[]>([]);
@@ -1706,24 +1716,43 @@ export default function DashboardPage() {
       alert("Error: No hay un edificio seleccionado.");
       return;
     }
+
+    const tasa = Number(manualModalForm.tasa_bcv) || tasaBCV.dolar || 45.50;
+    const monto = Number(manualModalForm.monto) || 0;
+
+    // Si la moneda es USD, convertir a Bs usando la tasa ingresada o BCV
+    let montoEnBs = monto;
+    if (manualModalMoneda === "usd") {
+      montoEnBs = monto * tasa;
+    }
+
+    const ingresosVal = manualModalTipo === "ingreso" ? montoEnBs : 0;
+    const egresosVal = manualModalTipo === "egreso" ? montoEnBs : 0;
+    const obsIngresos = manualModalTipo === "ingreso" ? (manualModalForm.obs || manualModalForm.descripcion || "") : undefined;
+    const obsEgresos = manualModalTipo === "egreso" ? (manualModalForm.obs || manualModalForm.descripcion || "") : undefined;
+
     try {
       const res = await fetch("/api/movimientos-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           edificio_id: building.id,
-          fecha_corte: new Date().toISOString().split("T")[0],
+          fecha_corte: manualModalForm.fecha_corte || new Date().toISOString().split("T")[0],
           saldo_inicial: 0,
-          egresos: 0,
-          ingresos: 0,
-          saldo_final: 0,
-          tasa_bcv: tasaBCV.dolar || 45.50,
+          egresos: egresosVal,
+          ingresos: ingresosVal,
+          saldo_final: ingresosVal - egresosVal,
+          obs_ingresos: obsIngresos,
+          obs_egresos: obsEgresos,
+          tasa_bcv: tasa,
         }),
       });
       const data = await res.json();
       if (res.ok && data.movimiento) {
         setManualFilter("todos"); // Reset filter so user sees the new record
         await registrarAlerta('success', '➕ Nuevo Movimiento', `Se ha creado un nuevo registro manual para la fecha ${formatDate(new Date())}.`);
+        setShowManualModal(false);
+        setManualModalForm({ fecha_corte: new Date().toISOString().split("T")[0], monto: "", descripcion: "", obs: "", tasa_bcv: "" });
         loadMovimientosManual();
       } else {
         alert("Error al crear registro: " + (data.error || "Error desconocido"));
@@ -4187,7 +4216,15 @@ export default function DashboardPage() {
                   ))}
                 </div>
                 
-                <button onClick={createMovimientoManual} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase">
+                <button 
+                  onClick={() => {
+                    setManualModalForm({ fecha_corte: new Date().toISOString().split("T")[0], monto: "", descripcion: "", obs: "", tasa_bcv: "" });
+                    setManualModalTipo("ingreso");
+                    setManualModalMoneda("bs");
+                    setShowManualModal(true);
+                  }} 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors shadow-sm text-sm uppercase"
+                >
                   + Nuevo Registro
                 </button>
               </div>
@@ -7098,6 +7135,123 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Movimiento Manual */}
+      {showManualModal && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300 border-4 border-white">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-center text-white relative">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">📝</div>
+              <h2 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2">Nuevo Registro Manual</h2>
+              <p className="text-indigo-100 font-bold text-[10px] uppercase tracking-widest italic">Complete los datos del movimiento bancario</p>
+            </div>
+            
+            <div className="p-8 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Fecha de Movimiento</label>
+                  <input
+                    type="date"
+                    value={manualModalForm.fecha_corte}
+                    onChange={(e) => setManualModalForm({ ...manualModalForm, fecha_corte: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Tipo de Movimiento</label>
+                  <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+                    <button 
+                      onClick={() => setManualModalTipo("ingreso")}
+                      className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all uppercase ${manualModalTipo === "ingreso" ? 'bg-white text-green-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                      Ingreso (+)
+                    </button>
+                    <button 
+                      onClick={() => setManualModalTipo("egreso")}
+                      className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all uppercase ${manualModalTipo === "egreso" ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                      Egreso (-)
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Moneda</label>
+                  <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200">
+                    <button 
+                      onClick={() => setManualModalMoneda("bs")}
+                      className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all uppercase ${manualModalMoneda === "bs" ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                      Bs.
+                    </button>
+                    <button 
+                      onClick={() => setManualModalMoneda("usd")}
+                      className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all uppercase ${manualModalMoneda === "usd" ? 'bg-white text-amber-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                    >
+                      USD ($)
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Monto {manualModalMoneda.toUpperCase()}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={manualModalForm.monto}
+                    onChange={(e) => setManualModalForm({ ...manualModalForm, monto: e.target.value })}
+                    className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:ring-2 outline-none transition-all font-black text-sm ${manualModalTipo === 'ingreso' ? 'text-green-600 focus:ring-green-500 border-green-100' : 'text-red-600 focus:ring-red-500 border-red-100'}`}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {manualModalMoneda === "usd" && (
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Tasa de Cambio (Bs/$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={manualModalForm.tasa_bcv}
+                    onChange={(e) => setManualModalForm({ ...manualModalForm, tasa_bcv: e.target.value })}
+                    className="w-full px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none transition-all font-bold text-amber-700 text-sm"
+                    placeholder={`Actual BCV: ${tasaBCV.dolar || '...'}`}
+                  />
+                  <p className="text-[9px] text-amber-600 mt-1 font-bold italic">Se registrará el equivalente en Bolívares en la base de datos principal.</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Descripción / Concepto</label>
+                <input
+                  type="text"
+                  value={manualModalForm.descripcion}
+                  onChange={(e) => setManualModalForm({ ...manualModalForm, descripcion: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                  placeholder="Ej: Pago de Vigilancia, Reparación Bomba..."
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowManualModal(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={createMovimientoManual}
+                  disabled={!manualModalForm.monto || !manualModalForm.descripcion}
+                  className="flex-[2] py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50"
+                >
+                  Guardar Registro
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -142,9 +142,8 @@ Corregir errores de compilación y mejorar la accesibilidad de la sincronizació
     - **Menú Lateral**: Añadido botón de sincronización en el menú de hamburguesa móvil con estilo destacado (color ámbar).
     - **Cambio de Iconografía**: Se actualizó el emoticon de la pestaña "Movimientos" de 🔄 a 📝 para diferenciarlo claramente de la acción de Sincronizar, siguiendo la solicitud del usuario.
     - **Lógica de Feedback**: Los nuevos botones muestran un estado de carga ("⌛...") mientras la sincronización está en curso.
-- [x] **Fix de Error de Tipado (API Informes)**: Corregido error en `src/app/api/informes/route.ts` donde se usaba `request.url` en lugar de `req.url`.
+- [x] **Fix de Error de Tipado (API Informes)**: Corregido error en `src/app/api/informes/route.ts` where was used `request.url` instead of `req.url`.
 
-### Próximos Pasos Sugeridos
 ---
 
 ## Fecha: 29 de Abril, 2026
@@ -168,12 +167,6 @@ Mejoras estéticas, expansión de rangos de morosidad y correcciones en el módu
     - **Corpoelec (Electricidad)**: 
         - Se añadió un badge de "Próximamente" en el encabezado de la sección.
         - Se implementaron mensajes de aviso ("Sección en Desarrollo") en los botones de "Consultar Saldo", "Enviar Email" y "Reporte", informando al usuario que la funcionalidad está en desarrollo debido a limitaciones técnicas de los portales externos.
-- [x] **Memoria de Trabajo**: Actualización de `GEMINI.md` con las tareas realizadas hoy.
-
-### Próximos Pasos Sugeridos
-- Implementar "Skeleton Loaders" en las gráficas de morosidad para suavizar la transición de carga.
-- Investigar APIs alternativas de terceros para la consulta de Corpoelec.
-- Continuar con la división de `page.tsx` en componentes más pequeños para mejorar la mantenibilidad.
 
 ---
 
@@ -193,11 +186,59 @@ Resolver problemas críticos de autenticación (401) y sincronización horaria e
 - [x] **Eliminación del Error 401**: Se identificó que las llamadas internas vía `fetch` a `/api/sync` y `/api/email` fallaban debido a protecciones de red de Vercel (Deployment Protection).
 - [x] **Refactorización a Llamadas Directas**: Se modificó `src/app/api/cron/route.ts` para importar directamente los manejadores `POST` de `sync` y `email`. Ahora el cron ejecuta la lógica en memoria pasando un objeto `Request` simulado, eliminando la dependencia de la red externa y los errores de autorización.
 - [x] **Corrección de Zona Horaria (VET)**:
-    - Se reemplazó la lógica inconsistente de `new Date().toLocaleString()` por `Intl.DateTimeFormat` con la zona horaria `America/Caracas` configurada de forma explita.
+    - Se reemplazó la lógica inconsistente de `new Date().toLocaleString()` por `Intl.DateTimeFormat` con la zona horaria `America/Caracas` configurada de forma explícita.
     - Esto garantiza que el cron compare correctamente la hora de ejecución con la hora configurada por el edificio (ej. 05:00 AM VET), independientemente de la hora del servidor (UTC).
 - [x] **Mejora de Alertas y Diagnóstico**:
     - Se amplió la captura de errores en el Cron para registrar mensajes detallados en la bitácora de alertas en caso de fallos internos.
-    - Se eliminó la dependencia de `BASE_URL` para las tareas principales, haciendo el sistema más robusto frente a cambios de dominio.
+
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación 2)
+
+### Objetivo
+Análisis técnico de la utilización de la tabla `historico_cobranza` y revisión general del proyecto.
+
+### Tareas Realizadas
+
+#### 📊 Análisis de la Tabla `historico_cobranza`
+Se realizó un mapeo completo de la dependencia de datos de esta tabla, identificando su rol crítico en el motor de analítica:
+- **Módulos de Backend**:
+    - `src/app/api/sync/route.ts`: Punto de entrada de datos. Crea snapshots históricos durante cada sincronización exitosa.
+    - `src/app/api/analytics/cobranza/route.ts`: Calcula KPIs de rendimiento comparativo mensual.
+- **Componentes de Frontend (Dashboard)**:
+    - `AnalisisCobranza.tsx`: Visualiza la **Curva de Recaudación** comparando el mes actual vs el anterior.
+    - `SemaforoMorosidad.tsx`: Gestiona el **Semáforo de Antigüedad** (1, 2-3, 4-6, 7-11, 12+ recibos) y el gráfico de **Evolución de Deuda** (tendencia de los últimos 12 meses/registros).
+
+---
+
+## Fecha: 29 de Abril, 2026 (Continuación 3)
+
+### Objetivo
+Corregir errores de visualización en gráficos de analítica y mejorar el procesamiento de datos históricos de `historico_cobranza`.
+
+### Tareas Realizadas
+
+#### 📉 Corrección de Gráficos de Cobranza
+- [x] **Eliminación de "Caída a Cero"**: Se modificó la lógica en el backend y frontend para que el gráfico de cobranza del mes actual se detenga en el día de hoy. Ya no proyecta líneas a cero ni planas hasta el día 31.
+- [x] **Comparativa Dinámica**: El gráfico ahora superpone la curva actual (parcial) sobre la del mes anterior (completa) de forma correcta.
+
+---
+
+## Fecha: 30 de Abril, 2026
+
+### Objetivo
+Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de errores en el panel de alertas y optimizar la ejecución de servicios públicos.
+
+### Tareas Realizadas
+
+#### 🚀 Optimización de Cron (Estabilidad Mañana)
+- [x] **Frecuencia Horaria**: Se actualizó `vercel.json` para ejecutar el cron `/api/cron` cada hora (`0 * * * *`).
+- [x] **Integración de Servicios Públicos**: Se incluyó la ejecución automática del cron de Servicios Públicos dentro del flujo principal del cron diario.
+- [x] **Eliminación de Errores de Red**: Se refactorizaron las llamadas en el cron de servicios públicos para usar importaciones directas.
+
+#### 🔔 Mejora de Alertas y Diagnóstico
+- [x] **Logs de Servicios Públicos**: Añadida lógica de `logAlerta` en el cron de servicios públicos.
+- [x] **Trazabilidad en Cron**: Se añadieron mensajes preventivos en la tabla de alertas cuando un edificio tiene el cron desactivado.
 
 ---
 
@@ -205,22 +246,17 @@ Resolver problemas críticos de autenticación (401) y sincronización horaria e
 
 ### Tareas Realizadas
 
-#### 1. Corrección en Ingr/Egr Manual
-- **Problema:** El botón "+ Nuevo Registro" no realizaba ninguna acción visible para el usuario.
-- **Causa probable:**
-    1. El usuario podía estar usando un filtro (Ingresos/Egresos/Pendientes) que ocultaba el nuevo registro (que nace con valores en 0).
-    2. El modo Demo retornaba un error 403 que se manejaba silenciosamente en el frontend.
-    3. Error en la función `registrarAlerta` que intentaba insertar en la base de datos sin el campo requerido `fecha`.
-- **Soluciones aplicadas:**
-    - Se añadió `setManualFilter("todos")` al crear un nuevo registro para asegurar que sea visible inmediatamente.
-    - Se añadió manejo de errores con `alert()` para informar al usuario si la creación falla (ej. en modo Demo o error de servidor).
-    - Se corrigió `registrarAlerta` para incluir el campo `fecha` requerido por el esquema de la base de datos.
-    - Se añadió validación de `building.id` con feedback al usuario.
-    - Se optimizó el ordenamiento de los registros manuales usando `created_at` como tie-breaker para un saldo acumulado estable.
-    - Se corrigió el filtro "Ambos" para que use lógica OR (Ingresos > 0 O Egresos > 0) en lugar de AND, permitiendo ver movimientos simples.
-    - Se añadió manejo de errores y alertas en las funciones de actualizar y eliminar movimientos manuales.
+#### 1. Corrección en Ingr/Egr Manual (Caja)
+- **Problema:** El botón "+ Nuevo Registro" no realizaba ninguna acción visible (solo agregaba una fila vacía que a veces quedaba oculta por filtros).
+- **Solución Aplicada:** 
+    - Se implementó un **Formulario Modal Premium** que aparece al pulsar "+ Nuevo Registro".
+    - El formulario permite ingresar: Fecha, Tipo (Ingreso/Egreso), Moneda (Bs/USD), Monto, Tasa de Cambio (si es USD) y Descripción.
+    - Se añadió soporte multimoneda con conversión automática a Bolívares para la base de datos.
+    - Se mejoró el feedback al usuario con estados de carga y alertas de éxito/error.
+- **Integridad de Datos:** 
+    - Se restauró la estabilidad de `page.tsx` tras un error de truncado durante el rebase.
+    - Se aseguró que `registrarAlerta` incluya el campo `fecha` obligatorio.
 
-### Próximos Pasos / Recomendaciones
-- Implementar un sistema de notificaciones (toasts) más moderno para evitar el uso de `alert()`.
-- Validar si otros componentes de "Analytics" (AnalisisCobranza, SaludFinanciera, etc.) requieren ajustes similares en el registro de alertas.
-- Revisar consistencia de tipos en los modelos de datos entre el frontend y Supabase.
+### Próximos Pasos Sugeridos
+- Implementar Toasts para notificaciones menos intrusivas.
+- Seguir refactorizando `page.tsx` hacia componentes independientes.
