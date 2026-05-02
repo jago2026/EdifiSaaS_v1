@@ -259,16 +259,6 @@ export default function DashboardPage() {
   const [syncMessage, setSyncMessage] = useState("");
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
-  const [showManualModal, setShowManualModal] = useState(false);
-  const [manualModalTipo, setManualModalTipo] = useState<"ingreso" | "egreso">("ingreso");
-  const [manualModalMoneda, setManualModalMoneda] = useState<"bs" | "usd">("bs");
-  const [manualModalForm, setManualModalForm] = useState({
-    fecha_corte: new Date().toISOString().split("T")[0],
-    monto: "",
-    descripcion: "",
-    obs: "",
-    tasa_bcv: ""
-  });
   const [recibos, setRecibos] = useState<Recibo[]>([]);
   const [loadingRecibos, setLoadingRecibos] = useState(false);
   const [movimientosDia, setMovimientosDia] = useState<any[]>([]);
