@@ -1425,27 +1425,35 @@ export default function DashboardPage() {
             ...m, 
             tipo: m.tipo === 'recibo' ? 'recibo' : 'egreso',
             descripcion: (m.descripcion || (m.tipo === 'recibo' ? 'Pago Detectado' : 'Egreso Detectado')) + (m.referencia ? ` (Ref: ${m.referencia})` : ''),
-            fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha
+            fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha,
+            fecha: m.fecha,
+            detectado_en: m.detectado_en
           })),
           ...pagos.map((p: any) => ({ 
             ...p, 
             tipo: 'recibo', 
             descripcion: `Apto. ${p.unidad || 'S/N'} - Pago Recibo ${p.mes || ''}`.trim(),
-            fecha_iso: p.fecha_pago
+            fecha_iso: p.fecha_pago,
+            fecha: p.fecha_pago,
+            detectado_en: p.fecha_deteccion || p.fecha_pago
           })),
           ...egresos.map((e: any) => ({ 
             ...e, 
             tipo: 'egreso', 
             descripcion: `${e.beneficiario || ''} - ${e.descripcion || 'Egreso'} ${e.nro_documento ? `(Doc: ${e.nro_documento})` : ''}`.trim().replace(/^ - /, ''),
-            fecha_iso: e.fecha
+            fecha_iso: e.fecha,
+            fecha: e.fecha,
+            detectado_en: todayStr // Estos son los que estamos consultando que se detectaron hoy
           })),
           ...gastos.map((g: any) => ({ 
             ...g, 
             tipo: 'gasto', 
             descripcion: g.descripcion || 'Gasto registrado',
-            fecha_iso: g.fecha
+            fecha_iso: g.fecha,
+            fecha: g.fecha,
+            detectado_en: todayStr
           }))
-        ].filter(item => item.fecha_iso === todayStr);
+        ].filter(item => item.fecha_iso === todayStr || (item.detectado_en && item.detectado_en.split('T')[0] === todayStr));
 
         setMovimientosDia(flujo);
         // Actualizar cashFlow con formato correcto para la tabla
@@ -2747,7 +2755,7 @@ export default function DashboardPage() {
                         {movimientosDia.map((m: any) => (
                           <tr key={m.id} className="hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-3 text-[10px] text-gray-500 font-medium">
-                              {m.detectado_en ? formatDate(m.detectado_en) : formatDate(m.fecha)}
+                              {m.tipo === "recibo" ? formatDate(m.detectado_en || m.fecha) : formatDate(m.fecha)}
                             </td>
                             <td className="py-3 px-3">
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -2863,7 +2871,7 @@ export default function DashboardPage() {
                       {movimientosDia.map((m: any) => (
                         <tr key={m.id}>
                           <td className="py-2.5 px-3 text-xs text-green-700 font-medium whitespace-nowrap">
-                            {m.detectado_en ? formatDate(m.detectado_en) : formatDate(m.fecha)}
+                            {m.tipo === "recibo" ? formatDate(m.detectado_en || m.fecha) : formatDate(m.fecha)}
                           </td>
                           <td className="py-2.5 px-3">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${

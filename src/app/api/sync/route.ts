@@ -295,6 +295,18 @@ function parseGastosTable(html: string): any[] {
   if (!html) return [];
   const results: any[] = [];
   
+  // Intentar extraer el mes del encabezado (ej: 04-2026 o 04/2026)
+  // Usamos un regex que soporte varios separadores comunes incluyendo el guion corto especial
+  const monthMatch = html.match(/(\d{2})[\s\-‑\/](\d{4})/);
+  let fallbackDate = null;
+  if (monthMatch) {
+     const mm = monthMatch[1];
+     const yyyy = monthMatch[2];
+     const lastDay = new Date(parseInt(yyyy), parseInt(mm), 0).getDate();
+     fallbackDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+     console.log(`[parseGastosTable] Mes detectado en encabezado: ${mm}-${yyyy}. Usando fallback: ${fallbackDate}`);
+  }
+
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
   console.log(`[parseGastosTable] Aggressive scan of ${allTables.length} tables.`);
   
@@ -344,7 +356,7 @@ function parseGastosTable(html: string): any[] {
             codigo: code,
             descripcion: desc,
             monto: parseMonto(montoRaw),
-            fecha: null // No se encontró fecha en este formato
+            fecha: fallbackDate // Usar el fin de mes detectado en el encabezado
           });
         }
       }
@@ -1122,7 +1134,7 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // DETERMINAR LA FECHA DEL GASTO: Usar fecha del registro o fin de mes
+        // DETERMINAR LA FECHA DEL GASTO: Usar fecha del registro o fin de mes (ahora fallbackDate es más preciso)
         const fDB = g.fecha ? normalizeFecha(g.fecha) : baseFechaGasto;
 
         // Incluir la descripción en el hash para evitar colisiones si dos gastos tienen mismo código y monto (ej. ascensores)
@@ -1150,7 +1162,7 @@ export async function POST(request: Request) {
           sincronizado: true 
         }, { onConflict: 'edificio_id,hash' });
         
-        // SIEMPRE registrar en movimientos_dia si se detectó hoy (independiente de su fecha real)
+        // SIEMPRE registrar en movimientos_dia si se detectó hoy
         await supabase.from("movimientos_dia").insert({ 
           edificio_id: building.id, 
           tipo: "gasto", 

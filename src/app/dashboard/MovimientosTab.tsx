@@ -53,7 +53,7 @@ export function MovimientosTab({
                 {movimientosDia.map((m: any) => (
                   <tr key={m.id}>
                     <td className="py-2.5 px-3 text-xs text-green-700 font-medium whitespace-nowrap">
-                      {m.detectado_en ? formatDate(m.detectado_en) : formatDate(m.fecha)}
+                      {m.tipo === "recibo" ? formatDate(m.detectado_en || m.fecha) : formatDate(m.fecha)}
                     </td>
                     <td className="py-2.5 px-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
