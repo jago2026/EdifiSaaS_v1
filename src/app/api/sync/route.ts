@@ -718,53 +718,68 @@ export async function POST(request: Request) {
           if (montoTotalPagado > 0) {
             console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
             
-            // A. Registrar en la tabla histórica pagos_recibos
-            await supabase.from("pagos_recibos").insert({
-              edificio_id: building.id,
-              unidad: unidadPrevia,
-              propietario: propietario,
-              mes: mesEstandar,
-              monto: montoTotalPagado,
-              monto_usd: tasaActual > 0 ? (montoTotalPagado / tasaActual) : 0,
-              tasa_bcv: tasaActual,
-              fecha_pago: today,
-              source: 'deteccion_automatica',
-              verificado: true
-            });
+            // Verificar si ya existe este pago para evitar duplicados por re-sync
+            const { data: existingPago } = await supabase
+              .from("pagos_recibos")
+              .select("id")
+              .eq("edificio_id", building.id)
+              .eq("unidad", unidadPrevia)
+              .eq("mes", mesEstandar)
+              .eq("monto", montoTotalPagado)
+              .gte("fecha_pago", today) // Solo si se detectó hoy mismo o después
+              .limit(1);
 
-            // B. Generar alerta de pago asumido
-            await supabase.from("alertas").insert({
-              edificio_id: building.id,
-              tipo: "ingreso",
-              titulo: "✅ Deuda Cancelada (Auto)",
-              descripcion: `La unidad ${unidadPrevia} (${propietario}) ha saldado su deuda total de Bs. ${formatNumber(montoTotalPagado)}. Detectado por conciliación de lista.`,
-              fecha: today
-            });
+            if (!existingPago || existingPago.length === 0) {
+              // A. Registrar en la tabla histórica pagos_recibos
+              await supabase.from("pagos_recibos").insert({
+                edificio_id: building.id,
+                unidad: unidadPrevia,
+                propietario: propietario,
+                mes: mesEstandar,
+                monto: montoTotalPagado,
+                monto_usd: tasaActual > 0 ? (montoTotalPagado / tasaActual) : 0,
+                tasa_bcv: tasaActual,
+                fecha_pago: today,
+                source: 'deteccion_automatica',
+                verificado: true
+              });
 
-            // C. Registrar en movimientos general
-            const hashMov = await generateHash(`PAGO_AUTO|${building.id}|${unidadPrevia}|${montoTotalPagado}|${today}`);
-            await supabase.from("movimientos").upsert({
-              edificio_id: building.id,
-              tipo: "ingreso",
-              descripcion: `PAGO TOTAL DETECTADO - Unidad ${unidadPrevia}`,
-              monto: montoTotalPagado,
-              fecha: today,
-              hash: hashMov,
-              sincronizado: true
-            }, { onConflict: 'edificio_id,hash' });
+              // B. Generar alerta de pago asumido
+              await supabase.from("alertas").insert({
+                edificio_id: building.id,
+                tipo: "ingreso",
+                titulo: "✅ Deuda Cancelada (Auto)",
+                descripcion: `La unidad ${unidadPrevia} (${propietario}) ha saldado su deuda total de Bs. ${formatNumber(montoTotalPagado)}. Detectado por conciliación de lista.`,
+                fecha: today
+              });
 
-            // D. Registrar en movimientos_dia para el informe diario
-            await supabase.from("movimientos_dia").insert({
-              edificio_id: building.id,
-              tipo: "recibo",
-              descripcion: `PAGO TOTAL - Unidad ${unidadPrevia} (${propietario})`,
-              monto: montoTotalPagado,
-              fecha: today,
-              fuente: "deteccion_automatica",
-              detectado_en: today,
-              unidad_apartamento: unidadPrevia,
-              propietario: propietario
-            });
+              // C. Registrar en movimientos general
+              const hashMov = await generateHash(`PAGO_AUTO|${building.id}|${unidadPrevia}|${montoTotalPagado}|${today}`);
+              await supabase.from("movimientos").upsert({
+                edificio_id: building.id,
+                tipo: "ingreso",
+                descripcion: `PAGO TOTAL DETECTADO - Unidad ${unidadPrevia}`,
+                monto: montoTotalPagado,
+                fecha: today,
+                hash: hashMov,
+                sincronizado: true
+              }, { onConflict: 'edificio_id,hash' });
+
+              // D. Registrar en movimientos_dia para el informe diario
+              await supabase.from("movimientos_dia").insert({
+                edificio_id: building.id,
+                tipo: "recibo",
+                descripcion: `PAGO TOTAL - Unidad ${unidadPrevia} (${propietario})`,
+                monto: montoTotalPagado,
+                fecha: today,
+                fuente: "deteccion_automatica",
+                detectado_en: today,
+                unidad_apartamento: unidadPrevia,
+                propietario: propietario
+              });
+            } else {
+              console.log(`[PAGO-TOTAL] Saltando duplicado para unidad ${unidadPrevia}`);
+            }
           }
 
           // E. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo 
@@ -786,53 +801,68 @@ export async function POST(request: Request) {
             const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
             console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${unidadPrevia} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
 
-            // Registrar en pagos_recibos
-            await supabase.from("pagos_recibos").insert({
-              edificio_id: building.id,
-              unidad: unidadPrevia,
-              propietario: propietarioParcial,
-              mes: mesEstandar,
-              monto: montoParcial,
-              monto_usd: tasaActual > 0 ? (montoParcial / tasaActual) : 0,
-              tasa_bcv: tasaActual,
-              fecha_pago: today,
-              source: 'deteccion_parcial',
-              verificado: false
-            });
+            // Verificar si ya existe este abono hoy
+            const { data: existingParcial } = await supabase
+              .from("pagos_recibos")
+              .select("id")
+              .eq("edificio_id", building.id)
+              .eq("unidad", unidadPrevia)
+              .eq("mes", mesEstandar)
+              .eq("monto", montoParcial)
+              .gte("fecha_pago", today)
+              .limit(1);
 
-            // Registrar en movimientos general
-            const hashParcial = await generateHash(`PAGO_PARCIAL|${building.id}|${unidadPrevia}|${montoParcial}|${today}`);
-            await supabase.from("movimientos").upsert({
-              edificio_id: building.id,
-              tipo: "ingreso",
-              descripcion: `ABONO PARCIAL - Unidad ${unidadPrevia}`,
-              monto: montoParcial,
-              fecha: today,
-              hash: hashParcial,
-              sincronizado: true
-            }, { onConflict: 'edificio_id,hash' });
+            if (!existingParcial || existingParcial.length === 0) {
+              // Registrar en pagos_recibos
+              await supabase.from("pagos_recibos").insert({
+                edificio_id: building.id,
+                unidad: unidadPrevia,
+                propietario: propietarioParcial,
+                mes: mesEstandar,
+                monto: montoParcial,
+                monto_usd: tasaActual > 0 ? (montoParcial / tasaActual) : 0,
+                tasa_bcv: tasaActual,
+                fecha_pago: today,
+                source: 'deteccion_parcial',
+                verificado: false
+              });
 
-            // Registrar en movimientos_dia para el informe diario
-            await supabase.from("movimientos_dia").insert({
-              edificio_id: building.id,
-              tipo: "recibo",
-              descripcion: `ABONO PARCIAL - Unidad ${unidadPrevia} (${propietarioParcial})`,
-              monto: montoParcial,
-              fecha: today,
-              fuente: "deteccion_parcial",
-              detectado_en: today,
-              unidad_apartamento: unidadPrevia,
-              propietario: propietarioParcial
-            });
+              // Registrar en movimientos general
+              const hashParcial = await generateHash(`PAGO_PARCIAL|${building.id}|${unidadPrevia}|${montoParcial}|${today}`);
+              await supabase.from("movimientos").upsert({
+                edificio_id: building.id,
+                tipo: "ingreso",
+                descripcion: `ABONO PARCIAL - Unidad ${unidadPrevia}`,
+                monto: montoParcial,
+                fecha: today,
+                hash: hashParcial,
+                sincronizado: true
+              }, { onConflict: 'edificio_id,hash' });
 
-            // Alerta de pago parcial
-            await supabase.from("alertas").insert({
-              edificio_id: building.id,
-              tipo: "ingreso",
-              titulo: "💰 Abono Parcial Detectado",
-              descripcion: `La unidad ${unidadPrevia} (${propietarioParcial}) realizó un abono parcial de Bs. ${formatNumber(montoParcial)}. Deuda anterior: Bs. ${formatNumber(deudaAnterior)}, deuda actual: Bs. ${formatNumber(deudaActual)}.`,
-              fecha: today
-            });
+              // Registrar en movimientos_dia para el informe diario
+              await supabase.from("movimientos_dia").insert({
+                edificio_id: building.id,
+                tipo: "recibo",
+                descripcion: `ABONO PARCIAL - Unidad ${unidadPrevia} (${propietarioParcial})`,
+                monto: montoParcial,
+                fecha: today,
+                fuente: "deteccion_parcial",
+                detectado_en: today,
+                unidad_apartamento: unidadPrevia,
+                propietario: propietarioParcial
+              });
+
+              // Alerta de pago parcial
+              await supabase.from("alertas").insert({
+                edificio_id: building.id,
+                tipo: "ingreso",
+                titulo: "💰 Abono Parcial Detectado",
+                descripcion: `La unidad ${unidadPrevia} (${propietarioParcial}) realizó un abono parcial de Bs. ${formatNumber(montoParcial)}. Deuda anterior: Bs. ${formatNumber(deudaAnterior)}, deuda actual: Bs. ${formatNumber(deudaActual)}.`,
+                fecha: today
+              });
+            } else {
+              console.log(`[PAGO-PARCIAL] Saltando duplicado para unidad ${unidadPrevia}`);
+            }
           }
         }
       }

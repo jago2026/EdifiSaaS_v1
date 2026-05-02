@@ -58,18 +58,7 @@ export async function GET(request: NextRequest) {
     // Build cashFlow format expected by frontend
     const cashFlowMap = new Map();
     
-    // Add movimientos_dia
-    (movimientosDia || []).forEach((m: any) => {
-      const f = m.detectado_en;
-      if (!f) return;
-      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-      if (m.tipo === 'recibo') {
-        cashFlowMap.get(f).ingresos += Number(m.monto || 0);
-      } else {
-        cashFlowMap.get(f).egresos += Number(m.monto || 0);
-      }
-    });
-    
+    // 1. Add specialized tables first (more reliable/detailed)
     // Add pagos_recibos
     (pagos || []).forEach((p: any) => {
       const f = p.fecha_pago;
@@ -92,6 +81,25 @@ export async function GET(request: NextRequest) {
       if (!f) return;
       if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
       cashFlowMap.get(f).egresos += Number(g.monto || 0);
+    });
+
+    // 2. Add movimientos_dia ONLY if they are not from the above sources (to avoid double counting)
+    (movimientosDia || []).forEach((m: any) => {
+      const f = m.detectado_en;
+      if (!f) return;
+      
+      // Skip if this movement was already accounted for by the specialized tables
+      const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial'];
+      if (m.fuente && fuentesSincronizadas.includes(m.fuente)) {
+        return; 
+      }
+
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+      if (m.tipo === 'recibo') {
+        cashFlowMap.get(f).ingresos += Number(m.monto || 0);
+      } else {
+        cashFlowMap.get(f).egresos += Number(m.monto || 0);
+      }
     });
 
     const cashFlow = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));

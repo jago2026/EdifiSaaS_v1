@@ -1371,19 +1371,7 @@ export default function DashboardPage() {
         // Crear mapa para agrupar movimientos por fecha (para la tabla)
         const cashFlowMap = new Map();
 
-        // Procesar movimientos_dia
-        (movimientos || []).forEach((m: any) => {
-          const fecha = m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha;
-          if (!fecha) return;
-          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
-          const entry = cashFlowMap.get(fecha);
-          if (m.tipo === 'recibo') {
-            entry.ingresos += Number(m.monto || 0);
-          } else {
-            entry.egresos += Number(m.monto || 0);
-          }
-        });
-
+        // 1. Procesar fuentes especializadas primero (son la fuente de verdad)
         // Procesar pagos_recibos (ingresos)
         (pagos || []).forEach((p: any) => {
           const fecha = p.fecha_pago;
@@ -1408,6 +1396,22 @@ export default function DashboardPage() {
           cashFlowMap.get(fecha).egresos += Number(g.monto || 0);
         });
 
+        // 2. Procesar movimientos_dia SOLO si no vienen de las fuentes anteriores
+        const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial'];
+        (movimientos || []).forEach((m: any) => {
+          if (m.fuente && fuentesSincronizadas.includes(m.fuente)) return;
+          
+          const fecha = m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha;
+          if (!fecha) return;
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
+          const entry = cashFlowMap.get(fecha);
+          if (m.tipo === 'recibo') {
+            entry.ingresos += Number(m.monto || 0);
+          } else {
+            entry.egresos += Number(m.monto || 0);
+          }
+        });
+
         // Convertir mapa a array ordenado por fecha
         const cashFlow = Array.from(cashFlowMap.values()).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
 
@@ -1416,7 +1420,8 @@ export default function DashboardPage() {
         const todayStr = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}`;
 
         const flujo = [
-          ...movimientos.map((m: any) => ({ 
+          // Solo incluir movimientos_dia que no sean duplicados de las otras tablas
+          ...(movimientos || []).filter((m: any) => !m.fuente || !fuentesSincronizadas.includes(m.fuente)).map((m: any) => ({ 
             ...m, 
             tipo: m.tipo === 'recibo' ? 'recibo' : 'egreso',
             descripcion: (m.descripcion || (m.tipo === 'recibo' ? 'Pago Detectado' : 'Egreso Detectado')) + (m.referencia ? ` (Ref: ${m.referencia})` : ''),

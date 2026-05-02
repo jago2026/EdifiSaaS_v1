@@ -93,6 +93,11 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
         3. Se desactivó el cache (`cache: 'no-store'`) en la petición `GET`.
         4. Se implementaron logs de auditoría en la pestaña de **🔔 Alertas** para frontend y backend.
 
-#### 3. Integridad y Sincronización
-- Se restauró la estabilidad de `page.tsx` tras un error de truncado durante un rebase conflictivo.
-- Se sincronizaron los cambios con el repositorio principal y se forzó el despliegue en Vercel.
+#### 4. Corrección de Duplicidad y Flujo de Caja (Actual)
+- **Problema 1: Movimientos Duplicados:** Se detectaron múltiples entradas idénticas en el listado de "Movimientos Consolidados" y duplicidad en el "Flujo de Caja Diario".
+    - **Causa Raíz:** El proceso de sincronización (`api/sync`) no verificaba la existencia previa de pagos detectados automáticamente antes de insertarlos. Además, el Dashboard (`loadMovimientosDia`) sumaba datos de la tabla de resumen (`movimientos_dia`) junto con las tablas especializadas (`pagos_recibos`, `egresos`, `gastos`), duplicando (o triplicando) los montos.
+- **Solución Aplicada:**
+    - **Sync API:** Se añadieron verificaciones de existencia (`existingPago`, `existingParcial`) antes de insertar registros en `pagos_recibos` y `movimientos_dia`.
+    - **Movimientos-Dia API:** Se refactorizó la agregación para usar las tablas especializadas como fuente primaria y filtrar los registros redundantes de `movimientos_dia`.
+    - **Frontend Dashboard:** Se corrigió la construcción del array `flujo` y el mapa `cashFlowMap` para evitar la duplicidad de registros y el doble conteo en las gráficas y casillas de totales.
+- **Resultado:** Los totales de ingresos/egresos ahora reflejan la realidad del mes en curso sin acumulaciones erróneas y el listado de movimientos es único por operación.
