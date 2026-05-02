@@ -765,7 +765,7 @@ export async function POST(request: Request) {
           if (montoTotalPagado > 0) {
             console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
             
-            // Verificar si ya existe este pago para evitar duplicados por re-sync
+            // Verificar si ya existe este pago para esta unidad y mes
             const { data: existingPago } = await supabase
               .from("pagos_recibos")
               .select("id")
@@ -773,7 +773,6 @@ export async function POST(request: Request) {
               .eq("unidad", unidadPrevia)
               .eq("mes", mesEstandar)
               .eq("monto", montoTotalPagado)
-              .gte("fecha_pago", today) // Solo si se detectó hoy mismo o después
               .limit(1);
 
             if (!existingPago || existingPago.length === 0) {
@@ -848,7 +847,7 @@ export async function POST(request: Request) {
             const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
             console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${unidadPrevia} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
 
-            // Verificar si ya existe este abono hoy
+            // Verificar si ya existe este abono para esta unidad y mes
             const { data: existingParcial } = await supabase
               .from("pagos_recibos")
               .select("id")
@@ -856,7 +855,6 @@ export async function POST(request: Request) {
               .eq("unidad", unidadPrevia)
               .eq("mes", mesEstandar)
               .eq("monto", montoParcial)
-              .gte("fecha_pago", today)
               .limit(1);
 
             if (!existingParcial || existingParcial.length === 0) {
