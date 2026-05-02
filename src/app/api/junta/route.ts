@@ -121,21 +121,29 @@ export async function PATCH(request: Request) {
     // First verify the member exists and belongs to the building
     const { data: miembroExistente, error: verificarError } = await supabaseAdmin
       .from("junta")
-      .select('id')
+      .select('id, recibe_email_cron, edificio_id')
       .eq("id", id)
       .eq("edificio_id", edificio_id)
       .single();
 
+    console.log("VERIFICACION - Miembro:", miembroExistente, "Error:", verificarError);
+    console.log("VERIFICACION - ID:", id, "Edificio:", edificio_id);
+
     if (verificarError || !miembroExistente) {
+      console.log("VERIFICACION FALLIDA - 404");
       return NextResponse.json({ error: "Miembro no encontrado o no pertenece a este edificio" }, { status: 404 });
     }
 
-    // Now perform the update (without edificio_id filter since we already verified)
-    const { error, count } = await supabaseAdmin
+    // Now perform the update
+    console.log("ACTUALIZACION - updateData:", updateData, "Valor actual:", miembroExistente.recibe_email_cron);
+    const { error, count, data: updateResult } = await supabaseAdmin
       .from("junta")
       .update(updateData)
       .eq("id", id)
-      .select('id, nombre', { count: 'exact' });
+      .select('id, recibe_email_cron')
+      .single();
+
+    console.log("ACTUALIZACION - Error:", error, "Count:", count, "Resultado:", updateResult);
 
     if (error) throw error;
     
