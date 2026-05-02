@@ -133,37 +133,75 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
     }
 
-    // Perform the update
+    // Perform the update - use .match() for proper filtering
     console.log("ACTUALIZACION - updateData:", updateData, "Valor actual:", miembroExistente.recibe_email_cron);
-    const { error, count, data: updateResult } = await supabaseAdmin
+    
+    // First try the update with proper filtering
+    const { data: updateResult, error, count } = await supabaseAdmin
       .from("junta")
       .update(updateData)
       .eq("id", id)
-      .select('id, recibe_email_cron')
+      .select()
       .single();
 
-    console.log("ACTUALIZACION - Error:", error, "Count:", count, "Resultado:", updateResult);
+    console.log("ACTUALIZACION - Resultado:", updateResult, "Error:", error, "Count:", count);
 
-    if (error) throw error;
-    
-    // Log success on server side too
-    if (count && count > 0) {
-      await supabaseAdmin.from("alertas").insert({
-        edificio_id: body.edificio_id || (await supabaseAdmin.from("junta").select("edificio_id").eq("id", id).single()).data?.edificio_id,
-        tipo: 'debug',
-        titulo: '🔌 Backend Junta Update',
-        descripcion: `DB update success for member ID ${id}. New value: ${recibe_email_cron}`,
-        fecha: new Date().toISOString().split('T')[0]
-      });
-    }
-
-    if (error || !count || count === 0) {
-      console.log("ACTUALIZACION FALLIDA - Error:", error, "Count:", count);
+    // If update didn't change anything (count is null/0), try alternative approach
+    if (!updateResult || error || (count !== null && count <= 0)) {
+      console.log("INTENTO ALTERNATIVO - Usando rpc o update sin select");
+      const { error: error2, count: count2 } = await supabaseAdmin
+        .from("junta")
+        .update(updateData)
+        .eq("id", id);
+      
+      console.log("ALTERNATIVO - Error:", error2, "Count:", count2);
+      
+      if (error2) throw error2;
+      
+      // Fetch the updated record
+      const { data: updatedMiembro } = await supabaseAdmin
+        .from("junta")
+        .select('id, recibe_email_cron')
+        .eq("id", id)
+        .single();
+      
+      if (updatedMiembro) {
+        console.log("ACTUALIZACION EXITOSA (alternativa) - Nuevo valor:", updatedMiembro.recibe_email_cron);
+        
+        // Create audit log
+        await supabaseAdmin.from("alertas").insert({
+          edificio_id: edificio_id,
+          tipo: 'debug',
+          titulo: '🔌 Backend Junta Update',
+          descripcion: `DB update success for member ID ${id}. New value: ${recibe_email_cron}`,
+          fecha: new Date().toISOString().split('T')[0]
+        });
+        
+        return NextResponse.json({ 
+          success: true, 
+          updatedCount: 1,
+          newValue: updatedMiembro.recibe_email_cron 
+        });
+      }
+      
       return NextResponse.json({ error: "No se pudo actualizar el miembro" }, { status: 404 });
     }
     
+    // Success - create audit log
     console.log("ACTUALIZACION EXITOSA - Count:", count);
-    return NextResponse.json({ success: true, updatedCount: count });
+    await supabaseAdmin.from("alertas").insert({
+      edificio_id: edificio_id,
+      tipo: 'debug',
+      titulo: '🔌 Backend Junta Update',
+      descripcion: `DB update success for member ID ${id}. New value: ${recibe_email_cron}`,
+      fecha: new Date().toISOString().split('T')[0]
+    });
+    
+    return NextResponse.json({ 
+      success: true, 
+      updatedCount: count,
+      newValue: updateResult.recibe_email_cron 
+    });
   } catch (error: any) {
     console.error("Patch junta error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
