@@ -4944,20 +4944,12 @@ export default function DashboardPage() {
                                   })
                                 });
                                 if (res.ok) {
-                                  // Actualizar el estado local
-                                  const updatedJunta = junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j);
-                                  setJunta(updatedJunta);
-                                  
-                                  // Forzar que el estado se mantenga si el usuario navega
-                                  // Aunque React maneja el estado, si hay una recarga o cambio de pestaña que re-ejecuta loadJunta,
-                                  // el cambio ya está persistido en DB por el PATCH.
-                                  
-                                  await registrarAlerta('success', '👥 Junta Actualizada', `Preferencia de email para ${m.nombre} cambiada a ${nuevoValor ? 'SÍ' : 'NO'} correctamente.`);
-                                } else {
                                   const data = await res.json();
-                                  await registrarAlerta('error', '❌ Error Junta', `No se pudo cambiar preferencia. Error: ${data.error || 'Desconocido'}`);
-                                  alert("Error al actualizar: " + (data.error || "Desconocido"));
-                                }
+                                  const finalValue = data.newValue !== undefined ? data.newValue : nuevoValor;
+                                  const updatedJunta = junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: finalValue } : j);
+                                  setJunta(updatedJunta);
+                                  await registrarAlerta('success', '👥 Junta Actualizada', `Preferencia de email para ${m.nombre} cambiada a ${finalValue ? 'SÍ' : 'NO'} correctamente.`);
+                                } else {
                               } catch (e: any) { 
                                 console.error("Error en PATCH junta:", e);
                                 await registrarAlerta('error', '⚠️ Fallo de Red', `Error de red: ${e.message}`);
