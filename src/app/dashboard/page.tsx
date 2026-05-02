@@ -4930,9 +4930,9 @@ export default function DashboardPage() {
                         <td className="py-3 px-4 text-center">
                           <button
                             onClick={async () => {
-                              if (!user?.isAdmin) return;
                               const currentVal = m.recibe_email_cron === false ? false : true;
                               const nuevoValor = !currentVal;
+                              console.log("Cambiando preferencia para:", m.nombre, "a:", nuevoValor);
                               try {
                                 const res = await fetch("/api/junta", {
                                   method: "PATCH",
@@ -4944,22 +4944,20 @@ export default function DashboardPage() {
                                   await registrarAlerta('success', '👥 Junta Actualizada', `Preferencia de email para ${m.nombre} cambiada a ${nuevoValor ? 'SÍ' : 'NO'} correctamente.`);
                                 } else {
                                   const data = await res.json();
-                                  await registrarAlerta('error', '❌ Error Junta', `No se pudo cambiar preferencia de ${m.nombre}. Error: ${data.error || 'Desconocido'}`);
+                                  await registrarAlerta('error', '❌ Error Junta', `No se pudo cambiar preferencia. Error: ${data.error || 'Desconocido'}`);
                                   alert("Error al actualizar: " + (data.error || "Desconocido"));
                                 }
                               } catch (e: any) { 
-                                console.error(e);
-                                await registrarAlerta('error', '⚠️ Fallo de Red', `Error intentando conectar con la API de Junta para ${m.nombre}: ${e.message}`);
-                                alert("Error de red al actualizar preferencia.");
+                                console.error("Error en PATCH junta:", e);
+                                await registrarAlerta('error', '⚠️ Fallo de Red', `Error de red: ${e.message}`);
                               }
                             }}
-                            disabled={!user?.isAdmin}
-                            className={`px-2 py-1 rounded-full text-[10px] font-black uppercase transition-all ${
+                            className={`px-2 py-1 rounded-full text-[10px] font-black uppercase transition-all cursor-pointer ${
                               m.recibe_email_cron === false
                                 ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                                 : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            } ${!user?.isAdmin ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                            title={user?.isAdmin ? (m.recibe_email_cron === false ? 'Click para activar email diario' : 'Click para desactivar email diario') : 'Solo el admin puede cambiar esto'}
+                            }`}
+                            title={m.recibe_email_cron === false ? 'Click para activar email diario' : 'Click para desactivar email diario'}
                           >
                             {m.recibe_email_cron === false ? '✗ No' : '✓ Sí'}
                           </button>
