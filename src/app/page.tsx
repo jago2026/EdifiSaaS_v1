@@ -91,11 +91,11 @@ export default function Home() {
           "Historial para Procesamiento: 1 Año",
           "Auditoría Financiera y Presupuestos",
           "Personalización de Marca (Branding)",
-          "Alertas WhatsApp (200/mes)",
+          "Alertas WhatsApp* (200/mes)",
           "Hasta 100 Unidades de Vivienda"
         ], is_popular: false, show_contact: false, badge_text: "", display_order: 2 },
         { name: "Inteligencia Artificial", price_monthly: 79, price_yearly: 790, features: [
-          "Todo lo del Plan Premium",
+          "Todo lo del Plan Premium (Incluye WhatsApp*)",
           "Predicción de Cobranza Avanzada (IA)",
           "Asistente Virtual con IA 24/7",
           "Análisis Predictivo de Gastos",
@@ -588,6 +588,14 @@ export default function Home() {
                 </tr>
 
                 <tr className="hover:bg-gray-50/50 transition-colors">
+                  <td className="py-6 px-6 font-bold text-gray-700">Alertas WhatsApp*</td>
+                  <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
+                  <td className="py-6 px-6 text-center font-black text-indigo-600 uppercase text-[9px]">50/mes</td>
+                  <td className="py-6 px-6 text-center font-black text-blue-600 uppercase text-[9px]">200/mes</td>
+                  <td className="py-6 px-6 text-center font-black text-purple-600 uppercase text-[9px]">500/mes</td>
+                </tr>
+
+                <tr className="hover:bg-gray-50/50 transition-colors">
                   <td className="py-6 px-6 font-bold text-gray-700 italic text-purple-700">IA, Análisis Predictivo y Asistente</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
                   <td className="py-6 px-6 text-center text-red-300 font-bold text-xl">❌</td>
@@ -600,8 +608,16 @@ export default function Home() {
                   <td className="py-8 px-6 text-center font-black text-lg text-indigo-300">50</td>
                   <td className="py-8 px-6 text-center font-black text-lg text-blue-300">100</td>
                   <td className="py-8 px-6 text-center font-black text-lg text-purple-300 italic tracking-widest rounded-br-3xl">ILIMITADO</td>
-                </tr>              </tbody>
+                </tr>
+              </tbody>
               </table>
+              
+              <div className="mt-6 px-4">
+                <p className="text-[11px] text-gray-500 italic leading-relaxed text-right">
+                  Nota (*): Considere que para utilizar el servicio de envío de mensajes por WhatsApp el usuario debe contar con algún servicio de envío de mensajes contratado disponible de alguno de estos posibles proveedores: wapi, green api o WhatsApp business.
+                </p>
+              </div>
+
               </div>
               </div>
               </section>
