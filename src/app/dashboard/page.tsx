@@ -227,12 +227,14 @@ export default function DashboardPage() {
   const registrarAlerta = async (tipo: 'info' | 'error' | 'success' | 'warning' | 'debug', titulo: string, descripcion: string) => {
     try {
       if (!building?.id) return;
-      await supabase.from("alertas").insert({
+      const { error } = await supabase.from("alertas").insert({
         edificio_id: building.id,
         tipo,
         titulo,
         descripcion,
+        fecha: new Date().toISOString().split('T')[0]
       });
+      if (error) console.error("Supabase error registrando alerta:", error);
     } catch (err) {
       console.error("Error al registrar alerta:", err);
     }
@@ -1530,7 +1532,8 @@ export default function DashboardPage() {
           if (a.fecha_corte !== b.fecha_corte) {
             return a.fecha_corte.localeCompare(b.fecha_corte);
           }
-          return a.id.localeCompare(b.id);
+          // Usar created_at como tie-breaker para orden cronológico real
+          return (a.created_at || "").localeCompare(b.created_at || "");
         });
         
         let currentRunningBalance = 0;
@@ -1689,14 +1692,20 @@ export default function DashboardPage() {
       if (res.ok) {
         // Recargar para recalcular saldos acumulados de toda la tabla
         loadMovimientosManual();
+      } else {
+        alert("Error al actualizar: " + (data.error || "Error desconocido"));
       }
     } catch (error) {
       console.error("Error updating movimiento:", error);
+      alert("Error de red al intentar actualizar el registro.");
     }
   };
 
   const createMovimientoManual = async () => {
-    if (!building?.id) return;
+    if (!building?.id) {
+      alert("Error: No hay un edificio seleccionado.");
+      return;
+    }
     try {
       const res = await fetch("/api/movimientos-manual", {
         method: "POST",
@@ -1713,11 +1722,15 @@ export default function DashboardPage() {
       });
       const data = await res.json();
       if (res.ok && data.movimiento) {
+        setManualFilter("todos"); // Reset filter so user sees the new record
         await registrarAlerta('success', '➕ Nuevo Movimiento', `Se ha creado un nuevo registro manual para la fecha ${formatDate(new Date())}.`);
         loadMovimientosManual();
+      } else {
+        alert("Error al crear registro: " + (data.error || "Error desconocido"));
       }
     } catch (error) {
       console.error("Error creating movimiento:", error);
+      alert("Error de red o del servidor al crear el movimiento.");
     }
   };
 
@@ -1728,9 +1741,13 @@ export default function DashboardPage() {
       if (res.ok) {
         await registrarAlerta('warning', '🗑️ Registro Eliminado', 'Se ha eliminado un registro de la tabla de movimientos manuales.');
         loadMovimientosManual();
+      } else {
+        const errorData = await res.json();
+        alert("Error al eliminar: " + (errorData.error || "Error desconocido"));
       }
     } catch (error) {
       console.error("Error deleting movimiento:", error);
+      alert("Error de red al intentar eliminar el registro.");
     }
   };
 
@@ -4203,7 +4220,7 @@ export default function DashboardPage() {
                         if (manualFilter === "pendientes") return !m.comparado;
                         if (manualFilter === "ingresos") return (Number(m.ingresos) || 0) > 0;
                         if (manualFilter === "egresos") return (Number(m.egresos) || 0) > 0;
-                        if (manualFilter === "ambos") return (Number(m.ingresos) || 0) > 0 && (Number(m.egresos) || 0) > 0;
+                        if (manualFilter === "ambos") return (Number(m.ingresos) || 0) > 0 || (Number(m.egresos) || 0) > 0;
                         return true;
                       })
                       .map((m: MovimientoManual) => (
