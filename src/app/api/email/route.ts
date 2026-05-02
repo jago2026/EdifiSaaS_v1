@@ -451,8 +451,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
     }
 
-    const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
-    let toEmailsRaw = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    const { data: juntaMembers } = await supabase.from("junta").select("email, recibe_email_cron").eq("edificio_id", edificioId).eq("activo", true);
+    // Solo enviar a miembros que tengan recibe_email_cron = true (o null/undefined para retrocompatibilidad)
+    const juntaRecipients = (juntaMembers || []).filter(m => m.recibe_email_cron !== false);
+    let toEmailsRaw = testMode ? ["correojago@gmail.com"] : juntaRecipients.map(m => m.email).filter(e => e);
     
     // Fallback: Si no hay miembros en la tabla junta, usar los emails configurados en el edificio
     if (toEmailsRaw.length === 0 && edificio.email_junta) {
@@ -584,6 +586,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     // Historical balances
     const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(4);
 
+    // Ingresos reales por mes (suma de pagos_recibos agrupados por mes)
+    const { data: pagosRecibosHist } = await supabase
+      .from("pagos_recibos")
+      .select("mes, monto")
+      .eq("edificio_id", edificioId);
+    const ingresosPorMes: Record<string, number> = {};
+    (pagosRecibosHist || []).forEach((p: any) => {
+      const m = (p.mes || "").substring(0, 7);
+      if (m) ingresosPorMes[m] = (ingresosPorMes[m] || 0) + Number(p.monto || 0);
+    });
+
     // Get the latest month available for this building in recibos
     const { data: latestMesDataMain } = await supabase
       .from("recibos")
@@ -606,13 +619,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     const totalAptosMain = edificio.unidades || 43;
 
     // Today's movements
-    const { data: movimientosDia } = await supabase.from("movimientos_dia").select("tipo, descripcion, monto, fuente").eq("edificio_id", edificioId).eq("detectado_en", today);
+    const { data: movimientosDia } = await supabase.from("movimientos_dia").select("tipo, descripcion, monto, fuente, unidad_apartamento, propietario").eq("edificio_id", edificioId).eq("detectado_en", today);
     const pagosHoy = movimientosDia?.filter(m => m.tipo === "recibo") || [];
     const cobrosHoy = pagosHoy.length;
     const montoCobradoHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
 
-    // Egresos
-    const { data: newestEgresos } = await supabase.from("egresos").select("fecha, beneficiario, descripcion, monto").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(10);
+    // Egresos del día (filtrados por fecha de hoy)
+    const currentMesEmail = today.substring(0, 7);
+    const { data: newestEgresos } = await supabase.from("egresos").select("fecha, beneficiario, descripcion, monto").eq("edificio_id", edificioId).eq("mes", currentMesEmail).order("fecha", { ascending: false }).limit(20);
+
+    // Gastos del día
+    const { data: gastosHoy } = await supabase.from("gastos").select("codigo, descripcion, monto").eq("edificio_id", edificioId).eq("mes", currentMesEmail).order("created_at", { ascending: false }).limit(20);
 
     // 7-day history
     const { data: movs7days } = await supabase.from("movimientos_dia").select("detectado_en, tipo, monto").eq("edificio_id", edificioId).gte("detectado_en", yesterday).order("detectado_en", { ascending: false });
@@ -693,12 +710,6 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     </div>
     
     <div class="content">
-      <div style="background: #eef2f3; padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #d1d9e6;">
-        <p style="margin: 0; font-size: 13px; font-weight: bold; color: #2c3e50;">
-          Saldo Manual del Día: <span style="color: #00796b;">${formatBs(saldoManual)}</span> | <span style="color: #00796b;">${formatUsd(saldoManualUSD)}</span>
-        </p>
-      </div>
-
       <!-- ESTADO FINANCIERO -->
       <div class="section-title estado">💰 ESTADO FINANCIERO ACTUAL (Web Admin)</div>
       <table class="two-col">
@@ -749,11 +760,14 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         </thead>
         <tbody>
           ${(balancesHist || []).map((b: any, i: number) => {
-            const neto = Number(b.cobranza_mes) - Number(b.gastos_facturados);
+            const mesKey = (b.mes || '').substring(0, 7);
+            const ingresosReales = ingresosPorMes[mesKey] ?? Number(b.cobranza_mes);
+            const egresos = Number(b.gastos_facturados);
+            const neto = ingresosReales - egresos;
             return `<tr style="${i === 0 ? 'background:#eef7ff;font-weight:bold;': ''}">
               <td>${b.mes || ''}</td>
-              <td style="text-align:right;">${formatBs(Number(b.cobranza_mes))}</td>
-              <td style="text-align:right;">${formatBs(Number(b.gastos_facturados))}</td>
+              <td style="text-align:right;">${formatBs(ingresosReales)}</td>
+              <td style="text-align:right;">${formatBs(egresos)}</td>
               <td style="text-align:right;">-</td>
               <td style="text-align:right; color:${neto >= 0 ? '#34a853':'#ea4335'}">${formatBs(neto)}</td>
             </tr>`;
@@ -826,7 +840,12 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         <h3 style="color: #333; font-size: 14px; margin-bottom: 10px;">📋 Detalles de Transacciones del Día</h3>
         
         <h4 style="color:#34a853; font-size: 12px; margin: 15px 0 8px;">💰 Recibos de Condominio Pagados (Ingresos)</h4>
-        ${cobrosHoy > 0 ? `<table><thead><tr style="background:#e8f5e8;"><th>Apartamento</th><th>Descripción</th><th style="text-align:right;">Monto (USD)</th><th style="text-align:right;">Monto (Bs.)</th></tr></thead><tbody>${pagosHoy.map((p: any) => `<tr><td>${p.descripcion}</td><td>Recibo</td><td style="text-align:right;">${formatNumber(p.monto/tasa)}</td><td style="text-align:right;">${formatBs(p.monto)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No se registraron pagos hoy.</p>'}
+        ${cobrosHoy > 0 ? `<table><thead><tr style="background:#e8f5e8;"><th>Apartamento</th><th>Propietario</th><th>Tipo</th><th style="text-align:right;">Monto (USD)</th><th style="text-align:right;">Monto (Bs.)</th></tr></thead><tbody>${pagosHoy.map((p: any) => {
+          const aptDesc = p.unidad_apartamento || p.descripcion || 'N/A';
+          const propDesc = p.propietario || '';
+          const tipoDesc = (p.descripcion || '').includes('PARCIAL') ? '🟡 Abono Parcial' : '✅ Pago Total';
+          return `<tr><td>${aptDesc}</td><td>${propDesc}</td><td>${tipoDesc}</td><td style="text-align:right;">${formatNumber(p.monto/tasa)}</td><td style="text-align:right;">${formatBs(p.monto)}</td></tr>`;
+        }).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No se registraron pagos hoy.</p>'}
 
         <h4 style="color:#ea4335; font-size: 12px; margin: 15px 0 8px;">💸 Egresos Procesados Hoy</h4>
         ${(() => {
@@ -838,6 +857,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
           const uniqueEgresos = Array.from(uniqueEgresosMap.values());
           
           return uniqueEgresos.length ? `<table><thead><tr style="background:#ffe8e8;"><th>Beneficiario</th><th>Operación</th><th style="text-align:right;">Monto (Bs)</th><th style="text-align:right;">Monto (USD)</th></tr></thead><tbody>${uniqueEgresos.map((e: any) => `<tr><td>${e.beneficiario}</td><td>Egreso: ${e.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(e.monto)}</td><td style="text-align:right;">${formatUsd(e.monto/tasa)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay egresos hoy.</p>';
+        })()}
+
+        <h4 style="color:#f57c00; font-size: 12px; margin: 15px 0 8px;">🧧 Gastos Registrados Hoy</h4>
+        ${(() => {
+          const uniqueGastosMap = new Map();
+          (gastosHoy || []).forEach((g: any) => {
+            const key = `${g.codigo}-${g.descripcion}-${g.monto}`;
+            if (!uniqueGastosMap.has(key)) uniqueGastosMap.set(key, g);
+          });
+          const uniqueGastos = Array.from(uniqueGastosMap.values());
+          return uniqueGastos.length ? `<table><thead><tr style="background:#fff3e0;"><th>Código</th><th>Descripción</th><th style="text-align:right;">Monto (Bs)</th></tr></thead><tbody>${uniqueGastos.map((g: any) => `<tr><td>${g.codigo || '-'}</td><td>${g.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(Number(g.monto))}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay gastos registrados este mes.</p>';
         })()}
       </div>
     </div>

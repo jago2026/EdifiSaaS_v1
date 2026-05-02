@@ -4890,6 +4890,7 @@ export default function DashboardPage() {
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Email</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Cargo</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acceso</th>
+                      <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs" title="Recibe el email diario del Cron">Email Cron</th>
                       <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acciones</th>
                     </tr>
                   </thead>
@@ -4909,6 +4910,34 @@ export default function DashboardPage() {
                           ) : (
                             <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium uppercase">👁️ Viewer</span>
                           )}
+                        </td>
+
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={async () => {
+                              if (!user?.isAdmin) return;
+                              const nuevoValor = m.recibe_email_cron === false ? true : false;
+                              try {
+                                const res = await fetch("/api/junta", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ id: m.id, recibe_email_cron: nuevoValor })
+                                });
+                                if (res.ok) {
+                                  setJunta(junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j));
+                                }
+                              } catch (e) { console.error(e); }
+                            }}
+                            disabled={!user?.isAdmin}
+                            className={`px-2 py-1 rounded-full text-[10px] font-black uppercase transition-all ${
+                              m.recibe_email_cron === false
+                                ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            } ${!user?.isAdmin ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                            title={user?.isAdmin ? (m.recibe_email_cron === false ? 'Click para activar email diario' : 'Click para desactivar email diario') : 'Solo el admin puede cambiar esto'}
+                          >
+                            {m.recibe_email_cron === false ? '✗ No' : '✓ Sí'}
+                          </button>
                         </td>
 
                          <td className="py-3 px-4 text-center">
