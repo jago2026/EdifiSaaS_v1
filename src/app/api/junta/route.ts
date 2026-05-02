@@ -102,7 +102,7 @@ async function hashPassword(password: string): Promise<string> {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, recibe_email_cron } = body;
+    const { id, recibe_email_cron, edificio_id } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });

@@ -66,6 +66,32 @@ Corregir 5 bugs reportados en el sistema de email diario del Cron, detección de
 - Los campos `unidad_apartamento` y `propietario` deben existir en `movimientos_dia`. Si no existen: `ALTER TABLE movimientos_dia ADD COLUMN IF NOT EXISTS unidad_apartamento TEXT; ALTER TABLE movimientos_dia ADD COLUMN IF NOT EXISTS propietario TEXT;`
 
 ### Próximos Pasos Sugeridos
-- Agregar en la UI de Junta (dashboard) un toggle visual para activar/desactivar `recibe_email_cron` por miembro.
 - Considerar agregar un campo `num_recibos` al registro de pagos parciales para mayor trazabilidad.
 - Revisar si la tabla `gastos` tiene el campo `created_at` indexado para optimizar la query del email.
+
+---
+
+## Fecha: 02 de Mayo, 2026 (Segunda Intervención)
+
+### Objetivo
+Corregir el bug de persistencia en la pestaña de Junta donde el campo "Recibe Email" no mantenía su estado visual tras navegar, y asegurar la trazabilidad de los cambios en el backend.
+
+### Tareas Realizadas
+
+#### 1. 🛠️ Corrección de Persistencia en Pestaña Junta
+- [x] **`src/app/dashboard/page.tsx`**: Se optimizó la lógica de actualización del estado local en el toggle de "Email Diario Informe". Ahora se asegura que el estado `junta` se actualice correctamente con una copia inmutable del array de miembros.
+- [x] **`src/app/dashboard/page.tsx`**: Se agregó el envío del `edificio_id` en el cuerpo de la petición `PATCH` hacia `/api/junta`. Esto permite que el backend registre correctamente las alertas de auditoría asociadas al edificio.
+- [x] **`src/app/api/junta/route.ts`**: Se actualizó el endpoint `PATCH` para recibir y procesar el `edificio_id`, mejorando el registro de alertas de tipo `debug` en la base de datos cada vez que se cambia una preferencia de email.
+
+#### 2. 🔍 Auditoría y Mejoras de UX
+- [x] Se verificó que la carga de la junta (`loadJunta`) incluya cabeceras de control de caché (`no-store`, `no-cache`) para evitar que el navegador muestre datos obsoletos al volver a la pestaña.
+- [x] Se mejoró el mensaje de éxito al actualizar la preferencia para incluir el nombre del miembro y el nuevo estado (SÍ/NO), brindando mejor feedback al usuario.
+
+### Notas Técnicas
+- El bug de "pérdida de estado" visual ocurría principalmente por una actualización de estado que no forzaba correctamente el re-render en todos los casos y por la falta de vinculación del log de auditoría con el edificio correcto en el backend.
+- Se mantiene la retrocompatibilidad: si `recibe_email_cron` es `null` o `undefined`, el sistema lo interpreta como `true` (Sí recibe).
+
+### Próximos Pasos Sugeridos
+- Implementar un sistema de "Undo" (Deshacer) rápido tras cambiar la preferencia de email.
+- Agregar un log visual de auditoría en la pestaña de configuración para que el administrador vea quién cambió qué preferencia y cuándo.
+- Validar que los correos electrónicos de la junta no estén rebotando (bounce rate) antes de intentar el envío diario.

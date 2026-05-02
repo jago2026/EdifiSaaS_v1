@@ -4937,10 +4937,21 @@ export default function DashboardPage() {
                                 const res = await fetch("/api/junta", {
                                   method: "PATCH",
                                   headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ id: m.id, recibe_email_cron: nuevoValor })
+                                  body: JSON.stringify({ 
+                                    id: m.id, 
+                                    recibe_email_cron: nuevoValor,
+                                    edificio_id: building?.id 
+                                  })
                                 });
                                 if (res.ok) {
-                                  setJunta(junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j));
+                                  // Actualizar el estado local
+                                  const updatedJunta = junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j);
+                                  setJunta(updatedJunta);
+                                  
+                                  // Forzar que el estado se mantenga si el usuario navega
+                                  // Aunque React maneja el estado, si hay una recarga o cambio de pestaña que re-ejecuta loadJunta,
+                                  // el cambio ya está persistido en DB por el PATCH.
+                                  
                                   await registrarAlerta('success', '👥 Junta Actualizada', `Preferencia de email para ${m.nombre} cambiada a ${nuevoValor ? 'SÍ' : 'NO'} correctamente.`);
                                 } else {
                                   const data = await res.json();
