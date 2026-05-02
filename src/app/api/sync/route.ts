@@ -64,6 +64,12 @@ function normalizeFecha(fecha: string): string {
   }).format(new Date());
 }
 
+// Extraer código de unidad (ej: "08-C - NOMBRE" -> "08-C")
+function extractUnitCode(raw: string): string {
+  if (!raw) return "";
+  return raw.split(' - ')[0].trim().toUpperCase();
+}
+
 // Función auxiliar para deduplicar arrays de objetos basados en propiedades clave
 function deduplicateItems(items: any[], keys: string[]): any[] {
   const seen = new Set();
@@ -761,9 +767,10 @@ export async function POST(request: Request) {
 
           const montoTotalPagado = deudasUnidad.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
           const propietario = deudasUnidad[0]?.propietario || "Copropietario";
+          const normalizedUnitPrev = extractUnitCode(unidadPrevia);
 
           if (montoTotalPagado > 0) {
-            console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
+            console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${normalizedUnitPrev} pagó Bs. ${montoTotalPagado}`);
             
             // [FIX DEFINTIVO] Verificar si ya existe este pago para esta unidad
             // Buscamos por edificio, unidad y monto exacto en toda la historia reciente
@@ -772,7 +779,7 @@ export async function POST(request: Request) {
               .from("pagos_recibos")
               .select("id")
               .eq("edificio_id", building.id)
-              .eq("unidad", unidadPrevia)
+              .eq("unidad", normalizedUnitPrev)
               .eq("monto", montoTotalPagado)
               .limit(1);
 
@@ -780,7 +787,7 @@ export async function POST(request: Request) {
               // A. Registrar en la tabla histórica pagos_recibos
               await supabase.from("pagos_recibos").insert({
                 edificio_id: building.id,
-                unidad: unidadPrevia,
+                unidad: normalizedUnitPrev,
                 propietario: propietario,
                 mes: mesEstandar,
                 monto: montoTotalPagado,
@@ -846,14 +853,15 @@ export async function POST(request: Request) {
 
           if (montoParcial > 0.01) {
             const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
-            console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${unidadPrevia} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
+            const normalizedUnitParcial = extractUnitCode(unidadPrevia);
+            console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${normalizedUnitParcial} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
 
             // [FIX DEFINTIVO] Verificar si ya existe este abono
             const { data: existingParcial } = await supabase
               .from("pagos_recibos")
               .select("id")
               .eq("edificio_id", building.id)
-              .eq("unidad", unidadPrevia)
+              .eq("unidad", normalizedUnitParcial)
               .eq("monto", montoParcial)
               .limit(1);
 
@@ -861,7 +869,7 @@ export async function POST(request: Request) {
               // Registrar en pagos_recibos
               await supabase.from("pagos_recibos").insert({
                 edificio_id: building.id,
-                unidad: unidadPrevia,
+                unidad: normalizedUnitParcial,
                 propietario: propietarioParcial,
                 mes: mesEstandar,
                 monto: montoParcial,
@@ -1059,7 +1067,8 @@ export async function POST(request: Request) {
       for (const ing of allIngresos) {
         const fDB = normalizeFecha(ing.fecha);
         const mesDelPago = fDB.substring(0, 7); 
-        const amountKey = `${ing.beneficiario}|${Number(ing.monto).toFixed(2)}`;
+        const normalizedUnit = extractUnitCode(ing.beneficiario);
+        const amountKey = `${normalizedUnit}|${Number(ing.monto).toFixed(2)}`;
 
         // Verificar si ya existe en este mes o si existe globalmente
         if (!existingKeySet.has(amountKey)) {
@@ -1068,7 +1077,7 @@ export async function POST(request: Request) {
              .from("pagos_recibos")
              .select("id")
              .eq("edificio_id", building.id)
-             .eq("unidad", ing.beneficiario)
+             .eq("unidad", normalizedUnit)
              .eq("monto", ing.monto)
              .limit(1);
 
@@ -1076,8 +1085,8 @@ export async function POST(request: Request) {
           // Guardar en pagos_recibos (centralizado)
           await supabase.from("pagos_recibos").insert({
             edificio_id: building.id,
-            unidad: ing.beneficiario,
-            propietario: ing.descripcion, // Usamos la descripción como nombre temporal
+            unidad: normalizedUnit,
+            propietario: ing.beneficiario, // Usamos el nombre completo original
             mes: mesDelPago,
             monto: ing.monto,
             monto_usd: tasaActual > 0 ? (ing.monto / tasaActual) : 0,
