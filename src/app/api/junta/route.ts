@@ -112,20 +112,14 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });
     }
 
-    // Usar SERVICE_ROLE_KEY para bypass RLS y asegurar actualización
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!serviceKey) {
-      console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY no configurada. Usando anon key...");
-    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey || supabaseKey);
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     
-    // Asegurar que el valor es booleano puro
-    const nuevoEstado = recibe_email_cron === true || recibe_email_cron === 'true';
+    const nuevoEstado = recibe_email_cron === true;
     
-    console.log(`[PATCH JUNTA] ID: ${id}, Nuevo estado: ${nuevoEstado}`);
-
-    // Realizar la actualización directamente
+    // Actualización directa usando solo el ID para máxima precisión
     const { data: updatedData, error } = await supabaseAdmin
       .from("junta")
       .update({ recibe_email_cron: nuevoEstado })
@@ -134,36 +128,27 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error) {
-      console.error("[PATCH JUNTA] Error en update:", error);
+      console.error("[PATCH JUNTA] Error:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (!updatedData) {
-      console.error("[PATCH JUNTA] No se encontró el registro para actualizar");
-      return NextResponse.json({ error: "Miembro no encontrado" }, { status: 404 });
-    }
-
-    console.log("[PATCH JUNTA] Registro actualizado con éxito:", updatedData.recibe_email_cron);
-
-    // Auditoría opcional en tabla de alertas
-    if (edificio_id) {
+    // Auditoría
+    if (edificio_id && updatedData) {
       await supabaseAdmin.from("alertas").insert({
         edificio_id,
         tipo: 'info',
-        titulo: 'Preferencia Actualizada',
-        descripcion: `Preferencia de email para ${updatedData.nombre || updatedData.email} cambiada a ${nuevoEstado ? 'SÍ' : 'NO'}.`,
+        titulo: 'Preferencia de Email',
+        descripcion: `Se cambió a ${nuevoEstado ? 'SÍ' : 'NO'} para ${updatedData.nombre || updatedData.email}`,
         fecha: new Date().toISOString().split('T')[0]
-      }).select().then(({error}) => { if(error) console.error("Error audit log:", error); });
+      });
     }
 
     return NextResponse.json({ 
       success: true, 
-      miembro: updatedData,
-      newValue: updatedData.recibe_email_cron
+      newValue: updatedData.recibe_email_cron 
     });
-
   } catch (error: any) {
-    console.error("Patch junta error:", error);
+    console.error("Patch error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
