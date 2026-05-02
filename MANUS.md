@@ -95,3 +95,36 @@ Corregir el bug de persistencia en la pestaña de Junta donde el campo "Recibe E
 - Implementar un sistema de "Undo" (Deshacer) rápido tras cambiar la preferencia de email.
 - Agregar un log visual de auditoría en la pestaña de configuración para que el administrador vea quién cambió qué preferencia y cuándo.
 - Validar que los correos electrónicos de la junta no estén rebotando (bounce rate) antes de intentar el envío diario.
+
+---
+
+## Fecha: 03 de Mayo, 2026 (Corrección Crítica)
+
+### Objetivo
+Corregir bug crítico donde las preferencias de email diario no se persistían en la base de datos.
+
+### Problema
+Al cambiar la preferencia `recibe_email_cron` de un miembro de la junta:
+- La UI mostraba el cambio correctamente
+- Pero tras navegar a otra pestaña y regresar, el valor revertía a "Sí"
+- La base de datos mantenía `recibe_email_cron = TRUE` sin cambios
+- No se creaban registros de auditoría en la tabla `alertas`
+
+### Causa Raíz
+El endpoint PATCH `/api/junta` filtraba por `edificio_id` en el UPDATE, pero si el miembro no existía o no pertenecía al edificio especificado, la condición WHERE no coincidía con ningún registro. El UPDATE devolvía `count = 0` (sin error), y el sistema retornaba 404.
+
+### Solución Implementada
+1. **Verificación previa**: Antes del UPDATE, se verifica que el miembro existe y pertenece al edificio especificado
+2. **Separación de responsabilidades**: Verificación (con `edificio_id`) y actualización (solo con `id`) se realizan en pasos separados
+3. **Mejor manejo de errores**: Si la verificación falla, se retorna 404 con mensaje claro
+
+### Cambios
+- **`src/app/api/junta/route.ts`**: 
+  - Se agregó verificación con `.eq("id", id).eq("edificio_id", edificio_id)`
+  - Se eliminó el filtro `edificio_id` del UPDATE posterior
+  - Se retorna error 404 si el miembro no existe o no pertenece al edificio
+
+### Notas Técnicas
+- El filtro `edificio_id` en el UPDATE causaba que la actualización no encontrara el registro cuando había inconsistencias en los IDs
+- La verificación previa garantiza integridad referencial sin afectar la capacidad de actualización
+- Se mantiene la auditoría en la tabla `alertas` para trazabilidad
