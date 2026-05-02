@@ -85,9 +85,10 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
 
 #### 2. Gestión de Miembros (Junta)
 - **Mejora UI:** Se cambió la etiqueta de la columna "Email Cron" por **"Email Diario Informe"**.
-- **Bug Fix (Persistencia):** Se corrigió el problema donde el cambio de preferencia de email (Sí/No) no se guardaba.
-    - Se robusteció el handler `PATCH` en `/api/junta` para asegurar la actualización en Supabase.
+- **Bug Fix (Persistencia):** Se corrigió un problema donde el cambio de preferencia de email (Sí/No) no se guardaba.
+    - Se identificó que las políticas de seguridad (RLS) impedían la actualización usando la clave anónima. Se cambió el handler `PATCH` en `/api/junta` para usar `SUPABASE_SERVICE_ROLE_KEY`.
     - Se mejoró la lógica del frontend para manejar mejor los estados y proporcionar feedback en caso de error.
+
 
 #### 3. Integridad y Sincronización
 - Se restauró la estabilidad de `page.tsx` tras un error de truncado durante un rebase conflictivo.
