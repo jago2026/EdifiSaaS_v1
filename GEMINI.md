@@ -110,10 +110,11 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
     - **Script de Limpieza SQL:** Se creó un script (`supabase/remove_duplicate_pagos.sql`) para que el usuario pueda eliminar permanentemente los registros duplicados de la tabla `pagos_recibos`.
 - **Resultado:** Vista de cobranza más clara, profesional y con datos precisos sin repeticiones.
 
-#### 6. Corrección de Fechas en Egresos y Gastos
-- **Problema:** Los egresos y gastos detectados hoy pero que pertenecen a meses pasados se estaban registrando con la fecha actual, ensuciando los reportes diarios.
+#### 6. Corrección Definitiva de Fechas en Sincronización
+- **Problema:** Los egresos y gastos seguían apareciendo con fecha de "hoy" en el sistema aunque pertenecieran a meses pasados, debido a una lógica de asignación incorrecta durante la sincronización.
 - **Solución Aplicada:**
-    - **Sync API:** Se corrigió la lógica de asignación de fechas para los **gastos**. Ahora el sistema prioriza la fecha real del registro de la administradora; si no la tiene, usa el último día del mes correspondiente a la facturación, en lugar de usar "hoy".
-    - **Filtro de Movimientos del Día:** Se implementó una validación estricta para que los egresos y gastos solo aparezcan en la vista de "Movimientos de Hoy" si su fecha de ocurrencia es efectivamente el día de hoy.
-    - **Script de Limpieza SQL:** Se creó el script `supabase/limpiar_egresos_gastos_mayo.sql` para eliminar los registros mal fechados del 2 de mayo.
-- **Resultado:** Integridad histórica de datos preservada y vista diaria libre de movimientos de meses anteriores.
+    - **Mejora del Scraper:** Se actualizó `parseGastosTable` para extraer la fecha directamente de la tabla de la administradora (soporte para formato de 4 columnas).
+    - **Prioridad de Fecha Real:** Se modificó la API de sincronización para que **Egresos** y **Gastos** usen obligatoriamente la fecha extraída de la fuente. Solo si el gasto no tiene fecha, se usa el fin de mes correspondiente.
+    - **Movimientos del Día:** Se cambió el comportamiento de la tabla de "Movimientos de Hoy". Ahora, cualquier movimiento nuevo detectado se registra allí con su **fecha real original**, pero marcado como detectado hoy, permitiendo que aparezcan en el resumen diario sin alterar su fecha contable.
+    - **Script SQL:** Se actualizó `supabase/limpiar_egresos_gastos_mayo.sql` para una limpieza profunda de registros mal fechados.
+- **Resultado:** Reportes precisos con fechas contables correctas y visibilidad inmediata de nuevos hallazgos.

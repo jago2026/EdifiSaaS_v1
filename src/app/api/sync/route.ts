@@ -308,18 +308,43 @@ function parseGastosTable(html: string): any[] {
         
         const code = cleanHtml(cells[0]).trim();
         const desc = cleanHtml(cells[1]).trim();
-        const montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
+        let montoRaw = "";
+        let fecha = null;
+
+        // Intentar detectar si la tabla tiene 4 columnas (Fecha, Codigo, Concepto, Monto)
+        if (cells.length >= 4) {
+          const possibleDate = cleanHtml(cells[0]);
+          if (possibleDate.match(/\d{2}-\d{2}-\d{4}/)) {
+            fecha = possibleDate;
+            const code4 = cleanHtml(cells[1]).trim();
+            const desc4 = cleanHtml(cells[2]).trim();
+            montoRaw = cleanHtml(cells[3]);
+            
+            if (code4 && desc4 && !results.find(r => r.codigo === code4 && r.monto === parseMonto(montoRaw))) {
+               results.push({
+                 fecha: fecha,
+                 codigo: code4,
+                 descripcion: desc4,
+                 monto: parseMonto(montoRaw)
+               });
+               continue;
+            }
+          }
+        }
+        
+        // Formato estándar 3 columnas (Codigo, Concepto, Monto)
+        montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
         
         if (!code || code === "&nbsp;" || code.length > 15) continue;
         if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || code.toUpperCase().includes("FECHA")) continue;
-        
         if (desc.includes("TOTAL") || desc.includes("TOTAL GASTOS COMUNES") || desc.toUpperCase().includes("FONDO")) continue;
         
         if (code && desc && desc.length > 3 && !results.find(r => r.codigo === code)) {
           results.push({
             codigo: code,
             descripcion: desc,
-            monto: parseMonto(montoRaw)
+            monto: parseMonto(montoRaw),
+            fecha: null // No se encontró fecha en este formato
           });
         }
       }
@@ -973,17 +998,16 @@ export async function POST(request: Request) {
           sincronizado: true 
         }, { onConflict: 'edificio_id,hash' });
 
-        if (fDB === today) {
-          await supabase.from("movimientos_dia").insert({ 
-            edificio_id: building.id, 
-            tipo: "egreso", 
-            descripcion: desc, 
-            monto: e.monto, 
-            fecha: fDB, 
-            fuente: "egresos", 
-            detectado_en: today 
-          });
-        }
+        // SIEMPRE registrar en movimientos_dia si se detectó hoy (independiente de su fecha real)
+        await supabase.from("movimientos_dia").insert({ 
+          edificio_id: building.id, 
+          tipo: "egreso", 
+          descripcion: desc, 
+          monto: e.monto, 
+          fecha: fDB, 
+          fuente: "egresos", 
+          detectado_en: today 
+        });
       }
     }
 
@@ -1023,6 +1047,17 @@ export async function POST(request: Request) {
             hash,
             sincronizado: true
           }, { onConflict: 'edificio_id,hash' });
+
+          // SIEMPRE registrar en movimientos_dia si se detectó hoy
+          await supabase.from("movimientos_dia").insert({
+            edificio_id: building.id,
+            tipo: "recibo",
+            descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
+            monto: ing.monto,
+            fecha: fDB,
+            fuente: "ingresos",
+            detectado_en: today
+          });
 
           // Generar alerta de pago detectado
           await supabase.from("alertas").insert({
@@ -1115,18 +1150,16 @@ export async function POST(request: Request) {
           sincronizado: true 
         }, { onConflict: 'edificio_id,hash' });
         
-        // SOLO registrar en movimientos_dia si la FECHA DEL GASTO es hoy
-        if (fDB === today) {
-          await supabase.from("movimientos_dia").insert({ 
-            edificio_id: building.id, 
-            tipo: "gasto", 
-            descripcion: g.descripcion, 
-            monto: g.monto, 
-            fecha: fDB, 
-            fuente: "gastos", 
-            detectado_en: today 
-          });
-        }
+        // SIEMPRE registrar en movimientos_dia si se detectó hoy (independiente de su fecha real)
+        await supabase.from("movimientos_dia").insert({ 
+          edificio_id: building.id, 
+          tipo: "gasto", 
+          descripcion: g.descripcion, 
+          monto: g.monto, 
+          fecha: fDB, 
+          fuente: "gastos", 
+          detectado_en: today 
+        });
       }
     }
 
