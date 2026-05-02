@@ -30,7 +30,7 @@ export default function LandingPage() {
             🚀 30 días de prueba gratuita
           </div>
           <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Gestión Financiera Inteligente<br />para Condominios
+            Gestión Financiera Inteligente v1.0.2<br />para Condominios
           </h1>
           <p className="text-xl text-gray-600 mb-8">
             Automatiza la descarga de recibos, egresos y gastos desde tu administradora.<br />

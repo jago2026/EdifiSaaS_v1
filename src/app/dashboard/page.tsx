@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { ManualUsuario } from "./ManualUsuario";
-import { AnalisisCobranza } from "./AnalisisCobranza";
-import { SemaforoMorosidad } from "./SemaforoMorosidad";
-import { SaludFinanciera } from "./SaludFinanciera";
-import { SimuladorInversiones } from "./SimuladorInversiones";
+import { CobranzaMorosidad } from "./CobranzaMorosidad";
+import { IndicadoresCaja } from "./IndicadoresCaja";
 import { ResumenTab } from "./ResumenTab";
 import { IngresosTab } from "./IngresosTab";
 import { MovimientosTab } from "./MovimientosTab";
@@ -18,9 +16,22 @@ import { GastosTab } from "./GastosTab";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "analisis-cobranza" | "semaforo-morosidad" | "salud-financiera" | "simulador-inversiones";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
 
-function UpgradeCard({ title, feature, planRequired, onUpgrade }: { title: string, feature: string, planRequired: string, onUpgrade: () => void }) {
+function UpgradeCard({ title, feature, planRequired, onUpgrade, isDemo, demoContent }: { title: string, feature: string, planRequired: string, onUpgrade: () => void, isDemo?: boolean, demoContent?: React.ReactNode }) {
+  if (isDemo && demoContent) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-2 flex items-center gap-2 text-xs text-indigo-700 font-bold">
+          <span>🎯</span>
+          <span>MODO DEMO — Vista de ejemplo de <span className="underline">{feature}</span> (Plan {planRequired})</span>
+        </div>
+        <div className="opacity-90 pointer-events-none select-none">
+          {demoContent}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="relative overflow-hidden bg-white p-8 rounded-2xl border-2 border-dashed border-gray-200 text-center space-y-4">
       <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🔒</div>
@@ -227,14 +238,12 @@ export default function DashboardPage() {
   const registrarAlerta = async (tipo: 'info' | 'error' | 'success' | 'warning' | 'debug', titulo: string, descripcion: string) => {
     try {
       if (!building?.id) return;
-      const { error } = await supabase.from("alertas").insert({
+      await supabase.from("alertas").insert({
         edificio_id: building.id,
         tipo,
         titulo,
         descripcion,
-        fecha: new Date().toISOString().split('T')[0]
       });
-      if (error) console.error("Supabase error registrando alerta:", error);
     } catch (err) {
       console.error("Error al registrar alerta:", err);
     }
@@ -245,6 +254,8 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
+  const [cronTestLoading, setCronTestLoading] = useState(false);
+  const [cronTestResult, setCronTestResult] = useState<any>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loadingMovements, setLoadingMovements] = useState(false);
@@ -285,6 +296,17 @@ export default function DashboardPage() {
   const [movimientosManual, setMovimientosManual] = useState<MovimientoManual[]>([]);
   const [manualFilter, setManualFilter] = useState<"todos" | "pendientes" | "ingresos" | "egresos" | "ambos">("todos");
   const [loadingManual, setLoadingManual] = useState(false);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualModalTipo, setManualModalTipo] = useState<"ingreso" | "egreso">("ingreso");
+  const [manualModalMoneda, setManualModalMoneda] = useState<"bs" | "usd">("bs");
+  const [manualModalForm, setManualModalForm] = useState({
+    fecha_corte: new Date().toISOString().split("T")[0],
+    monto: "",
+    descripcion: "",
+    obs: "",
+    tasa_bcv: ""
+  });
+  const [manualViewMoneda, setManualViewMoneda] = useState<"bs" | "usd">("bs");
   const [alicuotas, setAlicuotas] = useState<Alicuota[]>([]);
   const [loadingAlicuotas, setLoadingAlicuotas] = useState(false);
   const [administradoras, setAdministradoras] = useState<Administradora[]>([]);
@@ -1542,8 +1564,7 @@ export default function DashboardPage() {
           if (a.fecha_corte !== b.fecha_corte) {
             return a.fecha_corte.localeCompare(b.fecha_corte);
           }
-          // Usar created_at como tie-breaker para orden cronológico real
-          return (a.created_at || "").localeCompare(b.created_at || "");
+          return a.id.localeCompare(b.id);
         });
         
         let currentRunningBalance = 0;
@@ -1702,21 +1723,14 @@ export default function DashboardPage() {
       if (res.ok) {
         // Recargar para recalcular saldos acumulados de toda la tabla
         loadMovimientosManual();
-      } else {
-        alert("Error al actualizar: " + (data.error || "Error desconocido"));
       }
     } catch (error) {
       console.error("Error updating movimiento:", error);
-      alert("Error de red al intentar actualizar el registro.");
     }
   };
 
   const createMovimientoManual = async () => {
-    if (!building?.id) {
-      alert("Error: No hay un edificio seleccionado.");
-      return;
-    }
-
+    if (!building?.id) return;
     const tasa = Number(manualModalForm.tasa_bcv) || tasaBCV.dolar || 45.50;
     const monto = Number(manualModalForm.monto) || 0;
 
@@ -1770,13 +1784,9 @@ export default function DashboardPage() {
       if (res.ok) {
         await registrarAlerta('warning', '🗑️ Registro Eliminado', 'Se ha eliminado un registro de la tabla de movimientos manuales.');
         loadMovimientosManual();
-      } else {
-        const errorData = await res.json();
-        alert("Error al eliminar: " + (errorData.error || "Error desconocido"));
       }
     } catch (error) {
       console.error("Error deleting movimiento:", error);
-      alert("Error de red al intentar eliminar el registro.");
     }
   };
 
@@ -2079,6 +2089,92 @@ export default function DashboardPage() {
     }
   };
 
+  const handleCronTest = async () => {
+    if (!building?.id) return;
+    setCronTestLoading(true);
+    setCronTestResult(null);
+    try {
+      // Diagnostico: hora VET actual, próxima ejecución, estado configuración
+      const cronTime = editConfig.cron_time || "05:00";
+      const cronEnabled = editConfig.cron_enabled;
+      const cronFrequency = editConfig.cron_frequency || "diaria";
+
+      // Calcular hora VET actual
+      const nowUTC = new Date();
+      const vetFormatter = new Intl.DateTimeFormat('es-VE', {
+        timeZone: 'America/Caracas',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, day: '2-digit', month: '2-digit', year: 'numeric'
+      });
+      const vetNow = vetFormatter.format(nowUTC);
+      const vetHour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Caracas', hour: '2-digit', hour12: false }).format(nowUTC), 10);
+      const configHour = parseInt(cronTime.split(":")[0], 10);
+
+      // Calcular próxima ejecución
+      const nextExecVET = new Date(nowUTC);
+      const minuteVET = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Caracas', minute: '2-digit', hour12: false }).format(nowUTC), 10);
+      // Avanzar al próximo día si ya pasó la hora config
+      if (vetHour > configHour || (vetHour === configHour && minuteVET > 0)) {
+        nextExecVET.setUTCDate(nextExecVET.getUTCDate() + 1);
+      }
+      // Setear hora configurada en VET (VET = UTC-4)
+      const [h, m] = cronTime.split(":").map(Number);
+      nextExecVET.setUTCHours(h + 4, m, 0, 0);
+      const nextExecStr = new Intl.DateTimeFormat('es-VE', {
+        timeZone: 'America/Caracas',
+        weekday: 'long', day: '2-digit', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false
+      }).format(nextExecVET);
+
+      // Verificar si hay emails configurados en junta
+      const resJunta = await fetch(`/api/junta?edificioId=${building.id}`);
+      const dataJunta = await resJunta.json();
+      const emailsJunta = (dataJunta.miembros || dataJunta.junta || []).map((m: any) => m.email).filter(Boolean);
+
+      // Verificar status del endpoint cron (dry-run sin ejecutar)
+      const resCronStatus = await fetch(`/api/cron?diagnostico=true`, { method: 'GET' });
+      const dataCronStatus = resCronStatus.ok ? await resCronStatus.json() : null;
+
+      // Construir diagnóstico
+      const issues: string[] = [];
+      const oks: string[] = [];
+
+      if (!cronEnabled) issues.push("⚠️ El cron está DESACTIVADO. Actívalo para recibir informes automáticos.");
+      else oks.push("✅ Cron activado");
+
+      if (emailsJunta.length === 0) issues.push("⚠️ No hay emails configurados en la Junta. El informe no tendrá destinatarios.");
+      else oks.push(`✅ ${emailsJunta.length} email(s) configurado(s) en la Junta`);
+
+      if (!building.url_balance && !building.url_recibos && !building.url_egresos) {
+        issues.push("⚠️ No hay URLs de sincronización configuradas. El informe diario tendrá datos limitados.");
+      } else {
+        oks.push("✅ URLs de sincronización configuradas");
+      }
+
+      if (vetHour === configHour) {
+        oks.push(`✅ Ejecución en curso ahora (hora actual VET ${vetHour}h == hora configurada ${configHour}h)`);
+      }
+
+      setCronTestResult({
+        ok: issues.length === 0,
+        vetNow,
+        utcNow: nowUTC.toISOString(),
+        cronEnabled,
+        cronTime,
+        cronFrequency,
+        nextExec: nextExecStr,
+        emailsJunta,
+        issues,
+        oks,
+        schedule: "0 9 * * * (Vercel) → 09:00 UTC = 05:00 VET"
+      });
+    } catch (err: any) {
+      setCronTestResult({ ok: false, error: err.message });
+    } finally {
+      setCronTestLoading(false);
+    }
+  };
+
   const handleMaintenance = async () => {
     if (!building?.id) return;
     setMaintenanceLoading(true);
@@ -2087,7 +2183,7 @@ export default function DashboardPage() {
       const res = await fetch("/api/config/maintenance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edificioId: building.id })
+        body: JSON.stringify({ edificioId: building.id, userEmail: user?.email })
       });
       const data = await res.json();
       if (res.ok) {
@@ -2164,27 +2260,11 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("kpis")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'kpis' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📈</span> Indicadores (KPIs)
               </button>
+              <button onClick={() => setActiveTab("indicadores-caja")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'indicadores-caja' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">📊</span> Indicadores de Caja
+              </button>
               <button onClick={() => setActiveTab("alertas")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'alertas' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📢</span> Alertas y Cambios
-              </button>
-              </div>
-              </div>
-
-              {/* GRUPO: ANALISIS AVANZADO */}
-              <div>
-              <div className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-3 ml-2">Análisis Avanzado (Junta)</div>
-              <div className="space-y-1">
-              <button onClick={() => setActiveTab("analisis-cobranza")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'analisis-cobranza' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">📈</span> Análisis de Cobranza
-              </button>
-              <button onClick={() => setActiveTab("semaforo-morosidad")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'semaforo-morosidad' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🚦</span> Semáforo Morosidad
-              </button>
-              <button onClick={() => setActiveTab("salud-financiera")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'salud-financiera' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🏥</span> Salud Financiera
-              </button>
-              <button onClick={() => setActiveTab("simulador-inversiones")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'simulador-inversiones' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🏗️</span> Simulador de Inversiones
               </button>
               </div>
               </div>
@@ -2223,6 +2303,9 @@ export default function DashboardPage() {
             <div className="space-y-1">
               <button onClick={() => setActiveTab("recibos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">👥</span> Deudas por Unidad
+              </button>
+              <button onClick={() => setActiveTab("cobranza-morosidad")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'cobranza-morosidad' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">💼</span> Cobranza y Morosidad
               </button>
               <button onClick={() => setActiveTab("recibo")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'recibo' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📄</span> Detalle Recibo Mes
@@ -2393,10 +2476,8 @@ export default function DashboardPage() {
                 <button onClick={() => {setActiveTab("recibos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'recibos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>👥 Recibos</button>
                 <button onClick={() => {setActiveTab("balance"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'balance' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>⚖️ Balance</button>
                 <button onClick={() => {setActiveTab("inteligencia"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'inteligencia' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-emerald-600'}`}>🧠 Inteligencia</button>
-                <button onClick={() => {setActiveTab("analisis-cobranza"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'analisis-cobranza' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-indigo-500'}`}>📈 Curva Cobro</button>
-                <button onClick={() => {setActiveTab("semaforo-morosidad"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'semaforo-morosidad' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-rose-500'}`}>🚦 Semáforo Mora</button>
-                <button onClick={() => {setActiveTab("salud-financiera"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'salud-financiera' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-emerald-500'}`}>🏥 Salud Financiera</button>
-                <button onClick={() => {setActiveTab("simulador-inversiones"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'simulador-inversiones' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-amber-500'}`}>🏗️ Simulador Proyectos</button>
+                <button onClick={() => {setActiveTab("cobranza-morosidad"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'cobranza-morosidad' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-blue-600'}`}>💼 Cobranza y Mora</button>
+                <button onClick={() => {setActiveTab("indicadores-caja"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'indicadores-caja' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-amber-600'}`}>📊 Indicadores Caja</button>
                 <button onClick={() => {setActiveTab("configuracion"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'configuracion' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-blue-600'}`}>⚙️ Config</button>
               </div>
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl mt-4">
@@ -2421,10 +2502,8 @@ export default function DashboardPage() {
             <button onClick={() => setActiveTab("kpis")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "kpis" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 KPIs</button>
             <button onClick={() => setActiveTab("movimientos")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "movimientos" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📝 Movimientos</button>
             <button onClick={() => setActiveTab("inteligencia")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "inteligencia" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🧠 Inteligencia</button>
-            <button onClick={() => setActiveTab("analisis-cobranza")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "analisis-cobranza" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📈 Análisis Cobro</button>
-            <button onClick={() => setActiveTab("semaforo-morosidad")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "semaforo-morosidad" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🚦 Semáforo Mora</button>
-            <button onClick={() => setActiveTab("salud-financiera")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "salud-financiera" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🏥 Salud Financiera</button>
-            <button onClick={() => setActiveTab("simulador-inversiones")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "simulador-inversiones" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>🏗️ Simulador Proyectos</button>
+            <button onClick={() => setActiveTab("cobranza-morosidad")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "cobranza-morosidad" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>💼 Cobranza y Mora</button>
+            <button onClick={() => setActiveTab("indicadores-caja")} className={`flex-shrink-0 px-5 py-2.5 rounded-xl font-bold text-xs transition-all ${activeTab === "indicadores-caja" ? "bg-indigo-600 text-white shadow-lg" : "bg-white text-gray-600 border border-gray-200"}`}>📊 Indicadores Caja</button>
           </div>
 
           {activeTab === "resumen" && (
@@ -3668,6 +3747,11 @@ export default function DashboardPage() {
                             <tr key={idx} className="hover:bg-gray-50 transition-colors">
                               <td className="py-3 px-4 text-[10px] text-gray-400 whitespace-nowrap">
                                 {formatDate(item.created_at)}
+                                {item.created_at && (
+                                  <div className="text-[9px] text-gray-300 font-bold mt-0.5">
+                                    {new Date(item.created_at).toLocaleTimeString('es-VE', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })} VET
+                                  </div>
+                                )}
                               </td>
                               <td className="py-3 px-4">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
@@ -3711,6 +3795,44 @@ export default function DashboardPage() {
                   feature="KPIs, Gráficos de Tendencia y Comparativos" 
                   planRequired="Profesional" 
                   onUpgrade={() => setActiveTab("planes")}
+                  isDemo={user?.isDemo}
+                  demoContent={
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Morosidad del Mes</div>
+                          <div className="text-2xl font-black text-red-500">23%</div>
+                          <div className="text-[9px] text-gray-400 font-bold">9 de 40 aptos</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Recaudación Mes</div>
+                          <div className="text-2xl font-black text-emerald-600">77%</div>
+                          <div className="text-[9px] text-gray-400 font-bold">Bs. 65.700 cobrados</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Gastos vs Presupuesto</div>
+                          <div className="text-2xl font-black text-orange-500">91%</div>
+                          <div className="text-[9px] text-gray-400 font-bold">Bs. 54.600 / 60.000</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 text-center">
+                          <div className="text-[10px] font-bold text-gray-500 uppercase mb-1">Índice de Salud</div>
+                          <div className="text-2xl font-black text-blue-600">B+</div>
+                          <div className="text-[9px] text-gray-400 font-bold">Gestión Estable</div>
+                        </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                        <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Tendencia de Gastos — Últimos 6 Meses (Demo)</h3>
+                        <div className="flex items-end gap-2 h-24">
+                          {[45,62,58,71,54,68].map((v, i) => (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                              <div className="w-full bg-indigo-500 rounded-t-md" style={{height: `${v}%`}}></div>
+                              <span className="text-[9px] text-gray-400 font-bold">{['Oct','Nov','Dic','Ene','Feb','Mar'][i]}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  }
                 />
              ) : (
                <>
@@ -4257,7 +4379,7 @@ export default function DashboardPage() {
                         if (manualFilter === "pendientes") return !m.comparado;
                         if (manualFilter === "ingresos") return (Number(m.ingresos) || 0) > 0;
                         if (manualFilter === "egresos") return (Number(m.egresos) || 0) > 0;
-                        if (manualFilter === "ambos") return (Number(m.ingresos) || 0) > 0 || (Number(m.egresos) || 0) > 0;
+                        if (manualFilter === "ambos") return (Number(m.ingresos) || 0) > 0 && (Number(m.egresos) || 0) > 0;
                         return true;
                       })
                       .map((m: MovimientoManual) => (
@@ -4790,6 +4912,7 @@ export default function DashboardPage() {
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Email</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Cargo</th>
                       <th className="text-left py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acceso</th>
+                      <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs" title="Recibe el email diario del Cron">Email Cron</th>
                       <th className="text-center py-3 px-4 font-bold text-gray-600 uppercase text-xs">Acciones</th>
                     </tr>
                   </thead>
@@ -4809,6 +4932,34 @@ export default function DashboardPage() {
                           ) : (
                             <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-medium uppercase">👁️ Viewer</span>
                           )}
+                        </td>
+
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={async () => {
+                              if (!user?.isAdmin) return;
+                              const nuevoValor = m.recibe_email_cron === false ? true : false;
+                              try {
+                                const res = await fetch("/api/junta", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ id: m.id, recibe_email_cron: nuevoValor })
+                                });
+                                if (res.ok) {
+                                  setJunta(junta.map((j: any) => j.id === m.id ? { ...j, recibe_email_cron: nuevoValor } : j));
+                                }
+                              } catch (e) { console.error(e); }
+                            }}
+                            disabled={!user?.isAdmin}
+                            className={`px-2 py-1 rounded-full text-[10px] font-black uppercase transition-all ${
+                              m.recibe_email_cron === false
+                                ? 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            } ${!user?.isAdmin ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                            title={user?.isAdmin ? (m.recibe_email_cron === false ? 'Click para activar email diario' : 'Click para desactivar email diario') : 'Solo el admin puede cambiar esto'}
+                          >
+                            {m.recibe_email_cron === false ? '✗ No' : '✓ Sí'}
+                          </button>
                         </td>
 
                          <td className="py-3 px-4 text-center">
@@ -5133,6 +5284,40 @@ export default function DashboardPage() {
                   feature="Borrador de recibo estimado y pre-emisión" 
                   planRequired="Premium" 
                   onUpgrade={() => setActiveTab("planes")}
+                  isDemo={user?.isDemo}
+                  demoContent={
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 space-y-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Borrador de Recibo Estimado</h2>
+                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Selecciona los conceptos que integrarán el próximo recibo</p>
+                        </div>
+                        <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs font-black uppercase">Vista Demo</span>
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          { concepto: "Alícuota de Condominio", monto: "Bs. 1.800,00", check: true },
+                          { concepto: "Fondo de Reserva", monto: "Bs. 200,00", check: true },
+                          { concepto: "Mantenimiento Ascensor", monto: "Bs. 150,00", check: false },
+                          { concepto: "Servicio de Electricidad Zona Común", monto: "Bs. 85,00", check: true },
+                        ].map((item, i) => (
+                          <div key={i} className={`flex items-center justify-between p-3 rounded-xl border ${item.check ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${item.check ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                                {item.check && <span className="text-white text-[10px] font-black">✓</span>}
+                              </div>
+                              <span className="text-sm font-bold text-gray-700">{item.concepto}</span>
+                            </div>
+                            <span className="text-sm font-black text-gray-900">{item.monto}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-xl">
+                        <span className="font-black uppercase text-sm">Total Estimado</span>
+                        <span className="font-black text-lg">Bs. 2.235,00</span>
+                      </div>
+                    </div>
+                  }
                 />
             ) : (
               <div className="space-y-6">
@@ -5222,14 +5407,14 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Tabla de Detalle */}
-                      <table className="w-full text-xs mb-8">
+                      <table className="w-full text-xs mb-2">
                         <thead className="bg-gray-100 text-gray-600">
                           <tr>
                             <th className="py-2 px-3 text-left font-black border uppercase">CÓDIGO</th>
                             <th className="py-2 px-3 text-left font-black border uppercase">DESCRIPCIÓN</th>
                             <th className="py-2 px-3 text-right font-black border uppercase">MONTO (Bs)</th>
                             <th className="py-2 px-3 text-right font-black border uppercase">CUOTA PARTE (Bs)</th>
-                            <th className="py-2 px-3 text-right font-black border uppercase">TOTAL RECIBO (Bs)</th>
+                            <th className="py-2 px-3 text-right font-black border uppercase" title="Cuota Parte + 10% Fondo de Reserva">CUOTA PARTE + 10% F.RESERVA (Bs)</th>
                             <th className="py-2 px-3 text-right font-black border uppercase">USD</th>
                           </tr>
                         </thead>
@@ -5237,12 +5422,16 @@ export default function DashboardPage() {
                           {(() => {
                             const selected = preReciboItems.filter(i => selectedPreReciboIds.has(i.id));
                             const subtotal = selected.reduce((sum, i) => sum + i.monto, 0);
+                            // Alícuota de referencia para la vista previa (alícuota base del edificio)
+                            const alicuotaRef = 2.2135;
+                            const totalCuotasPartes = subtotal * (alicuotaRef / 100);
+                            const totalFondoReservaCuota = totalCuotasPartes * 0.10;
+                            const totalConFondo = totalCuotasPartes + totalFondoReservaCuota;
+                            const tasa = tasaBCV.dolar || 45;
                             
                             return (
                               <>
                                 {selected.map((item, idx) => {
-                                  // Asumimos alícuota promedio 2.2135 para la vista previa de una unidad
-                                  const alicuotaRef = 2.2135; 
                                   const cuotaParte = item.monto * (alicuotaRef / 100);
                                   const fondoReserva = cuotaParte * 0.10;
                                   const totalItem = cuotaParte + fondoReserva;
@@ -5254,7 +5443,7 @@ export default function DashboardPage() {
                                       <td className="py-2 px-3 border text-right font-mono">{formatBs(item.monto)}</td>
                                       <td className="py-2 px-3 border text-right font-mono text-gray-400">{formatBs(cuotaParte)}</td>
                                       <td className="py-2 px-3 border text-right font-black text-indigo-700 font-mono">{formatBs(totalItem)}</td>
-                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / (tasaBCV.dolar || 45))}</td>
+                                      <td className="py-2 px-3 border text-right font-bold text-green-600 font-mono">${formatUsd(totalItem / tasa)}</td>
                                     </tr>
                                   );
                                 })}
@@ -5263,25 +5452,31 @@ export default function DashboardPage() {
                                 <tr className="bg-gray-50">
                                   <td colSpan={2} className="py-3 px-3 border font-black text-right uppercase">TOTAL GASTOS COMUNES:</td>
                                   <td className="py-3 px-3 border text-right font-black font-mono text-base">{formatBs(subtotal)}</td>
-                                  <td className="py-3 px-3 border text-right font-bold text-gray-400 font-mono">{formatBs(subtotal * 0.022135)}</td>
-                                  <td colSpan={2} className="border"></td>
+                                  <td className="py-3 px-3 border text-right font-bold text-gray-500 font-mono">{formatBs(totalCuotasPartes)}</td>
+                                  <td className="border"></td>
+                                  <td className="border"></td>
                                 </tr>
                                 <tr className="bg-indigo-50/50">
                                   <td colSpan={2} className="py-3 px-3 border font-black text-right uppercase">FONDO DE RESERVA (10%):</td>
                                   <td className="py-3 px-3 border text-right font-black font-mono">{formatBs(subtotal * 0.10)}</td>
-                                  <td className="py-3 px-3 border text-right font-bold text-gray-400 font-mono">{formatBs((subtotal * 0.022135) * 0.10)}</td>
-                                  <td colSpan={2} className="border"></td>
+                                  <td className="py-3 px-3 border text-right font-bold text-gray-500 font-mono">{formatBs(totalFondoReservaCuota)}</td>
+                                  <td className="border"></td>
+                                  <td className="border"></td>
                                 </tr>
                                 <tr className="bg-indigo-900 text-white">
                                   <td colSpan={4} className="py-4 px-6 border-none font-black text-right uppercase tracking-widest text-sm">TOTAL ESTIMADO POR APARTAMENTO (2.2135%):</td>
-                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono">Bs. {formatBs((subtotal * 0.022135) * 1.10)}</td>
-                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(((subtotal * 0.022135) * 1.10) / (tasaBCV.dolar || 45))}</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono">Bs. {formatBs(totalConFondo)}</td>
+                                  <td className="py-4 px-3 border-none text-right font-black text-lg font-mono text-green-300">USD ${formatUsd(totalConFondo / tasa)}</td>
                                 </tr>
                               </>
                             );
                           })()}
                         </tbody>
                       </table>
+                      {/* Nota explicativa de columnas */}
+                      <div className="mb-6 px-2 py-3 bg-amber-50 border border-amber-200 rounded-xl text-[10px] text-amber-800 font-bold leading-relaxed">
+                        <span className="font-black uppercase">📌 Nota:</span> La columna <span className="font-black">"CUOTA PARTE (Bs)"</span> representa el monto que corresponde al apartamento según su alícuota (% de participación en los gastos comunes), sin incluir el Fondo de Reserva. La columna <span className="font-black">"CUOTA PARTE + 10% F.RESERVA (Bs)"</span> es el total a facturar en el recibo, incluyendo el 10% de Fondo de Reserva aplicado sobre la cuota parte. Los valores mostrados corresponden a la alícuota de referencia base de 2.2135%. Ver tabla inferior para detalle por tipo de apartamento.
+                      </div>
 
                       {/* Desglose por Alícuotas */}
                       <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
@@ -5587,6 +5782,52 @@ export default function DashboardPage() {
                 feature="Predicción de cobranza basada en patrones históricos y escenarios probabilísticos"
                 planRequired="Premium"
                 onUpgrade={() => setActiveTab("planes")}
+                isDemo={user?.isDemo}
+                demoContent={
+                  <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-10 opacity-10 text-9xl">🔮</div>
+                    <div className="relative z-10">
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                        <div>
+                          <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">Proyección de Ingresos</h2>
+                          <p className="text-indigo-200 font-bold text-xs uppercase tracking-widest">🔮 Inteligencia Predictiva Financiera — Demo</p>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
+                          <div className="text-xs text-indigo-300 font-bold uppercase">Recaudación Proyectada</div>
+                          <div className="text-2xl font-black text-white">$ 3.840 USD</div>
+                          <div className="text-xs text-indigo-300">Probabilidad: 78%</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        {[
+                          { label: "Escenario Optimista", val: "$ 4.200", prob: "35%", color: "bg-emerald-500/20 border-emerald-400/30" },
+                          { label: "Escenario Base", val: "$ 3.840", prob: "78%", color: "bg-blue-500/20 border-blue-400/30" },
+                          { label: "Escenario Pesimista", val: "$ 3.100", prob: "22%", color: "bg-red-500/20 border-red-400/30" },
+                        ].map((s, i) => (
+                          <div key={i} className={`${s.color} border rounded-2xl p-4 text-center`}>
+                            <div className="text-[10px] font-black text-white/60 uppercase mb-1">{s.label}</div>
+                            <div className="text-xl font-black text-white">{s.val}</div>
+                            <div className="text-[10px] text-white/50 mt-1">Prob: {s.prob}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-white/10 rounded-2xl p-4">
+                        <div className="text-xs font-black text-indigo-200 uppercase tracking-widest mb-3">Histórico + Proyección (6 meses)</div>
+                        <div className="flex items-end gap-2 h-20">
+                          {[62,71,58,80,68,75,78,null,null,null,null,null].map((v, i) => (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                              <div className={`w-full rounded-t-md ${i < 7 ? 'bg-indigo-400' : 'bg-indigo-400/30 border border-dashed border-indigo-400/50'}`}
+                                style={{height: `${v || 78}%`}}></div>
+                              <span className="text-[8px] text-white/40 font-bold">
+                                {['S','O','N','D','E','F','M','A','M','J','J','A'][i]}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                }
               />
             ) : (
               <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-950 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
@@ -5846,7 +6087,24 @@ export default function DashboardPage() {
         )}
 
       {activeTab === "configuracion" && building && (
-          <div className="space-y-6">
+          <div className={`space-y-6 ${!user?.isAdmin ? 'pointer-events-none opacity-80 select-none' : ''}`}>
+            {!user?.isAdmin && (
+              <div className="bg-amber-100 border-l-4 border-amber-500 p-4 mb-4 rounded-r-xl shadow-sm">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <span className="text-amber-500 text-lg">⚠️</span>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-amber-800 font-bold">
+                      Modo solo lectura
+                    </p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      No tienes permisos para realizar cambios en la configuración. Adicionalmente, esta es una cuenta de demostración.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Datos del Edificio</h2>
               <div className="grid md:grid-cols-3 gap-6">
@@ -6304,19 +6562,109 @@ export default function DashboardPage() {
                     {window.location.origin}/api/cron
                   </div>
                 </div>
+
+                {/* Botón de Prueba del Cron */}
+                <div className="border-t border-indigo-100 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h4 className="text-sm font-black text-gray-800">🧪 Prueba de Configuración</h4>
+                      <p className="text-[10px] text-gray-500 mt-0.5">Verifica el estado del cron, la próxima ejecución y detecta posibles problemas.</p>
+                    </div>
+                    <button
+                      onClick={handleCronTest}
+                      disabled={cronTestLoading}
+                      className={`px-5 py-2 rounded-xl font-black uppercase text-xs transition-all shadow-sm flex items-center gap-2 ${
+                        cronTestLoading
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-amber-500 text-white hover:bg-amber-600 active:scale-95"
+                      }`}
+                    >
+                      {cronTestLoading ? (
+                        <><span className="animate-spin">⏳</span> Diagnosticando...</>
+                      ) : (
+                        <><span>🔍</span> Ejecutar Diagnóstico</>
+                      )}
+                    </button>
+                  </div>
+
+                  {cronTestResult && (
+                    <div className={`rounded-xl border p-4 space-y-3 ${cronTestResult.error ? 'bg-red-50 border-red-200' : cronTestResult.ok ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                      {cronTestResult.error ? (
+                        <p className="text-red-700 font-bold text-sm">❌ Error al ejecutar diagnóstico: {cronTestResult.error}</p>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg ${cronTestResult.ok ? '✅' : '⚠️'}`}>{cronTestResult.ok ? '✅' : '⚠️'}</span>
+                            <span className={`font-black text-sm uppercase ${cronTestResult.ok ? 'text-green-800' : 'text-amber-800'}`}>
+                              {cronTestResult.ok ? 'Configuración correcta — El cron funcionará bien' : 'Se detectaron problemas en la configuración'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                            <div className="bg-white rounded-lg p-3 border border-gray-100 space-y-1">
+                              <p className="font-black text-gray-500 uppercase text-[9px] mb-1">⏰ Horario</p>
+                              <p><span className="text-gray-500">Hora VET actual:</span> <span className="font-bold text-gray-800">{cronTestResult.vetNow}</span></p>
+                              <p><span className="text-gray-500">Hora configurada:</span> <span className="font-bold text-indigo-700">{cronTestResult.cronTime} VET</span></p>
+                              <p><span className="text-gray-500">Frecuencia:</span> <span className="font-bold text-gray-800 uppercase">{cronTestResult.cronFrequency}</span></p>
+                              <p><span className="text-gray-500">Schedule Vercel:</span> <span className="font-mono text-[9px] text-gray-600">{cronTestResult.schedule}</span></p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3 border border-gray-100 space-y-1">
+                              <p className="font-black text-gray-500 uppercase text-[9px] mb-1">📅 Próxima Ejecución</p>
+                              <p className="font-bold text-gray-800 leading-snug">{cronTestResult.nextExec}</p>
+                              <p className="mt-2 text-[9px] text-gray-400 uppercase font-bold">Estado del Cron</p>
+                              <p>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${cronTestResult.cronEnabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                  {cronTestResult.cronEnabled ? '● ACTIVO' : '○ INACTIVO'}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {cronTestResult.emailsJunta?.length > 0 && (
+                            <div className="bg-white rounded-lg p-3 border border-gray-100">
+                              <p className="font-black text-gray-500 uppercase text-[9px] mb-1">📧 Destinatarios del Informe</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {cronTestResult.emailsJunta.map((e: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-[10px] font-bold">{maskEmail(e)}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {cronTestResult.oks?.length > 0 && (
+                            <div className="space-y-1">
+                              {cronTestResult.oks.map((ok: string, i: number) => (
+                                <p key={i} className="text-[11px] text-green-700 font-bold">{ok}</p>
+                              ))}
+                            </div>
+                          )}
+
+                          {cronTestResult.issues?.length > 0 && (
+                            <div className="space-y-1 border-t border-amber-200 pt-2 mt-2">
+                              <p className="text-[9px] font-black text-amber-700 uppercase mb-1">Problemas detectados:</p>
+                              {cronTestResult.issues.map((issue: string, i: number) => (
+                                <p key={i} className="text-[11px] text-amber-800 font-bold">{issue}</p>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
               <p className="text-[10px] text-gray-400 mt-4 italic font-bold uppercase tracking-tighter">
-                Nota: El envío automático utiliza los emails configurados en la pestaña &quot;Junta&quot;. Si hay un error, se notificará a correojago@gmail.com.
+                Nota: El envío automático utiliza los emails configurados en la pestaña &quot;Junta&quot;. Si hay un error, se notificará al administrador del sistema.
               </p>
             </div>
 
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
               <h2 className="text-lg font-bold text-gray-900 mb-4 uppercase tracking-tight">Mantenimiento de la Plataforma</h2>              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 bg-blue-50 rounded-xl border border-blue-100">
                 <div className="flex-1">
-                  <h3 className="text-blue-800 font-bold mb-1">Mantenimiento de Base de Datos Supabase</h3>
+                  <h3 className="text-blue-800 font-bold mb-1">Mantenimiento de Base de Datos</h3>
                   <p className="text-xs text-blue-600 leading-relaxed font-medium">
                     Realiza una operaci&oacute;n de mantenimiento preventivo para optimizar el rendimiento de las tablas, compactar el almacenamiento y reindexar los datos. 
-                    Al finalizar, se enviar&aacute; un reporte detallado a <strong>correojago@gmail.com</strong>.
+                    Al finalizar, se enviar&aacute; un reporte detallado al usuario conectado.
                   </p>
                 </div>
                 <div className="flex-shrink-0 flex flex-col items-center gap-2">
@@ -6924,20 +7272,12 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {activeTab === "analisis-cobranza" && building && (
-        <AnalisisCobranza edificioId={building.id} />
+      {activeTab === "cobranza-morosidad" && building && (
+        <CobranzaMorosidad edificioId={building.id} />
       )}
 
-      {activeTab === "semaforo-morosidad" && building && (
-        <SemaforoMorosidad edificioId={building.id} />
-      )}
-
-      {activeTab === "salud-financiera" && building && (
-        <SaludFinanciera edificioId={building.id} />
-      )}
-
-      {activeTab === "simulador-inversiones" && building && (
-        <SimuladorInversiones edificioId={building.id} />
+      {activeTab === "indicadores-caja" && building && (
+        <IndicadoresCaja edificioId={building.id} />
       )}
 
       {showOnboarding && (
@@ -7258,3 +7598,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+// Vercel build trigger

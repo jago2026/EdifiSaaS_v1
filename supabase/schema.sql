@@ -324,9 +324,13 @@ CREATE TABLE IF NOT EXISTS junta (
   cargo VARCHAR(100),
   telefono VARCHAR(50),
   activo BOOLEAN DEFAULT true,
+  recibe_email_cron BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(edificio_id, email)
 );
+
+-- Migración: agregar recibe_email_cron si no existe
+ALTER TABLE junta ADD COLUMN IF NOT EXISTS recibe_email_cron BOOLEAN DEFAULT true;
 
 -- 16. Logs de alertas y errores
 CREATE TABLE IF NOT EXISTS alertas_log (

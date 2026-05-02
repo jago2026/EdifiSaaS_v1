@@ -1,0 +1,317 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+const DIA_ORDER = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+
+const normalizeDia = (s: string | null | undefined): string => {
+  if (!s) return "";
+  const t = s.toString().trim();
+  const lower = t.toLowerCase();
+  const map: Record<string, string> = {
+    lun: "Lunes", lunes: "Lunes",
+    mar: "Martes", martes: "Martes",
+    mie: "Miércoles", "mié": "Miércoles", miercoles: "Miércoles", "miércoles": "Miércoles",
+    jue: "Jueves", jueves: "Jueves",
+    vie: "Viernes", viernes: "Viernes",
+    sab: "Sábado", "sáb": "Sábado", sabado: "Sábado", "sábado": "Sábado",
+    dom: "Domingo", domingo: "Domingo",
+  };
+  return map[lower] || t.charAt(0).toUpperCase() + t.slice(1);
+};
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const edificioId = searchParams.get("edificioId");
+
+  if (!edificioId) {
+    return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  try {
+    const todayStr = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Caracas",
+      year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+
+    const since = new Date();
+    since.setDate(since.getDate() - 365);
+    const sinceStr = since.toISOString().substring(0, 10);
+
+    const { data: rows, error } = await supabase
+      .from("control_diario")
+      .select(
+        "fecha, dia_semana, saldo_inicial_bs, saldo_inicial_usd, ingresos_bs, ingresos_usd, " +
+        "egresos_bs, egresos_usd, ajustes_bs, ajustes_usd, saldo_final_bs, saldo_final_usd, " +
+        "tasa_cambio, recibos_pendientes, fondo_reserva_bs, fondo_reserva_usd, " +
+        "fondo_dif_camb_bs, fondo_dif_camb_usd, fondo_int_mor_bs, fondo_int_mor_usd, " +
+        "total_fondos_bs, total_fondos_usd, disponibilidad_total_bs, disponibilidad_total_usd"
+      )
+      .eq("edificio_id", edificioId)
+      .gte("fecha", sinceStr)
+      .lte("fecha", todayStr)
+      .order("fecha", { ascending: true }) as unknown as { data: any[], error: any };
+
+    if (error) throw error;
+
+    const records = rows || [];
+
+    if (records.length === 0) {
+      return NextResponse.json({
+        empty: true,
+        message: "No hay registros en control_diario para este edificio.",
+      });
+    }
+
+    const last = records[records.length - 1];
+
+    // Buscar la última tasa de cambio disponible hacia atrás (puede ser de días anteriores)
+    let tasaActual = 0;
+    for (let i = records.length - 1; i >= 0; i--) {
+      const t = Number(records[i].tasa_cambio);
+      if (t > 0) { tasaActual = t; break; }
+    }
+
+    // -----------------------------------------------------------
+    // 1) Salud de Caja
+    // -----------------------------------------------------------
+    const egresosPorMes: Record<string, number> = {};
+    for (const r of records) {
+      const ym = String(r.fecha).substring(0, 7);
+      egresosPorMes[ym] = (egresosPorMes[ym] || 0) + (Number(r.egresos_usd) || 0);
+    }
+    const meses = Object.keys(egresosPorMes).sort();
+    const ultimosMeses = meses.slice(-6);
+    const sumEgresos = ultimosMeses.reduce((a, m) => a + (egresosPorMes[m] || 0), 0);
+    const egresosPromMensualUsd = ultimosMeses.length > 0 ? sumEgresos / ultimosMeses.length : 0;
+    const disponibilidadUsd = Number(last.disponibilidad_total_usd) || 0;
+    const mesesCubiertos = egresosPromMensualUsd > 0 ? disponibilidadUsd / egresosPromMensualUsd : 0;
+
+    // -----------------------------------------------------------
+    // 2) Brecha Cambiaria
+    // -----------------------------------------------------------
+    const brechaCambiaria = records.map((r) => {
+      const saldoBs = Number(r.saldo_final_bs) || 0;
+      const saldoUsd = Number(r.saldo_final_usd) || 0;
+      const bsEnUsdHoy = tasaActual > 0 ? saldoBs / tasaActual : 0;
+      return {
+        fecha: r.fecha,
+        saldoUsd: Number(saldoUsd.toFixed(2)),
+        bsEnUsdHoy: Number(bsEnUsdHoy.toFixed(2)),
+        brecha: Number((saldoUsd - bsEnUsdHoy).toFixed(2)),
+      };
+    });
+
+    // -----------------------------------------------------------
+    // 3) Perfil de Morosidad
+    // -----------------------------------------------------------
+    const sinceHC = new Date();
+    sinceHC.setMonth(sinceHC.getMonth() - 12);
+    const sinceHCStr = sinceHC.toISOString().substring(0, 10);
+
+    const { data: hcRows } = await supabase
+      .from("historico_cobranza")
+      .select(
+        "fecha, aptos_pendientes_total, monto_pendiente_total, monto_pendiente_total_usd, pct_pendiente, tasa_cambio, " +
+        "aptos_1_recibo, aptos_2_recibo, aptos_3_recibo, aptos_4_recibo, aptos_5_recibo, " +
+        "aptos_6_recibo, aptos_7_recibo, aptos_8_recibo, aptos_9_recibo, aptos_10_recibo, " +
+        "aptos_11_recibo, aptos_12_mas_recibo, " +
+        "monto_1_recibo, monto_2_recibo, monto_3_recibo, monto_4_recibo, monto_5_recibo, " +
+        "monto_6_recibo, monto_7_recibo, monto_8_recibo, monto_9_recibo, monto_10_recibo, " +
+        "monto_11_recibo, monto_12_mas_recibo, " +
+        "monto_1_recibo_usd, monto_2_recibo_usd, monto_3_recibo_usd, monto_4_recibo_usd, monto_5_recibo_usd, " +
+        "monto_6_recibo_usd, monto_7_recibo_usd, monto_8_recibo_usd, monto_9_recibo_usd, monto_10_recibo_usd, " +
+        "monto_11_recibo_usd, monto_12_mas_recibo_usd, monto_pagado_hoy, monto_pagado_hoy_usd"
+      )
+      .eq("edificio_id", edificioId)
+      .gte("fecha", sinceHCStr)
+      .lte("fecha", todayStr)
+      .order("fecha", { ascending: true });
+
+    const currentMonthStr = todayStr.substring(0, 7);
+
+    // Consultar recibos del mes actual con deduplicación por unidad
+    const { data: recibosRaw } = await supabase
+      .from("recibos")
+      .select("unidad, mes, deuda, deuda_usd, num_recibos")
+      .eq("edificio_id", edificioId)
+      .eq("mes", currentMonthStr)
+      .gt("deuda", 0);
+
+    const uniqueRecibosMap = new Map<string, any>();
+    (recibosRaw || []).forEach((r: any) => {
+      const key = `${r.unidad}-${r.mes}`;
+      if (!uniqueRecibosMap.has(key)) uniqueRecibosMap.set(key, r);
+    });
+    const recibosData = Array.from(uniqueRecibosMap.values());
+
+    // Tasa implícita derivada de los propios recibos — más confiable que control_diario
+    const tasaImplicita = (() => {
+      for (const r of recibosData) {
+        const usd = Number(r.deuda_usd);
+        const bs = Number(r.deuda);
+        if (usd > 0 && bs > 0) return bs / usd;
+      }
+      return tasaActual > 0 ? tasaActual : 1;
+    })();
+
+    // Total de deuda USD desde recibos (igual que RecibosTab)
+    const realTotalDebtUsd = recibosData.reduce((sum, r: any) => {
+      const deudaUsd = Number(r.deuda_usd) || 0;
+      const deudaBs = Number(r.deuda) || 0;
+      return sum + (deudaUsd > 0 ? deudaUsd : deudaBs / tasaImplicita);
+    }, 0);
+
+    // KPIs del mes actual desde recibos (usados para sobreescribir historico_cobranza)
+    const currentMonthKpis = (() => {
+      if (recibosData.length === 0) return null;
+      const total = recibosData.length;
+      const aptos1 = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) === 1).length;
+      const aptos2 = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) === 2).length;
+      const aptos3 = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) === 3).length;
+      const aptos4a6 = recibosData.filter((r: any) => { const n = Number(r.num_recibos) || 1; return n >= 4 && n <= 6; }).length;
+      const aptos7mas = recibosData.filter((r: any) => (Number(r.num_recibos) || 1) >= 7).length;
+      const aptos2mas = total - aptos1;
+      const pct2mas = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
+      const montoUsd = Number(realTotalDebtUsd.toFixed(0));
+      const [y, m] = currentMonthStr.split("-");
+      const mesesNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+      return { mes: `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`, ym: currentMonthStr, aptos1, aptos2, aptos3, aptos4a6, aptos7mas, total, aptos2mas, pct2mas, montoUsd, montoSum: montoUsd, pctPendiente: 0, fromRecibos: true };
+    })();
+
+    // Tomar el último snapshot de cada mes de historico_cobranza
+    const lastPerMonth: Record<string, any> = {};
+    for (const r of (hcRows || [])) {
+      const ym = String(r.fecha).substring(0, 7);
+      lastPerMonth[ym] = r;
+    }
+
+    const mesesNames = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+    const perfilMorosidad = Object.entries(lastPerMonth)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ym, r]) => {
+        // Si es el mes actual Y tenemos datos de recibos, usar exclusivamente esos datos
+        if (ym === currentMonthStr && currentMonthKpis) {
+          return currentMonthKpis;
+        }
+
+        const aptos1 = Number(r.aptos_1_recibo) || 0;
+        const aptos2 = Number(r.aptos_2_recibo) || 0;
+        const aptos3 = Number(r.aptos_3_recibo) || 0;
+        const aptos4a6 = (Number(r.aptos_4_recibo) || 0) + (Number(r.aptos_5_recibo) || 0) + (Number(r.aptos_6_recibo) || 0);
+        const aptos7mas = [7,8,9,10,11].reduce((s,i) => s + (Number(r[`aptos_${i}_recibo`]) || 0), 0) + (Number(r.aptos_12_mas_recibo) || 0);
+        const total = Number(r.aptos_pendientes_total) || 0;
+        const tasa = Number(r.tasa_cambio) || tasaActual || 1;
+
+        const rawMontoTotalUsd = Number(r.monto_pendiente_total_usd) || 0;
+        const rawBucketsUsd = [1,2,3,4,5,6,7,8,9,10,11].reduce((s,i) => s + (Number(r[`monto_${i}_recibo_usd`]) || 0), 0)
+          + (Number(r.monto_12_mas_recibo_usd) || 0);
+        const usdFieldsPoblados = rawMontoTotalUsd > 0 || rawBucketsUsd > 0;
+
+        let montoUsd: number;
+        let montoSum: number;
+
+        if (usdFieldsPoblados) {
+          montoUsd = rawMontoTotalUsd;
+          montoSum = rawBucketsUsd;
+        } else {
+          const estaEnBs = (valor: number, t: number) => valor > 1000 && t > 1 && (valor / t) > 1000;
+          const bucketsConvertidos = [1,2,3,4,5,6,7,8,9,10,11].map(i => {
+            const val = Number(r[`monto_${i}_recibo`]) || 0;
+            return estaEnBs(val, tasa) ? val / tasa : val;
+          });
+          const bucket12mas = (() => { const v = Number(r.monto_12_mas_recibo) || 0; return estaEnBs(v, tasa) ? v / tasa : v; })();
+          montoUsd = bucketsConvertidos.reduce((s, v) => s + v, 0) + bucket12mas;
+          montoSum = montoUsd;
+        }
+
+        const aptos2mas = aptos2 + aptos3 + aptos4a6 + aptos7mas;
+        const pct2mas = total > 0 ? Math.round((aptos2mas / total) * 100) : 0;
+        const [y, m] = ym.split("-");
+        return {
+          mes: `${mesesNames[parseInt(m, 10) - 1]} ${y.substring(2)}`,
+          ym, aptos1, aptos2, aptos3, aptos4a6, aptos7mas, total, aptos2mas, pct2mas,
+          montoUsd: Number(montoUsd.toFixed(0)),
+          montoSum: Number(montoSum.toFixed(0)),
+          pctPendiente: Number((Number(r.pct_pendiente) || 0).toFixed(1)),
+          fromRecibos: false,
+        };
+      });
+
+    // Si el mes actual no está en historico_cobranza, inyectarlo desde recibos
+    const hasCurrentMonth = perfilMorosidad.some(p => p.ym === currentMonthStr);
+    if (!hasCurrentMonth && currentMonthKpis) {
+      perfilMorosidad.push(currentMonthKpis);
+      perfilMorosidad.sort((a, b) => a.ym.localeCompare(b.ym));
+    }
+
+    // -----------------------------------------------------------
+    // 4) Comportamiento de fondos específicos (USD)
+    // -----------------------------------------------------------
+    const fondos = records.map((r) => ({
+      fecha: r.fecha,
+      reserva: Number(r.fondo_reserva_usd) || 0,
+      difCambiaria: Number(r.fondo_dif_camb_usd) || 0,
+      intMora: Number(r.fondo_int_mor_usd) || 0,
+      total: Number(r.total_fondos_usd) || 0,
+    }));
+
+    // -----------------------------------------------------------
+    // 5) Heatmap por día de la semana
+    // -----------------------------------------------------------
+    const acumPorDia: Record<string, { ingresos: number; egresos: number; count: number }> = {};
+    for (const r of records) {
+      const dia = normalizeDia(r.dia_semana);
+      if (!dia) continue;
+      if (!acumPorDia[dia]) acumPorDia[dia] = { ingresos: 0, egresos: 0, count: 0 };
+      acumPorDia[dia].ingresos += Number(r.ingresos_usd) || 0;
+      acumPorDia[dia].egresos += Number(r.egresos_usd) || 0;
+      acumPorDia[dia].count++;
+    }
+    const heatmap = DIA_ORDER
+      .filter(dia => acumPorDia[dia])
+      .map(dia => {
+        const { ingresos, egresos, count } = acumPorDia[dia];
+        return {
+          dia,
+          diaCorto: dia.substring(0, 3),
+          ingresos: count > 0 ? Number((ingresos / count).toFixed(2)) : 0,
+          egresos: count > 0 ? Number((egresos / count).toFixed(2)) : 0,
+          movimiento: count > 0 ? Number(((ingresos + egresos) / count).toFixed(2)) : 0,
+          count,
+        };
+      });
+
+    return NextResponse.json({
+      resumen: {
+        disponibilidadUsd: Number(last.disponibilidad_total_usd) || 0,
+        disponibilidadBs: Number(last.disponibilidad_total_bs) || 0,
+        saldoFinalUsd: Number(last.saldo_final_usd) || 0,
+        saldoFinalBs: Number(last.saldo_final_bs) || 0,
+        totalFondosUsd: Number(last.total_fondos_usd) || 0,
+        totalFondosBs: Number(last.total_fondos_bs) || 0,
+        recibosPendientes: Number(last.recibos_pendientes) || 0,
+        tasaActual,
+      },
+      saludCaja: {
+        mesesCubiertos: Number(mesesCubiertos.toFixed(2)),
+        disponibilidadUsd,
+        egresosPromMensualUsd: Number(egresosPromMensualUsd.toFixed(2)),
+        mesesUsadosEnPromedio: ultimosMeses.length,
+      },
+      brechaCambiaria,
+      perfilMorosidad,
+      fondos,
+      heatmap,
+    });
+
+  } catch (err: any) {
+    console.error("control-diario error:", err);
+    return NextResponse.json({ error: err.message || "Error interno" }, { status: 500 });
+  }
+}

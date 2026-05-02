@@ -190,9 +190,10 @@ export default function Home() {
             🚀 Nuevo: Prueba gratis por 30 días
           </div>
           <h1 className="text-5xl md:text-6xl font-black text-gray-900 mb-6 leading-tight tracking-tighter">
-            Gestión Inteligente de Condominios
+            Gestión Inteligente de Condominios v1.0.2
           </h1>
-          <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+
+          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
             Automatiza el control financiero de tu edificio. Integra datos de tu administradora, detecta movimientos nuevos y mantén tu contabilidad al día sin esfuerzo.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -684,7 +685,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-16 pt-8 text-center text-gray-500 text-xs font-black uppercase tracking-widest">
-            © 2026 EdifiSaaS. Todos los derechos reservados.
+            © 2026 EdifiSaaS. Todos los derechos reservados. <span className="opacity-30">v1.0.2</span>
           </div>
         </div>
       </footer>

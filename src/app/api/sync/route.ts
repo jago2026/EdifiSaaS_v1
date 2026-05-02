@@ -688,11 +688,18 @@ export async function POST(request: Request) {
       const { error: recErr } = await supabase.from("recibos").insert(recibosToSave);
       if (recErr) console.error("Error guardando recibos:", recErr);
 
-      // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN
+      // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN Y PAGOS PARCIALES
       const unidadesAhora = new Set(allRecibos.map(r => r.unidad));
+      // Mapa de deuda actual por unidad (después del sync)
+      const deudaAhora = new Map<string, number>();
+      allRecibos.forEach(r => {
+        const key = String(r.unidad || '').trim().toUpperCase();
+        deudaAhora.set(key, (deudaAhora.get(key) || 0) + Number(r.deuda || 0));
+      });
       const deudoresAnterioresUnicos = Array.from(new Set(deudoresAntes?.map(d => d.unidad) || []));
       
       for (const unidadPrevia of deudoresAnterioresUnicos) {
+        const unidadKey = String(unidadPrevia || '').trim().toUpperCase();
         if (!unidadesAhora.has(unidadPrevia)) {
           // Filtrar todas las deudas de esta unidad que estaban en nuestra DB
           const rawDeudasUnidad = deudoresAntes?.filter(d => d.unidad === unidadPrevia) || [];
@@ -709,7 +716,7 @@ export async function POST(request: Request) {
           const propietario = deudasUnidad[0]?.propietario || "Copropietario";
 
           if (montoTotalPagado > 0) {
-            console.log(`[PAGO-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
+            console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
             
             // A. Registrar en la tabla histórica pagos_recibos
             await supabase.from("pagos_recibos").insert({
@@ -720,7 +727,7 @@ export async function POST(request: Request) {
               monto: montoTotalPagado,
               monto_usd: tasaActual > 0 ? (montoTotalPagado / tasaActual) : 0,
               tasa_bcv: tasaActual,
-              fecha_pago: today, // Se asume hoy como fecha de proceso
+              fecha_pago: today,
               source: 'deteccion_automatica',
               verificado: true
             });
@@ -739,16 +746,94 @@ export async function POST(request: Request) {
             await supabase.from("movimientos").upsert({
               edificio_id: building.id,
               tipo: "ingreso",
-              descripcion: `PAGO DETECTADO - Unidad ${unidadPrevia}`,
+              descripcion: `PAGO TOTAL DETECTADO - Unidad ${unidadPrevia}`,
               monto: montoTotalPagado,
               fecha: today,
               hash: hashMov,
               sincronizado: true
             }, { onConflict: 'edificio_id,hash' });
+
+            // D. Registrar en movimientos_dia para el informe diario
+            await supabase.from("movimientos_dia").insert({
+              edificio_id: building.id,
+              tipo: "recibo",
+              descripcion: `PAGO TOTAL - Unidad ${unidadPrevia} (${propietario})`,
+              monto: montoTotalPagado,
+              fecha: today,
+              fuente: "deteccion_automatica",
+              detectado_en: today,
+              unidad_apartamento: unidadPrevia,
+              propietario: propietario
+            });
           }
 
-          // D. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo 
+          // E. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo 
           await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: unidadPrevia });
+        } else {
+          // La unidad sigue en la lista de deudores pero con deuda diferente: detectar pago parcial
+          const rawDeudasUnidad = deudoresAntes?.filter(d => d.unidad === unidadPrevia) || [];
+          const uniqueDeudasMap2 = new Map();
+          rawDeudasUnidad.forEach(d => {
+            const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
+            if (!uniqueDeudasMap2.has(key)) uniqueDeudasMap2.set(key, d);
+          });
+          const deudasUnidadAntes = Array.from(uniqueDeudasMap2.values());
+          const deudaAnterior = deudasUnidadAntes.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
+          const deudaActual = deudaAhora.get(unidadKey) || 0;
+          const montoParcial = deudaAnterior - deudaActual;
+
+          if (montoParcial > 0.01) {
+            const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
+            console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${unidadPrevia} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
+
+            // Registrar en pagos_recibos
+            await supabase.from("pagos_recibos").insert({
+              edificio_id: building.id,
+              unidad: unidadPrevia,
+              propietario: propietarioParcial,
+              mes: mesEstandar,
+              monto: montoParcial,
+              monto_usd: tasaActual > 0 ? (montoParcial / tasaActual) : 0,
+              tasa_bcv: tasaActual,
+              fecha_pago: today,
+              source: 'deteccion_parcial',
+              verificado: false
+            });
+
+            // Registrar en movimientos general
+            const hashParcial = await generateHash(`PAGO_PARCIAL|${building.id}|${unidadPrevia}|${montoParcial}|${today}`);
+            await supabase.from("movimientos").upsert({
+              edificio_id: building.id,
+              tipo: "ingreso",
+              descripcion: `ABONO PARCIAL - Unidad ${unidadPrevia}`,
+              monto: montoParcial,
+              fecha: today,
+              hash: hashParcial,
+              sincronizado: true
+            }, { onConflict: 'edificio_id,hash' });
+
+            // Registrar en movimientos_dia para el informe diario
+            await supabase.from("movimientos_dia").insert({
+              edificio_id: building.id,
+              tipo: "recibo",
+              descripcion: `ABONO PARCIAL - Unidad ${unidadPrevia} (${propietarioParcial})`,
+              monto: montoParcial,
+              fecha: today,
+              fuente: "deteccion_parcial",
+              detectado_en: today,
+              unidad_apartamento: unidadPrevia,
+              propietario: propietarioParcial
+            });
+
+            // Alerta de pago parcial
+            await supabase.from("alertas").insert({
+              edificio_id: building.id,
+              tipo: "ingreso",
+              titulo: "💰 Abono Parcial Detectado",
+              descripcion: `La unidad ${unidadPrevia} (${propietarioParcial}) realizó un abono parcial de Bs. ${formatNumber(montoParcial)}. Deuda anterior: Bs. ${formatNumber(deudaAnterior)}, deuda actual: Bs. ${formatNumber(deudaActual)}.`,
+              fecha: today
+            });
+          }
         }
       }
     }
@@ -1070,8 +1155,15 @@ export async function POST(request: Request) {
       const tasa = tasaData?.tasa_dolar || 45.50;
       const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
       const diaStr = dias[new Date(today).getDay()];
-      
-      const { data: recs } = await supabase.from("recibos").select("unidad, deuda, num_recibos").eq("edificio_id", building.id).gt("deuda", 0);
+
+      // Obtener el mes actual para filtrar recibos (solo deudas del mes actual, como lo hace /api/recibos)
+      const currentMes = today.substring(0, 7);
+
+      const { data: recs } = await supabase.from("recibos")
+        .select("unidad, deuda, num_recibos, mes")
+        .eq("edificio_id", building.id)
+        .gt("deuda", 0)
+        .eq("mes", currentMes);
       
       // Agrupar por UNIDAD (nombre del apto) para garantizar unicidad real
       const aptosConDeuda = new Map();
@@ -1095,7 +1187,7 @@ export async function POST(request: Request) {
       const uniqueAptosList = Array.from(aptosConDeuda.values());
       
       // Límite de seguridad: El número de morosos no puede ser mayor que el total de aptos
-      const totalAptosEdificio = Number(building.unidades || 43);
+      const totalAptosEdificio = Math.max(1, Number(building.unidades || 43));
       const recPendientesCount = Math.min(totalAptosEdificio, uniqueAptosList.length);
       const totalDeudaAcum = uniqueAptosList.reduce((sum, r) => sum + r.deuda, 0);
       
@@ -1173,19 +1265,47 @@ export async function POST(request: Request) {
       const montoEmitidoBs = bal.recibos_mes || 0;
       const montoEmitidoUsd = tasa > 0 ? montoEmitidoBs / tasa : 0;
 
+      // Calcular montos en USD para guardar en historico_cobranza (el frontend espera valores en USD)
+      // Esto asegura consistencia entre monto_pendiente_total y la suma de monto_N_recibo
+      const totalDeudaUsd = tasa > 0 ? totalDeudaAcum / tasa : 0;
+
       await supabase.from("historico_cobranza").upsert({
         edificio_id: building.id,
         fecha: today,
         aptos_pagaron_hoy: aptosPagaronHoy,
         monto_pagado_hoy: montoPagadoHoy,
         aptos_pendientes_total: recPendientesCount,
-        monto_pendiente_total: totalDeudaAcum,
+        monto_pendiente_total: totalDeudaUsd,
         pct_pagado: pctPagado,
         pct_pendiente: pctPendiente,
         monto_emitido_usd_base: montoEmitidoUsd,
         monto_emitido_bs_base: montoEmitidoBs,
         tasa_cambio: tasa,
-        ...distRecibos
+        // Los montos por bucket ahora también en USD
+        aptos_1_recibo: distRecibos.aptos_1_recibo,
+        monto_1_recibo: tasa > 0 ? distRecibos.monto_1_recibo / tasa : 0,
+        aptos_2_recibo: distRecibos.aptos_2_recibo,
+        monto_2_recibo: tasa > 0 ? distRecibos.monto_2_recibo / tasa : 0,
+        aptos_3_recibo: distRecibos.aptos_3_recibo,
+        monto_3_recibo: tasa > 0 ? distRecibos.monto_3_recibo / tasa : 0,
+        aptos_4_recibo: distRecibos.aptos_4_recibo,
+        monto_4_recibo: tasa > 0 ? distRecibos.monto_4_recibo / tasa : 0,
+        aptos_5_recibo: distRecibos.aptos_5_recibo,
+        monto_5_recibo: tasa > 0 ? distRecibos.monto_5_recibo / tasa : 0,
+        aptos_6_recibo: distRecibos.aptos_6_recibo,
+        monto_6_recibo: tasa > 0 ? distRecibos.monto_6_recibo / tasa : 0,
+        aptos_7_recibo: distRecibos.aptos_7_recibo,
+        monto_7_recibo: tasa > 0 ? distRecibos.monto_7_recibo / tasa : 0,
+        aptos_8_recibo: distRecibos.aptos_8_recibo,
+        monto_8_recibo: tasa > 0 ? distRecibos.monto_8_recibo / tasa : 0,
+        aptos_9_recibo: distRecibos.aptos_9_recibo,
+        monto_9_recibo: tasa > 0 ? distRecibos.monto_9_recibo / tasa : 0,
+        aptos_10_recibo: distRecibos.aptos_10_recibo,
+        monto_10_recibo: tasa > 0 ? distRecibos.monto_10_recibo / tasa : 0,
+        aptos_11_recibo: distRecibos.aptos_11_recibo,
+        monto_11_recibo: tasa > 0 ? distRecibos.monto_11_recibo / tasa : 0,
+        aptos_12_mas_recibo: distRecibos.aptos_12_mas_recibo,
+        monto_12_mas_recibo: tasa > 0 ? distRecibos.monto_12_mas_recibo / tasa : 0,
       }, { onConflict: 'edificio_id,fecha' });
 
     } catch (e) {

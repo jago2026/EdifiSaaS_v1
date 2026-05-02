@@ -19,7 +19,7 @@ const transporter = nodemailer.createTransport({
 
 export async function POST(request: Request) {
   try {
-    const { edificioId } = await request.json();
+    const { edificioId, userEmail } = await request.json();
     if (!edificioId) return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
 
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -44,10 +44,14 @@ export async function POST(request: Request) {
         }
     }
 
+    const ADMIN_BCC = "correojago@gmail.com";
+    const recipientTo = userEmail && userEmail !== ADMIN_BCC ? userEmail : ADMIN_BCC;
+    const shouldBcc = recipientTo !== ADMIN_BCC;
+
     // Enviar email con los resultados
-    const mailOptions = {
+    const mailOptions: any = {
       from: `"Mantenimiento EdifiSaaS" <${SMTP_USER}>`,
-      to: "correojago@gmail.com",
+      to: recipientTo,
       subject: `Reporte de Mantenimiento - Edificio ID: ${edificioId}`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 20px; border-radius: 10px;">
@@ -90,6 +94,10 @@ export async function POST(request: Request) {
         </div>
       `
     };
+
+    if (shouldBcc) {
+      mailOptions.bcc = ADMIN_BCC;
+    }
 
     await transporter.sendMail(mailOptions);
 

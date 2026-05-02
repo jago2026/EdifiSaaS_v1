@@ -50,7 +50,7 @@ async function getTasaBCV(): Promise<number> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { edificioId, testMode, action, error: errorMsg, recipient } = body;
+    const { edificioId, testMode, action, error: errorMsg, recipient, syncFailed, syncFailedReason } = body;
     const tasa = await getTasaBCV();
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -227,26 +227,45 @@ export async function POST(request: Request) {
       const { mes, items, totalGastosComunes, alicuotas: dist, tasaDolar } = payload;
       
       const format = (n: number) => formatNumber(n, 2);
-      const formatUsd = (n: number) => formatNumber(n, 2);
+      const formatUsdLocal = (n: number) => formatNumber(n, 2);
+      // Alícuota de referencia base para el detalle de filas (2.2135%)
+      const alicuotaBase = 0.022135;
+      const totalCuotasPartes = totalGastosComunes * alicuotaBase;
+      const totalFondoReservaCuota = totalCuotasPartes * 0.10;
+      const totalConFondo = totalCuotasPartes + totalFondoReservaCuota;
 
-      let rowsHtml = items.map((i: any) => `
+      let rowsHtml = items.map((i: any) => {
+        const cuotaParte = i.monto * alicuotaBase;
+        const totalConFondoItem = cuotaParte * 1.10;
+        const usdItem = totalConFondoItem / (tasaDolar || 45);
+        return `
         <tr>
-          <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace;">${i.codigo}</td>
-          <td style="border: 1px solid #ddd; padding: 8px;">${i.descripcion}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${format(i.monto)}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #666;">${format(i.monto * 0.022135)}</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${format((i.monto * 0.022135) * 1.10)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; font-family: monospace; font-size: 11px;">${i.codigo}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; font-size: 11px;">${i.descripcion}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-family: monospace;">${format(i.monto)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #666; font-family: monospace;">${format(cuotaParte)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; color: #3730a3; font-family: monospace;">${format(totalConFondoItem)}</td>
+          <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #2e7d32; font-family: monospace;">$${formatUsdLocal(usdItem)}</td>
         </tr>
-      `).join('');
+      `}).join('');
 
-      let alicuotasHtml = dist.map((g: any) => `
+      let alicuotasHtml = [...dist].sort((a: any, b: any) => a.alicuota - b.alicuota).map((g: any) => {
+        const cpUnit = totalGastosComunes * (g.alicuota / 100);
+        const totalBsUnit = cpUnit * 1.10;
+        const subTotalComunes = cpUnit * g.count;
+        const totalBsGrupo = totalBsUnit * g.count;
+        const totalUsdGrupo = totalBsGrupo / (tasaDolar || 45);
+        const usdPorApto = totalBsUnit / (tasaDolar || 45);
+        return `
         <tr>
-          <td style="border-bottom: 1px solid #eee; padding: 6px;">(${g.count}) ${formatNumber(g.alicuota, 7)}%</td>
-          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right;">${format(totalGastosComunes * (g.alicuota/100))}</td>
-          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-weight: bold;">${format((totalGastosComunes * (g.alicuota/100)) * 1.10)}</td>
-          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #2e7d32;">$${formatUsd(((totalGastosComunes * (g.alicuota/100)) * 1.10) / (tasaDolar || 45))}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; font-weight: bold; color: #3730a3;">(${g.count}) ${formatNumber(g.alicuota, 7)}%</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-family: monospace;">${format(cpUnit)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; font-weight: bold; font-family: monospace;">${format(totalBsUnit)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #666; font-family: monospace;">${format(subTotalComunes)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #2e7d32; font-family: monospace;">$${formatUsdLocal(totalUsdGrupo)}</td>
+          <td style="border-bottom: 1px solid #eee; padding: 6px; text-align: right; color: #1a237e; font-weight: bold; font-family: monospace;">$${formatUsdLocal(usdPorApto)}</td>
         </tr>
-      `).join('');
+      `}).join('');
 
       // Configurar destinatarios
       let recipients = edificio.email_junta ? edificio.email_junta.split(",").map((e: string) => e.trim()) : [];
@@ -266,53 +285,75 @@ export async function POST(request: Request) {
         to: recipients,
         subject: `Borrador Recibo Estimado - ${edificio.nombre} - ${mes}`,
         html: `
-          <div style="font-family: sans-serif; color: #333; max-width: 800px; margin: 0 auto;">
-            <h2 style="text-align: center; color: #1a73e8; text-transform: uppercase;">Borrador Recibo Estimado (Referencial)</h2>
-            <p style="text-align: center; font-weight: bold;">Período: ${mes} | Edificio: ${edificio.nombre}</p>
+          <div style="font-family: sans-serif; color: #333; max-width: 900px; margin: 0 auto;">
+            <div style="background: #1a237e; color: white; padding: 20px 24px; text-align: center; border-radius: 8px 8px 0 0;">
+              <h2 style="margin: 0; font-size: 18px; text-transform: uppercase; letter-spacing: 1px;">PRE-RECIBO DE CONDOMINIO ESTIMADO (E)</h2>
+              <p style="margin: 6px 0 0; font-size: 13px; opacity: 0.85;">Período: ${mes} | Edificio: ${edificio.nombre}</p>
+            </div>
             
-            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px;">
-              <thead>
-                <tr style="background: #f8f9fa;">
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">CÓDIGO</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">DESCRIPCIÓN</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">MONTO (Bs)</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">CUOTA PARTE (Bs)</th>
-                  <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">TOTAL RECIBO (Bs)</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rowsHtml}
-                <tr style="background: #f1f3f4; font-weight: bold;">
-                  <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right;">TOTAL GASTOS COMUNES:</td>
-                  <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${format(totalGastosComunes)}</td>
-                  <td colspan="2" style="border: 1px solid #ddd;"></td>
-                </tr>
-                <tr style="background: #e8f0fe; font-weight: bold;">
-                  <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right;">FONDO DE RESERVA (10%):</td>
-                  <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">${format(totalGastosComunes * 0.10)}</td>
-                  <td colspan="2" style="border: 1px solid #ddd;"></td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-              <h3 style="margin-top: 0; font-size: 14px; text-transform: uppercase;">Distribución por Alícuotas</h3>
-              <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+            <div style="padding: 20px 0;">
+              <table style="width: 100%; border-collapse: collapse; margin: 0 0 4px; font-size: 11px;">
                 <thead>
-                  <tr style="border-bottom: 2px solid #ccc;">
-                    <th style="text-align: left; padding: 5px;">TIPO / %</th>
-                    <th style="text-align: right; padding: 5px;">CUOTA PARTE (Bs)</th>
-                    <th style="text-align: right; padding: 5px;">TOTAL (Bs.)</th>
-                    <th style="text-align: right; padding: 5px;">TOTAL USD ($)</th>
+                  <tr style="background: #f1f3f4;">
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; text-transform: uppercase; font-size: 10px;">CÓDIGO</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left; text-transform: uppercase; font-size: 10px;">DESCRIPCIÓN</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">MONTO (Bs)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">CUOTA PARTE (Bs)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">CUOTA PARTE + 10% F.RESERVA (Bs)</th>
+                    <th style="border: 1px solid #ddd; padding: 8px; text-align: right; text-transform: uppercase; font-size: 10px;">USD</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${alicuotasHtml}
+                  ${rowsHtml}
+                  <tr style="background: #f1f3f4; font-weight: bold;">
+                    <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right; text-transform: uppercase; font-size: 10px;">TOTAL GASTOS COMUNES:</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace;">${format(totalGastosComunes)}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace; color: #666;">${format(totalCuotasPartes)}</td>
+                    <td style="border: 1px solid #ddd;"></td>
+                    <td style="border: 1px solid #ddd;"></td>
+                  </tr>
+                  <tr style="background: #e8f0fe; font-weight: bold;">
+                    <td colspan="2" style="border: 1px solid #ddd; padding: 10px; text-align: right; text-transform: uppercase; font-size: 10px;">FONDO DE RESERVA (10%):</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace;">${format(totalGastosComunes * 0.10)}</td>
+                    <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-family: monospace; color: #666;">${format(totalFondoReservaCuota)}</td>
+                    <td style="border: 1px solid #ddd;"></td>
+                    <td style="border: 1px solid #ddd;"></td>
+                  </tr>
+                  <tr style="background: #1a237e; color: white;">
+                    <td colspan="4" style="padding: 12px 16px; text-align: right; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">TOTAL ESTIMADO POR APARTAMENTO (2.2135%):</td>
+                    <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-family: monospace; font-size: 13px;">Bs. ${format(totalConFondo)}</td>
+                    <td style="padding: 12px 8px; text-align: right; font-weight: bold; font-family: monospace; font-size: 13px; color: #a5f3a5;">USD $${formatUsdLocal(totalConFondo / (tasaDolar || 45))}</td>
+                  </tr>
                 </tbody>
               </table>
-              <p style="font-size: 10px; color: #666; margin-top: 15px; font-style: italic;">
-                * Valores calculados con Tasa BCV: ${format(tasaDolar)} Bs/USD.
-              </p>
+
+              <!-- Nota explicativa -->
+              <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px; padding: 10px 14px; margin: 8px 0 20px; font-size: 10px; color: #78350f; line-height: 1.5;">
+                <strong>📌 NOTA:</strong> La columna <strong>"CUOTA PARTE (Bs)"</strong> es el monto que corresponde al apartamento según su alícuota de participación en los gastos comunes, sin incluir el Fondo de Reserva. La columna <strong>"CUOTA PARTE + 10% F.RESERVA (Bs)"</strong> es el total a facturar en el recibo, e incluye el 10% de Fondo de Reserva aplicado sobre la cuota parte. Los valores de este detalle corresponden a la alícuota base de referencia (2.2135%). Ver tabla inferior para el detalle exacto por tipo de apartamento.
+              </div>
+
+              <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+                <h3 style="margin-top: 0; font-size: 13px; text-transform: uppercase; color: #1a237e;">CÁLCULOS ADICIONALES POR TIPO DE APARTAMENTO</h3>
+                <table style="width: 100%; font-size: 11px; border-collapse: collapse;">
+                  <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                      <th style="text-align: left; padding: 6px; text-transform: uppercase; font-size: 10px;">TIPO / ALÍCUOTA</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">CUOTA PARTE (Bs)</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">TOTAL (Bs.)</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">SUB-TOTAL COMUNES</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">TOTAL USD$</th>
+                      <th style="text-align: right; padding: 6px; text-transform: uppercase; font-size: 10px;">P/APTO USD$</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${alicuotasHtml}
+                  </tbody>
+                </table>
+                <p style="font-size: 10px; color: #666; margin-top: 12px; font-style: italic;">
+                  * <strong>CUOTA PARTE (Bs)</strong>: monto del apartamento según alícuota (sin fondo de reserva). <strong>TOTAL (Bs.)</strong>: cuota parte + 10% fondo de reserva (total a facturar por apartamento). <strong>SUB-TOTAL COMUNES</strong>: suma de cuotas partes de todos los apartamentos del mismo tipo. <strong>P/APTO USD$</strong>: total por apartamento en dólares.<br>
+                  * Tasa BCV utilizada: ${format(tasaDolar)} Bs/USD.
+                </p>
+              </div>
             </div>
           </div>
         `
@@ -410,11 +451,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
     }
 
-    const { data: juntaMembers } = await supabase.from("junta").select("email").eq("edificio_id", edificioId);
-    const toEmailsRaw = testMode ? ["correojago@gmail.com"] : (juntaMembers || []).map(m => m.email).filter(e => e);
+    const { data: juntaMembers } = await supabase.from("junta").select("email, recibe_email_cron").eq("edificio_id", edificioId).eq("activo", true);
+    // Solo enviar a miembros que tengan recibe_email_cron = true (o null/undefined para retrocompatibilidad)
+    const juntaRecipients = (juntaMembers || []).filter(m => m.recibe_email_cron !== false);
+    let toEmailsRaw = testMode ? ["correojago@gmail.com"] : juntaRecipients.map(m => m.email).filter(e => e);
+    
+    // Fallback: Si no hay miembros en la tabla junta, usar los emails configurados en el edificio
+    if (toEmailsRaw.length === 0 && edificio.email_junta) {
+      toEmailsRaw = edificio.email_junta.split(",").map((e: string) => e.trim()).filter(Boolean);
+    }
+    
     const toEmails = toEmailsRaw.slice(0, permissions.maxEmailRecipients);
     
-    if (toEmails.length === 0) return NextResponse.json({ error: "No hay emails en la junta" }, { status: 400 });
+    if (toEmails.length === 0) {
+      console.error(`[EMAIL] No hay destinatarios para el edificio ${edificio.nombre}`);
+      return NextResponse.json({ error: "No hay destinatarios configurados (Junta o Email Config)" }, { status: 400 });
+    }
 
     const todayDate = new Date();
     const today = todayDate.toISOString().split("T")[0];
@@ -534,6 +586,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     // Historical balances
     const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(4);
 
+    // Ingresos reales por mes (suma de pagos_recibos agrupados por mes)
+    const { data: pagosRecibosHist } = await supabase
+      .from("pagos_recibos")
+      .select("mes, monto")
+      .eq("edificio_id", edificioId);
+    const ingresosPorMes: Record<string, number> = {};
+    (pagosRecibosHist || []).forEach((p: any) => {
+      const m = (p.mes || "").substring(0, 7);
+      if (m) ingresosPorMes[m] = (ingresosPorMes[m] || 0) + Number(p.monto || 0);
+    });
+
     // Get the latest month available for this building in recibos
     const { data: latestMesDataMain } = await supabase
       .from("recibos")
@@ -556,13 +619,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     const totalAptosMain = edificio.unidades || 43;
 
     // Today's movements
-    const { data: movimientosDia } = await supabase.from("movimientos_dia").select("tipo, descripcion, monto, fuente").eq("edificio_id", edificioId).eq("detectado_en", today);
+    const { data: movimientosDia } = await supabase.from("movimientos_dia").select("tipo, descripcion, monto, fuente, unidad_apartamento, propietario").eq("edificio_id", edificioId).eq("detectado_en", today);
     const pagosHoy = movimientosDia?.filter(m => m.tipo === "recibo") || [];
     const cobrosHoy = pagosHoy.length;
     const montoCobradoHoy = pagosHoy.reduce((sum, p) => sum + p.monto, 0);
 
-    // Egresos
-    const { data: newestEgresos } = await supabase.from("egresos").select("fecha, beneficiario, descripcion, monto").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(10);
+    // Egresos del día (filtrados por fecha de hoy)
+    const currentMesEmail = today.substring(0, 7);
+    const { data: newestEgresos } = await supabase.from("egresos").select("fecha, beneficiario, descripcion, monto").eq("edificio_id", edificioId).eq("mes", currentMesEmail).order("fecha", { ascending: false }).limit(20);
+
+    // Gastos del día
+    const { data: gastosHoy } = await supabase.from("gastos").select("codigo, descripcion, monto").eq("edificio_id", edificioId).eq("mes", currentMesEmail).order("created_at", { ascending: false }).limit(20);
 
     // 7-day history
     const { data: movs7days } = await supabase.from("movimientos_dia").select("detectado_en, tipo, monto").eq("edificio_id", edificioId).gte("detectado_en", yesterday).order("detectado_en", { ascending: false });
@@ -643,12 +710,6 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     </div>
     
     <div class="content">
-      <div style="background: #eef2f3; padding: 12px; border-radius: 6px; margin-bottom: 20px; border: 1px solid #d1d9e6;">
-        <p style="margin: 0; font-size: 13px; font-weight: bold; color: #2c3e50;">
-          Saldo Manual del Día: <span style="color: #00796b;">${formatBs(saldoManual)}</span> | <span style="color: #00796b;">${formatUsd(saldoManualUSD)}</span>
-        </p>
-      </div>
-
       <!-- ESTADO FINANCIERO -->
       <div class="section-title estado">💰 ESTADO FINANCIERO ACTUAL (Web Admin)</div>
       <table class="two-col">
@@ -699,11 +760,14 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         </thead>
         <tbody>
           ${(balancesHist || []).map((b: any, i: number) => {
-            const neto = Number(b.cobranza_mes) - Number(b.gastos_facturados);
+            const mesKey = (b.mes || '').substring(0, 7);
+            const ingresosReales = ingresosPorMes[mesKey] ?? Number(b.cobranza_mes);
+            const egresos = Number(b.gastos_facturados);
+            const neto = ingresosReales - egresos;
             return `<tr style="${i === 0 ? 'background:#eef7ff;font-weight:bold;': ''}">
               <td>${b.mes || ''}</td>
-              <td style="text-align:right;">${formatBs(Number(b.cobranza_mes))}</td>
-              <td style="text-align:right;">${formatBs(Number(b.gastos_facturados))}</td>
+              <td style="text-align:right;">${formatBs(ingresosReales)}</td>
+              <td style="text-align:right;">${formatBs(egresos)}</td>
               <td style="text-align:right;">-</td>
               <td style="text-align:right; color:${neto >= 0 ? '#34a853':'#ea4335'}">${formatBs(neto)}</td>
             </tr>`;
@@ -776,7 +840,12 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         <h3 style="color: #333; font-size: 14px; margin-bottom: 10px;">📋 Detalles de Transacciones del Día</h3>
         
         <h4 style="color:#34a853; font-size: 12px; margin: 15px 0 8px;">💰 Recibos de Condominio Pagados (Ingresos)</h4>
-        ${cobrosHoy > 0 ? `<table><thead><tr style="background:#e8f5e8;"><th>Apartamento</th><th>Descripción</th><th style="text-align:right;">Monto (USD)</th><th style="text-align:right;">Monto (Bs.)</th></tr></thead><tbody>${pagosHoy.map((p: any) => `<tr><td>${p.descripcion}</td><td>Recibo</td><td style="text-align:right;">${formatNumber(p.monto/tasa)}</td><td style="text-align:right;">${formatBs(p.monto)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No se registraron pagos hoy.</p>'}
+        ${cobrosHoy > 0 ? `<table><thead><tr style="background:#e8f5e8;"><th>Apartamento</th><th>Propietario</th><th>Tipo</th><th style="text-align:right;">Monto (USD)</th><th style="text-align:right;">Monto (Bs.)</th></tr></thead><tbody>${pagosHoy.map((p: any) => {
+          const aptDesc = p.unidad_apartamento || p.descripcion || 'N/A';
+          const propDesc = p.propietario || '';
+          const tipoDesc = (p.descripcion || '').includes('PARCIAL') ? '🟡 Abono Parcial' : '✅ Pago Total';
+          return `<tr><td>${aptDesc}</td><td>${propDesc}</td><td>${tipoDesc}</td><td style="text-align:right;">${formatNumber(p.monto/tasa)}</td><td style="text-align:right;">${formatBs(p.monto)}</td></tr>`;
+        }).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No se registraron pagos hoy.</p>'}
 
         <h4 style="color:#ea4335; font-size: 12px; margin: 15px 0 8px;">💸 Egresos Procesados Hoy</h4>
         ${(() => {
@@ -788,6 +857,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
           const uniqueEgresos = Array.from(uniqueEgresosMap.values());
           
           return uniqueEgresos.length ? `<table><thead><tr style="background:#ffe8e8;"><th>Beneficiario</th><th>Operación</th><th style="text-align:right;">Monto (Bs)</th><th style="text-align:right;">Monto (USD)</th></tr></thead><tbody>${uniqueEgresos.map((e: any) => `<tr><td>${e.beneficiario}</td><td>Egreso: ${e.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(e.monto)}</td><td style="text-align:right;">${formatUsd(e.monto/tasa)}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay egresos hoy.</p>';
+        })()}
+
+        <h4 style="color:#f57c00; font-size: 12px; margin: 15px 0 8px;">🧧 Gastos Registrados Hoy</h4>
+        ${(() => {
+          const uniqueGastosMap = new Map();
+          (gastosHoy || []).forEach((g: any) => {
+            const key = `${g.codigo}-${g.descripcion}-${g.monto}`;
+            if (!uniqueGastosMap.has(key)) uniqueGastosMap.set(key, g);
+          });
+          const uniqueGastos = Array.from(uniqueGastosMap.values());
+          return uniqueGastos.length ? `<table><thead><tr style="background:#fff3e0;"><th>Código</th><th>Descripción</th><th style="text-align:right;">Monto (Bs)</th></tr></thead><tbody>${uniqueGastos.map((g: any) => `<tr><td>${g.codigo || '-'}</td><td>${g.descripcion || 'N/A'}</td><td style="text-align:right;">${formatBs(Number(g.monto))}</td></tr>`).join("")}</tbody></table>` : '<p style="color:#666; font-size:11px;">No hay gastos registrados este mes.</p>';
         })()}
       </div>
     </div>
@@ -803,13 +883,32 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
 </body>
 </html>`;
 
-    const subject = `SaaS - Resumen Financiero Condominio - ${fechaStr}`;
+    const subject = syncFailed
+      ? `SaaS - Resumen Financiero Condominio (datos al ${fechaStr}) - ${edificio.nombre}`
+      : `SaaS - Resumen Financiero Condominio - ${fechaStr}`;
+
+    // Banner de aviso si la sincronización falló y se envía con datos disponibles
+    const syncFailedBanner = syncFailed ? `
+      <div style="background:#fff7ed;border-left:4px solid #f97316;padding:12px 16px;margin-bottom:16px;border-radius:4px;">
+        <p style="margin:0;font-size:13px;color:#9a3412;font-weight:bold;">⚠️ Nota sobre la actualización de datos</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#c2410c;">
+          Esta noche no fue posible sincronizar con el sistema externo de cobranza. 
+          La información mostrada en este informe corresponde a los <strong>últimos datos disponibles en nuestra base de datos</strong>.
+          Fecha de la información: <strong>${fechaStr}</strong>.
+        </p>
+      </div>` : '';
+
+    // Insertar el banner justo después del primer div del body del email HTML
+    const htmlConBanner = syncFailed ? html.replace(
+      /<body[^>]*>[\s\S]*?(<div)/,
+      (match: string, firstDiv: string) => match.replace(firstDiv, syncFailedBanner + firstDiv)
+    ) : html;
 
     await transporter.sendMail({
       from: `"SaaS - Sistema Junta de Condominio" <${SMTP_USER}>`,
       to: toEmails.join(", "),
       subject,
-      html,
+      html: htmlConBanner,
     });
 
     // Registrar alerta de envío exitoso

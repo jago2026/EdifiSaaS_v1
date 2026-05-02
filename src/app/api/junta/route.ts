@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -31,6 +32,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = cookieStore.get("user_id")?.value;
+    if (userId === "00000000-0000-0000-0000-000000000000") {
+      return NextResponse.json({ error: "Operación no permitida en cuenta demo" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { edificio_id, email, nombre, cargo, telefono, nivel_acceso } = body;
 
@@ -57,7 +64,8 @@ export async function POST(request: Request) {
         password_hash: passwordHash,
         requiere_cambio_clave: true,
         es_propietario: nivel_acceso === 'admin',
-        nivel_acceso: nivel_acceso || 'viewer'
+        nivel_acceso: nivel_acceso || 'viewer',
+        recibe_email_cron: true
       })
 
       .select()
@@ -90,4 +98,26 @@ async function hashPassword(password: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+}
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, recibe_email_cron } = body;
+
+    if (!id || typeof recibe_email_cron !== "boolean") {
+      return NextResponse.json({ error: "Faltan datos requeridos (id, recibe_email_cron)" }, { status: 400 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { error } = await supabase
+      .from("junta")
+      .update({ recibe_email_cron })
+      .eq("id", id);
+
+    if (error) throw error;
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error("Patch junta error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }

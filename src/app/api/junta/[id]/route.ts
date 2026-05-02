@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
@@ -10,6 +11,12 @@ type RouteParams = {
 
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
+    const cookieStore = await cookies();
+    const userId = cookieStore.get("user_id")?.value;
+    if (userId === "00000000-0000-0000-0000-000000000000") {
+      return NextResponse.json({ error: "Operación no permitida en cuenta demo" }, { status: 403 });
+    }
+
     const { id } = await params;
 
     if (!id) {

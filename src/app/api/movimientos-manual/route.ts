@@ -30,6 +30,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const cookieStore = await cookies();
+    const userId = cookieStore.get("user_id")?.value;
+    if (userId === "00000000-0000-0000-0000-000000000000") {
+      return NextResponse.json({ error: "Operación no permitida en cuenta demo" }, { status: 403 });
+    }
+
     const body = await request.json();
     const { edificio_id, fecha_corte, saldo_inicial, egresos, ingresos, obs_egresos, obs_ingresos, tasa_bcv, saldo_segun_administradora } = body;
 
