@@ -94,12 +94,17 @@ export async function GET(request: Request) {
       return parseFloat(tasasHistoricas[0]?.tasa_dolar || FALLBACK_TASA);
     }
 
-    // Transform pagos with correct tasa for each payment
-    const pagosFormatted = (pagos || []).map((p: any) => {
+    // Transform and deduplicate pagos
+    const uniquePagosMap = new Map();
+    
+    (pagos || []).forEach((p: any) => {
+      const key = `${p.unidad}_${p.mes}_${Number(p.monto || 0).toFixed(2)}_${p.fecha_pago}`;
+      if (uniquePagosMap.has(key)) return;
+
       const tasa = getTasaParaFecha(p.fecha_pago);
       const montoBs = parseFloat(p.monto || 0);
       
-      return {
+      uniquePagosMap.set(key, {
         id: p.id,
         fecha: p.fecha_pago || new Date().toISOString().split("T")[0],
         unidad: p.unidad,
@@ -110,8 +115,10 @@ export async function GET(request: Request) {
         tasaCambio: tasa,
         estado: "pagado",
         verificado: p.verificado || false
-      };
+      });
     });
+
+    const pagosFormatted = Array.from(uniquePagosMap.values());
 
     return NextResponse.json({ pagos: pagosFormatted, mes: currentMes });
   } catch (error: any) {

@@ -2799,9 +2799,9 @@ export default function DashboardPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b bg-gray-50">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                       <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
                       <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Propietario</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">#Recibos</th>
                       <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Bs</th>
                       <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto USD</th>
                       <th className="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
@@ -2810,17 +2810,19 @@ export default function DashboardPage() {
                   <tbody className="divide-y divide-gray-100">
                     {ingresosData.map((pago: any) => (
                       <tr key={pago.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">{pago.unidad}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600">{pago.propietario || "-"}</td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-900">{pago.numRecibos}</td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-600">
-                          Bs. {formatCurrency(pago.montoBs)}
+                        <td className="py-3 px-4 text-sm text-gray-500 font-medium">
+                          {pago.fecha ? formatDate(pago.fecha) : "-"}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right text-green-600 font-medium">
-                          $ {formatCurrency(pago.montoUsd)}
+                        <td className="py-3 px-4 text-sm font-medium text-gray-900">{pago.unidad}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600 truncate max-w-[150px]">{pago.propietario || "-"}</td>
+                        <td className="py-3 px-4 text-sm text-right text-gray-900 font-bold">
+                          Bs. {formatBs(pago.montoBs)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right text-green-600 font-black">
+                          $ {formatUsd(pago.montoUsd)}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                             pago.estado === "pagado" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                           }`}>
                             {pago.estado === "pagado" ? "Pagado" : "Pendiente"}

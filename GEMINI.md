@@ -101,3 +101,11 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
     - **Movimientos-Dia API:** Se refactorizó la agregación para usar las tablas especializadas como fuente primaria y filtrar los registros redundantes de `movimientos_dia`.
     - **Frontend Dashboard:** Se corrigió la construcción del array `flujo` y el mapa `cashFlowMap` para evitar la duplicidad de registros y el doble conteo en las gráficas y casillas de totales.
 - **Resultado:** Los totales de ingresos/egresos ahora reflejan la realidad del mes en curso sin acumulaciones erróneas y el listado de movimientos es único por operación.
+
+#### 5. Mejoras en Pestaña Ingresos (Cobranza)
+- **Problema:** El listado de cobranza no mostraba la fecha del pago y contenía registros duplicados.
+- **Solución Aplicada:**
+    - **Frontend Dashboard:** Se añadió la columna **"Fecha"** al listado de Pagos de Condominio por Unidad para mejorar la trazabilidad.
+    - **Ingresos API:** Se implementó una lógica de **deduplicación en tiempo real** en `/api/ingresos` para asegurar que el usuario vea registros únicos, incluso si existen duplicados en la base de datos.
+    - **Script de Limpieza SQL:** Se creó un script (`supabase/remove_duplicate_pagos.sql`) para que el usuario pueda eliminar permanentemente los registros duplicados de la tabla `pagos_recibos`.
+- **Resultado:** Vista de cobranza más clara, profesional y con datos precisos sin repeticiones.
