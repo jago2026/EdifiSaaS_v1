@@ -122,6 +122,7 @@ export async function PATCH(request: Request) {
       .from("junta")
       .update(updateData)
       .eq("id", id)
+      .eq("edificio_id", edificio_id)
       .select('id, nombre', { count: 'exact' });
 
     if (error) throw error;
