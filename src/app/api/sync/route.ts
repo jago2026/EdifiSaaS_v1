@@ -773,20 +773,21 @@ export async function POST(request: Request) {
           const normalizedUnitPrev = extractUnitCode(unidadPrevia);
 
           if (montoTotalPagado > 0) {
+            const normalizedUnitPrev = extractUnitCode(unidadPrevia);
             console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${normalizedUnitPrev} pagó Bs. ${montoTotalPagado}`);
             
             // Marcar como detectado en esta sesión para evitar doble detección r=1
             detectedInSession.add(`${normalizedUnitPrev}|${Number(montoTotalPagado).toFixed(2)}`);
             
-            // [FIX DEFINTIVO] Verificar si ya existe este pago para esta unidad
-            // Buscamos por edificio, unidad y monto exacto en toda la historia reciente
-            // para evitar re-detecciones si el usuario movió el pago de mes o fecha.
+            // [FIX ULTRA-ROBUSTO] Verificar si ya existe este pago
+            // Usamos un rango de +/- 0.01 para evitar fallos de precisión decimal
             const { data: existingPago } = await supabase
               .from("pagos_recibos")
               .select("id")
               .eq("edificio_id", building.id)
               .eq("unidad", normalizedUnitPrev)
-              .eq("monto", montoTotalPagado)
+              .gte("monto", Number(montoTotalPagado) - 0.01)
+              .lte("monto", Number(montoTotalPagado) + 0.01)
               .limit(1);
 
             if (!existingPago || existingPago.length === 0) {
@@ -865,13 +866,14 @@ export async function POST(request: Request) {
             // Marcar como detectado en esta sesión para evitar doble detección r=1
             detectedInSession.add(`${normalizedUnitParcial}|${Number(montoParcial).toFixed(2)}`);
 
-            // [FIX DEFINTIVO] Verificar si ya existe este abono
+            // [FIX ULTRA-ROBUSTO] Verificar si ya existe este abono
             const { data: existingParcial } = await supabase
               .from("pagos_recibos")
               .select("id")
               .eq("edificio_id", building.id)
               .eq("unidad", normalizedUnitParcial)
-              .eq("monto", montoParcial)
+              .gte("monto", Number(montoParcial) - 0.01)
+              .lte("monto", Number(montoParcial) + 0.01)
               .limit(1);
 
             if (!existingParcial || existingParcial.length === 0) {
@@ -1087,13 +1089,14 @@ export async function POST(request: Request) {
 
         // Verificar si ya existe en este mes o si existe globalmente
         if (!existingKeySet.has(amountKey)) {
-           // [BLOQUEO GLOBAL ADICIONAL] Por si se movió de mes
+           // [FIX ULTRA-ROBUSTO] Por si se movió de mes o fecha
            const { data: globalExist } = await supabase
              .from("pagos_recibos")
              .select("id")
              .eq("edificio_id", building.id)
              .eq("unidad", normalizedUnit)
-             .eq("monto", ing.monto)
+             .gte("monto", Number(ing.monto) - 0.01)
+             .lte("monto", Number(ing.monto) + 0.01)
              .limit(1);
 
            if (!globalExist || globalExist.length === 0) {
