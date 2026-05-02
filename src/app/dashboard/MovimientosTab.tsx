@@ -42,6 +42,7 @@ export function MovimientosTab({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-green-200">
+                  <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Fecha</th>
                   <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Tipo</th>
                   <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Descripción</th>
                   <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Unidad</th>
@@ -51,6 +52,9 @@ export function MovimientosTab({
               <tbody className="divide-y divide-green-100">
                 {movimientosDia.map((m: any) => (
                   <tr key={m.id}>
+                    <td className="py-2.5 px-3 text-xs text-green-700 font-medium whitespace-nowrap">
+                      {m.detectado_en ? formatDate(m.detectado_en) : formatDate(m.fecha)}
+                    </td>
                     <td className="py-2.5 px-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                         m.tipo === "pago" ? "bg-green-200 text-green-800" : 
@@ -115,6 +119,7 @@ export function MovimientosTab({
               <thead>
                 <tr className="border-b bg-gray-50">
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                  <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
                   <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
                   <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Bs</th>
@@ -124,7 +129,15 @@ export function MovimientosTab({
               <tbody className="divide-y divide-gray-100">
                 {filteredMovements.map((mov) => (
                   <tr key={mov.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 text-sm text-gray-600">{formatDate(mov.fecha)}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">{formatDate(mov.fecha)}</td>
+                    <td className="py-3 px-4">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        mov.tipo === "pago" || mov.tipo === "recibo" ? "bg-green-100 text-green-700" :
+                        mov.tipo === "gasto" ? "bg-orange-100 text-orange-700" : "bg-red-100 text-red-700"
+                      }`}>
+                        {mov.tipo === "pago" || mov.tipo === "recibo" ? "Pago" : mov.tipo === "gasto" ? "Gasto" : "Egreso"}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-sm text-gray-900 font-medium">
                       {mov.descripcion}
                     </td>

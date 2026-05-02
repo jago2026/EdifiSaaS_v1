@@ -2737,6 +2737,7 @@ export default function DashboardPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b bg-gray-50">
+                          <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                           <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
                           <th className="text-left py-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
                           <th className="text-right py-2 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
@@ -2745,6 +2746,9 @@ export default function DashboardPage() {
                       <tbody className="divide-y divide-gray-100">
                         {movimientosDia.map((m: any) => (
                           <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-3 px-3 text-[10px] text-gray-500 font-medium">
+                              {m.detectado_en ? formatDate(m.detectado_en) : formatDate(m.fecha)}
+                            </td>
                             <td className="py-3 px-3">
                               <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                                 m.tipo === "recibo" ? "bg-green-100 text-green-800" : 
@@ -2848,6 +2852,7 @@ export default function DashboardPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-green-200">
+                        <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Fecha</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Tipo</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Descripción</th>
                         <th className="text-left py-2 px-3 text-xs font-medium text-green-700 uppercase">Unidad</th>
@@ -2857,6 +2862,9 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-green-100">
                       {movimientosDia.map((m: any) => (
                         <tr key={m.id}>
+                          <td className="py-2.5 px-3 text-xs text-green-700 font-medium whitespace-nowrap">
+                            {m.detectado_en ? formatDate(m.detectado_en) : formatDate(m.fecha)}
+                          </td>
                           <td className="py-2.5 px-3">
                             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                               m.tipo === "pago" ? "bg-green-200 text-green-800" : 

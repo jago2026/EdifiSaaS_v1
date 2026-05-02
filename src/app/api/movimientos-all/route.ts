@@ -117,7 +117,9 @@ export async function GET(request: Request) {
         .toUpperCase();
       
       // Use toFixed(2) for amount to avoid floating point precision issues in keys
-      const key = `${m.tipo}_${m.fecha}_${normalizedDesc}_${Number(m.monto || 0).toFixed(2)}`;
+      // Use date only part for the key if possible
+      const dateKey = m.fecha ? m.fecha.split('T')[0] : 'no-date';
+      const key = `${m.tipo}_${dateKey}_${normalizedDesc}_${Number(m.monto || 0).toFixed(2)}`;
       
       if (!uniqueMovementsMap.has(key)) {
         uniqueMovementsMap.set(key, m);
