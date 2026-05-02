@@ -1109,20 +1109,20 @@ export async function POST(request: Request) {
             fuente: "ingresos",
             detectado_en: today
           });
+// Generar alerta de pago detectado
+await supabase.from("alertas").insert({
+  edificio_id: building.id,
+  tipo: "ingreso",
+  titulo: "💰 Pago Detectado",
+  descripcion: `Se detectó un nuevo ingreso de Bs. ${ing.monto} correspondiente a ${ing.beneficiario}.`,
+  fecha: today
+});
+}
+}
+}
+}
 
-          // Generar alerta de pago detectado
-          await supabase.from("alertas").insert({
-            edificio_id: building.id,
-            tipo: "ingreso",
-            titulo: "💰 Pago Detectado",
-            descripcion: `Se detectó un nuevo ingreso de Bs. ${ing.monto} correspondiente a ${ing.beneficiario}.`,
-            fecha: today
-          });
-        }
-      }
-    }
-
-    if (doSyncGastos) {
+if (doSyncGastos) {
       // Si estamos en un mes histórico, la fecha del gasto base debe ser el último día de ese mes
       let baseFechaGasto = today;
       if (mes && mes.includes("-")) {
