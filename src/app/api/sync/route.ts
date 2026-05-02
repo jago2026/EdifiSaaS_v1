@@ -765,14 +765,20 @@ export async function POST(request: Request) {
           if (montoTotalPagado > 0) {
             console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${unidadPrevia} pagó Bs. ${montoTotalPagado}`);
             
-            // Verificar si ya existe este pago para esta unidad y mes
+            // Verificar si ya existe este pago para esta unidad
+            // Buscamos por edificio, unidad y monto exacto en un rango de 7 días 
+            // para evitar re-detecciones si el usuario movió el pago de mes o fecha.
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
             const { data: existingPago } = await supabase
               .from("pagos_recibos")
               .select("id")
               .eq("edificio_id", building.id)
               .eq("unidad", unidadPrevia)
-              .eq("mes", mesEstandar)
               .eq("monto", montoTotalPagado)
+              .gte("fecha_deteccion", sevenDaysAgoStr) 
               .limit(1);
 
             if (!existingPago || existingPago.length === 0) {
@@ -847,14 +853,18 @@ export async function POST(request: Request) {
             const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
             console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${unidadPrevia} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
 
-            // Verificar si ya existe este abono para esta unidad y mes
+            // Verificar si ya existe este abono (flexibilidad de 7 días)
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+            const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0];
+
             const { data: existingParcial } = await supabase
               .from("pagos_recibos")
               .select("id")
               .eq("edificio_id", building.id)
               .eq("unidad", unidadPrevia)
-              .eq("mes", mesEstandar)
               .eq("monto", montoParcial)
+              .gte("fecha_deteccion", sevenDaysAgoStr)
               .limit(1);
 
             if (!existingParcial || existingParcial.length === 0) {
