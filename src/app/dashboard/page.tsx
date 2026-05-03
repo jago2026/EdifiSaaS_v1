@@ -896,7 +896,8 @@ export default function DashboardPage() {
     unidades: 0,
     dashboard_config: { cf: true, mo: true, cg: true, usd: true, br: true, hs: true },
     alert_thresholds: { saldo_bajo: 500, variacion_gastos: 15, whatsapp_enabled: true },
-    email_administradora: ""
+    email_administradora: "",
+    tipo_informe: "estandar"
   });
 
   useEffect(() => {
@@ -925,7 +926,8 @@ export default function DashboardPage() {
         unidades: building.unidades || 0,
         dashboard_config: building.dashboard_config || { cf: true, mo: true, cg: true, usd: true, br: true, hs: true },
         alert_thresholds: building.alert_thresholds || { saldo_bajo: 500, variacion_gastos: 15, whatsapp_enabled: true },
-        email_administradora: building.email_administradora || ""
+        email_administradora: building.email_administradora || "",
+        tipo_informe: building.tipo_informe || "estandar"
         }));    }
   }, [building]);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -955,7 +957,11 @@ export default function DashboardPage() {
       const res = await fetch("/api/email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ edificioId: building.id, testMode }),
+        body: JSON.stringify({ 
+          edificioId: building.id, 
+          testMode,
+          action: editConfig.tipo_informe === 'premium' ? 'modern_report_test' : undefined
+        }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -2140,6 +2146,7 @@ export default function DashboardPage() {
         cronEnabled,
         cronTime,
         cronFrequency,
+        tipoInforme: editConfig.tipo_informe,
         nextExec: nextExecStr,
         emailsJunta,
         issues,
@@ -6464,8 +6471,13 @@ export default function DashboardPage() {
                   <button onClick={sendWhatsAppReport} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs">
                     {sendingEmail ? "Enviando..." : "Reporte -> Whatsapp"}
                   </button>
-                  <button onClick={() => sendEmailToJunta(false)} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50 uppercase text-xs ml-auto">
-                    {sendingEmail ? "Enviando..." : "Enviar Informe Ahora"}
+                  <button onClick={() => sendEmailToJunta(false)} disabled={sendingEmail || !editConfig.email_junta} className="px-6 py-2.5 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-all shadow-sm disabled:opacity-50 uppercase text-xs ml-auto flex items-center gap-2">
+                    {sendingEmail ? "Enviando..." : (
+                      <>
+                        <span>📧</span> 
+                        {editConfig.tipo_informe === 'premium' ? "Enviar Informe Premium" : "Enviar Informe Estándar"}
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -6561,10 +6573,9 @@ export default function DashboardPage() {
                   </button>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
+                <div className="grid md:grid-cols-3 gap-6">
                   <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
-                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-3">Hora de Ejecución (VET)</h4>
-                    <input
+                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-3">Hora de Ejecución (VET)</h4>                    <input
                       type="time"
                       value={editConfig.cron_time}
                       onChange={(e) => setEditConfig({ ...editConfig, cron_time: e.target.value })}
@@ -6583,8 +6594,18 @@ export default function DashboardPage() {
                       <option value="mensual">MENSUAL</option>
                     </select>
                   </div>
-                </div>
-
+                  <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
+                    <h4 className="text-[10px] font-bold text-indigo-400 uppercase mb-3">Plantilla de Informe</h4>
+                    <select
+                      value={editConfig.tipo_informe}
+                      onChange={(e) => setEditConfig({ ...editConfig, tipo_informe: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                    >
+                      <option value="estandar">📊 ESTÁNDAR (Clásico)</option>
+                      <option value="premium">💎 PREMIUM (Ejecutivo)</option>
+                    </select>
+                  </div>
+                  </div>
                 <div className="p-3 bg-indigo-100/50 rounded-lg">
                   <p className="text-[10px] text-indigo-700 font-bold mb-2">URL DEL SERVICIO (ENDPOINT CRON):</p>
                   <div className="bg-white p-2 rounded border border-indigo-200 font-mono text-[9px] break-all text-indigo-600 select-all">
@@ -6658,6 +6679,7 @@ export default function DashboardPage() {
                               <p><span className="text-gray-500">Hora VET actual:</span> <span className="font-bold text-gray-800">{cronTestResult.vetNow}</span></p>
                               <p><span className="text-gray-500">Hora configurada:</span> <span className="font-bold text-indigo-700">{cronTestResult.cronTime} VET</span></p>
                               <p><span className="text-gray-500">Frecuencia:</span> <span className="font-bold text-gray-800 uppercase">{cronTestResult.cronFrequency}</span></p>
+                              <p><span className="text-gray-500">Plantilla:</span> <span className="font-bold text-indigo-700 uppercase">{cronTestResult.tipoInforme || 'estandar'}</span></p>
                               <p><span className="text-gray-500">Schedule Vercel:</span> <span className="font-mono text-[9px] text-gray-600">{cronTestResult.schedule}</span></p>
                             </div>
                             <div className="bg-white rounded-lg p-3 border border-gray-100 space-y-1">

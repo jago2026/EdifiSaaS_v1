@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data: edificios, error: edErr } = await supabase
       .from("edificios")
-      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, status, url_login, admin_secret");
+      .select("id, usuario_id, nombre, cron_enabled, cron_time, cron_frequency, status, url_login, admin_secret, tipo_informe");
 
     if (edErr) {
       console.error("[CRON] Error al obtener edificios de Supabase:", JSON.stringify(edErr));
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
     console.log(`[CRON] Edificios en BD: ${edificios?.length || 0}`);
     if (edificios) {
       edificios.forEach((e: any) => {
-        console.log(`[CRON]   "${e.nombre}" | status=${e.status || 'N/A'} | cron_enabled=${e.cron_enabled} | cron_time=${e.cron_time}`);
+        console.log(`[CRON]   "${e.nombre}" | status=${e.status || 'N/A'} | cron_enabled=${e.cron_enabled} | cron_time=${e.cron_time} | tipo_informe=${e.tipo_informe || 'estandar'}`);
       });
     }
 
@@ -230,10 +230,17 @@ export async function GET(request: NextRequest) {
         await logSincronizacion(supabase, edificioId, "email_diario", "iniciando", 0, null,
           { vet_time: currentFullTimeVET, utc: utcTimeStr });
 
+        const emailAction = edificio.tipo_informe === 'premium' ? 'modern_report_test' : undefined;
+
         const emailReq = new Request("http://localhost/api/email", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ edificioId: edificio.id, syncFailed, syncFailedReason })
+          body: JSON.stringify({ 
+            edificioId: edificio.id, 
+            syncFailed, 
+            syncFailedReason,
+            action: emailAction
+          })
         });
 
         let emailRes, emailData;

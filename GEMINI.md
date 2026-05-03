@@ -124,18 +124,25 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
 ## Fecha: 2026-05-03 (Gemini)
 
 ### Objetivo
-Corregir errores de sincronización y culminar el rediseño del Informe 2 (Premium) para convertirlo en una "Súper Plantilla" ejecutiva y visualmente atractiva.
+Implementar la opción de selección de tipo de informe (Estándar vs. Premium) para el envío diario y manual, y corregir errores de sincronización.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de ReferenceError en Cron (`src/app/api/cron/route.ts`)
-- **Problema:** Error `syncMovimientos is not defined` durante la ejecución del cron.
-- **Solución:** Se corrigió el alcance de la variable, asegurando su definición en todos los flujos (exitoso y fallback).
+#### 1. Selección de Tipo de Informe (NUEVA FUNCIONALIDAD)
+- **Base de Datos:** Se creó un script de migración (`supabase/migration_report_type.sql`) para añadir la columna `tipo_informe` a la tabla `edificios`.
+- **API de Configuración:** Se actualizó `/api/config` para permitir la persistencia de la preferencia de informe.
+- **Cron Automático:** Se modificó `/api/cron` para que detecte la preferencia del edificio y envíe el informe correspondiente (Premium o Estándar).
+- **Dashboard UI:**
+    - Se añadió un selector en la pestaña de **Configuración** (dentro de Programación Automática) para elegir entre "📊 ESTÁNDAR (Clásico)" y "💎 PREMIUM (Ejecutivo)".
+    - Se actualizó el botón de envío manual para que refleje dinámicamente el tipo de informe seleccionado.
+    - Se sincronizó el estado `editConfig` con la base de datos para asegurar que los cambios se guarden correctamente.
 
-#### 2. Rediseño del Informe 2 (Premium) - Súper Plantilla v1.2
+#### 2. Corrección en Cron y Emails
+- **Fix API Email:** Se aseguró que la función `sendEmailToJunta` en el frontend pase el parámetro `action` correcto según la preferencia guardada.
+- **Robustez:** Se mejoró el log de diagnóstico en el cron para mostrar el tipo de informe configurado para cada edificio.
+
+#### 3. Rediseño del Informe 2 (Premium) - Súper Plantilla v1.2
 - **Reordenamiento de Secciones:** Se movió el bloque de **Distribución de Morosidad** inmediatamente después del **Estado Financiero Actual**, mejorando el flujo lógico de la información financiera.
 - **Resumen del Día Completo:** Se completó el bloque narrativo con los párrafos finales de exhortación al pago, instrucciones de consulta detallada y firma de la Junta de Condominio.
 - **Mejoras de Formato:** Se añadieron etiquetas `<strong>` para resaltar datos clave y nombres de secciones en el resumen narrativo.
 
-#### 3. Push a Repositorio
-- Se sincronizaron las mejoras finales en el repositorio `jago2026/EdifiSaaS_v1`.

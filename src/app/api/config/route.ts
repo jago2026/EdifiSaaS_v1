@@ -108,6 +108,7 @@ export async function POST(request: Request) {
       unidades,
       dashboard_config,
       alert_thresholds,
+      tipo_informe,
       userId: bodyUserId 
     } = body;
 
@@ -182,6 +183,7 @@ export async function POST(request: Request) {
     if (unidades !== undefined) updateData.unidades = unidades;
     if (dashboard_config !== undefined) updateData.dashboard_config = dashboard_config;
     if (alert_thresholds !== undefined) updateData.alert_thresholds = alert_thresholds;
+    if (tipo_informe !== undefined) updateData.tipo_informe = tipo_informe;
 
     const { data: building, error } = await supabase
       .from("edificios")
