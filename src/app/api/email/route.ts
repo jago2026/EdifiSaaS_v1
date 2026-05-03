@@ -614,6 +614,26 @@ export async function POST(request: Request) {
                   </td>
                 </tr>
 
+                <!-- ANÁLISIS DE MOROSIDAD (BLOQUES) -->
+                <tr>
+                  <td style="padding:0 30px;">
+                    <div class="section-header">📊 Distribución de Morosidad</div>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        ${[1, 2, 3, 4].map(n => `
+                          <td width="23%" align="center">
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+                              <div style="font-size:20px; font-weight:800; color:${n===1?'#3b82f6':n===2?'#f59e0b':'#ef4444'};">${distDeuda[n].count}</div>
+                              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-top:4px;">${n===4?'+3 Recibos':`${n} Recibo${n>1?'s':''}`}</div>
+                            </div>
+                          </td>
+                          ${n < 4 ? '<td width="2.6%"></td>' : ''}
+                        `).join('')}
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
                 <!-- RESUMEN DEL DÍA (WHATSAPP STYLE) -->
                 <tr>
                   <td style="padding:0 30px;">
@@ -634,28 +654,11 @@ export async function POST(request: Request) {
                       📉 Porcentaje recaudado del mes: ${formatNumber(pctEfectividad, 2)}%<br>
                       📈 Porcentaje pendiente por recaudar: ${formatNumber(100 - pctEfectividad, 2)}%<br>
                       🗓️ Días restantes del mes: ${daysRemaining}<br><br>
-                      Agradecemos a quienes ya han cumplido con sus pagos.
+                      Agradecemos a quienes ya han cumplido con sus pagos. A quienes aún tienen cuotas pendientes, se les invita cordialmente a ponerse al día para garantizar el mantenimiento, seguridad y operatividad del condominio.<br><br>
+                      📌 <strong>CONSULTA DETALLADA:</strong> El desglose detallado de las cuentas por cobrar del edificio se encuentra disponible para su consulta privada en el sitio web de la administradora, ingresando a la sección "Recibos Pendientes".<br><br>
+                      Gracias por su colaboración y compromiso.<br><br>
+                      <strong>Junta de Condominio.</strong>
                     </div>
-                  </td>
-                </tr>
-
-                <!-- ANÁLISIS DE MOROSIDAD (BLOQUES) -->
-                <tr>
-                  <td style="padding:0 30px;">
-                    <div class="section-header">📊 Distribución de Morosidad</div>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        ${[1, 2, 3, 4].map(n => `
-                          <td width="23%" align="center">
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
-                              <div style="font-size:20px; font-weight:800; color:${n===1?'#3b82f6':n===2?'#f59e0b':'#ef4444'};">${distDeuda[n].count}</div>
-                              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-top:4px;">${n===4?'+3 Recibos':`${n} Recibo${n>1?'s':''}`}</div>
-                            </div>
-                          </td>
-                          ${n < 4 ? '<td width="2.6%"></td>' : ''}
-                        `).join('')}
-                      </tr>
-                    </table>
                   </td>
                 </tr>
 

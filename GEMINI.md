@@ -132,15 +132,10 @@ Corregir errores de sincronización y culminar el rediseño del Informe 2 (Premi
 - **Problema:** Error `syncMovimientos is not defined` durante la ejecución del cron.
 - **Solución:** Se corrigió el alcance de la variable, asegurando su definición en todos los flujos (exitoso y fallback).
 
-#### 2. Rediseño del Informe 2 (Premium) - Súper Plantilla v1.1
-- **Backend (`api/email/route.ts`):** Optimización final de la acción `modern_report_test`:
-    - **Corrección de Cifras:** Se implementó un filtro por `mes` en la consulta de recibos para evitar el conteo duplicado de unidades y montos del histórico.
-    - **Análisis de Morosidad:** Se reemplazaron las barras visuales por **bloques numéricos minimalistas** para una lectura más clara y directa.
-    - **Bloque de Estado Financiero (Web Admin):** Se añadió una sección detallada que muestra Saldo Anterior, Disponibilidad Operativa, Ingresos, Egresos, Resultado del Día y Fondo de Reserva, similar al reporte estándar pero con diseño premium.
-    - **Resumen del Día (Estilo Ejecutivo):** Se incorporó un bloque narrativo que resume la situación de deuda, porcentajes de recaudación y días restantes del mes.
-    - **Limpieza de Contenido:** Se eliminó el bloque de Servicios Públicos a petición del usuario para simplificar el reporte.
-    - **Actividad Reciente:** Se amplió la visualización a los últimos 10 movimientos de las últimas 24 horas.
-- **Resultado:** Informe de gestión definitivo, preciso en sus cifras y con toda la información financiera clave en un solo vistazo.
+#### 2. Rediseño del Informe 2 (Premium) - Súper Plantilla v1.2
+- **Reordenamiento de Secciones:** Se movió el bloque de **Distribución de Morosidad** inmediatamente después del **Estado Financiero Actual**, mejorando el flujo lógico de la información financiera.
+- **Resumen del Día Completo:** Se completó el bloque narrativo con los párrafos finales de exhortación al pago, instrucciones de consulta detallada y firma de la Junta de Condominio.
+- **Mejoras de Formato:** Se añadieron etiquetas `<strong>` para resaltar datos clave y nombres de secciones en el resumen narrativo.
 
 #### 3. Push a Repositorio
 - Se sincronizaron las mejoras finales en el repositorio `jago2026/EdifiSaaS_v1`.
