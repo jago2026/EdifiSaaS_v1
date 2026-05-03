@@ -10,27 +10,28 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
     }
 
-    // Query ALL from balances table
-    const { data: balances, error: balanceError } = await supabase
-      .from("balances")
-      .select("cobranza_mes, saldo_disponible, fondo_reserva, gastos_facturados")
-      .eq("edificio_id", edificioId)
-      .order("created_at", { ascending: false });
+    // Get current month in YYYY-MM format
+    const now = new Date();
+    const currentMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    if (balanceError) {
-      console.error("Balance query error:", balanceError);
-      return NextResponse.json({ monto: 0, cantidad: 0, error: balanceError.message });
+    // Query current month activity from pagos_recibos table
+    const { data: pagos, error: pagosError } = await supabase
+      .from("pagos_recibos")
+      .select("monto")
+      .eq("edificio_id", edificioId)
+      .eq("mes", currentMes);
+
+    if (pagosError) {
+      console.error("Pagos query error:", pagosError);
+      return NextResponse.json({ monto: 0, cantidad: 0, error: pagosError.message });
     }
 
-    console.log("DEBUG ingresos-summary: all data:", balances?.slice(0, 5));
+    const monto = pagos?.reduce((sum, p) => sum + Number(p.monto || 0), 0) || 0;
+    const cantidad = pagos?.length || 0;
 
-    // Get latest balance
-    const latest = balances && balances.length > 0 ? balances[0] : null;
-    const monto = latest ? Number(latest.cobranza_mes) || 0 : 0;
+    console.log(`DEBUG ingresos-summary for ${currentMes}:`, { monto, cantidad });
 
-    console.log("DEBUG ingresos-summary:", { latest, monto, balances: balances?.length });
-
-    return NextResponse.json({ monto, cantidad: monto > 0 ? 1 : 0 });
+    return NextResponse.json({ monto, cantidad, mes: currentMes });
   } catch (error: any) {
     console.error("Ingresos summary error:", error);
     return NextResponse.json({ monto: 0, cantidad: 0 }, { status: 200 });

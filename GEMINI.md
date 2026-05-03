@@ -146,3 +146,11 @@ Implementar la opción de selección de tipo de informe (Estándar vs. Premium) 
 - **Resumen del Día Completo:** Se completó el bloque narrativo con los párrafos finales de exhortación al pago, instrucciones de consulta detallada y firma de la Junta de Condominio.
 - **Mejoras de Formato:** Se añadieron etiquetas `<strong>` para resaltar datos clave y nombres de secciones en el resumen narrativo.
 
+#### 4. Corrección de Totales Mensuales y Lógica de Sincronización (CRÍTICO)
+- **Problema:** En los primeros días del mes, el dashboard mostraba cifras de cobranza, gastos y egresos del mes anterior como si fueran del mes actual, generando confusión al no haber actividad aún en el mes en curso.
+- **Corrección de Totales Mensuales (Cobranza/Gastos/Egresos):**
+    - **API Ingresos Summary:** Se refactorizó `/api/ingresos-summary` para consultar directamente la tabla `pagos_recibos` filtrando por el mes en curso. Anteriormente tomaba el último balance histórico, lo que causaba que se mostraran las cifras del mes anterior.
+    - **Dashboard UI (ResumenTab):** Se implementó una lógica de validación que compara el mes del último balance (`balance.mes`) con el mes actual. Si no coinciden, el sistema prioriza los resúmenes de actividad en vivo (que estarán en 0 si no hay movimientos) en lugar de mostrar los datos del último cierre histórico.
+- **Mejora en Sincronización Automática:**
+    - Se modificó la lógica de asignación de mes en `api/sync`. Ahora los **Egresos** y **Gastos** derivan su campo `mes` (YYYY-MM) directamente de su fecha de ejecución en lugar de usar el mes de la sincronización. Esto evita que movimientos de finales del mes pasado se etiqueten erróneamente en el mes nuevo durante las sincronizaciones automáticas de principio de mes.
+

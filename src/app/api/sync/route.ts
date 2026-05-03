@@ -1012,8 +1012,13 @@ export async function POST(request: Request) {
         }
 
         const fDB = normalizeFecha(e.fecha);
+        const derivedMes = fDB.substring(0, 7); // YYYY-MM
+        // Si es una sincronización manual (mes provisto), respetamos el mesEstandar. 
+        // Si es automática, usamos el mes derivado de la fecha del egreso.
+        const finalMes = mes ? mesEstandar : derivedMes;
+
         // Hash estable sin la fecha exacta de sincronización si es posible, o simplemente usar upsert con hash único
-        const hash = await generateHash(`${mesEstandar}|${e.beneficiario}|${e.monto}`);
+        const hash = await generateHash(`${finalMes}|${e.beneficiario}|${e.monto}`);
         
         await supabase.from("egresos").upsert({ 
           edificio_id: building.id, 
@@ -1023,7 +1028,7 @@ export async function POST(request: Request) {
           monto: e.monto, 
           hash, 
           sincronizado: true, 
-          mes: mesEstandar 
+          mes: finalMes 
         }, { onConflict: 'edificio_id,hash' });
 
         const desc = `${e.operacion} - ${e.beneficiario}`;
@@ -1217,12 +1222,16 @@ if (doSyncGastos) {
 
         // DETERMINAR LA FECHA DEL GASTO: Usar fecha del registro o fin de mes (ahora fallbackDate es más preciso)
         const fDB = g.fecha ? normalizeFecha(g.fecha) : baseFechaGasto;
+        const derivedMes = fDB.substring(0, 7); // YYYY-MM
+        // Si es una sincronización manual (mes provisto), respetamos el mesEstandar.
+        // Si es automática, usamos el mes derivado de la fecha del gasto.
+        const finalMes = mes ? mesEstandar : derivedMes;
 
         // Incluir la descripción en el hash para evitar colisiones si dos gastos tienen mismo código y monto (ej. ascensores)
-        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${g.descripcion}|${mesEstandar}`);
+        const hash = await generateHash(`GASTO|${g.codigo}|${g.monto}|${g.descripcion}|${finalMes}`);
         const { error: gErr } = await supabase.from("gastos").upsert({ 
           edificio_id: building.id, 
-          mes: mesEstandar, 
+          mes: finalMes, 
           fecha: fDB, 
           codigo: g.codigo, 
           descripcion: g.descripcion, 

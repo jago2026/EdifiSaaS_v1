@@ -42,6 +42,9 @@ export function ResumenTab({
 }: ResumenTabProps) {
   if (activeTab !== "resumen") return null;
 
+  const currentMonth = new Date().toISOString().substring(0, 7);
+  const isBalanceCurrent = balance?.mes === currentMonth;
+
   return (
     <div className="space-y-6">
       {/* Módulos Superiores (Resumen USD / Balance) */}
@@ -54,15 +57,15 @@ export function ResumenTab({
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
             <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>
-            <div className="text-2xl font-bold text-green-600">Bs.{formatBs(balance?.cobranza_mes || ingresosSummary.monto)}</div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.cobranza_mes || ingresosSummary.monto) / tasaBCV.dolar)}</div>}
+            <div className="text-2xl font-bold text-green-600">Bs.{formatBs(isBalanceCurrent ? (balance?.cobranza_mes || 0) : ingresosSummary.monto)}</div>
+            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((isBalanceCurrent ? (balance?.cobranza_mes || 0) : ingresosSummary.monto) / tasaBCV.dolar)}</div>}
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
             <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
-            <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(balance?.gastos_facturados || gastosSummary.monto))}</div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((balance?.gastos_facturados || gastosSummary.monto) / tasaBCV.dolar))}</div>}
+            <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(isBalanceCurrent ? (balance?.gastos_facturados || 0) : gastosSummary.monto))}</div>
+            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((isBalanceCurrent ? (balance?.gastos_facturados || 0) : gastosSummary.monto) / tasaBCV.dolar))}</div>}
             <div className="text-xs text-gray-400 mt-1">
-              {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
+              {isBalanceCurrent ? "Cifras consolidadas" : `${gastosSummary.cantidad} movimiento${gastosSummary.cantidad !== 1 ? "s" : ""}`}
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado para emergencias y mantenimiento mayor.">
