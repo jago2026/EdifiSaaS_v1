@@ -6637,29 +6637,6 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  {/* Botón Informe Moderno */}
-                  <div className="flex items-center justify-between mt-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
-                    <div>
-                      <h4 className="text-sm font-black text-blue-900 uppercase tracking-tight">✨ Diseño de Informe Premium</h4>
-                      <p className="text-[10px] text-blue-700 mt-0.5 font-medium">Recibe una vista previa del nuevo diseño ejecutivo con KPIs reales en tu email.</p>
-                    </div>
-                    <button
-                      onClick={handleModernReportTest}
-                      disabled={modernReportLoading}
-                      className={`px-6 py-2.5 rounded-xl font-black uppercase text-xs transition-all shadow-md flex items-center gap-2 ${
-                        modernReportLoading
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 hover:shadow-indigo-200"
-                      }`}
-                    >
-                      {modernReportLoading ? (
-                        <><span className="animate-spin">✉️</span> Enviando...</>
-                      ) : (
-                        <><span>📧</span> Enviar Informe 2</>
-                      )}
-                    </button>
-                  </div>
-
                   {cronTestResult && (
                     <div className={`rounded-xl border p-4 space-y-3 ${cronTestResult.error ? 'bg-red-50 border-red-200' : cronTestResult.ok ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
                       {cronTestResult.error ? (
