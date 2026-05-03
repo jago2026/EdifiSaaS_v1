@@ -457,42 +457,54 @@ export async function POST(request: Request) {
       const fechaStr = formatDate(todayDate);
       
       // -- 1. OBTENER DATOS EXTENSOS --
-      // Balances y Tasas
+      // Tasas
+      const tasa = await getTasaBCV();
+
+      // Balances
       const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1).single();
       const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(3);
       
-      // Deuda y Morosidad
-      const { data: allRecibos } = await supabase.from("recibos").select("deuda, num_recibos").eq("edificio_id", edificioId).gt("deuda", 0);
+      // Deuda y Morosidad (Filtrar por último mes para evitar duplicados por histórico)
+      const { data: latestMesData } = await supabase.from("recibos").select("mes").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(1);
+      const latestMes = latestMesData?.[0]?.mes;
+
+      let recQuery = supabase.from("recibos").select("deuda, num_recibos").eq("edificio_id", edificioId).gt("deuda", 0);
+      if (latestMes) recQuery = recQuery.eq("mes", latestMes);
+      const { data: allRecibos } = await recQuery;
+
       const totalDeuda = (allRecibos || []).reduce((sum, r) => sum + Number(r.deuda), 0);
-      
-      const distDeuda: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 }; // 4 es "más de 3"
+      const distDeuda: Record<number, { count: number, total: number }> = { 1: {count:0, total:0}, 2: {count:0, total:0}, 3: {count:0, total:0}, 4: {count:0, total:0} }; 
       (allRecibos || []).forEach(r => {
         const n = r.num_recibos || 1;
-        if (n >= 4) distDeuda[4]++;
-        else distDeuda[n]++;
+        const index = n >= 4 ? 4 : n;
+        distDeuda[index].count++;
+        distDeuda[index].total += Number(r.deuda);
       });
 
       // Movimientos del día
       const { data: movsHoy } = await supabase.from("movimientos_dia").select("*").eq("edificio_id", edificioId).eq("detectado_en", today);
       const pagosHoy = (movsHoy || []).filter(m => m.tipo === "recibo");
       const egresosHoy = (movsHoy || []).filter(m => m.tipo !== "recibo");
-      
-      // Servicios Públicos
-      const { data: spAlerts } = await supabase.from("alertas")
-        .select("titulo, descripcion")
-        .eq("edificio_id", edificioId)
-        .ilike("titulo", "%Consulta%")
-        .order("created_at", { ascending: false })
-        .limit(3);
 
+      // Datos Manuales (Caja)
+      const { data: manualMovs } = await supabase.from("movimientos_manual").select("saldo_inicial, ingresos, egresos").eq("edificio_id", edificioId);
+      const manualTotal = (manualMovs || []).reduce((sum, m) => sum + (Number(m.saldo_inicial) || 0) + (Number(m.ingresos) || 0) - (Number(m.egresos) || 0), 0);
+      
       // -- 2. CÁLCULOS --
       const cobranzaMes = Number(balance?.cobranza_mes || 0);
+      const gastosMes = Number(balance?.gastos_facturados || 0);
       const saldoDisp = Number(balance?.saldo_disponible || 0);
       const fondoRes = Number(balance?.fondo_reserva || 0);
-      const disponibleTotal = saldoDisp + fondoRes;
+      const disponibilidadTotal = saldoDisp + fondoRes;
       const metaMes = totalDeuda + cobranzaMes;
       const pctEfectividad = metaMes > 0 ? (cobranzaMes / metaMes) * 100 : 0;
       const aptosDeudaTotal = (allRecibos || []).length;
+      const totalAptos = edificio.unidades || 43;
+      const pctAptosConDeuda = (aptosDeudaTotal / totalAptos) * 100;
+
+      // Días restantes del mes
+      const lastDay = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+      const daysRemaining = lastDay - todayDate.getDate();
 
       const modernHtml = `
       <!DOCTYPE html>
@@ -503,71 +515,60 @@ export async function POST(request: Request) {
           .kpi-card { background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; padding:15px; text-align:center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
           .label { color:#64748b; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px; display:block; }
           .value { color:#0f172a; font-size:18px; font-weight:700; }
-          .trend-up { color:#10b981; font-size:11px; font-weight:600; }
           .section-header { border-left:4px solid #3b82f6; padding-left:12px; margin:25px 0 15px; color:#1e293b; font-size:16px; font-weight:700; }
           .data-table { width:100%; border-collapse:collapse; }
           .data-table th { text-align:left; font-size:11px; color:#64748b; padding:10px; border-bottom:2px solid #f1f5f9; text-transform:uppercase; }
           .data-table td { padding:10px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#334155; }
           .badge { padding:3px 8px; border-radius:12px; font-size:10px; font-weight:700; }
-          .progress-bg { background:#e2e8f0; border-radius:8px; height:8px; width:100%; margin-top:8px; overflow:hidden; }
-          .progress-fill { background:#10b981; height:100%; border-radius:8px; }
+          .info-box { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:20px; }
+          .metric-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
+          .metric-label { font-size: 13px; color: #64748b; }
+          .metric-val { font-size: 13px; font-weight: 700; color: #1e293b; }
         </style>
       </head>
-      <body style="margin:0; padding:0; background-color:#f8fafc; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <body style="margin:0; padding:0; background-color:#f1f5f9; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
         <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
           <tr>
             <td align="center">
-              <table width="100%" style="max-width:750px; background-color:#ffffff; border-radius:24px; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+              <table width="100%" style="max-width:750px; background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);">
                 
-                <!-- HEADER PREMIUM -->
+                <!-- HEADER -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #0f172a 0%, #334155 100%); padding:50px 40px;">
-                    <table width="100%">
-                      <tr>
-                        <td>
-                          <h1 style="margin:0; color:#ffffff; font-size:32px; font-weight:800; letter-spacing:-1px;">${edificio.nombre}</h1>
-                          <p style="margin:10px 0 0 0; color:#94a3b8; font-size:16px; font-weight:500;">Informe Premium de Gestión &bull; ${fechaStr}</p>
-                        </td>
-                        <td align="right" valign="top">
-                          <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:15px 20px; text-align:right;">
-                            <span style="color:#94a3b8; font-size:11px; display:block; text-transform:uppercase; font-weight:700; margin-bottom:4px;">Tasa BCV</span>
-                            <span style="color:#ffffff; font-size:24px; font-weight:800;">${formatNumber(tasa)} <small style="font-size:12px; font-weight:400; color:#60a5fa;">Bs/$</small></span>
-                          </div>
-                        </td>
-                      </tr>
-                    </table>
+                  <td style="background: #1e293b; padding:40px 30px; text-align:center;">
+                    <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:800; letter-spacing:-0.5px;">${edificio.nombre.toUpperCase()}</h1>
+                    <p style="margin:8px 0 0 0; color:#94a3b8; font-size:14px;">Resumen Ejecutivo de Gestión &bull; ${fechaStr}</p>
+                    <div style="display:inline-block; margin-top:20px; background:rgba(255,255,255,0.1); border-radius:8px; padding:8px 15px; color:#ffffff; font-size:13px; font-weight:600;">
+                      Tasa BCV: ${formatNumber(tasa)} Bs/$
+                    </div>
                   </td>
                 </tr>
 
-                <!-- TABLERO DE CONTROL (KPIs) -->
+                <!-- TABLERO PRINCIPAL -->
                 <tr>
-                  <td style="padding:40px 40px 10px 40px;">
+                  <td style="padding:30px 30px 10px 30px;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td width="31%" valign="top">
-                          <div class="kpi-card" style="border-bottom:4px solid #3b82f6;">
-                            <span class="label">Disponibilidad Total</span>
-                            <div class="value">${formatBs(disponibleTotal)}</div>
-                            <div style="color:#3b82f6; font-size:13px; font-weight:700; margin-top:6px;">$${formatNumber(disponibleTotal/tasa)} <small>USD</small></div>
+                          <div class="kpi-card">
+                            <span class="label">Disponibilidad</span>
+                            <div class="value">${formatBs(disponibilidadTotal)}</div>
+                            <div style="color:#64748b; font-size:11px; margin-top:4px;">$${formatNumber(disponibilidadTotal/tasa)} USD</div>
                           </div>
                         </td>
                         <td width="3.5%"></td>
                         <td width="31%" valign="top">
-                          <div class="kpi-card" style="border-bottom:4px solid #10b981;">
-                            <span class="label">Ingresos del Mes</span>
+                          <div class="kpi-card">
+                            <span class="label">Ingresos Mes</span>
                             <div class="value" style="color:#10b981;">${formatBs(cobranzaMes)}</div>
-                            <div class="trend-up" style="margin-top:6px;">${formatNumber(pctEfectividad)}% de la Meta</div>
-                            <div class="progress-bg">
-                              <div class="progress-fill" style="width:${Math.min(100, pctEfectividad)}%;"></div>
-                            </div>
+                            <div style="color:#64748b; font-size:11px; margin-top:4px;">${formatNumber(pctEfectividad)}% de Meta</div>
                           </div>
                         </td>
                         <td width="3.5%"></td>
                         <td width="31%" valign="top">
-                          <div class="kpi-card" style="border-bottom:4px solid #ef4444;">
+                          <div class="kpi-card">
                             <span class="label">Por Cobrar</span>
                             <div class="value" style="color:#ef4444;">${formatBs(totalDeuda)}</div>
-                            <div style="color:#64748b; font-size:13px; font-weight:700; margin-top:6px;">${aptosDeudaTotal} <small>Aptos.</small></div>
+                            <div style="color:#64748b; font-size:11px; margin-top:4px;">${aptosDeudaTotal} Aptos.</div>
                           </div>
                         </td>
                       </tr>
@@ -575,115 +576,120 @@ export async function POST(request: Request) {
                   </td>
                 </tr>
 
-                <!-- ANÁLISIS DE MOROSIDAD -->
+                <!-- ESTADO FINANCIERO ACTUAL -->
                 <tr>
-                  <td style="padding:0 40px;">
-                    <div class="section-header">Análisis Visual de Morosidad</div>
-                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:20px; padding:25px;">
-                      <table width="100%" cellpadding="0" cellspacing="0">
+                  <td style="padding:0 30px;">
+                    <div class="section-header">💰 ESTADO FINANCIERO ACTUAL (Web Admin)</div>
+                    <div class="info-box">
+                      <table width="100%">
                         <tr>
-                          ${[1, 2, 3, 4].map(n => {
-                            const count = distDeuda[n];
-                            const total = (allRecibos || []).length || 1;
-                            const pct = Math.max(15, (count / total) * 100);
-                            const color = n === 1 ? '#3b82f6' : n === 2 ? '#f59e0b' : n === 3 ? '#f97316' : '#ef4444';
-                            const label = n === 4 ? '+3 Recibos' : `${n} Recibo${n>1?'s':''}`;
-                            return `
-                            <td align="center" width="25%" valign="bottom">
-                              <div style="font-size:12px; font-weight:800; color:${color}; margin-bottom:10px;">${count}</div>
-                              <div style="height:100px; width:40px; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; position:relative;">
-                                <div style="height:${pct}%; width:100%; background:${color}; border-radius:0 0 6px 6px; position:absolute; bottom:0;"></div>
-                              </div>
-                              <div style="margin-top:12px; font-weight:700; font-size:11px; color:#64748b;">${label}</div>
-                            </td>`;
-                          }).join('')}
+                          <td width="48%" valign="top">
+                            <div class="metric-row"><span class="metric-label">Saldo Anterior:</span><span class="metric-val">${formatBs(Number(balance?.saldo_anterior || 0))}</span></div>
+                            <div style="background:#e0f2fe; padding:15px; border-radius:8px; margin:10px 0; text-align:center;">
+                              <div style="font-size:18px; font-weight:800; color:#0369a1;">${formatBs(saldoDisp)}</div>
+                              <div style="font-size:12px; color:#0369a1;">${formatUsd(saldoDisp/tasa)} USD</div>
+                              <div style="font-size:10px; font-weight:700; color:#0369a1; margin-top:5px; text-transform:uppercase;">Saldo Disponible Operativo</div>
+                            </div>
+                            <div class="metric-row"><span class="metric-label">Ingresos:</span><span class="metric-val" style="color:#10b981;">+ ${formatBs(cobranzaMes)}</span></div>
+                            <div class="metric-row"><span class="metric-label">Egresos:</span><span class="metric-val" style="color:#ef4444;">- ${formatBs(gastosMes)}</span></div>
+                            <div class="metric-row"><span class="metric-label">Resultado:</span><span class="metric-val">${formatBs(cobranzaMes - gastosMes)}</span></div>
+                          </td>
+                          <td width="4%"></td>
+                          <td width="48%" valign="top">
+                            <div class="metric-row"><span class="metric-label">Fondo Reserva:</span><span class="metric-val">${formatBs(fondoRes)}</span></div>
+                            <div style="background:#f0fdf4; padding:15px; border-radius:8px; margin:10px 0; text-align:center; border:1px solid #bbf7d0;">
+                              <div style="font-size:18px; font-weight:800; color:#15803d;">${formatBs(disponibilidadTotal)}</div>
+                              <div style="font-size:12px; color:#15803d;">${formatUsd(disponibilidadTotal/tasa)} USD</div>
+                              <div style="font-size:10px; font-weight:700; color:#15803d; margin-top:5px; text-transform:uppercase;">Disponibilidad Total General</div>
+                            </div>
+                            <div style="background:#f1f5f9; padding:12px; border-radius:8px; text-align:center;">
+                              <div style="font-size:15px; font-weight:700; color:#475569;">${formatBs(manualTotal)}</div>
+                              <div style="font-size:11px; color:#475569;">${formatUsd(manualTotal/tasa)} USD</div>
+                              <div style="font-size:9px; font-weight:700; color:#475569; margin-top:4px;">SALDO MANUAL (INTERNO)</div>
+                            </div>
+                          </td>
                         </tr>
                       </table>
                     </div>
                   </td>
                 </tr>
 
-                <!-- HISTÓRICO Y COMPARATIVA -->
+                <!-- RESUMEN DEL DÍA (WHATSAPP STYLE) -->
                 <tr>
-                  <td style="padding:0 40px;">
-                    <div class="section-header">Historial Comparativo (Últimos 3 Meses)</div>
-                    <div style="border:1px solid #e2e8f0; border-radius:16px; overflow:hidden;">
-                      <table class="data-table">
-                        <thead style="background:#f8fafc;">
-                          <tr>
-                            <th>Mes / Período</th>
-                            <th align="right">Cobrado (Bs)</th>
-                            <th align="right">Gastado (Bs)</th>
-                            <th align="right">Flujo Neto</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          ${(balancesHist || []).map(b => {
-                            const neto = Number(b.cobranza_mes) - Number(b.gastos_facturados);
-                            return `
-                            <tr>
-                              <td style="font-weight:700;">${b.mes}</td>
-                              <td align="right" style="color:#10b981;">${formatNumber(b.cobranza_mes)}</td>
-                              <td align="right" style="color:#ef4444;">${formatNumber(b.gastos_facturados)}</td>
-                              <td align="right">
-                                <span class="badge" style="background:${neto>=0?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)'}; color:${neto>=0?'#10b981':'#ef4444'};">
-                                  ${formatBs(neto)}
-                                </span>
-                              </td>
-                            </tr>`;
-                          }).join('')}
-                        </tbody>
-                      </table>
+                  <td style="padding:0 30px;">
+                    <div class="section-header">📢 RESUMEN DEL DÍA</div>
+                    <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px; padding:20px; font-size:13px; line-height:1.6; color:#92400e;">
+                      <strong>Estado de pagos de condominio – ${fechaStr}</strong><br><br>
+                      Buen día, Estimados vecinos,<br><br>
+                      A continuación el resumen actualizado de los recibos pendientes de condominio:<br><br>
+                      <strong>📝 Resumen de deuda pendiente al ${fechaStr}:</strong><br>
+                      ${Object.keys(distDeuda).map(n => {
+                        const d = distDeuda[Number(n)];
+                        if (d.count === 0) return '';
+                        return `• ${d.count} apartamento(s) deben ${n === '4' ? '+3' : n} recibo(s), por un total de ${formatBs(d.total)}.<br>`;
+                      }).join('')}
+                      <br>
+                      <strong>📊 Total general adeudado: ${formatBs(totalDeuda)}</strong><br>
+                      🏠 Cantidad de apartamentos con deuda: ${aptosDeudaTotal} (equivale al ${formatNumber(pctAptosConDeuda, 2)}% del total)<br>
+                      📉 Porcentaje recaudado del mes: ${formatNumber(pctEfectividad, 2)}%<br>
+                      📈 Porcentaje pendiente por recaudar: ${formatNumber(100 - pctEfectividad, 2)}%<br>
+                      🗓️ Días restantes del mes: ${daysRemaining}<br><br>
+                      Agradecemos a quienes ya han cumplido con sus pagos.
                     </div>
                   </td>
                 </tr>
 
-                <!-- SERVICIOS PÚBLICOS -->
+                <!-- ANÁLISIS DE MOROSIDAD (BLOQUES) -->
                 <tr>
-                  <td style="padding:0 40px;">
-                    <div class="section-header">Estatus de Servicios Públicos (Últimas Consultas)</div>
-                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:16px; padding:10px;">
-                      ${spAlerts && spAlerts.length > 0 ? spAlerts.map(al => `
-                        <div style="padding:15px; border-bottom:1px solid #f1f5f9;">
-                          <div style="font-size:14px; font-weight:700; color:#1e293b;">${al.titulo}</div>
-                          <div style="font-size:12px; color:#64748b; margin-top:3px;">${al.descripcion}</div>
-                        </div>
-                      `).join('') : '<div style="padding:20px; text-align:center; font-size:13px; color:#94a3b8;">No se han detectado deudas recientes.</div>'}
-                    </div>
+                  <td style="padding:0 30px;">
+                    <div class="section-header">📊 Distribución de Morosidad</div>
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        ${[1, 2, 3, 4].map(n => `
+                          <td width="23%" align="center">
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px;">
+                              <div style="font-size:20px; font-weight:800; color:${n===1?'#3b82f6':n===2?'#f59e0b':'#ef4444'};">${distDeuda[n].count}</div>
+                              <div style="font-size:10px; font-weight:700; color:#64748b; text-transform:uppercase; margin-top:4px;">${n===4?'+3 Recibos':`${n} Recibo${n>1?'s':''}`}</div>
+                            </div>
+                          </td>
+                          ${n < 4 ? '<td width="2.6%"></td>' : ''}
+                        `).join('')}
+                      </tr>
+                    </table>
                   </td>
                 </tr>
 
                 <!-- ACTIVIDAD RECIENTE -->
                 <tr>
-                  <td style="padding:0 40px;">
-                    <div class="section-header">Actividad Reciente (Últimas 24 Horas)</div>
-                    <div style="border:1px solid #e2e8f0; border-radius:16px; overflow:hidden;">
+                  <td style="padding:0 30px;">
+                    <div class="section-header">📝 Actividad de las últimas 24 Horas</div>
+                    <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden;">
                       <table class="data-table">
                         <thead>
-                          <tr>
+                          <tr style="background:#f8fafc;">
                             <th>Concepto</th>
                             <th align="center">Tipo</th>
                             <th align="right">Monto</th>
                           </tr>
                         </thead>
                         <tbody>
-                          ${[...pagosHoy, ...egresosHoy].slice(0, 8).map(m => `
+                          ${[...pagosHoy, ...egresosHoy].slice(0, 10).map(m => `
                             <tr>
                               <td>
-                                <div style="font-weight:700;">${m.unidad_apartamento || 'Egreso'}</div>
+                                <div style="font-weight:700;">${m.unidad_apartamento || 'Operación'}</div>
                                 <div style="font-size:11px; color:#94a3b8;">${m.descripcion || ''}</div>
                               </td>
                               <td align="center">
-                                <span class="badge" style="background:${m.tipo==='recibo'?'#ecfdf5':'#fff1f2'}; color:${m.tipo==='recibo'?'#059669':'#e11d48'};">
+                                <span class="badge" style="background:${m.tipo==='recibo'?'#dcfce7':'#fee2e2'}; color:${m.tipo==='recibo'?'#166534':'#991b1b'};">
                                   ${m.tipo==='recibo'?'INGRESO':'EGRESO'}
                                 </span>
                               </td>
-                              <td align="right" style="font-weight:800; color:${m.tipo==='recibo'?'#10b981':'#ef4444'};">
+                              <td align="right" style="font-weight:700; color:${m.tipo==='recibo'?'#16a34a':'#dc2626'};">
                                 ${m.tipo==='recibo'?'+':'-'} ${formatNumber(m.monto)}
                               </td>
                             </tr>
                           `).join('')}
-                          ${(pagosHoy.length + egresosHoy.length === 0) ? '<tr><td colspan="3" align="center" style="padding:20px; color:#94a3b8;">Sin movimientos recientes.</td></tr>' : ''}
+                          ${(pagosHoy.length + egresosHoy.length === 0) ? '<tr><td colspan="3" align="center" style="padding:30px; color:#94a3b8; font-style:italic;">Sin movimientos detectados hoy.</td></tr>' : ''}
                         </tbody>
                       </table>
                     </div>
@@ -692,14 +698,12 @@ export async function POST(request: Request) {
 
                 <!-- FOOTER -->
                 <tr>
-                  <td style="padding:50px 40px; text-align:center; background:#f8fafc; border-top:1px solid #e2e8f0;">
-                    <a href="${BASE_URL}/dashboard" style="display:inline-block; background:#3b82f6; color:#ffffff; padding:18px 40px; border-radius:16px; text-decoration:none; font-weight:700; font-size:16px; box-shadow:0 10px 15px -3px rgba(59,130,246,0.3);">Ir al Dashboard de EdifiSaaS</a>
-                    <div style="margin-top:40px; border-top:1px solid #e2e8f0; padding-top:30px;">
-                      <p style="font-size:11px; color:#94a3b8; margin:0;">
-                        Este es un informe premium automatizado de EdifiSaaS v1.0.<br>
-                        Generado el ${fechaStr} &bull; ID: #PREM-${today.replace(/-/g,'')}
-                      </p>
-                    </div>
+                  <td style="padding:40px 30px; text-align:center; background:#f8fafc; border-top:1px solid #e2e8f0;">
+                    <a href="${BASE_URL}/dashboard" style="display:inline-block; background:#1e293b; color:#ffffff; padding:15px 30px; border-radius:8px; text-decoration:none; font-weight:700; font-size:14px;">Acceder al Portal EdifiSaaS</a>
+                    <p style="margin-top:25px; font-size:10px; color:#94a3b8; line-height:1.5;">
+                      Informe automático generado por EdifiSaaS v1.1<br>
+                      ${fechaStr} &bull; Condominio ${edificio.nombre}
+                    </p>
                   </td>
                 </tr>
               </table>
