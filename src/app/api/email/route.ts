@@ -451,6 +451,137 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
     }
 
+    if (action === "modern_report_test") {
+      const todayDate = new Date();
+      const today = todayDate.toISOString().split("T")[0];
+      const fechaStr = formatDate(todayDate);
+      
+      // -- OBTENER DATOS REALES PARA EL DISEÑO MODERNO --
+      const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1).single();
+      const { data: latestRecibos } = await supabase.from("recibos").select("deuda").eq("edificio_id", edificioId).gt("deuda", 0);
+      const { data: movsHoy } = await supabase.from("movimientos_dia").select("monto, tipo").eq("edificio_id", edificioId).eq("detectado_en", today);
+      
+      const totalDeuda = (latestRecibos || []).reduce((sum, r) => sum + Number(r.deuda), 0);
+      const cobranzaMes = Number(balance?.cobranza_mes || 0);
+      const gastosMes = Number(balance?.gastos_facturados || 0);
+      const saldoDisp = Number(balance?.saldo_disponible || 0);
+      const fondoRes = Number(balance?.fondo_reserva || 0);
+      const disponibleTotal = saldoDisp + fondoRes;
+      
+      const cobradoHoy = (movsHoy || []).filter(m => m.tipo === "recibo").reduce((sum, m) => sum + m.monto, 0);
+      const nPagosHoy = (movsHoy || []).filter(m => m.tipo === "recibo").length;
+
+      // Cálculo de efectividad (Meta del mes)
+      const metaMes = totalDeuda + cobranzaMes;
+      const pctEfectividad = metaMes > 0 ? (cobranzaMes / metaMes) * 100 : 0;
+      
+      const modernHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin:0; padding:0; background-color:#f4f7fa; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color:#334155;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f7fa; padding:20px;">
+          <tr>
+            <td align="center">
+              <table width="100%" style="max-width:600px; background-color:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding:40px 30px; text-align:center;">
+                    <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:700; letter-spacing:-0.5px;">Resumen Ejecutivo</h1>
+                    <p style="margin:8px 0 0 0; color:#94a3b8; font-size:14px;">${edificio.nombre} &bull; ${fechaStr}</p>
+                  </td>
+                </tr>
+                
+                <!-- KPI Cards -->
+                <tr>
+                  <td style="padding:30px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="48%" style="background-color:#f8fafc; border:1px solid #f1f5f9; border-radius:12px; padding:20px; text-align:center;">
+                          <p style="margin:0; font-size:12px; color:#64748b; text-transform:uppercase; font-weight:600;">Disponibilidad Total</p>
+                          <h2 style="margin:10px 0; color:#0f172a; font-size:20px;">${formatBs(disponibleTotal)}</h2>
+                          <span style="background-color:#e2e8f0; color:#475569; padding:4px 8px; border-radius:6px; font-size:11px; font-weight:600;">$${formatNumber(disponibleTotal/tasa)} USD</span>
+                        </td>
+                        <td width="4%"></td>
+                        <td width="48%" style="background-color:#f8fafc; border:1px solid #f1f5f9; border-radius:12px; padding:20px; text-align:center;">
+                          <p style="margin:0; font-size:12px; color:#64748b; text-transform:uppercase; font-weight:600;">Cobranza del Mes</p>
+                          <h2 style="margin:10px 0; color:#10b981; font-size:20px;">${formatBs(cobranzaMes)}</h2>
+                          <div style="width:100%; background-color:#e2e8f0; height:6px; border-radius:3px; margin-top:10px;">
+                            <div style="width:${Math.min(100, pctEfectividad)}%; background-color:#10b981; height:6px; border-radius:3px;"></div>
+                          </div>
+                          <p style="margin:5px 0 0 0; font-size:10px; color:#64748b;">${formatNumber(pctEfectividad)}% de la meta</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <!-- Main Metrics -->
+                <tr>
+                  <td style="padding:0 30px 30px 30px;">
+                    <div style="border-top:1px solid #f1f5f9; padding-top:25px;">
+                      <h3 style="margin:0 0 20px 0; color:#1e293b; font-size:16px;">Operatividad Financiera</h3>
+                      
+                      <table width="100%" style="margin-bottom:15px;">
+                        <tr>
+                          <td style="padding:10px 0; color:#64748b; font-size:14px;">Ingresos Detectados</td>
+                          <td align="right" style="padding:10px 0; color:#0f172a; font-weight:600; font-size:14px;">+ ${formatBs(cobranzaMes)}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:10px 0; color:#64748b; font-size:14px;">Gastos / Pagos Realizados</td>
+                          <td align="right" style="padding:10px 0; color:#ef4444; font-weight:600; font-size:14px;">- ${formatBs(gastosMes)}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:15px 0; color:#1e293b; font-size:14px; font-weight:700; border-top:1px solid #f1f5f9;">Balance Neto del Mes</td>
+                          <td align="right" style="padding:15px 0; color:${cobranzaMes - gastosMes >= 0 ? '#10b981' : '#ef4444'}; font-weight:700; font-size:16px; border-top:1px solid #f1f5f9;">${formatBs(cobranzaMes - gastosMes)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Today Activity -->
+                <tr>
+                  <td style="padding:0 30px 30px 30px;">
+                    <div style="background-color:#eff6ff; border-radius:12px; padding:20px;">
+                      <h4 style="margin:0 0 10px 0; color:#1e40af; font-size:14px; text-transform:uppercase;">Actividad de Hoy</h4>
+                      <p style="margin:0; font-size:13px; color:#1e3a8a; line-height:1.5;">
+                        Se han procesado <strong>${nPagosHoy} pagos</strong> para un total de <strong>${formatBs(cobradoHoy)}</strong> recibidos en las últimas 24 horas.
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Footer / CTA -->
+                <tr>
+                  <td style="padding:30px; text-align:center; background-color:#f8fafc;">
+                    <p style="margin:0 0 20px 0; font-size:14px; color:#64748b;">Para ver el desglose detallado de movimientos, deudas por apartamento y reportes históricos:</p>
+                    <a href="${BASE_URL}/login" style="display:inline-block; background-color:#2563eb; color:#ffffff; padding:14px 28px; border-radius:10px; text-decoration:none; font-weight:600; font-size:15px; box-shadow:0 4px 6px rgba(37,99,235,0.2);">Ingresar al Dashboard</a>
+                    <p style="margin:25px 0 0 0; font-size:11px; color:#94a3b8;">&copy; 2026 EdifiSaaS v1.0 &bull; Gestión Inteligente de Condominios</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+      `;
+
+      await transporter.sendMail({
+        from: `"EdifiSaaS Premium" <${SMTP_USER}>`,
+        to: "correojago@gmail.com",
+        subject: `✨ Informe Moderno (Prueba) - ${edificio.nombre} - ${fechaStr}`,
+        html: modernHtml,
+      });
+
+      return NextResponse.json({ success: true, message: "Informe moderno enviado a correojago@gmail.com" });
+    }
+
+
     const { data: juntaMembers } = await supabase.from("junta").select("email, recibe_email_cron").eq("edificio_id", edificioId).eq("activo", true);
     // Solo enviar a miembros que tengan recibe_email_cron = true (o null/undefined para retrocompatibilidad)
     const juntaRecipients = (juntaMembers || []).filter(m => m.recibe_email_cron !== false);

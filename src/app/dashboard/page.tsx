@@ -255,6 +255,7 @@ export default function DashboardPage() {
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
   const [cronTestLoading, setCronTestLoading] = useState(false);
+  const [modernReportLoading, setModernReportLoading] = useState(false);
   const [cronTestResult, setCronTestResult] = useState<any>(null);
   const [syncMessage, setSyncMessage] = useState("");
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -2149,6 +2150,32 @@ export default function DashboardPage() {
       setCronTestResult({ ok: false, error: err.message });
     } finally {
       setCronTestLoading(false);
+    }
+  };
+
+  const handleModernReportTest = async () => {
+    if (!building?.id) return;
+    setModernReportLoading(true);
+    setSyncMessage("");
+    try {
+      const res = await fetch("/api/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          edificioId: building.id, 
+          action: "modern_report_test" 
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncMessage("✅ Informe Moderno enviado a correojago@gmail.com");
+      } else {
+        setSyncMessage(`❌ Error: ${data.error}`);
+      }
+    } catch (error: any) {
+      setSyncMessage(`❌ Error: ${error.message}`);
+    } finally {
+      setModernReportLoading(false);
     }
   };
 
@@ -6585,6 +6612,29 @@ export default function DashboardPage() {
                         <><span className="animate-spin">⏳</span> Diagnosticando...</>
                       ) : (
                         <><span>🔍</span> Ejecutar Diagnóstico</>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Botón Informe Moderno */}
+                  <div className="flex items-center justify-between mt-6 p-4 bg-blue-50/50 rounded-2xl border border-blue-100">
+                    <div>
+                      <h4 className="text-sm font-black text-blue-900 uppercase tracking-tight">✨ Diseño de Informe Premium</h4>
+                      <p className="text-[10px] text-blue-700 mt-0.5 font-medium">Recibe una vista previa del nuevo diseño ejecutivo con KPIs reales en tu email.</p>
+                    </div>
+                    <button
+                      onClick={handleModernReportTest}
+                      disabled={modernReportLoading}
+                      className={`px-6 py-2.5 rounded-xl font-black uppercase text-xs transition-all shadow-md flex items-center gap-2 ${
+                        modernReportLoading
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 hover:shadow-indigo-200"
+                      }`}
+                    >
+                      {modernReportLoading ? (
+                        <><span className="animate-spin">✉️</span> Enviando...</>
+                      ) : (
+                        <><span>📧</span> Enviar Informe 2</>
                       )}
                     </button>
                   </div>
