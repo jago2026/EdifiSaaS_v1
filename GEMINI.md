@@ -118,3 +118,26 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
     - **Movimientos del Día:** Se cambió el comportamiento de la tabla de "Movimientos de Hoy". Ahora, cualquier movimiento nuevo detectado se registra allí con su **fecha real original**, pero marcado como detectado hoy, permitiendo que aparezcan en el resumen diario sin alterar su fecha contable.
     - **Script SQL:** Se actualizó `supabase/limpiar_egresos_gastos_mayo.sql` para una limpieza profunda de registros mal fechados.
 - **Resultado:** Reportes precisos con fechas contables correctas y visibilidad inmediata de nuevos hallazgos.
+
+---
+
+## Fecha: 2026-05-03 (Gemini)
+
+### Objetivo
+Corregir error de sincronización y evitar el envío de correos electrónicos de error adicionales innecesarios.
+
+### Tareas Realizadas
+
+#### 1. Corrección de ReferenceError en Cron (`src/app/api/cron/route.ts`)
+- **Problema:** Se detectó un error `syncMovimientos is not defined` durante la ejecución del cron. Esto ocurría porque la variable estaba declarada dentro de un bloque `else` pero se utilizaba fuera de él, especialmente cuando la sincronización fallaba y el flujo continuaba para enviar el informe con datos existentes (fallback).
+- **Causa Raíz:** Error de alcance (scope) de variable en TypeScript.
+- **Solución Aplicada:** 
+    - Se movió la declaración de `syncMovimientos` fuera de los bloques condicionales e inicializada en `0`.
+    - Se actualizó el uso de la variable para asegurar que siempre esté definida, independientemente de si la sincronización fue exitosa o fallida.
+- **Resultado:** Se eliminó el "Crash" del cron, permitiendo que el informe diario se envíe correctamente incluso si falla la sincronización externa.
+
+#### 2. Reducción de Emails de Error Duplicados
+- **Problema:** El usuario recibía un email de error adicional ("syncMovimientos is not defined") además del informe diario.
+- **Explicación:** El ReferenceError anterior activaba el bloque `catch` del cron, el cual está diseñado para notificar al administrador sobre errores críticos mediante una acción `error_notification` en la API de email.
+- **Solución:** Al corregir el ReferenceError, el flujo del cron ahora se completa normalmente (o mediante el fallback controlado). El bloque `catch` ya no se dispara por esta causa, evitando el envío del email de error extra.
+- **Mejora Adicional:** Se optimizó la lógica de alertas en el Dashboard para que, en caso de fallo de sincronización pero éxito en el envío del informe (fallback), la alerta final refleje el estado real de "Completado con Advertencias" en lugar de un "Éxito" genérico.

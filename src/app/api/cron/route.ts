@@ -197,6 +197,7 @@ export async function GET(request: NextRequest) {
 
         let syncFailed = false;
         let syncFailedReason = "";
+        let syncMovimientos = 0;
 
         if (!syncRes.ok) {
           const rawError = syncData?.error || JSON.stringify(syncData);
@@ -220,7 +221,7 @@ export async function GET(request: NextRequest) {
           await logAlerta(supabase, edificioId, "warning", alertTitle, alertDesc);
           // NO lanzar excepción — continuar al envío del email con datos de BD
         } else {
-          const syncMovimientos = syncData?.stats?.total || 0;
+          syncMovimientos = syncData?.stats?.total || 0;
           await logSincronizacion(supabase, edificioId, "sync", "completado", syncMovimientos, null, syncData?.stats);
           console.log(`[CRON] Sync OK para "${edificio.nombre}": ${syncMovimientos} movimientos nuevos.`);
         }
@@ -259,8 +260,15 @@ export async function GET(request: NextRequest) {
 
         await logSincronizacion(supabase, edificioId, "email_diario", "completado", 0, null,
           { recipient: emailData?.recipient });
-        await logAlerta(supabase, edificioId, "success", "Cron Diario Completado Exitosamente",
-          `Sincronizacion: ${syncMovimientos} movimientos nuevos. Informe enviado a la Junta. VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`);
+
+        // Ajustar el mensaje final si hubo fallback por fallo de sincronización
+        const finalAlertTitle = syncFailed ? "Cron Diario Completado con Advertencias" : "Cron Diario Completado Exitosamente";
+        const finalAlertTipo = syncFailed ? "warning" : "success";
+        const finalAlertDesc = syncFailed 
+          ? `Sincronización fallida (${syncFailedReason}). Se envió el informe con los últimos datos disponibles en base de datos. VET: ${currentFullTimeVET}`
+          : `Sincronización: ${syncMovimientos} movimientos nuevos. Informe enviado a la Junta. VET: ${currentFullTimeVET} | UTC: ${utcTimeStr}`;
+
+        await logAlerta(supabase, edificioId, finalAlertTipo, finalAlertTitle, finalAlertDesc);
 
         console.log(`[CRON] OK completado para "${edificio.nombre}".`);
         resultados.push({ edificio: edificio.nombre, status: "success", syncMovimientos });

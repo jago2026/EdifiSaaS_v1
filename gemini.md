@@ -25,4 +25,21 @@ Se realizó una revisión exhaustiva del bug de persistencia en la pestaña de J
 - **Auditoría**: Implementar una tabla específica de logs de auditoría para cambios en configuraciones sensibles, separada de la tabla general de alertas.
 
 ---
+
+**Fecha:** 03 de Mayo, 2026
+
+### 📝 Resumen de Actividad
+Corrección de error crítico en el Cron Job que causaba el envío de correos electrónicos de error duplicados y fallos en el flujo de sincronización automática.
+
+### 🛠️ Correcciones Realizadas
+
+#### 1. Backend: Fix en `src/app/api/cron/route.ts`
+- **ReferenceError Fix**: Se corrigió el error `syncMovimientos is not defined` que ocurría cuando la sincronización fallaba. La variable ahora tiene un alcance (scope) correcto para ser utilizada tanto en el flujo de éxito como en el de fallback.
+- **Estabilidad de Fallback**: Se garantizó que, ante un fallo del sistema externo, el cron envíe el informe con los datos existentes sin interrumpirse por errores de código.
+- **Lógica de Alertas**: Se diferenciaron las alertas de "Éxito" de las de "Completado con Advertencias" para que el administrador sepa si los datos del informe están actualizados o son los últimos disponibles por fallo de sync.
+
+#### 2. Notificaciones: Eliminación de Email Extra
+- Se eliminó la causa raíz que disparaba el envío del correo de "Error de Sincronización" al administrador (el cual era provocado por el ReferenceError mencionado). Ahora el administrador solo recibirá el informe diario (o alertas en el sistema) a menos que ocurra un error genuinamente catastrófico.
+
+---
 *Este archivo se mantendrá actualizado con cada intervención realizada en el proyecto.*
