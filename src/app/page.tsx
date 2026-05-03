@@ -190,7 +190,7 @@ export default function Home() {
             🚀 Nuevo: Prueba gratis por 30 días
           </div>
           <h1 className="text-5xl md:text-6xl font-black text-gray-900 mb-6 leading-tight tracking-tighter">
-            Gestión Inteligente de Condominios v1.0.2
+            Gestión Financiera para Juntas de Condominio.
           </h1>
 
           <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
