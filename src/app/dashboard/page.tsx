@@ -2691,7 +2691,7 @@ export default function DashboardPage() {
                             ? Math.abs(balance.gastos_facturados) 
                             : Math.abs(gastosSummary.monto);
                           return (gMes && gMes !== 0) 
-                            ? formatNumber(balance.saldo_disponible / gMes, 2) 
+                            ? formatNumber((balance?.saldo_disponible || 0) / gMes, 2) 
                             : "N/A";
                         })()}
                       </div>
@@ -2702,8 +2702,9 @@ export default function DashboardPage() {
                       <div className="text-xl font-black text-green-800">
                         {(() => {
                           const isCurrent = balance?.mes === new Date().toISOString().substring(0, 7);
-                          const cMes = isCurrent ? balance.cobranza_mes : ingresosSummary.monto;
-                          const rMes = isCurrent ? balance.recibos_mes : (totalDeuda + ingresosSummary.monto); // Aproximación si no hay balance
+                          const cMes = isCurrent ? (balance.cobranza_mes || 0) : (ingresosSummary.monto || 0);
+                          const currentTotalDeuda = recibos.reduce((sum, r) => sum + Number(r.deuda || 0), 0);
+                          const rMes = isCurrent ? (balance.recibos_mes || 0) : (currentTotalDeuda + (ingresosSummary.monto || 0));
                           return (rMes && rMes !== 0) 
                             ? formatNumber((cMes / rMes) * 100, 1)
                             : "0.0";
@@ -2721,7 +2722,7 @@ export default function DashboardPage() {
                     <div className="bg-indigo-50 p-3 rounded-lg group" title="Cantidad promedio de meses de facturación que representan la deuda total. Valores iguales o menores a 3 meses son saludables.">
                       <div className="text-[10px] font-bold text-indigo-600 uppercase mb-1">Carga de Deuda</div>
                       <div className="text-xl font-black text-indigo-800">
-                        {balance?.total_por_cobrar && balance.recibos_mes && balance.recibos_mes !== 0
+                        {balance?.total_por_cobrar && balance?.recibos_mes && balance.recibos_mes !== 0
                           ? formatNumber(balance.total_por_cobrar / balance.recibos_mes, 1)
                           : "0.0"}
                       </div>
@@ -3626,7 +3627,7 @@ export default function DashboardPage() {
                     <tr className="bg-blue-50/50 font-bold"><td className="py-2.5 px-4 text-blue-800" colSpan={3}>I. DISPONIBILIDAD EN CAJA Y BANCOS</td></tr>
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">SALDO DE CAJA MES ANTERIOR</td><td className="py-2.5 px-4 text-right text-gray-500">{formatBs(balance.saldo_anterior)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_anterior / tasaBCV.dolar : 0)}</td></tr>
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">COBRANZA DEL MES (INGRESOS)</td><td className="py-2.5 px-4 text-right text-green-600 font-medium">+{formatBs(balance.cobranza_mes)}</td><td className="py-2.5 px-4 text-right text-green-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.cobranza_mes / tasaBCV.dolar : 0)}</td></tr>
-                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance.gastos_facturados)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? balance.gastos_facturados / tasaBCV.dolar : 0)}</td></tr>
+                    <tr><td className="py-2.5 px-4 pl-10 text-gray-700">GASTOS FACTURADOS EN EL MES</td><td className="py-2.5 px-4 text-right text-red-600 font-medium">{formatBs(balance?.gastos_facturados || 0)}</td><td className="py-2.5 px-4 text-right text-red-500 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance?.gastos_facturados || 0) / tasaBCV.dolar : 0)}</td></tr>
                     <tr><td className="py-2.5 px-4 pl-10 text-gray-700">AJUSTES / DIF. CAMBIARIA / PAGOS A TIEMPO</td><td className="py-2.5 px-4 text-right text-gray-500 font-medium">{formatBs(balance.ajuste_pago_tiempo || 0)}</td><td className="py-2.5 px-4 text-right text-gray-400 italic">$ {formatUsd(tasaBCV.dolar > 0 ? (balance.ajuste_pago_tiempo || 0) / tasaBCV.dolar : 0)}</td></tr>
                     <tr className="bg-gray-100 font-bold border-y border-gray-200"><td className="py-3 px-4 text-blue-700">TOTAL DISPONIBLE EN CAJA</td><td className="py-3 px-4 text-right text-blue-700 font-extrabold">{formatBs(balance.saldo_disponible)}</td><td className="py-3 px-4 text-right text-blue-600 font-extrabold">$ {formatUsd(tasaBCV.dolar > 0 ? balance.saldo_disponible / tasaBCV.dolar : 0)}</td></tr>
                     

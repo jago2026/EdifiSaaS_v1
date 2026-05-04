@@ -218,7 +218,7 @@ export function ResumenTab({
                       ? Math.abs(balance.gastos_facturados) 
                       : Math.abs(gastosSummary.monto);
                     return (gMes && gMes !== 0) 
-                      ? formatNumber(balance.saldo_disponible / gMes, 2) 
+                      ? formatNumber((balance?.saldo_disponible || 0) / gMes, 2) 
                       : "N/A";
                   })()}
                 </div>
@@ -229,8 +229,9 @@ export function ResumenTab({
                 <div className="text-xl font-black text-green-800">
                   {(() => {
                     const isCurrent = balance?.mes === new Date().toISOString().substring(0, 7);
-                    const cMes = isCurrent ? balance.cobranza_mes : ingresosSummary.monto;
-                    const rMes = isCurrent ? balance.recibos_mes : (recibos.reduce((sum, r) => sum + Number(r.deuda), 0) + ingresosSummary.monto);
+                    const cMes = isCurrent ? (balance.cobranza_mes || 0) : (ingresosSummary.monto || 0);
+                    const currentTotalDeuda = recibos.reduce((sum, r) => sum + Number(r.deuda || 0), 0);
+                    const rMes = isCurrent ? (balance.recibos_mes || 0) : (currentTotalDeuda + (ingresosSummary.monto || 0));
                     return (rMes && rMes !== 0) 
                       ? formatNumber((cMes / rMes) * 100, 1)
                       : "0.0";

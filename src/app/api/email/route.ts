@@ -1007,6 +1007,14 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
 
     // Egresos del día (filtrados por fecha de hoy)
     const currentMesEmail = today.substring(0, 7);
+    
+    // OBTENER TOTALES REALES DEL MES EN CURSO (LIVE)
+    const { data: realPagosMes } = await supabase.from("pagos_recibos").select("monto").eq("edificio_id", edificioId).gte("fecha_pago", `${currentMesEmail}-01`).lte("fecha_pago", `${currentMesEmail}-31`);
+    const { data: realGastosMes } = await supabase.from("gastos").select("monto").eq("edificio_id", edificioId).gte("fecha", `${currentMesEmail}-01`).lte("fecha", `${currentMesEmail}-31`).neq("codigo", "TOTAL").neq("codigo", "00001").not("descripcion", "ilike", "%FONDO%");
+
+    const liveCobranzaMes = (realPagosMes || []).reduce((s, p) => s + Number(p.monto || 0), 0);
+    const liveGastosMes = (realGastosMes || []).reduce((s, g) => s + Number(g.monto || 0), 0);
+
     const { data: newestEgresos } = await supabase.from("egresos").select("fecha, beneficiario, descripcion, monto").eq("edificio_id", edificioId).eq("mes", currentMesEmail).order("fecha", { ascending: false }).limit(20);
 
     // Gastos del día
@@ -1026,7 +1034,7 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
     const saldoManualUSD = manualTotal / tasa;
 
     const ajustesDelDia = 0;
-    const resultadoDelDia = Number(bal?.cobranza_mes || 0) - Number(bal?.gastos_facturados || 0) + ajustesDelDia;
+    const resultadoDelDia = liveCobranzaMes - liveGastosMes + ajustesDelDia;
     const resultadoDelDiaUSD = resultadoDelDia / tasa;
 
     // Calculate 7-day movements
@@ -1105,8 +1113,8 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
             </div>
             <div style="text-align: center; font-size: 12px; font-weight: bold; background: #e8f0fe; color: #1a73e8; padding: 8px; border-radius: 4px; margin-bottom: 8px;">Saldo Disponible Operativo del Día</div>
             <table class="metric-table">
-              <tr><td class="metric-label">Ingresos:</td><td class="metric-value positive">${formatBs(bal?.cobranza_mes || 0)}</td></tr>
-              <tr><td class="metric-label">Egresos:</td><td class="metric-value negative">${formatBs(bal?.gastos_facturados || 0)}</td></tr>
+              <tr><td class="metric-label">Ingresos:</td><td class="metric-value positive">${formatBs(liveCobranzaMes)}</td></tr>
+              <tr><td class="metric-label">Egresos:</td><td class="metric-value negative">${formatBs(liveGastosMes)}</td></tr>
               <tr><td class="metric-label">Ajustes:</td><td class="metric-value">${formatBs(ajustesDelDia)}</td></tr>
               <tr><td class="metric-label">Resultado:</td><td class="metric-value ${resultadoDelDia >= 0 ? 'positive' : 'negative'}">${formatBs(resultadoDelDia)} (${formatUsd(resultadoDelDiaUSD)})</td></tr>
             </table>
@@ -1142,15 +1150,17 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         <tbody>
           ${(balancesHist || []).map((b: any, i: number) => {
             const mesKey = (b.mes || '').substring(0, 7);
-            const ingresosReales = ingresosPorMes[mesKey] ?? Number(b.cobranza_mes);
-            const egresos = Number(b.gastos_facturados);
+            const isRowCurrent = mesKey === currentMesEmail;
+
+            const ingresosReales = isRowCurrent ? liveCobranzaMes : (ingresosPorMes[mesKey] ?? Number(b.cobranza_mes));
+            const egresos = isRowCurrent ? liveGastosMes : Number(b.gastos_facturados);
             const neto = ingresosReales - egresos;
             return `<tr style="${i === 0 ? 'background:#eef7ff;font-weight:bold;': ''}">
               <td>${b.mes || ''}</td>
               <td style="text-align:right;">${formatBs(ingresosReales)}</td>
               <td style="text-align:right;">${formatBs(egresos)}</td>
               <td style="text-align:right;">-</td>
-              <td style="text-align:right; color:${neto >= 0 ? '#34a853':'#ea4335'}">${formatBs(neto)}</td>
+              <td style="text-align:right; font-weight:bold; color:${neto >= 0 ? '#34a853' : '#ea4335'}">${formatBs(neto)}</td>
             </tr>`;
           }).join("")}
         </tbody>

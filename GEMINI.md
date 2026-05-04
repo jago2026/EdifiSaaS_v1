@@ -168,6 +168,7 @@ Corregir la lógica de cálculo de totales mensuales basada en fechas de movimie
 - **Solución Aplicada:**
     - **APIs de Resumen:** Se refactorizaron `/api/ingresos-summary`, `/api/gastos-summary` y `/api/egresos-summary` para realizar el conteo y suma basados estrictamente en las columnas de fecha (`fecha_pago` para ingresos, `fecha` para gastos/egresos) dentro del rango del mes calendario actual.
     - **Dashboard UI (ResumenTab y page.tsx):** Se actualizó la visualización en ambos archivos para priorizar siempre el resumen de movimientos en vivo sobre los datos estáticos de la tabla `balances`. Se corrigieron los indicadores de **Liquidez Inmediata** e **Índice de Cobranza** para que calculen sus valores basados en la actividad real del mes si el último balance no corresponde al mes en curso.
+    - **Estabilidad (Hotfix):** Se corrigió un error de excepción en el lado del cliente (Client-side crash) causado por el uso de una variable no definida (`totalDeuda`) en el ámbito del resumen; se reemplazó por el cálculo directo basado en el estado `recibos`.
     - **Informe Premium (Email):** Se actualizó la lógica de generación del email en `/api/email` para recalcular `cobranzaMes` y `gastosMes` usando las tablas de movimientos en tiempo real, evitando que el reporte diario muestre datos obsoletos del mes anterior.
 
 #### 2. Rediseño y Personalización de Informe Premium
