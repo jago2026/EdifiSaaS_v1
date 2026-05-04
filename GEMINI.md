@@ -154,3 +154,29 @@ Implementar la opción de selección de tipo de informe (Estándar vs. Premium) 
 - **Mejora en Sincronización Automática:**
     - Se modificó la lógica de asignación de mes en `api/sync`. Ahora los **Egresos** y **Gastos** derivan su campo `mes` (YYYY-MM) directamente de su fecha de ejecución en lugar de usar el mes de la sincronización. Esto evita que movimientos de finales del mes pasado se etiqueten erróneamente en el mes nuevo durante las sincronizaciones automáticas de principio de mes.
 
+---
+
+## Fecha: 2026-05-04 (Gemini)
+
+### Objetivo
+Corregir la lógica de cálculo de totales mensuales basada en fechas de movimientos y mejorar el informe Premium con secciones ejecutivas detalladas.
+
+### Tareas Realizadas
+
+#### 1. Corrección de Totales Mensuales (Criterio de Fecha Real)
+- **Problema:** El sistema mostraba cifras del mes anterior para el mes en curso debido a que filtraba por la columna `mes` (que representa el mes de facturación del recibo) en lugar de la fecha cronológica del movimiento.
+- **Solución Aplicada:**
+    - **APIs de Resumen:** Se refactorizaron `/api/ingresos-summary`, `/api/gastos-summary` y `/api/egresos-summary` para realizar el conteo y suma basados estrictamente en las columnas de fecha (`fecha_pago` para ingresos, `fecha` para gastos/egresos) dentro del rango del mes calendario actual.
+    - **Dashboard UI (ResumenTab):** Se actualizó la visualización para priorizar siempre el resumen de movimientos en vivo sobre los datos estáticos de la tabla `balances`, asegurando que si no hay movimientos en el mes, se muestre 0 en lugar de arrastrar datos del mes anterior.
+
+#### 2. Rediseño y Personalización de Informe Premium
+- **Identidad Visual:** Se actualizó el remitente a **"SaaS - Sistema Junta de Condominio"** y el asunto a `SaaS - Sistema Junta de Condominio - [NOMBRE_EDIFICIO] - [FECHA]`, eliminando terminología de "EdifiSaaS Premium" para una apariencia más institucional.
+- **Nuevos Módulos en Email:**
+    - **Resumen Mensual Histórico:** Inserción de una tabla comparativa de los últimos 4 meses de gestión (Ingresos, Egresos y Resultado Neto).
+    - **Cuentas por Cobrar:** Sección con el estado de la morosidad, total de unidades deudoras y montos pendientes en Bs y USD.
+    - **Resumen de Cobros del Día:** Reporte específico de la actividad de cobranza en las últimas 24 horas.
+    - **Últimos Movimientos Operativos (7 Días):** Tabla de flujo de caja diario de la última semana (Ingresos vs Egresos por día).
+
+#### 3. Mantenimiento de Memoria
+- Actualización de `GEMINI.md` para preservar la trazabilidad de las correcciones y mejoras realizadas en la arquitectura de datos y comunicación.
+

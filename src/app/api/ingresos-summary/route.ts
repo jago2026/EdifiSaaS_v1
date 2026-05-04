@@ -14,12 +14,13 @@ export async function GET(request: Request) {
     const now = new Date();
     const currentMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    // Query current month activity from pagos_recibos table
+    // Query current month activity from pagos_recibos table based on fecha_pago
     const { data: pagos, error: pagosError } = await supabase
       .from("pagos_recibos")
       .select("monto")
       .eq("edificio_id", edificioId)
-      .eq("mes", currentMes);
+      .gte("fecha_pago", `${currentMes}-01`)
+      .lte("fecha_pago", `${currentMes}-31`);
 
     if (pagosError) {
       console.error("Pagos query error:", pagosError);

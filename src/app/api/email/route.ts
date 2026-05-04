@@ -462,17 +462,18 @@ export async function POST(request: Request) {
 
       // Balances
       const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1).single();
-      const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(3);
+      const { data: balancesHist } = await supabase.from("balances").select("mes, cobranza_mes, gastos_facturados, saldo_disponible").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(6);
       
       // Deuda y Morosidad (Filtrar por último mes para evitar duplicados por histórico)
       const { data: latestMesData } = await supabase.from("recibos").select("mes").eq("edificio_id", edificioId).order("mes", { ascending: false }).limit(1);
       const latestMes = latestMesData?.[0]?.mes;
 
-      let recQuery = supabase.from("recibos").select("deuda, num_recibos").eq("edificio_id", edificioId).gt("deuda", 0);
+      let recQuery = supabase.from("recibos").select("deuda, num_recibos, deuda_usd").eq("edificio_id", edificioId).gt("deuda", 0);
       if (latestMes) recQuery = recQuery.eq("mes", latestMes);
       const { data: allRecibos } = await recQuery;
 
       const totalDeuda = (allRecibos || []).reduce((sum, r) => sum + Number(r.deuda), 0);
+      const totalDeudaUsd = (allRecibos || []).reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0);
       const distDeuda: Record<number, { count: number, total: number }> = { 1: {count:0, total:0}, 2: {count:0, total:0}, 3: {count:0, total:0}, 4: {count:0, total:0} }; 
       (allRecibos || []).forEach(r => {
         const n = r.num_recibos || 1;
@@ -485,6 +486,21 @@ export async function POST(request: Request) {
       const { data: movsHoy } = await supabase.from("movimientos_dia").select("*").eq("edificio_id", edificioId).eq("detectado_en", today);
       const pagosHoy = (movsHoy || []).filter(m => m.tipo === "recibo");
       const egresosHoy = (movsHoy || []).filter(m => m.tipo !== "recibo");
+
+      // Movimientos últimos 7 días
+      const sevenDaysAgo = new Date(todayDate.getTime() - 7 * 86400000).toISOString().split("T")[0];
+      const { data: movs7DiasRaw } = await supabase.from("movimientos_dia").select("*").eq("edificio_id", edificioId).gte("detectado_en", sevenDaysAgo).order("detectado_en", { ascending: false });
+      
+      // Agrupar movimientos por día para el resumen de 7 días
+      const movsPorDia: Record<string, { ingresos: number, egresos: number, saldo_act?: number }> = {};
+      (movs7DiasRaw || []).forEach(m => {
+        if (!movsPorDia[m.detectado_en]) movsPorDia[m.detectado_en] = { ingresos: 0, egresos: 0 };
+        if (m.tipo === 'recibo' || m.tipo === 'ingreso') {
+          movsPorDia[m.detectado_en].ingresos += Number(m.monto || 0);
+        } else {
+          movsPorDia[m.detectado_en].egresos += Number(m.monto || 0);
+        }
+      });
 
       // Datos Manuales (Caja)
       const { data: manualMovs } = await supabase.from("movimientos_manual").select("saldo_inicial, ingresos, egresos").eq("edificio_id", edificioId);
@@ -662,6 +678,87 @@ export async function POST(request: Request) {
                   </td>
                 </tr>
 
+                <!-- INFORMACION ADICIONAL PREMIUM -->
+                <tr>
+                  <td style="padding:0 30px;">
+                    <div class="section-header">** RESUMEN MENSUAL (Ingresos / Egresos / Gastos) **</div>
+                    <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin-bottom: 20px;">
+                      <table class="data-table">
+                        <thead>
+                          <tr style="background:#f8fafc;">
+                            <th>Mes</th>
+                            <th align="right">Ingresos</th>
+                            <th align="right">Egresos</th>
+                            <th align="right">Gastos</th>
+                            <th align="right">Neto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${(balancesHist || []).slice(0, 4).map(bh => `
+                            <tr>
+                              <td>${bh.mes}</td>
+                              <td align="right" style="color:#16a34a;">${formatNumber(bh.cobranza_mes)} Bs</td>
+                              <td align="right" style="color:#dc2626;">-${formatNumber(Math.abs(bh.gastos_facturados))} Bs</td>
+                              <td align="right">-</td>
+                              <td align="right" style="font-weight:700;">${formatNumber(Number(bh.cobranza_mes) + Number(bh.gastos_facturados))} Bs</td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div class="section-header">🟡 CUENTAS POR COBRAR</div>
+                    <div class="info-box" style="margin-bottom: 20px;">
+                      <div class="metric-row">
+                        <span class="metric-label">Recibos Pendientes:</span>
+                        <span class="metric-val">${aptosDeudaTotal} unidades (${formatNumber(pctAptosConDeuda, 1)}% de ${totalAptos} unidades totales)</span>
+                      </div>
+                      <div class="metric-row">
+                        <span class="metric-label">Monto Por Cobrar:</span>
+                        <span class="metric-val">${formatBs(totalDeuda)}<br>${formatUsd(totalDeudaUsd)}</span>
+                      </div>
+                    </div>
+
+                    <div class="section-header">📊 RESUMEN DE COBROS DEL DÍA</div>
+                    <div class="info-box" style="margin-bottom: 20px;">
+                      <div class="metric-row">
+                        <span class="metric-label">Apartamentos Pagaron:</span>
+                        <span class="metric-val">${pagosHoy.length} unidades hoy</span>
+                      </div>
+                      <div class="metric-row">
+                        <span class="metric-label">Monto Cobrado Hoy:</span>
+                        <span class="metric-val">${formatBs(pagosHoy.reduce((s, m) => s + Number(m.monto), 0))}<br>${formatUsd(pagosHoy.reduce((s, m) => s + Number(m.monto), 0) / tasa)}</span>
+                      </div>
+                    </div>
+
+                    <div class="section-header">📈 ÚLTIMOS MOVIMIENTOS OPERATIVOS (7 DÍAS)</div>
+                    <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin-bottom: 20px;">
+                      <table class="data-table">
+                        <thead>
+                          <tr style="background:#f8fafc;">
+                            <th>Fecha</th>
+                            <th>DÍA</th>
+                            <th align="right">INGRESOS</th>
+                            <th align="right">EGRESOS</th>
+                            <th align="right">USD</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          ${Object.entries(movsPorDia).slice(0, 7).map(([date, vals]) => `
+                            <tr>
+                              <td>${date}</td>
+                              <td>${getDiaSemana(date)}</td>
+                              <td align="right" style="color:#16a34a;">${formatNumber(vals.ingresos)} Bs</td>
+                              <td align="right" style="color:#dc2626;">-${formatNumber(vals.egresos)} Bs</td>
+                              <td align="right">${formatUsd((vals.ingresos - vals.egresos) / tasa)}</td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  </td>
+                </tr>
+
                 <!-- ACTIVIDAD RECIENTE -->
                 <tr>
                   <td style="padding:0 30px;">
@@ -718,9 +815,9 @@ export async function POST(request: Request) {
       `;
 
       await transporter.sendMail({
-        from: `"EdifiSaaS Premium" <${SMTP_USER}>`,
+        from: `"SaaS - Sistema Junta de Condominio" <${SMTP_USER}>`,
         to: recipient || "correojago@gmail.com",
-        subject: `💎 Informe de Gestión Premium - ${edificio.nombre} - ${fechaStr}`,
+        subject: `SaaS - Sistema Junta de Condominio - ${edificio.nombre} - ${fechaStr}`,
         html: modernHtml,
       });
 
