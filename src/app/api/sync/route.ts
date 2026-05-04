@@ -1552,6 +1552,14 @@ if (doSyncGastos) {
       console.error("Error creating sync alert:", e);
     }
 
+    await supabase.from("sincronizaciones").insert({
+      edificio_id: building.id, tipo: mes ? "sync_historica" : "sync_diaria", estado: "completado",
+      movimientos_nuevos: totalRecs, detalles: {
+        mes: mes || "actual", sync_recibos: doSyncRecibos, sync_egresos: doSyncEgresos, sync_gastos: doSyncGastos,
+        sync_alicuotas: doSyncAlicuotas, sync_balance: doSyncBalance,
+        stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal }
+      }
+    });
     await limitLogs(supabase, "sincronizaciones", building.id);
     await limitLogs(supabase, "alertas", building.id);
 
