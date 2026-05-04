@@ -113,7 +113,7 @@ export async function GET(request: Request) {
     sinceHC.setMonth(sinceHC.getMonth() - 12);
     const sinceHCStr = sinceHC.toISOString().substring(0, 10);
 
-    const { data: hcRows } = await supabase
+    const { data: hcRowsRaw } = await supabase
       .from("historico_cobranza")
       .select(
         "fecha, aptos_pendientes_total, monto_pendiente_total, monto_pendiente_total_usd, pct_pendiente, tasa_cambio, " +
@@ -131,6 +131,8 @@ export async function GET(request: Request) {
       .gte("fecha", sinceHCStr)
       .lte("fecha", todayStr)
       .order("fecha", { ascending: true });
+
+    const hcRows = (hcRowsRaw || []) as any[];
 
     const currentMonthStr = todayStr.substring(0, 7);
 
@@ -289,6 +291,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       resumen: {
+        fecha: last.fecha,
         disponibilidadUsd: Number(last.disponibilidad_total_usd) || 0,
         disponibilidadBs: Number(last.disponibilidad_total_bs) || 0,
         saldoFinalUsd: Number(last.saldo_final_usd) || 0,
@@ -298,6 +301,8 @@ export async function GET(request: Request) {
         recibosPendientes: Number(last.recibos_pendientes) || 0,
         tasaActual,
       },
+      registros: records.length,
+      ultimo_registro_fecha: last.fecha,
       saludCaja: {
         mesesCubiertos: Number(mesesCubiertos.toFixed(2)),
         disponibilidadUsd,

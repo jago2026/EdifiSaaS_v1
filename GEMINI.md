@@ -164,12 +164,16 @@ Corregir la lógica de cálculo de totales mensuales basada en fechas de movimie
 ### Tareas Realizadas
 
 #### 1. Corrección de Totales Mensuales (Criterio de Fecha Real)
-- **Problema:** El sistema mostraba cifras del mes anterior para el mes en curso debido a que filtraba por la columna `mes` (que representa el mes de facturación del recibo) en lugar de la fecha cronológica del movimiento.
+- **Problema:** El sistema mostraba cifras del mes anterior para el mes en curso debido a que filtraba por la columna `mes` (que representa el mes de facturación del recibo) en lugar de la fecha cronológica del movimiento. Además, el scraper asignaba por defecto la fecha de "hoy" a gastos sin fecha, provocando que gastos de Abril aparecieran en Mayo.
 - **Solución Aplicada:**
     - **APIs de Resumen:** Se refactorizaron `/api/ingresos-summary`, `/api/gastos-summary` y `/api/egresos-summary` para realizar el conteo y suma basados estrictamente en las columnas de fecha (`fecha_pago` para ingresos, `fecha` para gastos/egresos) dentro del rango del mes calendario actual.
-    - **Dashboard UI (ResumenTab y page.tsx):** Se actualizó la visualización en ambos archivos para priorizar siempre el resumen de movimientos en vivo sobre los datos estáticos de la tabla `balances`. Se corrigieron los indicadores de **Liquidez Inmediata** e **Índice de Cobranza** para que calculen sus valores basados en la actividad real del mes si el último balance no corresponde al mes en curso.
-    - **Estabilidad (Hotfix):** Se corrigió un error de excepción en el lado del cliente (Client-side crash) causado por el uso de una variable no definida (`totalDeuda`) en el ámbito del resumen; se reemplazó por el cálculo directo basado en el estado `recibos`.
-    - **Informe Premium (Email):** Se actualizó la lógica de generación del email en `/api/email` para recalcular `cobranzaMes` y `gastosMes` usando las tablas de movimientos en tiempo real, evitando que el reporte diario muestre datos obsoletos del mes anterior.
+    - **Sincronización Inteligente (`api/sync`):**
+        - Se mejoró el scraper `parseGastosTable` para detectar nombres de meses en español (ABRIL, MAYO, etc.) y múltiples formatos numéricos en los encabezados del portal.
+        - Se implementó una lógica de **fecha base conservadora**: si la sincronización es automática y se realiza en los primeros 10 días del mes, los gastos sin fecha se asignan al último día del mes anterior por defecto, evitando inflar artificialmente el mes en curso si el portal no se ha actualizado.
+    - **Dashboard UI (ResumenTab y page.tsx):** Se actualizó la visualización para priorizar siempre el resumen de movimientos en vivo (`gastosSummary.monto`) sobre los datos estáticos de la tabla `balances` para el mes actual.
+    - **Estabilidad (Hotfix Crítico):** Se corrigió el "Application error: a client-side exception has occurred" mediante la implementación masiva de **optional chaining (?.)** y valores por defecto en los componentes `ResumenTab` e `IndicadoresCaja`, asegurando que el sistema no colapse si algún dato del API llega incompleto o malformado.
+    - **Mejora en Indicadores de Caja:** Se actualizó el API `/api/analytics/control-diario` para incluir metadatos de fecha y conteo de registros, y se corrigieron referencias a variables inexistentes en el frontend.
+    - **Informe Premium (Email):** Se actualizó la lógica de generación del email en `/api/email` para recalcular `cobranzaMes` y `gastosMes` usando las tablas de movimientos en tiempo real.
 
 #### 2. Rediseño y Personalización de Informe Premium
 - **Identidad Visual:** Se actualizó el remitente a **"SaaS - Sistema Junta de Condominio"** y el asunto a `SaaS - Sistema Junta de Condominio - [NOMBRE_EDIFICIO] - [FECHA]`, eliminando terminología de "EdifiSaaS Premium" para una apariencia más institucional.
@@ -182,3 +186,30 @@ Corregir la lógica de cálculo de totales mensuales basada en fechas de movimie
 #### 3. Mantenimiento de Memoria
 - Actualización de `GEMINI.md` para preservar la trazabilidad de las correcciones y mejoras realizadas en la arquitectura de datos y comunicación.
 
+
+---
+
+## Fecha: 2026-05-04 (Gemini - Tarde)
+
+### Objetivo
+Corregir redirección errónea en el Dashboard y solucionar el problema de "Ingresos Fantasma" al inicio del mes.
+
+### Tareas Realizadas
+
+#### 1. Corrección de Navegación (Dashboard)
+- **Problema:** El card de "Cobranza del Mes" en la pantalla principal redirigía a la pestaña de **Balance** en lugar de mostrar el listado de **Ingresos** (pagos recibidos).
+- **Solución Aplicada:**
+    - Se modificó `src/app/dashboard/page.tsx` para cambiar el `setActiveTab("balance")` por `setActiveTab("ingresos")`.
+    - Se replicó la corrección en `src/app/dashboard/ResumenTab.tsx`.
+
+#### 2. Solución de "Ingresos Fantasma" de Mayo (Bs. 738.120,75)
+- **Diagnóstico:** 
+    - Se identificó que al inicio del mes, cuando la administradora limpia la lista de recibos pendientes para el nuevo periodo, el sistema interpretaba esta "desaparición" masiva de deudas como si todos hubieran pagado hoy (4 de Mayo).
+    - Esto inflaba artificialmente los ingresos de Mayo con la deuda total de Abril.
+- **Mejora en Sincronización (`api/sync`):**
+    - Se implementó un **Safeguard (Salvaguarda)**: Si la lista de recibos obtenida está vacía pero previamente había deudores, el sistema ahora detecta que es un "Rollover" de mes y **no** genera pagos automáticos.
+- **Script de Corrección:**
+    - Se creó `supabase/fix_may_ghost_income.sql` para que el usuario pueda mover esos ingresos erróneos de Mayo al 30 de Abril y limpiar el Dashboard actual.
+
+#### 3. Mantenimiento de Memoria
+- Actualización de `GEMINI.md` para reflejar las correcciones críticas en la lógica de conciliación automática.

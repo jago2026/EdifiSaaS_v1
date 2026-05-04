@@ -115,11 +115,11 @@ export function IndicadoresCaja({ edificioId }: { edificioId: string }) {
           tomar decisiones informadas sobre liquidez, divisas, morosidad y fondos reservados.
         </p>
         <div className="mt-4 inline-flex items-center gap-3 text-[10px] font-black uppercase text-gray-400 tracking-widest">
-          <span>📅 Último cierre: {formatDate(resumen.fecha)}</span>
+          <span>📅 Último cierre: {formatDate(resumen?.fecha || data?.ultimo_registro_fecha)}</span>
           <span>•</span>
-          <span>{data.registros} días registrados</span>
+          <span>{data?.registros || 0} días registrados</span>
           <span>•</span>
-          <span>Tasa BCV usada: Bs. {formatBs(resumen.tasaCambio)}</span>
+          <span>Tasa BCV usada: Bs. {formatBs(resumen?.tasaActual || resumen?.tasaCambio || 0)}</span>
         </div>
       </header>
 

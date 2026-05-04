@@ -317,16 +317,38 @@ function parseGastosTable(html: string): any[] {
   if (!html) return [];
   const results: any[] = [];
   
-  // Intentar extraer el mes del encabezado (ej: 04-2026 o 04/2026)
-  // Usamos un regex que soporte varios separadores comunes incluyendo el guion corto especial
-  const monthMatch = html.match(/(\d{2})[\s\-‑\/](\d{4})/);
+  // Intentar extraer el mes del encabezado (ej: 04-2026 o 04/2026 o "MES: ABRIL 2026")
+  // Soporte para nombres de meses en español
+  const mesesEspanol = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
   let fallbackDate = null;
+
+  // 1. Buscar formato numérico MM-YYYY o MM/YYYY
+  const monthMatch = html.match(/(\d{2})[\s\-‑\/](\d{4})/);
   if (monthMatch) {
      const mm = monthMatch[1];
      const yyyy = monthMatch[2];
      const lastDay = new Date(parseInt(yyyy), parseInt(mm), 0).getDate();
      fallbackDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
-     console.log(`[parseGastosTable] Mes detectado en encabezado: ${mm}-${yyyy}. Usando fallback: ${fallbackDate}`);
+  } else {
+     // 2. Buscar nombres de meses
+     const upperHtml = html.toUpperCase();
+     for (let i = 0; i < mesesEspanol.length; i++) {
+       if (upperHtml.includes(mesesEspanol[i])) {
+          // Intentar encontrar el año cerca del mes
+          const yearMatch = upperHtml.match(new RegExp(mesesEspanol[i] + "[\\s]*(\\d{4})"));
+          if (yearMatch) {
+            const mm = String(i + 1).padStart(2, '0');
+            const yyyy = yearMatch[1];
+            const lastDay = new Date(parseInt(yyyy), parseInt(mm), 0).getDate();
+            fallbackDate = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+            break;
+          }
+       }
+     }
+  }
+
+  if (fallbackDate) {
+    console.log(`[parseGastosTable] Mes detectado en HTML. Usando fallback: ${fallbackDate}`);
   }
 
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
@@ -754,9 +776,14 @@ export async function POST(request: Request) {
       });
       const deudoresAnterioresUnicos = Array.from(new Set(deudoresAntes?.map(d => d.unidad) || []));
       
-      for (const unidadPrevia of deudoresAnterioresUnicos) {
-        const unidadKey = String(unidadPrevia || '').trim().toUpperCase();
-        if (!unidadesAhora.has(unidadPrevia)) {
+      // SAFEGUARD: If allRecibos is empty but we had many debtors before, it's likely a month rollover
+      // by the administrator, not that everyone paid at once. Skip auto-detection in this case.
+      const isPossibleRollover = allRecibos.length === 0 && deudoresAnterioresUnicos.length > 5;
+      
+      if (!isPossibleRollover) {
+        for (const unidadPrevia of deudoresAnterioresUnicos) {
+          const unidadKey = String(unidadPrevia || '').trim().toUpperCase();
+          if (!unidadesAhora.has(unidadPrevia)) {
           // Filtrar todas las deudas de esta unidad que estaban en nuestra DB
           const rawDeudasUnidad = deudoresAntes?.filter(d => d.unidad === unidadPrevia) || [];
           
@@ -1176,6 +1203,18 @@ if (doSyncGastos) {
         const [mm, yyyy] = mes.split("-");
         const lastDay = new Date(parseInt(yyyy), parseInt(mm), 0).getDate();
         baseFechaGasto = `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}`;
+      } else if (!mes) {
+        // Si es sync automático y estamos en los primeros 10 días del mes,
+        // y no se detectó fecha en el objeto g, es probable que el portal aún muestre el mes anterior.
+        const now = new Date();
+        if (now.getDate() <= 10) {
+          const prevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+          const pY = prevMonth.getFullYear();
+          const pM = String(prevMonth.getMonth() + 1).padStart(2, '0');
+          const pD = String(prevMonth.getDate()).padStart(2, '0');
+          baseFechaGasto = `${pY}-${pM}-${pD}`;
+          console.log(`[Sync] Sync automático detectado en inicio de mes (${now.getDate()} <= 10). Usando fallback mes anterior: ${baseFechaGasto}`);
+        }
       }
 
       // Combinar gastos de la tabla de gastos con los del detalle del recibo si la tabla viene vacía

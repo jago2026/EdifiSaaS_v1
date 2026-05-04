@@ -53,40 +53,40 @@ export function ResumenTab({
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Saldo actual según el portal de la administradora. Puedes hacer clic para ver más detalles.">
             <div className="text-sm text-gray-500 mb-1">Saldo Disponible seg&uacute;n Web Admin</div>
             <div className="text-2xl font-bold text-blue-600">Bs.{formatBs(balance?.saldo_disponible || 0)}</div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.saldo_disponible || 0) / tasaBCV.dolar)}</div>}
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.saldo_disponible || 0) / tasaBCV.dolar)}</div>}
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
+          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("ingresos")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
             <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>
-            <div className="text-2xl font-bold text-green-600">Bs.{formatBs(ingresosSummary.monto)}</div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(ingresosSummary.monto / tasaBCV.dolar)}</div>}
+            <div className="text-2xl font-bold text-green-600">Bs.{formatBs(ingresosSummary?.monto || 0)}</div>
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((ingresosSummary?.monto || 0) / tasaBCV.dolar)}</div>}
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
             <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
-            <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(gastosSummary.monto))}</div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs(gastosSummary.monto / tasaBCV.dolar))}</div>}
+            <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(gastosSummary?.monto || 0))}</div>
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((gastosSummary?.monto || 0) / tasaBCV.dolar))}</div>}
             <div className="text-xs text-gray-400 mt-1">
-              {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
+              {(gastosSummary?.cantidad || 0)} movimiento{(gastosSummary?.cantidad || 0) !== 1 ? "s" : ""}
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado para emergencias y mantenimiento mayor.">
             <div className="text-sm text-gray-500 mb-1">Fondo Reserva</div>
             <div className="text-2xl font-bold text-purple-600">Bs.{formatBs(balance?.fondo_reserva || 0)}</div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
           </div>
         </div>
       )}
 
       {/* Módulos de Gastos y Egresos */}
-      {(editConfig.dashboard_config?.cg !== false || user?.id === "superuser-id") && (
+      {(editConfig?.dashboard_config?.cg !== false || user?.id === "superuser-id") && (
         <div className="grid md:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("egresos")} title="Pagos a proveedores y servicios externos realizados en el mes actual.">
             <div className="text-sm text-gray-500 mb-1">Egresos del Mes</div>
             <div className="text-2xl font-bold text-red-600">
-              Bs.{formatBs(egresosSummary.monto)}
+              Bs.{formatBs(egresosSummary?.monto || 0)}
             </div>
-            {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(egresosSummary.monto / tasaBCV.dolar)}</div>}
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((egresosSummary?.monto || 0) / tasaBCV.dolar)}</div>}
             <div className="text-xs text-gray-400 mt-1">
-              {egresosSummary.cantidad} movimiento{egresosSummary.cantidad !== 1 ? "s" : ""}
+              {(egresosSummary?.cantidad || 0)} movimiento{(egresosSummary?.cantidad || 0) !== 1 ? "s" : ""}
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total de apartamentos con deuda pendiente y monto total por cobrar.">
@@ -214,9 +214,13 @@ export function ResumenTab({
                 <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
                 <div className="text-xl font-black text-blue-800">
                   {(() => {
-                    const gMes = (balance?.mes === new Date().toISOString().substring(0, 7)) 
-                      ? Math.abs(balance.gastos_facturados) 
-                      : Math.abs(gastosSummary.monto);
+                    // El usuario pide que para el mes en curso se usen SIEMPRE los montos obtenidos 
+                    // sumando las cifras de los gastos de los movimientos (gastosSummary.monto)
+                    const isCurrent = balance?.mes === new Date().toISOString().substring(0, 7);
+                    const gMes = isCurrent 
+                      ? Math.abs(gastosSummary?.monto || 0)
+                      : (Math.abs(balance?.gastos_facturados || 0) || Math.abs(gastosSummary?.monto || 0));
+                    
                     return (gMes && gMes !== 0) 
                       ? formatNumber((balance?.saldo_disponible || 0) / gMes, 2) 
                       : "N/A";
@@ -229,9 +233,9 @@ export function ResumenTab({
                 <div className="text-xl font-black text-green-800">
                   {(() => {
                     const isCurrent = balance?.mes === new Date().toISOString().substring(0, 7);
-                    const cMes = isCurrent ? (balance.cobranza_mes || 0) : (ingresosSummary.monto || 0);
-                    const currentTotalDeuda = recibos.reduce((sum, r) => sum + Number(r.deuda || 0), 0);
-                    const rMes = isCurrent ? (balance.recibos_mes || 0) : (currentTotalDeuda + (ingresosSummary.monto || 0));
+                    const cMes = isCurrent ? (balance?.cobranza_mes || 0) : (ingresosSummary?.monto || 0);
+                    const currentTotalDeuda = (recibos || []).reduce((sum, r) => sum + Number(r?.deuda || 0), 0);
+                    const rMes = isCurrent ? (balance?.recibos_mes || 0) : (currentTotalDeuda + (ingresosSummary?.monto || 0));
                     return (rMes && rMes !== 0) 
                       ? formatNumber((cMes / rMes) * 100, 1)
                       : "0.0";
