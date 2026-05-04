@@ -167,7 +167,8 @@ Corregir la lógica de cálculo de totales mensuales basada en fechas de movimie
 - **Problema:** El sistema mostraba cifras del mes anterior para el mes en curso debido a que filtraba por la columna `mes` (que representa el mes de facturación del recibo) en lugar de la fecha cronológica del movimiento.
 - **Solución Aplicada:**
     - **APIs de Resumen:** Se refactorizaron `/api/ingresos-summary`, `/api/gastos-summary` y `/api/egresos-summary` para realizar el conteo y suma basados estrictamente en las columnas de fecha (`fecha_pago` para ingresos, `fecha` para gastos/egresos) dentro del rango del mes calendario actual.
-    - **Dashboard UI (ResumenTab):** Se actualizó la visualización para priorizar siempre el resumen de movimientos en vivo sobre los datos estáticos de la tabla `balances`, asegurando que si no hay movimientos en el mes, se muestre 0 en lugar de arrastrar datos del mes anterior.
+    - **Dashboard UI (ResumenTab y page.tsx):** Se actualizó la visualización en ambos archivos para priorizar siempre el resumen de movimientos en vivo sobre los datos estáticos de la tabla `balances`. Se corrigieron los indicadores de **Liquidez Inmediata** e **Índice de Cobranza** para que calculen sus valores basados en la actividad real del mes si el último balance no corresponde al mes en curso.
+    - **Informe Premium (Email):** Se actualizó la lógica de generación del email en `/api/email` para recalcular `cobranzaMes` y `gastosMes` usando las tablas de movimientos en tiempo real, evitando que el reporte diario muestre datos obsoletos del mes anterior.
 
 #### 2. Rediseño y Personalización de Informe Premium
 - **Identidad Visual:** Se actualizó el remitente a **"SaaS - Sistema Junta de Condominio"** y el asunto a `SaaS - Sistema Junta de Condominio - [NOMBRE_EDIFICIO] - [FECHA]`, eliminando terminología de "EdifiSaaS Premium" para una apariencia más institucional.

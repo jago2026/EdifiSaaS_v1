@@ -213,18 +213,28 @@ export function ResumenTab({
               <div className="bg-blue-50 p-3 rounded-lg group" title="Indica cuántas veces el saldo disponible puede cubrir los gastos mensuales. Valores superiores a 1 son saludables.">
                 <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
                 <div className="text-xl font-black text-blue-800">
-                  {balance?.gastos_facturados && balance.gastos_facturados !== 0 
-                    ? formatNumber(balance.saldo_disponible / Math.abs(balance.gastos_facturados), 2) 
-                    : "N/A"}
+                  {(() => {
+                    const gMes = (balance?.mes === new Date().toISOString().substring(0, 7)) 
+                      ? Math.abs(balance.gastos_facturados) 
+                      : Math.abs(gastosSummary.monto);
+                    return (gMes && gMes !== 0) 
+                      ? formatNumber(balance.saldo_disponible / gMes, 2) 
+                      : "N/A";
+                  })()}
                 </div>
                 <div className="text-[9px] text-blue-500 leading-tight">Veces que el saldo cubre los gastos del mes</div>
               </div>
               <div className="bg-green-50 p-3 rounded-lg group" title="Porcentaje de efectividad en la cobranza del mes actual. Por encima de 80% se considera bueno.">
                 <div className="text-[10px] font-bold text-green-600 uppercase mb-1">Índice de Cobranza</div>
                 <div className="text-xl font-black text-green-800">
-                  {balance?.recibos_mes && balance.recibos_mes !== 0 
-                    ? formatNumber((balance.cobranza_mes / balance.recibos_mes) * 100, 1)
-                    : "0.0"}%
+                  {(() => {
+                    const isCurrent = balance?.mes === new Date().toISOString().substring(0, 7);
+                    const cMes = isCurrent ? balance.cobranza_mes : ingresosSummary.monto;
+                    const rMes = isCurrent ? balance.recibos_mes : (recibos.reduce((sum, r) => sum + Number(r.deuda), 0) + ingresosSummary.monto);
+                    return (rMes && rMes !== 0) 
+                      ? formatNumber((cMes / rMes) * 100, 1)
+                      : "0.0";
+                  })()}%
                 </div>
                 <div className="text-[9px] text-green-500 leading-tight">Efectividad de recaudación del mes</div>
               </div>

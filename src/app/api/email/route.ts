@@ -507,8 +507,15 @@ export async function POST(request: Request) {
       const manualTotal = (manualMovs || []).reduce((sum, m) => sum + (Number(m.saldo_inicial) || 0) + (Number(m.ingresos) || 0) - (Number(m.egresos) || 0), 0);
       
       // -- 2. CÁLCULOS --
-      const cobranzaMes = Number(balance?.cobranza_mes || 0);
-      const gastosMes = Number(balance?.gastos_facturados || 0);
+      const currentMesStr = todayDate.toISOString().substring(0, 7);
+      
+      // Obtener totales reales del mes en curso desde las tablas de movimientos (no del balance histórico)
+      const { data: realPagosMes } = await supabase.from("pagos_recibos").select("monto").eq("edificio_id", edificioId).gte("fecha_pago", `${currentMesStr}-01`).lte("fecha_pago", `${currentMesStr}-31`);
+      const { data: realGastosMes } = await supabase.from("gastos").select("monto").eq("edificio_id", edificioId).gte("fecha", `${currentMesStr}-01`).lte("fecha", `${currentMesStr}-31`).neq("codigo", "TOTAL").neq("codigo", "00001").not("descripcion", "ilike", "%FONDO%");
+
+      const cobranzaMes = (realPagosMes || []).reduce((s, p) => s + Number(p.monto || 0), 0);
+      const gastosMes = (realGastosMes || []).reduce((s, g) => s + Number(g.monto || 0), 0);
+      
       const saldoDisp = Number(balance?.saldo_disponible || 0);
       const fondoRes = Number(balance?.fondo_reserva || 0);
       const disponibilidadTotal = saldoDisp + fondoRes;

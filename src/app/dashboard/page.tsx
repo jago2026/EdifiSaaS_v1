@@ -2530,13 +2530,13 @@ export default function DashboardPage() {
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
                   <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>
-                  <div className="text-2xl font-bold text-green-600">Bs.{formatBs(balance?.cobranza_mes || ingresosSummary.monto)}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.cobranza_mes || ingresosSummary.monto) / tasaBCV.dolar)}</div>}
+                  <div className="text-2xl font-bold text-green-600">Bs.{formatBs(ingresosSummary.monto)}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(ingresosSummary.monto / tasaBCV.dolar)}</div>}
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
                   <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
-                  <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(balance?.gastos_facturados || gastosSummary.monto))}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((balance?.gastos_facturados || gastosSummary.monto) / tasaBCV.dolar))}</div>}
+                  <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(gastosSummary.monto))}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs(gastosSummary.monto / tasaBCV.dolar))}</div>}
                   <div className="text-xs text-gray-400 mt-1">
                     {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
                   </div>
@@ -2686,18 +2686,28 @@ export default function DashboardPage() {
                     <div className="bg-blue-50 p-3 rounded-lg group" title="Indica cuántas veces el saldo disponible puede cubrir los gastos mensuales. Valores superiores a 1 son saludables.">
                       <div className="text-[10px] font-bold text-blue-600 uppercase mb-1">Liquidez Inmediata</div>
                       <div className="text-xl font-black text-blue-800">
-                        {balance?.gastos_facturados && balance.gastos_facturados !== 0 
-                          ? formatNumber(balance.saldo_disponible / Math.abs(balance.gastos_facturados), 2) 
-                          : "N/A"}
+                        {(() => {
+                          const gMes = (balance?.mes === new Date().toISOString().substring(0, 7)) 
+                            ? Math.abs(balance.gastos_facturados) 
+                            : Math.abs(gastosSummary.monto);
+                          return (gMes && gMes !== 0) 
+                            ? formatNumber(balance.saldo_disponible / gMes, 2) 
+                            : "N/A";
+                        })()}
                       </div>
                       <div className="text-[9px] text-blue-500 leading-tight">Veces que el saldo cubre los gastos del mes</div>
                     </div>
                     <div className="bg-green-50 p-3 rounded-lg group" title="Porcentaje de efectividad en la cobranza del mes actual. Por encima de 80% se considera bueno.">
                       <div className="text-[10px] font-bold text-green-600 uppercase mb-1">Índice de Cobranza</div>
                       <div className="text-xl font-black text-green-800">
-                        {balance?.recibos_mes && balance.recibos_mes !== 0 
-                          ? formatNumber((balance.cobranza_mes / balance.recibos_mes) * 100, 1)
-                          : "0.0"}%
+                        {(() => {
+                          const isCurrent = balance?.mes === new Date().toISOString().substring(0, 7);
+                          const cMes = isCurrent ? balance.cobranza_mes : ingresosSummary.monto;
+                          const rMes = isCurrent ? balance.recibos_mes : (totalDeuda + ingresosSummary.monto); // Aproximación si no hay balance
+                          return (rMes && rMes !== 0) 
+                            ? formatNumber((cMes / rMes) * 100, 1)
+                            : "0.0";
+                        })()}%
                       </div>
                       <div className="text-[9px] text-green-500 leading-tight">Efectividad de recaudación del mes</div>
                     </div>
