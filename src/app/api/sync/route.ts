@@ -730,8 +730,10 @@ export async function POST(request: Request) {
     console.log(`- Parsed Recibo Total: ${monthlyReceiptTotal}`);
     console.log(`- Parsed Detailed Items (Gastos): ${detailedReceiptItems.length}`);
 
-    if (doSyncRecibos && allRecibos.length > 0) {
-      console.log(`Guardando ${allRecibos.length} recibos para ${mesEstandar}`);
+    if (doSyncRecibos) {
+      if (allRecibos.length > 0) {
+        console.log(`Guardando ${allRecibos.length} recibos para ${mesEstandar}`);
+      }
       
       // 1. Obtener deudores actuales en nuestra DB antes de limpiar
       const { data: deudoresAntes } = await supabase
@@ -739,32 +741,37 @@ export async function POST(request: Request) {
         .select("unidad, propietario, deuda")
         .eq("edificio_id", building.id);
 
-      // Deduplicar allRecibos antes de guardar para evitar inconsistencias
-      const uniqueRecibosMap = new Map();
-      allRecibos.forEach(r => {
-        const key = `${r.unidad}-${Math.round(r.deuda * 100) / 100}`;
-        if (!uniqueRecibosMap.has(key)) uniqueRecibosMap.set(key, r);
-      });
-      const deduplicatedRecibos = Array.from(uniqueRecibosMap.values());
+      if (allRecibos.length > 0) {
+        // Deduplicar allRecibos antes de guardar para evitar inconsistencias
+        const uniqueRecibosMap = new Map();
+        allRecibos.forEach(r => {
+          const key = `${r.unidad}-${Math.round(r.deuda * 100) / 100}`;
+          if (!uniqueRecibosMap.has(key)) uniqueRecibosMap.set(key, r);
+        });
+        const deduplicatedRecibos = Array.from(uniqueRecibosMap.values());
 
-      const recibosToSave = deduplicatedRecibos.map(r => ({
-        edificio_id: building.id,
-        unidad: r.unidad,
-        propietario: r.propietario,
-        num_recibos: r.num_recibos,
-        deuda: r.deuda,
-        deuda_usd: r.deuda_usd,
-        sincronizado: true,
-        actualizado_en: today,
-        mes: mesEstandar
-      }));
+        const recibosToSave = deduplicatedRecibos.map(r => ({
+          edificio_id: building.id,
+          unidad: r.unidad,
+          propietario: r.propietario,
+          num_recibos: r.num_recibos,
+          deuda: r.deuda,
+          deuda_usd: r.deuda_usd,
+          sincronizado: true,
+          actualizado_en: today,
+          mes: mesEstandar
+        }));
 
-      // 2. Limpieza del mes actual
-      await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
-      
-      // 3. Insertar nuevos datos
-      const { error: recErr } = await supabase.from("recibos").insert(recibosToSave);
-      if (recErr) console.error("Error guardando recibos:", recErr);
+        // 2. Limpieza del mes actual
+        await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
+        
+        // 3. Insertar nuevos datos
+        const { error: recErr } = await supabase.from("recibos").insert(recibosToSave);
+        if (recErr) console.error("Error guardando recibos:", recErr);
+      } else {
+        // Si no hay recibos nuevos, igual limpiamos el mes actual para reflejar la realidad del portal
+        await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
+      }
 
       // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN Y PAGOS PARCIALES
       const unidadesAhora = new Set(allRecibos.map(r => r.unidad));
@@ -957,6 +964,7 @@ export async function POST(request: Request) {
           }
         }
       }
+    }
     }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
@@ -1544,14 +1552,6 @@ if (doSyncGastos) {
       console.error("Error creating sync alert:", e);
     }
 
-    await supabase.from("sincronizaciones").insert({
-      edificio_id: building.id, tipo: mes ? "sync_historica" : "sync_diaria", estado: "completado",
-      movimientos_nuevos: totalRecs, detalles: {
-        mes: mes || "actual", sync_recibos: doSyncRecibos, sync_egresos: doSyncEgresos, sync_gastos: doSyncGastos,
-        sync_alicuotas: doSyncAlicuotas, sync_balance: doSyncBalance,
-        stats: { recibos: allRecibos.length, egresos: allEgresos.length, gastos: allGastos.length, alicuotas: allAlicuotas.length, recibo_total: monthlyReceiptTotal }
-      }
-    });
     await limitLogs(supabase, "sincronizaciones", building.id);
     await limitLogs(supabase, "alertas", building.id);
 
