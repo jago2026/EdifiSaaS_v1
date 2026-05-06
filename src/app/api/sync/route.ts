@@ -64,17 +64,47 @@ function normalizeFecha(fecha: string): string {
   }).format(new Date());
 }
 
-// Extraer código de unidad (ej: "08-C - NOMBRE" -> "08-C")
+// Extraer código de unidad de forma más robusta (ej: "08-C - NOMBRE" -> "08-C", "APTO 08-C" -> "08-C")
 function extractUnitCode(raw: string): string {
   if (!raw) return "";
-  return raw.split(' - ')[0].trim().toUpperCase();
+  let text = raw.toUpperCase().trim();
+  
+  // 1. Quitar prefijos comunes si existen (APTO, APARTAMENTO, CASA, UNIDAD, UNIT, etc.)
+  const prefixes = ["APTO", "APARTAMENTO", "CASA", "UNIDAD", "UNIT", "LOCAL"];
+  for (const p of prefixes) {
+    if (text.startsWith(p + " ")) {
+      text = text.replace(p + " ", "").trim();
+      break;
+    }
+  }
+
+  // 2. Si tiene guion con espacios " - ", tomar la primera parte (estándar RascaCielo)
+  if (text.includes(" - ")) {
+    return text.split(" - ")[0].trim();
+  }
+
+  // 3. Si no tiene " - " pero tiene espacios, y la primera parte parece un código (ej: "08-C NOMBRE")
+  // Un código suele tener números o guiones y ser corto.
+  const parts = text.split(" ");
+  if (parts.length > 1) {
+    const firstPart = parts[0];
+    // Si la primera parte contiene números o es muy corta, es probable que sea el código
+    if (/\d/.test(firstPart) || firstPart.length <= 5) {
+      return firstPart;
+    }
+  }
+
+  return text;
 }
 
 // Función auxiliar para deduplicar arrays de objetos basados en propiedades clave
 function deduplicateItems(items: any[], keys: string[]): any[] {
   const seen = new Set();
   return items.filter(item => {
-    const val = keys.map(k => item[k]).join('|');
+    const val = keys.map(k => {
+      const v = item[k];
+      return typeof v === 'number' ? v.toFixed(2) : String(v || '').trim().toUpperCase();
+    }).join('|');
     if (seen.has(val)) return false;
     seen.add(val);
     return true;
@@ -217,10 +247,16 @@ function parseReceiptMonthlySummary(html: string): number {
 function parseRecibosTableAll(html: string): { data: any[], isComplete: boolean } {
   const results: any[] = [];
   const upperHtml = html?.toUpperCase() || "";
-  const isComplete = upperHtml.includes("TOTALES") || upperHtml.includes("TOTAL:");
+  // Ampliamos el criterio de completitud para ser más flexibles con distintos formatos de tabla
+  const isComplete = upperHtml.includes("TOTALES") || 
+                     upperHtml.includes("TOTAL:") || 
+                     upperHtml.includes("TOTAL GENERAL") || 
+                     upperHtml.includes("TOTAL DEUDORES") ||
+                     upperHtml.includes("SUMA TOTAL");
   
   const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) || 
-                     html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
+                     html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i) ||
+                     html.match(/<table[^>]*>([\s\S]*?PROPIETARIO[\s\S]*?DEUDA[\s\S]*?)<\/table>/i);
   if (!tableMatch) return { data: results, isComplete: false };
   
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
@@ -232,8 +268,9 @@ function parseRecibosTableAll(html: string): { data: any[], isComplete: boolean 
     const numRecibosCell = cleanHtml(cells[2]);
     const deudaCell = cleanHtml(cells[3]);
     
-    if (propietario.toUpperCase().includes("TOTALES")) continue;
-    if (!unidad || unidad.length > 15) continue;
+    const propUpper = propietario.toUpperCase();
+    if (propUpper.includes("TOTALES") || propUpper.includes("TOTAL GENERAL") || propUpper.includes("TOTAL:")) continue;
+    if (!unidad || unidad.length > 25) continue; // Unidades pueden ser un poco largas a veces
 
     const matchUSD = deudaCell.match(/\(([^\)]+)\)/);
     const mUSD = matchUSD ? Math.abs(parseMonto(matchUSD[1])) : 0;
@@ -815,27 +852,27 @@ export async function POST(request: Request) {
       }
 
       // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN Y PAGOS PARCIALES
-      // Normalización de unidades para comparación robusta
-      const unidadesAhora = new Set(allRecibos.map(r => String(r.unidad || '').trim().toUpperCase()));
+      // Normalización de unidades para comparación robusta (usando solo el código base ej: "08-C")
+      const unidadesAhora = new Set(allRecibos.map(r => extractUnitCode(r.unidad)));
       
-      // Mapa de deuda actual por unidad (después del sync)
+      // Mapa de deuda actual por unidad normalizada (después del sync)
       const deudaAhora = new Map<string, number>();
       allRecibos.forEach(r => {
-        const key = String(r.unidad || '').trim().toUpperCase();
+        const key = extractUnitCode(r.unidad);
         deudaAhora.set(key, (deudaAhora.get(key) || 0) + Number(r.deuda || 0));
       });
 
-      const deudoresAnterioresUnicos = Array.from(new Set(deudoresAntes?.map(d => String(d.unidad || '').trim().toUpperCase()) || []));
-      let pagosDetectadosSync = 0;
-      let montoTotalDetectadoSync = 0;
+      const deudoresAnteriores = deudoresAntes || [];
+      // Usamos un Set de códigos normalizados para saber qué unidades tenían deuda
+      const codigosAnterioresUnicos = Array.from(new Set(deudoresAnteriores.map(d => extractUnitCode(d.unidad))));
       
       // SAFEGUARD: If allRecibos is empty but we had many debtors before, it's likely a month rollover
       // or a glitch. We should NOT clear the table if it's a glitch.
-      const isPossibleRollover = allRecibos.length === 0 && deudoresAnterioresUnicos.length > 5;
+      const isPossibleRollover = allRecibos.length === 0 && codigosAnterioresUnicos.length > 5;
       
       // NUEVO UMBRAL DE SEGURIDAD: Si desaparecen más del 40% de los deudores de golpe, sospechar.
-      const pctDesaparecidos = deudoresAnterioresUnicos.length > 0 ? (deudoresAnterioresUnicos.length - allRecibos.length) / deudoresAnterioresUnicos.length : 0;
-      const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && deudoresAnterioresUnicos.length > 10;
+      const pctDesaparecidos = codigosAnterioresUnicos.length > 0 ? (codigosAnterioresUnicos.length - unidadesAhora.size) / codigosAnterioresUnicos.length : 0;
+      const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && codigosAnterioresUnicos.length > 10;
 
       if (isPossibleRollover || isSuspiciousMassPayment) {
         const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>40%)";
@@ -843,7 +880,7 @@ export async function POST(request: Request) {
           edificio_id: building.id,
           tipo: "warning",
           titulo: `⚠️ ${razon}`,
-          descripcion: `Se detectó que ${deudoresAnterioresUnicos.length - allRecibos.length} inmuebles ya no figuran con deuda. Por seguridad, se suspendió la detección automática. Si esto es correcto, vuelve a sincronizar en unos minutos.`,
+          descripcion: `Se detectó que ${codigosAnterioresUnicos.length - unidadesAhora.size} inmuebles ya no figuran con deuda. Por seguridad, se suspendió la detección automática. Si esto es correcto, vuelve a sincronizar en unos minutos.`,
           fecha: today
         });
         console.log(`[SYNC] ${razon}. Skipping auto-detection.`);
@@ -852,16 +889,16 @@ export async function POST(request: Request) {
         let pagosDetectadosSync = 0;
         let montoTotalDetectadoSync = 0;
 
-        for (const unidadPrevia of deudoresAnterioresUnicos) {
-          const unidadKey = String(unidadPrevia || '').trim().toUpperCase();
+        for (const codigoPrevio of codigosAnterioresUnicos) {
+          const unidadKey = codigoPrevio;
           
           if (!unidadesAhora.has(unidadKey)) {
-            // Filtrar todas las deudas de esta unidad que estaban en nuestra DB
-            const rawDeudasUnidad = deudoresAntes?.filter(d => String(d.unidad || '').trim().toUpperCase() === unidadKey) || [];
+            // Filtrar todas las deudas de esta unidad (por código normalizado)
+            const deudasUnidadRaw = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
             
             // DEDUPLICAR deudas locales antes de sumar (evita multiplicación por duplicidad en DB)
             const uniqueDeudasMap = new Map();
-            rawDeudasUnidad.forEach(d => {
+            deudasUnidadRaw.forEach(d => {
               const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
               if (!uniqueDeudasMap.has(key)) uniqueDeudasMap.set(key, d);
             });
@@ -869,7 +906,7 @@ export async function POST(request: Request) {
 
             const montoTotalPagado = deudasUnidad.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
             const propietario = deudasUnidad[0]?.propietario || "Copropietario";
-            const normalizedUnitPrev = extractUnitCode(unidadKey);
+            const normalizedUnitPrev = unidadKey;
 
             if (montoTotalPagado > 0) {
               console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${normalizedUnitPrev} pagó Bs. ${montoTotalPagado}`);
@@ -943,13 +980,17 @@ export async function POST(request: Request) {
               }
             }
 
-            // E. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo 
-            await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: unidadKey });
+            // E. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo (por código normalizado)
+            // Primero obtenemos las unidades reales que coinciden con este código
+            const rawDeudasABorrar = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
+            for (const d of rawDeudasABorrar) {
+              await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: d.unidad });
+            }
           } else {
             // La unidad sigue en la lista de deudores pero con deuda diferente: detectar pago parcial
-            const rawDeudasUnidad = deudoresAntes?.filter(d => String(d.unidad || '').trim().toUpperCase() === unidadKey) || [];
+            const deudasUnidadAntesRaw = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
             const uniqueDeudasMap2 = new Map();
-            rawDeudasUnidad.forEach(d => {
+            deudasUnidadAntesRaw.forEach(d => {
               const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
               if (!uniqueDeudasMap2.has(key)) uniqueDeudasMap2.set(key, d);
             });
@@ -960,7 +1001,7 @@ export async function POST(request: Request) {
 
             if (montoParcial > 0.01) {
               const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
-              const normalizedUnitParcial = extractUnitCode(unidadKey);
+              const normalizedUnitParcial = unidadKey;
               console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${normalizedUnitParcial} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
 
               // Marcar como detectado en esta sesión para evitar doble detección r=1
@@ -1135,7 +1176,8 @@ export async function POST(request: Request) {
         const finalMes = mes ? mesEstandar : derivedMes;
 
         // Hash estable sin la fecha exacta de sincronización si es posible, o simplemente usar upsert con hash único
-        const hash = await generateHash(`${finalMes}|${e.beneficiario}|${e.monto}`);
+        // Incluimos la descripción/operación para evitar colisiones entre egresos del mismo monto y beneficiario
+        const hash = await generateHash(`EGRESO|${finalMes}|${e.beneficiario}|${e.monto}|${e.operacion}`);
         
         await supabase.from("egresos").upsert({ 
           edificio_id: building.id, 

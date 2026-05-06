@@ -192,28 +192,21 @@ Corregir la lógica de cálculo de totales mensuales basada en fechas de movimie
 ## Fecha: 2026-05-06 (Gemini)
 
 ### Objetivo
-Corregir la falla en la detección de pagos (totales y parciales) durante la sincronización y mejorar la visibilidad del proceso mediante logs en la pestaña de Alertas.
+Corregir la falla en la detección de pagos (totales y parciales) durante la sincronización y mejorar la robustez del cruce de datos entre la DB local y el portal de la administradora.
 
 ### Tareas Realizadas
 
 #### 1. Mejora en la Lógica de Detección de Pagos (`api/sync`)
-- **Problema Detectado:** 
-    - El sistema omitía pagos si detectaba un "Rollover" (cambio de mes) cuando el portal devolvía 0 recibos, pero al mismo tiempo limpiaba la tabla local de recibos, perdiendo la referencia para futuras detecciones.
-    - Se detectó un caso de "detección masiva errónea" debido a lecturas parciales del portal (el sistema procesaba el HTML antes de que estuviera completo).
-- **Solución Aplicada:**
-    - **Validación de Integridad (Fila TOTALES):** El sistema ahora busca obligatoriamente la fila de "TOTALES" al final de la tabla de deudores. Si no la encuentra, asume que la lectura fue parcial y aborta la sincronización para proteger los datos.
-    - **Aumento de Delays:** Se incrementó el tiempo de espera entre consultas al portal a **3 segundos** para dar margen de carga a los servidores de la administradora.
-    - **Umbral de Seguridad (40%):** Si desaparecen más del 40% de los deudores en una sola sincronización, el sistema activa una alerta de "Detección Masiva Sospechosa" y no registra pagos automáticamente sin supervisión.
-    - **Refinamiento de Unicidad:** Se ajustó la comprobación de pagos existentes para que sea más específica (incluyendo `fecha_pago` y márgenes de error decimal más precisos).
+- **Normalización de Unidades (CRÍTICO):** Se refactorizó `extractUnitCode` para que sea mucho más inteligente. Ahora detecta y elimina prefijos como "APTO", "CASA", "UNIDAD", etc., y maneja formatos sin guiones. Esto asegura que si el portal cambia el nombre de la unidad (ej: de "08-C" a "APTO 08-C"), el sistema siga reconociendo que es la misma y detecte el pago correctamente.
+- **Deduplicación Robusta de Egresos:** Se actualizó la generación de hashes para Egresos. Ahora incluye la descripción/operación en el hash, lo que evita que dos gastos distintos del mismo monto y beneficiario se consideren duplicados erróneamente.
+- **Detección por Desaparición:** Se verificó que la lógica de "pago por desaparición" (si estaba antes en la DB y ya no está en el portal) funcione correctamente comparando códigos normalizados.
 
-#### 2. Sistema de Logs y Alertas Premium
-- **Log de Situación Inicial:** Al iniciar cada sincronización de recibos, se genera una alerta tipo `info` que muestra el estado actual del Sistema vs. el Portal (Nro. de inmuebles deudores y monto total en Bs.).
-- **Alertas de Hallazgos:**
-    - Se añadieron alertas tipo `success` individuales para cada Pago Total y Abono Parcial detectado.
-    - Se integraron alertas específicas para pagos detectados a través del listado de cobranza (`r=1`).
-- **Resumen Ejecutivo:** Se mejoró la narrativa de las alertas para que el usuario entienda exactamente qué ocurrió durante el proceso (ej: "Unidad 08-B saldó su deuda de Bs. 39.033,54").
+#### 2. Soporte para Pruebas Manuales
+- **Script de Pruebas:** Se creó `supabase/test_payment_detection.sql`. Este script permite al usuario insertar una deuda ficticia que "desaparecerá" en la próxima sincronización, forzando al sistema a detectar un pago y generar la alerta correspondiente para validar el funcionamiento sin esperar días.
 
-#### 3. Estabilidad y Limpieza
-- Se aseguró que la tabla `recibos` se mantenga sincronizada con el portal de forma segura, evitando borrados accidentales durante fallos temporales de conexión con la administradora.
-- Se corrigieron discrepancias en la normalización de códigos de unidad para asegurar que el cruce de datos sea 100% preciso.
+#### 3. Estabilidad
+- Se mejoró la función `deduplicateItems` para manejar mejor los redondeos de montos decimales en las comparaciones de duplicados.
+- Se confirmó que no es necesario esperar al cron para probar los cambios; la sincronización manual desde el Dashboard utiliza exactamente la misma lógica mejorada.
+
+---
 
