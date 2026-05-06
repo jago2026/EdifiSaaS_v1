@@ -908,7 +908,7 @@ export async function POST(request: Request) {
                 // B. Generar alerta de pago asumido
                 await supabase.from("alertas").insert({
                   edificio_id: building.id,
-                  tipo: "ingreso",
+                  tipo: "success",
                   titulo: "✅ Deuda Cancelada (Auto)",
                   descripcion: `La unidad ${unidadKey} (${propietario}) ha saldado su deuda total de Bs. ${formatNumber(montoTotalPagado)}. Detectado por conciliación de lista.`,
                   fecha: today
@@ -918,7 +918,7 @@ export async function POST(request: Request) {
                 const hashMov = await generateHash(`PAGO_AUTO|${building.id}|${unidadKey}|${montoTotalPagado}|${today}`);
                 await supabase.from("movimientos").upsert({
                   edificio_id: building.id,
-                  tipo: "ingreso",
+                  tipo: "recibo",
                   descripcion: `PAGO TOTAL DETECTADO - Unidad ${unidadKey}`,
                   monto: montoTotalPagado,
                   fecha: today,
@@ -998,7 +998,7 @@ export async function POST(request: Request) {
                 const hashParcial = await generateHash(`PAGO_PARCIAL|${building.id}|${unidadKey}|${montoParcial}|${today}`);
                 await supabase.from("movimientos").upsert({
                   edificio_id: building.id,
-                  tipo: "ingreso",
+                  tipo: "recibo",
                   descripcion: `ABONO PARCIAL - Unidad ${unidadKey}`,
                   monto: montoParcial,
                   fecha: today,
@@ -1022,7 +1022,7 @@ export async function POST(request: Request) {
                 // Alerta de pago parcial
                 await supabase.from("alertas").insert({
                   edificio_id: building.id,
-                  tipo: "ingreso",
+                  tipo: "success",
                   titulo: "💰 Abono Parcial Detectado",
                   descripcion: `La unidad ${unidadKey} (${propietarioParcial}) realizó un abono parcial de Bs. ${formatNumber(montoParcial)}. Deuda anterior: Bs. ${formatNumber(deudaAnterior)}, deuda actual: Bs. ${formatNumber(deudaActual)}.`,
                   fecha: today
@@ -1255,7 +1255,7 @@ export async function POST(request: Request) {
           const hashGlob = await generateHash(`ING_GLOB|${building.id}|${ing.beneficiario}|${ing.monto}|${fDB}`);
           await supabase.from("movimientos").upsert({
             edificio_id: building.id,
-            tipo: "ingreso",
+            tipo: "recibo",
             descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
             monto: ing.monto,
             fecha: fDB,
@@ -1276,7 +1276,7 @@ export async function POST(request: Request) {
 // Generar alerta de pago detectado
 await supabase.from("alertas").insert({
   edificio_id: building.id,
-  tipo: "ingreso",
+  tipo: "success",
   titulo: "💰 Pago Detectado",
   descripcion: `Se detectó un nuevo ingreso de Bs. ${ing.monto} correspondiente a ${ing.beneficiario}.`,
   fecha: today
