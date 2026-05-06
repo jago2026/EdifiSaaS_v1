@@ -1011,7 +1011,6 @@ export async function POST(request: Request) {
         fecha: today
       });
     }
-    }
 
     if (doSyncRecibos && detailedReceiptItems.length > 0) {
       console.log(`Guardando ${detailedReceiptItems.length} items de detalle para ${mesEstandar}`);
