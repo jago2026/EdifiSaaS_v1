@@ -189,27 +189,31 @@ Corregir la lógica de cálculo de totales mensuales basada en fechas de movimie
 
 ---
 
-## Fecha: 2026-05-04 (Gemini - Tarde)
+## Fecha: 2026-05-06 (Gemini)
 
 ### Objetivo
-Corregir redirección errónea en el Dashboard y solucionar el problema de "Ingresos Fantasma" al inicio del mes.
+Corregir la falla en la detección de pagos (totales y parciales) durante la sincronización y mejorar la visibilidad del proceso mediante logs en la pestaña de Alertas.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de Navegación (Dashboard)
-- **Problema:** El card de "Cobranza del Mes" en la pantalla principal redirigía a la pestaña de **Balance** en lugar de mostrar el listado de **Ingresos** (pagos recibidos).
+#### 1. Mejora en la Lógica de Detección de Pagos (`api/sync`)
+- **Problema Detectado:** 
+    - El sistema omitía pagos si detectaba un "Rollover" (cambio de mes) cuando el portal devolvía 0 recibos, pero al mismo tiempo limpiaba la tabla local de recibos, perdiendo la referencia para futuras detecciones.
+    - La verificación de duplicados de pagos era demasiado amplia, bloqueando pagos legítimos que coincidían en monto con meses anteriores.
 - **Solución Aplicada:**
-    - Se modificó `src/app/dashboard/page.tsx` para cambiar el `setActiveTab("balance")` por `setActiveTab("ingresos")`.
-    - Se replicó la corrección en `src/app/dashboard/ResumenTab.tsx`.
+    - **Validación de Rollover/Glitch:** Se implementó una alerta de advertencia (`warning`) cuando el portal devuelve 0 recibos pero el sistema tiene deudores previos. En este caso, se suspende la limpieza y la detección automática para proteger la integridad de los datos.
+    - **Refinamiento de Unicidad:** Se ajustó la comprobación de pagos existentes para que sea más específica (incluyendo `fecha_pago` y márgenes de error decimal más precisos).
+    - **Detección por Desaparición (Total):** Se mejoró el cruce de listas para detectar unidades que ya no figuran en el portal, registrándolas como pagos verificados.
+    - **Detección por Diferencia (Parcial):** Se optimizó el cálculo de abonos parciales comparando la deuda anterior vs. la actual por unidad.
 
-#### 2. Solución de "Ingresos Fantasma" de Mayo (Bs. 738.120,75)
-- **Diagnóstico:** 
-    - Se identificó que al inicio del mes, cuando la administradora limpia la lista de recibos pendientes para el nuevo periodo, el sistema interpretaba esta "desaparición" masiva de deudas como si todos hubieran pagado hoy (4 de Mayo).
-    - Esto inflaba artificialmente los ingresos de Mayo con la deuda total de Abril.
-- **Mejora en Sincronización (`api/sync`):**
-    - Se implementó un **Safeguard (Salvaguarda)**: Si la lista de recibos obtenida está vacía pero previamente había deudores, el sistema ahora detecta que es un "Rollover" de mes y **no** genera pagos automáticos.
-- **Script de Corrección:**
-    - Se creó `supabase/fix_may_ghost_income.sql` para que el usuario pueda mover esos ingresos erróneos de Mayo al 30 de Abril y limpiar el Dashboard actual.
+#### 2. Sistema de Logs y Alertas Premium
+- **Log de Situación Inicial:** Al iniciar cada sincronización de recibos, se genera una alerta tipo `info` que muestra el estado actual del Sistema vs. el Portal (Nro. de inmuebles deudores y monto total en Bs.).
+- **Alertas de Hallazgos:**
+    - Se añadieron alertas tipo `success` individuales para cada Pago Total y Abono Parcial detectado.
+    - Se integraron alertas específicas para pagos detectados a través del listado de cobranza (`r=1`).
+- **Resumen Ejecutivo:** Se mejoró la narrativa de las alertas para que el usuario entienda exactamente qué ocurrió durante el proceso (ej: "Unidad 08-B saldó su deuda de Bs. 39.033,54").
 
-#### 3. Mantenimiento de Memoria
-- Actualización de `GEMINI.md` para reflejar las correcciones críticas en la lógica de conciliación automática.
+#### 3. Estabilidad y Limpieza
+- Se aseguró que la tabla `recibos` se mantenga sincronizada con el portal de forma segura, evitando borrados accidentales durante fallos temporales de conexión con la administradora.
+- Se corrigieron discrepancias en la normalización de códigos de unidad para asegurar que el cruce de datos sea 100% preciso.
+
