@@ -214,11 +214,15 @@ function parseReceiptMonthlySummary(html: string): number {
   return 0;
 }
 
-function parseRecibosTableAll(html: string): any[] {
+function parseRecibosTableAll(html: string): { data: any[], isComplete: boolean } {
   const results: any[] = [];
+  const upperHtml = html?.toUpperCase() || "";
+  const isComplete = upperHtml.includes("TOTALES") || upperHtml.includes("TOTAL:");
+  
   const tableMatch = html.match(/<table[^>]*class="[^"]*table-bordered[^"]*"[^>]*>([\s\S]*?)<\/table>/i) || 
                      html.match(/<table[^>]*class="table-bordered"[^>]*>([\s\S]*?)<\/table>/i);
-  if (!tableMatch) return results;
+  if (!tableMatch) return { data: results, isComplete: false };
+  
   const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
   for (const row of rows) {
     const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
@@ -228,7 +232,7 @@ function parseRecibosTableAll(html: string): any[] {
     const numRecibosCell = cleanHtml(cells[2]);
     const deudaCell = cleanHtml(cells[3]);
     
-    if (propietario.includes("TOTALES")) continue;
+    if (propietario.toUpperCase().includes("TOTALES")) continue;
     if (!unidad || unidad.length > 15) continue;
 
     const matchUSD = deudaCell.match(/\(([^\)]+)\)/);
@@ -241,7 +245,7 @@ function parseRecibosTableAll(html: string): any[] {
     const nRec = parseInt(numRecibosCell) || 0;
     results.push({ unidad, propietario, num_recibos: nRec, deuda_usd: mUSD, deuda: mBS });
   }
-  return results;
+  return { data: results, isComplete };
 }
 
 function parseEgresosTableAll(html: string): any[] {
@@ -667,28 +671,28 @@ export async function POST(request: Request) {
 
     // 1. Balance (Fija el mes en la sesión de la administradora)
     hBal = await fetchWithRetry(`condlin.php?r=2${comboParam}`);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 3000));
 
     // 2. Ingresos (Cobranza detectada) - SIEMPRE SE EJECUTA
     hIng = await fetchWithRetry(`condlin.php?r=1${comboParam}`);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 3000));
 
     // Memoria de detección para esta sesión de sync (evitar doble detección r=1 vs deuda)
     const detectedInSession = new Set<string>();
 
     if (doSyncRecibos) {
       hRec = await fetchWithRetry(`condlin.php?r=5${comboParam}`);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 3000));
       hRecSummary = await fetchWithRetry(`condlin.php?r=4${comboParam}`);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 3000));
     }
     if (doSyncEgresos) {
       hEgr = await fetchWithRetry(`condlin.php?r=21${comboParam}`);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 3000));
     }
     if (doSyncGastos) {
       hGas = await fetchWithRetry(`condlin.php?r=3${comboParam}`);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 3000));
     }
     if (doSyncAlicuotas) {
       hAli = await fetchWithRetry(`condlin.php?r=23${comboParam}`);
@@ -700,7 +704,10 @@ export async function POST(request: Request) {
     console.log(`- hIng (Ingresos): ${hIng ? hIng.length : 0} chars`);
     console.log(`- hGas (Gastos): ${hGas ? hGas.length : 0} chars`);
 
-    const allRecibos = hRec ? parseRecibosTableAll(hRec) : [];
+    const recResult = hRec ? parseRecibosTableAll(hRec) : { data: [], isComplete: true };
+    const allRecibos = recResult.data;
+    const isRecibosComplete = recResult.isComplete;
+
     const allEgresos = hEgr ? deduplicateItems(parseEgresosTableAll(hEgr), ['fecha', 'beneficiario', 'monto']) : [];
     const allIngresos = hIng ? deduplicateItems(parseIngresosTable(hIng), ['fecha', 'beneficiario', 'monto']) : [];
     const allGastos = hGas ? deduplicateItems(parseGastosTable(hGas), ['codigo', 'monto', 'descripcion']) : [];
@@ -709,14 +716,36 @@ export async function POST(request: Request) {
     const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
 
-    // --- LOGS INICIALES EN ALERTAS ---
-    if (doSyncRecibos) {
-      const montoTotalPortal = allRecibos.reduce((sum, r) => sum + Number(r.deuda || 0), 0);
+    // --- SEGURIDAD: VALIDAR LECTURA COMPLETA ---
+    if (doSyncRecibos && !isRecibosComplete && hRec && hRec.length > 5000) {
       await supabase.from("alertas").insert({
         edificio_id: building.id,
-        tipo: "debug",
-        titulo: "🔄 Inicio Sincronización Recibos",
-        descripcion: `Situación Portal: ${allRecibos.length} recibos detectados para un total de Bs. ${formatNumber(montoTotalPortal)}. Iniciando cruce con base de datos local.`,
+        tipo: "error",
+        titulo: "❌ Lectura de Recibos Incompleta",
+        descripcion: "El portal de la administradora entregó una respuesta parcial (no se encontró la fila de TOTALES). Se canceló la detección de pagos automáticos para proteger tus datos. Reintenta en unos minutos.",
+        fecha: today
+      });
+      return NextResponse.json({ error: "Lectura incompleta del portal (Falta fila TOTALES). Reintente." }, { status: 400 });
+    }
+
+    // --- SEGURIDAD: VALIDAR UMBRAL DE UNIDADES ---
+    const totalAptosConfig = building.unidades || 0;
+    if (doSyncRecibos && totalAptosConfig > 0 && allRecibos.length === 0 && !mes) {
+      if (!isRecibosComplete) {
+        return NextResponse.json({ error: "El portal devolvió 0 recibos pero la lectura parece incompleta." }, { status: 400 });
+      }
+    }
+    // --- LOGS INICIALES EN ALERTAS ---
+    if (doSyncRecibos) {
+      const deudoresAntesCount = new Set(deudoresAntes?.map(d => d.unidad) || []).size;
+      const montoTotalLocal = deudoresAntes?.reduce((sum, d) => sum + Number(d.deuda || 0), 0) || 0;
+      const montoTotalPortal = allRecibos.reduce((sum, r) => sum + Number(r.deuda || 0), 0);
+      
+      await supabase.from("alertas").insert({
+        edificio_id: building.id,
+        tipo: "info",
+        titulo: "🔄 Sincronización de Recibos Iniciada",
+        descripcion: `Estado actual: DB Local (${deudoresAntesCount} inmuebles, Bs. ${formatNumber(montoTotalLocal)}) vs Portal (${allRecibos.length} inmuebles, Bs. ${formatNumber(montoTotalPortal)}). Iniciando proceso de conciliación...`,
         fecha: today
       });
     }
@@ -801,20 +830,28 @@ export async function POST(request: Request) {
       let montoTotalDetectadoSync = 0;
       
       // SAFEGUARD: If allRecibos is empty but we had many debtors before, it's likely a month rollover
-      // by the administrator, not that everyone paid at once. Skip auto-detection in this case.
+      // or a glitch. We should NOT clear the table if it's a glitch.
       const isPossibleRollover = allRecibos.length === 0 && deudoresAnterioresUnicos.length > 5;
       
-      if (isPossibleRollover) {
+      // NUEVO UMBRAL DE SEGURIDAD: Si desaparecen más del 40% de los deudores de golpe, sospechar.
+      const pctDesaparecidos = deudoresAnterioresUnicos.length > 0 ? (deudoresAnterioresUnicos.length - allRecibos.length) / deudoresAnterioresUnicos.length : 0;
+      const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && deudoresAnterioresUnicos.length > 10;
+
+      if (isPossibleRollover || isSuspiciousMassPayment) {
+        const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>40%)";
         await supabase.from("alertas").insert({
           edificio_id: building.id,
           tipo: "warning",
-          titulo: "⚠️ Salto de Detección de Pagos",
-          descripcion: `Se detectó un posible cambio de mes (rollover). El portal no muestra recibos pendientes pero en DB local existían ${deudoresAnterioresUnicos.length} deudores. No se generaron pagos automáticos para evitar errores.`,
+          titulo: `⚠️ ${razon}`,
+          descripcion: `Se detectó que ${deudoresAnterioresUnicos.length - allRecibos.length} inmuebles ya no figuran con deuda. Por seguridad, se suspendió la detección automática. Si esto es correcto, vuelve a sincronizar en unos minutos.`,
           fecha: today
         });
-      }
+        console.log(`[SYNC] ${razon}. Skipping auto-detection.`);
+      } else {
+        // Proceder con la detección
+        let pagosDetectadosSync = 0;
+        let montoTotalDetectadoSync = 0;
 
-      if (!isPossibleRollover) {
         for (const unidadPrevia of deudoresAnterioresUnicos) {
           const unidadKey = String(unidadPrevia || '').trim().toUpperCase();
           

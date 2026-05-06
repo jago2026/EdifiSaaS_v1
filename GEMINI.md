@@ -199,12 +199,12 @@ Corregir la falla en la detección de pagos (totales y parciales) durante la sin
 #### 1. Mejora en la Lógica de Detección de Pagos (`api/sync`)
 - **Problema Detectado:** 
     - El sistema omitía pagos si detectaba un "Rollover" (cambio de mes) cuando el portal devolvía 0 recibos, pero al mismo tiempo limpiaba la tabla local de recibos, perdiendo la referencia para futuras detecciones.
-    - La verificación de duplicados de pagos era demasiado amplia, bloqueando pagos legítimos que coincidían en monto con meses anteriores.
+    - Se detectó un caso de "detección masiva errónea" debido a lecturas parciales del portal (el sistema procesaba el HTML antes de que estuviera completo).
 - **Solución Aplicada:**
-    - **Validación de Rollover/Glitch:** Se implementó una alerta de advertencia (`warning`) cuando el portal devuelve 0 recibos pero el sistema tiene deudores previos. En este caso, se suspende la limpieza y la detección automática para proteger la integridad de los datos.
+    - **Validación de Integridad (Fila TOTALES):** El sistema ahora busca obligatoriamente la fila de "TOTALES" al final de la tabla de deudores. Si no la encuentra, asume que la lectura fue parcial y aborta la sincronización para proteger los datos.
+    - **Aumento de Delays:** Se incrementó el tiempo de espera entre consultas al portal a **3 segundos** para dar margen de carga a los servidores de la administradora.
+    - **Umbral de Seguridad (40%):** Si desaparecen más del 40% de los deudores en una sola sincronización, el sistema activa una alerta de "Detección Masiva Sospechosa" y no registra pagos automáticamente sin supervisión.
     - **Refinamiento de Unicidad:** Se ajustó la comprobación de pagos existentes para que sea más específica (incluyendo `fecha_pago` y márgenes de error decimal más precisos).
-    - **Detección por Desaparición (Total):** Se mejoró el cruce de listas para detectar unidades que ya no figuran en el portal, registrándolas como pagos verificados.
-    - **Detección por Diferencia (Parcial):** Se optimizó el cálculo de abonos parciales comparando la deuda anterior vs. la actual por unidad.
 
 #### 2. Sistema de Logs y Alertas Premium
 - **Log de Situación Inicial:** Al iniciar cada sincronización de recibos, se genera una alerta tipo `info` que muestra el estado actual del Sistema vs. el Portal (Nro. de inmuebles deudores y monto total en Bs.).
