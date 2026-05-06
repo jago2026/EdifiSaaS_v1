@@ -775,6 +775,7 @@ export async function POST(request: Request) {
     // --- LOGS INICIALES EN ALERTAS ---
     if (doSyncRecibos) {
       const deudoresAntesCount = new Set(deudoresAntes?.map(d => d.unidad) || []).size;
+      const deudoresAntesNormalizados = new Set(deudoresAntes?.map(d => extractUnitCode(d.unidad)) || []).size;
       const montoTotalLocal = deudoresAntes?.reduce((sum, d) => sum + Number(d.deuda || 0), 0) || 0;
       const montoTotalPortal = allRecibos.reduce((sum, r) => sum + Number(r.deuda || 0), 0);
       
@@ -782,7 +783,7 @@ export async function POST(request: Request) {
         edificio_id: building.id,
         tipo: "info",
         titulo: "🔄 Sincronización de Recibos Iniciada",
-        descripcion: `Estado actual: DB Local (${deudoresAntesCount} inmuebles, Bs. ${formatNumber(montoTotalLocal)}) vs Portal (${allRecibos.length} inmuebles, Bs. ${formatNumber(montoTotalPortal)}). Iniciando proceso de conciliación...`,
+        descripcion: `Estado actual: DB Local (${deudoresAntesCount} inmuebles, ${deudoresAntesNormalizados} códigos únicos, Bs. ${formatNumber(montoTotalLocal)}) vs Portal (${allRecibos.length} inmuebles, Bs. ${formatNumber(montoTotalPortal)}). Iniciando conciliación...`,
         fecha: today
       });
     }
