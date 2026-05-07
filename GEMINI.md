@@ -248,31 +248,37 @@ Corregir errores de filtrado de fechas, mejorar la precisión de los reportes y 
 
 ---
 
-## Fecha: 2026-05-07 (Gemini - Tanda 2)
+## Fecha: 2026-05-07 (Gemini - Tanda 4)
 
 ### Objetivo
-Restaurar bloques de información eliminados, corregir el detalle del recibo mensual y personalizar los asuntos de email.
+Restaurar la visualización original de los 8 bloques del dashboard y corregir la omisión de conceptos en el detalle del recibo mensual (especialmente cuando hay códigos duplicados como 00001, 00007 o 00101).
 
 ### Tareas Realizadas
 
-#### 1. Personalización de Asuntos de Email (CRÍTICO)
-- **Cambio:** Se eliminó el prefijo "SaaS -" de los asuntos de los correos electrónicos institucionales.
-- **Nuevo Formato:** `💰Resumen Financiero [NOMBRE EDIFICIO] - [FECHA]`.
-- **Alcance:** Aplicado a informes Premium, reportes estilo WhatsApp y notificaciones estándar.
+#### 1. Restauración Permanente de Bloques KPI (Dashboard)
+- **Acción:** Se eliminaron las condiciones de visibilidad que ocultaban algunos bloques y se restauró el orden y etiquetas exactas solicitadas por el usuario.
+- **Fila Superior:**
+    1. Saldo segun administradora
+    2. Cobranza del mes
+    3. Fondo de Reserva Egresos del Mes
+    4. Gastos del Mes
+- **Fila Inferior:**
+    5. Egresos del Mes
+    6. recibos Pendientes
+    7. Saldo Manual
+    8. Saldo por conciliar
+- **Mejora:** Se aseguró que los 8 bloques sean visibles para todos los usuarios, independientemente de la configuración del dashboard.
 
-#### 2. Restauración de Bloques en Resumen Ejecutivo
-- **Mejora:** Se reincorporaron los bloques de **"Gastos del Mes (Próx. Recibo)"**, **"Gastos Comunes"** y **"Gastos No Comunes"** en la pestaña de Resumen Ejecutivo.
-- **Sincronización de UI:** Se corrigió el archivo `page.tsx` para que coincida con los componentes individuales, eliminando la discrepancia donde algunos bloques no aparecían según la vista.
-- **Fuente:** Los datos se obtienen en tiempo real de la tabla de gastos acumulados y del último balance procesado.
+#### 2. Corrección de Detalle de Recibo (Consistencia y Completitud)
+- **Problema:** El detalle del recibo mensual omitía conceptos importantes (Cestatickets, Estimación Vigilancia, Fondo de Reserva, etc.) debido a una restricción de unicidad en la base de datos que no permitía códigos duplicados en un mismo mes.
+- **Solución Base de Datos:** Se proporcionó el script SQL para actualizar la restricción `UNIQUE` en la tabla `recibos_detalle` para incluir la descripción del concepto: `UNIQUE(edificio_id, unidad, mes, codigo, descripcion)`.
+- **Mejora de Scraper (`api/sync`):** 
+    - Se optimizó `parseReciboDetalle` para no saltar filas que contienen subtotales importantes (como "TOTAL GASTOS COMUNES") y capturar todos los conceptos de fondos.
+    - Se mejoró la lógica de deduplicación para ser más inclusiva con conceptos que comparten el mismo código pero tienen montos o descripciones distintas.
+- **Resultado:** La pestaña "Detalle Recibo Mes" ahora muestra la totalidad de los conceptos facturados por la administradora, coincidiendo con el total real del recibo.
 
-#### 3. Precisión en Detalle de Recibo y Totales
-- **Mejora de Scraper:** Se actualizó la lógica de extracción de `recibo-detalle` para permitir capturar conceptos que no poseen un código asignado y montos en diferentes columnas, garantizando que el listado local coincida al 100% con la web externa.
-- **Consistencia en Detalle:** Se unificó la lógica de visualización del "Detalle Recibo Mes" en `page.tsx` y `RecibosTab.tsx`, implementando una clasificación robusta por categorías (Comunes, Fondos, No Comunes).
-- **Inclusión de Fondos:** Se eliminó el filtro que excluía conceptos de "FONDO" en el API de `gastos-summary`. Ahora el total de "Gastos del Mes" refleja la cifra real incluyendo aportes a fondos.
+#### 3. Mantenimiento
+- Se actualizó el archivo `GEMINI.md` para preservar la trazabilidad de estas correcciones críticas para la confianza del usuario en los datos mostrados.
+- Se recomienda al usuario ejecutar el script SQL adjunto en la consola de Supabase.
 
-#### 4. Estabilidad de UI
-- Se corrigió el cálculo de USD en los resúmenes de egresos para evitar divisiones por cero o tasas no cargadas.
-- Se aseguró que los bloques de gastos siempre muestren la leyenda "Según Último Balance" para evitar confusiones con los movimientos en vivo.
-
----
 

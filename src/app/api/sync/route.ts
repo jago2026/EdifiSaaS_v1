@@ -183,49 +183,83 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 
 function parseReciboDetalle(html: string): any[] {
   if (!html) return [];
-  console.log("[parseReciboDetalle] Input HTML length:", html.length);
   const results: any[] = [];
   
-  // Buscar todas las tablas
-  const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
+  // Buscar todas las filas de tabla en el documento de forma global
+  const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
   
-  for (const tableContent of allTables) {
-    const upperT = tableContent.toUpperCase();
-    // Si la tabla tiene indicios de ser de gastos o recibo
-    if (upperT.includes("CONCEPTO") || upperT.includes("MONTO") || upperT.includes("DESCRIPCI") || upperT.includes("TOTAL")) {
-      const rows = tableContent.match(/<tr[^>]*>([\s\S]*?)<\/tr>/g) || [];
-      for (const row of rows) {
-        const cells = row.match(/<td[^>]*>([\s\S]*?)<\/td>/g);
-        if (!cells || cells.length < 2) continue;
+  for (const rowContent of rows) {
+    const cells = rowContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+    if (!cells || cells.length < 2) continue;
 
-        const code = cleanHtml(cells[0]).trim();
-        const desc = cleanHtml(cells[1]).trim();
-        
-        // Intentar buscar monto en la celda 2, si no en la 3
-        let montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
-        let monto = parseMonto(montoRaw);
-        
-        if (monto === 0 && cells.length >= 4) {
-          montoRaw = cleanHtml(cells[3]);
-          monto = parseMonto(montoRaw);
-        }
+    const cellTexts = cells.map(c => cleanHtml(c).trim());
+    
+    // Identificar posibles candidatos a monto en cualquier celda (normalmente al final)
+    let foundMonto = 0;
+    let foundCuota = 0;
+    let montoIndex = -1;
 
-        if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || desc.toUpperCase().includes("CONCEPTO")) continue;
-        
-        // Si tenemos descripción y monto, es un candidato (aunque no tenga código)
-        // Permitimos montos negativos (notas de crédito)
-        if (desc && desc.length > 3 && monto !== 0 && !results.find(r => r.descripcion === desc && r.monto === monto)) {
-          results.push({
-            codigo: (code === "&nbsp;" || !code) ? "" : code,
-            descripcion: desc,
-            monto: monto,
-            cuota_parte: cells.length >= 4 ? parseMonto(cleanHtml(cells[cells.length - 1])) : 0
-          });
+    // Escanear de derecha a izquierda para encontrar montos
+    for (let i = cellTexts.length - 1; i >= 1; i--) {
+      const val = parseMonto(cellTexts[i]);
+      if (val !== 0) {
+        if (montoIndex === -1) {
+          foundCuota = val;
+          montoIndex = i;
+        } else {
+          foundMonto = val;
+          break;
         }
       }
     }
+
+    // Si solo encontramos uno, asumimos que es el monto principal
+    if (foundMonto === 0 && foundCuota !== 0) {
+      foundMonto = foundCuota;
+      foundCuota = 0;
+    }
+
+    const code = cellTexts[0] || "";
+    const desc = cellTexts[1] || "";
+
+    // Criterios para saltar (encabezados)
+    if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || desc.toUpperCase().includes("CONCEPTO") || desc.toUpperCase().includes("DESCRIPCI")) continue;
+    
+    // NO SALTAR filas con TOTAL si tienen monto, ya que pueden ser subtotales importantes
+    // Pero solo si no son la fila de TOTAL GENERAL que sume todo lo anterior de forma redundante
+    if (desc.toUpperCase() === "TOTAL GASTOS COMUNES" || desc.toUpperCase() === "TOTAL FONDOS") {
+      results.push({
+        codigo: "",
+        descripcion: desc,
+        monto: foundMonto,
+        cuota_parte: foundCuota || 0,
+        tipo: 'subtotal'
+      });
+      continue;
+    }
+
+    // Si tiene descripción y algún monto, lo tomamos
+    if (desc && desc.length > 2 && (foundMonto !== 0 || foundCuota !== 0)) {
+      results.push({
+        codigo: (code.length > 10 || code === " " || !code) ? "" : code,
+        descripcion: desc,
+        monto: foundMonto,
+        cuota_parte: foundCuota || 0,
+        tipo: 'gasto'
+      });
+    }
   }
-  return results;
+
+  // Deduplicación inteligente: Solo si TODO es idéntico
+  const finalResults = results.filter((item, index, self) =>
+    index === self.findIndex((t) => (
+      t.codigo === item.codigo && t.descripcion === item.descripcion && t.monto === item.monto && t.cuota_parte === item.cuota_parte
+    ))
+  );
+
+  return finalResults;
+}
+  return finalResults;
 }
 
 function parseReceiptMonthlySummary(html: string): number {

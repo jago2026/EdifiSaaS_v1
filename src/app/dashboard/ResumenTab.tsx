@@ -47,127 +47,59 @@ export function ResumenTab({
 
   return (
     <div className="space-y-6">
-      {/* Módulos Superiores (Resumen USD / Balance) */}
-      {(editConfig.dashboard_config?.usd !== false || user?.id === "superuser-id") && (
-        <div className="grid md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Saldo actual según el portal de la administradora. Puedes hacer clic para ver más detalles.">
-            <div className="text-sm text-gray-500 mb-1">Saldo Disponible seg&uacute;n Web Admin</div>
-            <div className="text-2xl font-bold text-blue-600">Bs.{formatBs(balance?.saldo_disponible || 0)}</div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.saldo_disponible || 0) / tasaBCV.dolar)}</div>}
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("ingresos")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
-            <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>
-            <div className="text-2xl font-bold text-green-600">Bs.{formatBs(ingresosSummary?.monto || 0)}</div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((ingresosSummary?.monto || 0) / tasaBCV.dolar)}</div>}
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
-            <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
-            <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(gastosSummary?.monto || 0))}</div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((gastosSummary?.monto || 0) / tasaBCV.dolar))}</div>}
-            <div className="text-xs text-gray-400 mt-1">
-              {(gastosSummary?.cantidad || 0)} movimiento{(gastosSummary?.cantidad || 0) !== 1 ? "s" : ""}
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado para emergencias y mantenimiento mayor.">
-            <div className="text-sm text-gray-500 mb-1">Fondo Reserva</div>
-            <div className="text-2xl font-bold text-purple-600">Bs.{formatBs(balance?.fondo_reserva || 0)}</div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
-          </div>
+      {/* Fila 1: Saldos y Facturación */}
+      <div className="grid md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Saldo actual según el portal de la administradora.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Saldo segun administradora</div>
+          <div className="text-2xl font-bold text-blue-600">Bs.{formatBs(balance?.saldo_disponible || 0)}</div>
+          {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.saldo_disponible || 0) / tasaBCV.dolar)}</div>}
         </div>
-      )}
 
-      {/* Módulos de Gastos y Egresos */}
-      {(editConfig?.dashboard_config?.cg !== false || user?.id === "superuser-id") && (
-        <div className="grid md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("egresos")} title="Pagos a proveedores y servicios externos realizados en el mes actual.">
-            <div className="text-sm text-gray-500 mb-1">Egresos del Mes</div>
-            <div className="text-2xl font-bold text-red-600">
-              Bs.{formatBs(egresosSummary?.monto || 0)}
-            </div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((egresosSummary?.monto || 0) / tasaBCV.dolar)}</div>}
-            <div className="text-xs text-gray-400 mt-1">
-              {(egresosSummary?.cantidad || 0)} movimiento{(egresosSummary?.cantidad || 0) !== 1 ? "s" : ""}
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos acumulados para el próximo recibo.">
-            <div className="text-sm text-gray-500 mb-1">Gastos del Mes (Pr&oacute;x. Recibo)</div>
-            <div className="text-2xl font-bold text-amber-600">
-              Bs.{formatBs(gastosSummary?.monto || 0)}
-            </div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((gastosSummary?.monto || 0) / (tasaBCV.dolar || 1))}</div>}
-            <div className="text-xs text-gray-400 mt-1">
-              {(gastosSummary?.cantidad || 0)} concepto{(gastosSummary?.cantidad || 0) !== 1 ? "s" : ""} registrados
-            </div>
-          </div>
-
-          {/* Bloques de Gastos Detallados solicitados por el usuario */}
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos comunes facturados en el recibo.">
-            <div className="text-sm text-gray-500 mb-1">Gastos Comunes</div>
-            <div className="text-2xl font-bold text-orange-700">
-              Bs.{formatBs(balance?.gastos_comunes || 0)}
-            </div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_comunes || 0) / (tasaBCV.dolar || 1))}</div>}
-            <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos NO comunes (privativos) facturados en el recibo.">
-            <div className="text-sm text-gray-500 mb-1">Gastos No Comunes</div>
-            <div className="text-2xl font-bold text-orange-800">
-              Bs.{formatBs(balance?.gastos_no_comunes || 0)}
-            </div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_no_comunes || 0) / tasaBCV.dolar)}</div>}
-            <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
-          </div>
-
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total de apartamentos con deuda pendiente y monto total por cobrar.">
-            <div className="text-sm text-gray-500 mb-1">Recibos Pendientes</div>
-            <div className="text-2xl font-bold text-orange-600">
-              {recibos.reduce((sum, r) => sum + r.num_recibos, 0)}
-            </div>
-            <div className="text-sm text-gray-500">
-              {recibos.length} apartamento{recibos.length !== 1 ? "s" : ""} con deuda
-            </div>
-            <div className="text-lg font-bold text-red-600 mt-1">
-              Bs. {formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}
-            </div>
-            <div className="text-sm text-gray-500">
-              $ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}
-            </div>
-          </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("ingresos")} title="Total de cobranza recibida en el mes actual.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Cobranza del mes</div>
+          <div className="text-2xl font-bold text-green-600">Bs.{formatBs(ingresosSummary?.monto || 0)}</div>
+          {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((ingresosSummary?.monto || 0) / tasaBCV.dolar)}</div>}
         </div>
-      )}
 
-      {/* Tercera fila de módulos (Saldos Manuales) */}
-      {(editConfig?.dashboard_config?.cg !== false || user?.id === "superuser-id") && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente, último corte registrado.">
-            <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
-            <div className="text-2xl font-bold text-indigo-600">
-              Bs. {formatBs(movimientosManual.length > 0 ? (movimientosManual[0]?.saldo_acumulado || 0) : 0)}
-            </div>
-            <div className="text-sm text-gray-500 font-medium">
-              $ {formatUsd(movimientosManual.length > 0 ? ((movimientosManual[0]?.saldo_acumulado || 0) / (movimientosManual[0]?.tasa_bcv || tasaBCV.dolar || 45)) : 0)}
-            </div>
-            <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
-              Último Saldo Registrado
-            </div>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Movimientos bancarios que aún no han sido conciliados con el estado de cuenta de la administradora.">
-            <div className="text-sm text-gray-500 mb-1">Por Conciliar (Manual)</div>
-            <div className="text-2xl font-bold text-amber-600">
-              Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0))}
-            </div>
-            <div className="text-sm text-gray-500 font-medium">
-              $ {formatUsd(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + (Number(m.ingresos || 0) - Number(m.egresos || 0)) / (m.tasa_bcv || tasaBCV.dolar || 1), 0))}
-            </div>
-            <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
-              {movimientosManual.filter((m: any) => !m.comparado).length} Movimientos sin conciliar
-            </div>
-          </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado según último balance.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Fondo de Reserva Egresos del Mes</div>
+          <div className="text-2xl font-bold text-purple-600">Bs.{formatBs(balance?.fondo_reserva || 0)}</div>
+          {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
         </div>
-      )}
+
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos acumulados para el próximo recibo.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Gastos del Mes</div>
+          <div className="text-2xl font-bold text-amber-600">Bs.{formatBs(Math.abs(gastosSummary?.monto || 0))}</div>
+          {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((gastosSummary?.monto || 0) / (tasaBCV.dolar || 1)))}</div>}
+        </div>
+      </div>
+
+      {/* Fila 2: Egresos y Caja */}
+      <div className="grid md:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("egresos")} title="Pagos realizados en el mes actual.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Egresos del Mes</div>
+          <div className="text-2xl font-bold text-red-600">Bs.{formatBs(egresosSummary?.monto || 0)}</div>
+          {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((egresosSummary?.monto || 0) / tasaBCV.dolar)}</div>}
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total adeudado por los apartamentos.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">recibos Pendientes</div>
+          <div className="text-2xl font-bold text-orange-600">Bs. {formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}</div>
+          <div className="text-xs text-gray-400 mt-1">{recibos.length} unidades con deuda</div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Saldo Manual</div>
+          <div className="text-2xl font-bold text-indigo-600">Bs. {formatBs(movimientosManual.length > 0 ? (movimientosManual[0]?.saldo_acumulado || 0) : 0)}</div>
+          {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((movimientosManual[0]?.saldo_acumulado || 0) / (tasaBCV.dolar || 45))}</div>}
+        </div>
+        
+        <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Movimientos bancarios por conciliar.">
+          <div className="text-sm text-gray-500 mb-1 font-semibold uppercase tracking-tight">Saldo por conciliar</div>
+          <div className="text-2xl font-bold text-amber-600">Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0))}</div>
+          <div className="text-xs text-gray-400 mt-1">{movimientosManual.filter((m: any) => !m.comparado).length} registros pendientes</div>
+        </div>
+      </div>
 
       {/* Módulos de Morosidad (Gráficos) */}
       {(editConfig.dashboard_config?.mo !== false || user?.id === "superuser-id") && (
