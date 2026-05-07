@@ -1,9 +1,7 @@
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +12,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { data, error } = await supabase
       .from("junta")
       .select("*")
@@ -53,7 +51,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Este usuario ya está registrado como superusuario del sistema" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const tempPassword = "123456";
     const passwordHash = await hashPassword(tempPassword);
 
@@ -112,8 +110,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
     
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     

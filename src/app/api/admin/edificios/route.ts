@@ -1,10 +1,8 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // Estas variables se leen solo en el servidor (Seguro)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 async function checkAdmin() {
   const cookieStore = await cookies();
@@ -13,7 +11,7 @@ async function checkAdmin() {
   if (!userId) return false;
   if (userId === "superuser-id") return true;
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   const { data: user } = await supabase
     .from("usuarios")
     .select("email")
@@ -32,7 +30,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const action = searchParams.get("action") || "list";
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     if (action === "list") {
       const { data, error } = await supabase
@@ -60,7 +58,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { action, id, data } = body;
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     if (action === "update") {
       const { error } = await supabase

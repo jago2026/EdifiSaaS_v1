@@ -1,11 +1,9 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { getPlanPermissions } from "@/lib/planLimits";
 import { formatNumber, formatDate } from "@/lib/formatters";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 const SMTP_HOST = "smtp.gmail.com";
 const SMTP_PORT = 587;
@@ -35,7 +33,7 @@ function getDiaSemana(fecha: string): string {
 }
 
 async function getTasaBCV(): Promise<number> {
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   try {
     const { data } = await supabase
       .from("tasas_cambio")
@@ -52,7 +50,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { edificioId, testMode, action, error: errorMsg, recipient, syncFailed, syncFailedReason } = body;
     const tasa = await getTasaBCV();
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades, email_junta, plan").eq("id", edificioId).single();
     if (!edificio) return NextResponse.json({ error: "Edificio no encontrado" }, { status: 404 });

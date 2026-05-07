@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 async function hashPassword(password: string): Promise<string> {
   const encoder = new TextEncoder();
@@ -20,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Token y contraseña requeridos" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const now = new Date().toISOString();
 
     // 1. Buscar token en usuarios

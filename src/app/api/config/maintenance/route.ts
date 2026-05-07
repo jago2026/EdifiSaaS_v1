@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 const SMTP_HOST = "smtp.gmail.com";
 const SMTP_PORT = 587;
@@ -22,7 +20,7 @@ export async function POST(request: Request) {
     const { edificioId, userEmail } = await request.json();
     if (!edificioId) return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     // Mantenimiento de logs (Limitar a 50 según requerimiento)
     const tablesToClean = ["sincronizaciones", "alertas"];

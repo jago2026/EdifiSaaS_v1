@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET(request: Request) {
   try {
@@ -11,7 +9,7 @@ export async function GET(request: Request) {
     const edificioId = searchParams.get("edificioId");
     const unidad = searchParams.get("unidad");
     
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     if (action === "test-payment") {
       const today = new Date().toISOString().split("T")[0];

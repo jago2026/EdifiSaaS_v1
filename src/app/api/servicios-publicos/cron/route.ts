@@ -1,10 +1,8 @@
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { POST as consultarPOST } from "../consultar/route";
 import { POST as emailPOST } from "../../email/route";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder";
 
 async function logAlerta(supabase: any, edificioId: string, tipo: string, titulo: string, descripcion: string) {
   try {
@@ -25,7 +23,7 @@ export async function GET(request: NextRequest) {
   const protocol = host?.includes('localhost') ? 'http' : 'https';
   const BASE_URL = `${protocol}://${host}`;
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   
   // Obtener fecha actual en Venezuela
   const nowVET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Caracas" }));

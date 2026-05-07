@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { formatNumber } from "@/lib/formatters";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 function parseMonto(text: string): number {
@@ -680,7 +678,7 @@ async function limitLogs(supabase: any, table: string, edificioId: string, limit
 }
 
 export async function POST(request: Request) {
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Caracas',
     year: 'numeric',

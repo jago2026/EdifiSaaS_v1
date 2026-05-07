@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 async function testLoginRascaCielo(urlLogin: string, password: string): Promise<{ success: boolean; cookie?: string; error?: string; html?: string }> {
   try {

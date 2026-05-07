@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 function normalizeMonth(mes: string | null | undefined): string {
   if (!mes) return "";
@@ -23,7 +21,7 @@ export async function POST(request: Request) {
     const { edificioId } = await request.json();
     if (!edificioId) return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     // 1. Obtener datos base
     const { data: building } = await supabase.from("edificios").select("unidades").eq("id", edificioId).single();

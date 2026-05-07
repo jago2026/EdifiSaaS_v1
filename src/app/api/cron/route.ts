@@ -1,12 +1,10 @@
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 // CRON EXECUTOR - EdifiSaaS v1.0.3 (Claude fix: status filter, demo skip, login diagnostics)
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { POST as syncPOST } from "../sync/route";
 import { POST as emailPOST } from "../email/route";
 import { GET as spCronGET } from "../servicios-publicos/cron/route";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 const ADMIN_EMAIL = "correojago@gmail.com";
 const DEMO_EDIFICIO_ID = "d0000000-0000-0000-0000-000000000001";
@@ -80,7 +78,7 @@ export async function GET(request: NextRequest) {
   console.log(`[CRON] Modo: ${force ? 'FORZADO' : 'PROGRAMADO'} | CRON_SECRET: ${process.env.CRON_SECRET ? 'SI' : 'NO'}`);
   console.log("==========================================================");
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   const resultados: any[] = [];
 
   try {

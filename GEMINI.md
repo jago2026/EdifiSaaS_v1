@@ -261,12 +261,19 @@ Corregir errores de build en Vercel y optimizar la arquitectura de datos en APIs
 - **Problema**: `Module parse failed: Identifier 'unidadesCount' has already been declared`. Se detectó una doble declaración de la constante `unidadesCount` en `src/app/api/kpis/route.ts`.
 - **Solución**: Se eliminó la declaración duplicada en la línea 366. El build ahora compila correctamente.
 
-#### 2. Optimización de API de KPIs
-- **Unificación de Cliente Supabase**: Se refactorizó `src/app/api/kpis/route.ts` para utilizar el cliente centralizado de `@/lib/supabase` en lugar de crear nuevas instancias locales.
+#### 2. Refactorización Masiva de APIs (Supabase Consistency)
+- **Problema**: Cada ruta de la API creaba su propia instancia del cliente de Supabase, duplicando configuración y aumentando el riesgo de inconsistencias.
+- **Solución**:
+    - Se crearon `src/lib/supabase.ts` (cliente estándar) y `src/lib/supabaseAdmin.ts` (cliente con service role para bypass de RLS en tareas de backend).
+    - Se refactorizaron **más de 50 archivos de API** de forma automatizada para utilizar estos clientes centralizados.
+    - Se eliminaron redundancias de configuración (`supabaseUrl`, `supabaseKey`) en todo el directorio `src/app/api`.
+- **Resultado**: Código más limpio, centralización de la seguridad en el acceso a datos y mejora en la mantenibilidad del proyecto.
+
+#### 3. Optimización de API de KPIs
 - **Consolidación de Consultas**: Se combinaron las consultas a la tabla `edificios` para obtener tanto el `plan` como las `unidades` en un solo llamado al servidor, reduciendo la latencia y el consumo de recursos de la base de datos.
 - **Limpieza de Código**: Eliminación de parámetros redundantes (`supabase`) en funciones auxiliares como `limitLogs` y `logTasaWarning`, delegando la responsabilidad al cliente global.
 
-#### 3. Mantenimiento y Estabilidad
+#### 4. Mantenimiento y Estabilidad
 - Verificación exitosa del build de producción localmente (`npm run build`).
 - Configuración de Git con el token proporcionado para asegurar la persistencia de los cambios en el repositorio oficial.
 

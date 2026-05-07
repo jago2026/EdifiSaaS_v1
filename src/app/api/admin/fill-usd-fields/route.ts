@@ -1,8 +1,6 @@
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 /**
  * API para calcular y rellenar los campos USD en historico_cobranza
@@ -24,7 +22,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     // Obtener parámetros opcionales de la request
     let edificioId: string | undefined;
@@ -146,7 +144,7 @@ export async function GET() {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     // Contar registros y verificar qué campos USD están vacíos
     const { count } = await supabase

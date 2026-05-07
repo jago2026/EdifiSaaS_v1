@@ -1,13 +1,10 @@
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { transporter } from "@/lib/mail";
 import { formatDate } from "@/lib/formatters";
 import crypto from "crypto";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || anonKey;
 
 const DRIVE_FOLDER_ID = "15UIfIyE78tbRU0zuLs-XDIuTD53OC9gk";
 
@@ -16,8 +13,7 @@ async function checkAdmin() {
   const userId = cookieStore.get("user_id")?.value;
   if (!userId) return false;
   if (userId === "superuser-id") return true;
-  const supabase = createClient(supabaseUrl, anonKey);
-  const { data: user } = await supabase.from("usuarios").select("email").eq("id", userId).single();
+    const { data: user } = await supabase.from("usuarios").select("email").eq("id", userId).single();
   return user?.email === "correojago@gmail.com";
 }
 
@@ -76,8 +72,7 @@ export async function POST(request: Request) {
   try {
     if (!await checkAdmin()) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     const { action } = await request.json();
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
+    
     if (action === "maintenance") {
       const { data: maint } = await supabase.rpc('execute_maintenance');
       const acciones = maint?.acciones || {};

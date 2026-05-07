@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -23,7 +21,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Falta ID" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     
     // Check if it's the superuser
     const { data: member } = await supabase

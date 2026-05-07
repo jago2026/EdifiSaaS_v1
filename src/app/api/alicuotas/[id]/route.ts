@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 type RouteParams = {
   params: Promise<{ id: string }>;
@@ -19,7 +17,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Falta ID" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     const updateData: Record<string, any> = {};
     if (email1 !== undefined) updateData.email1 = email1 || null;

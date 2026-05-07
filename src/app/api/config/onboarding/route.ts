@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function POST(request: Request) {
   try {
@@ -13,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "ID de edificio requerido" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     
     const { error } = await supabase
       .from("edificios")

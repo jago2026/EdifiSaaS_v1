@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 async function isAdmin() {
   const cookieStore = await cookies();
@@ -17,7 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 403 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   const { data, error } = await supabase
     .from("plan_configs")
     .select("*")
@@ -42,7 +40,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { planes } = body;
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   
   // Basic implementation: Delete and insert all
   const { error: delError } = await supabase.from("plan_configs").delete().neq("id", "00000000-0000-0000-0000-000000000000");

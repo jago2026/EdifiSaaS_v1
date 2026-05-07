@@ -1,10 +1,7 @@
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseKey;
 
 // Helper to check admin session
 async function checkAdmin() {
@@ -14,7 +11,7 @@ async function checkAdmin() {
   if (!userId) return false;
   if (userId === "superuser-id") return true;
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   const { data: user } = await supabase
     .from("usuarios")
     .select("email")
@@ -29,8 +26,7 @@ export async function GET() {
     console.log("API: Fetching administradoras for public access...");
     
     // Use serviceRoleKey to bypass RLS if it exists, otherwise fallback to anon key
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const { data, error } = await supabase
+        const { data, error } = await supabase
       .from("administradoras")
       .select("*")
       .order("nombre", { ascending: true });
@@ -40,7 +36,7 @@ export async function GET() {
       throw error;
     }
     
-    console.log(`API: Successfully fetched ${data?.length || 0} administradoras using ${serviceRoleKey === process.env.SUPABASE_SERVICE_ROLE_KEY ? 'service role' : 'anon key'}`);
+    console.log(`API: Successfully fetched ${data?.length || 0} administradoras using centralized client`);
     return NextResponse.json({ data });
   } catch (error: any) {
     console.error("API Catch error:", error);
@@ -56,7 +52,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { action, id, data } = body;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     if (action === "create") {
       const { data: res, error } = await supabase

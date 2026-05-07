@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -13,7 +11,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "edificioId required" }, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
 
   try {
     const today = new Date();

@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
 function normalizeMes(mesStr: string): string {
@@ -168,7 +166,7 @@ export async function GET(request: NextRequest) {
   }
 
   const mesNormalizado = normalizeMes(mes || "");
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
 
   try {
     let targetMes = mesNormalizado;

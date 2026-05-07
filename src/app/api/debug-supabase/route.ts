@@ -1,13 +1,11 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET() {
   console.log("DEBUG: Checking supabase connection...", supabaseUrl?.substring(0, 20));
   
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
   
   const { data, error } = await supabase
     .from('edificios')

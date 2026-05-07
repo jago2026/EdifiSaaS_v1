@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -14,7 +12,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { data, error } = await supabase
       .from("movimientos_manual")
       .select("*")
@@ -49,7 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "No se permite registrar movimientos en modo demo" }, { status: 403 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const saldoFinal = (saldo_inicial || 0) - (egresos || 0) + (ingresos || 0);
     const saldoFinalUSD = tasa_bcv ? saldoFinal / tasa_bcv : 0;
 

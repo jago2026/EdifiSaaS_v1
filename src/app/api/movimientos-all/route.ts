@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 function getCurrentMonth(): string {
   const now = new Date();
@@ -27,7 +25,7 @@ export async function GET(request: Request) {
     const firstDay = `${currentMes}-01`;
     const lastDay = `${currentMes}-${new Date(year, month, 0).getDate().toString().padStart(2, '0')}`;
     
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     const allMovements: any[] = [];
 

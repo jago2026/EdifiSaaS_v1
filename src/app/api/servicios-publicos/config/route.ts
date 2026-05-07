@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +11,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { data, error } = await supabase
       .from("servicios_publicos_config")
       .select("*")
@@ -37,7 +35,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Faltan campos obligatorios" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     // Check limits
     const { data: existing } = await supabase
@@ -78,7 +76,7 @@ export async function DELETE(request: Request) {
 
     if (!id) return NextResponse.json({ error: "Falta id" }, { status: 400 });
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { error } = await supabase
       .from("servicios_publicos_config")
       .delete()

@@ -1,10 +1,8 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { getPlanPermissions } from "@/lib/planLimits";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 export async function GET(request: Request) {
   try {
@@ -21,7 +19,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const cookieStore = await cookies();
     const isMember = cookieStore.get("is_member")?.value === "true";
     const memberBuildingId = cookieStore.get("member_building_id")?.value;

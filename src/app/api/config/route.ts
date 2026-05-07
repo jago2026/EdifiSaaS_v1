@@ -1,9 +1,7 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 const DEFAULT_URLS_LA_IDEAL = {
   url_login: 'https://admlaideal.com.ve/condlin.php?r=1',
@@ -143,7 +141,7 @@ export async function POST(request: Request) {
       urls = DEFAULT_URLS_GCM;
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     const updateData: any = {
       admin_secret: admin_secret || null,
@@ -213,7 +211,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "No autenticado" }, { status: 401 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
 
     const { data: building, error } = await supabase
       .from("edificios")

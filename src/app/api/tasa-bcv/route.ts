@@ -1,13 +1,11 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 const FALLBACK_TASA = parseFloat(process.env.BCV_FALLBACK_TASA || "45.50");
 
 async function getLastStoredTasa() {
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { data } = await supabase
       .from("tasas_cambio")
       .select("tasa_dolar, fecha")
@@ -22,7 +20,7 @@ async function getLastStoredTasa() {
 
 async function saveTasa(tasa: number, fecha: string, fuente: string) {
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    
     const { error } = await supabase.from("tasas_cambio").upsert({
       fecha,
       tasa_dolar: tasa,

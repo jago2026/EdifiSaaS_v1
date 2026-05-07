@@ -1,11 +1,9 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
 import { sendWelcomeEmail, sendAdminNotification } from "@/lib/mail";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-const supabase = createClient(supabaseUrl, supabaseKey);
+
 
 const DEFAULT_URLS: Record<string, any> = {
   "La Ideal C.A.": {

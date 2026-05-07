@@ -1,8 +1,6 @@
+import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
 const DIA_ORDER = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 
@@ -30,7 +28,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  
 
   try {
     const todayStr = new Intl.DateTimeFormat("en-CA", {
