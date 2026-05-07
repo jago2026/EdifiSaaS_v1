@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { formatDate } from "@/lib/formatters";
 import { getPlanPermissions } from "@/lib/planLimits";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder";
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
 
 function normalizeMonth(mes: string | null | undefined): string {
   if (!mes) return "";
@@ -44,7 +41,7 @@ function formatLabel(mes: string | null | undefined): string {
   return mes;
 }
 
-async function limitLogs(supabase: any, table: string, edificioId: string, limit: number = 50) {
+async function limitLogs(table: string, edificioId: string, limit: number = 50) {
   try {
     const { data: logs } = await supabase
       .from(table)
@@ -61,7 +58,7 @@ async function limitLogs(supabase: any, table: string, edificioId: string, limit
   }
 }
 
-async function logTasaWarning(supabase: any, edificioId: string, targetDate: string, tasa: number, tasaDate: string | null) {
+async function logTasaWarning(edificioId: string, targetDate: string, tasa: number, tasaDate: string | null) {
   try {
     const targetFormatted = formatDate(targetDate);
     const tasaDateFormatted = tasaDate ? formatDate(tasaDate) : "N/A";
@@ -73,7 +70,7 @@ async function logTasaWarning(supabase: any, edificioId: string, targetDate: str
       descripcion: `No se encontró tasa BCV para ${targetFormatted}. Se está usando una tasa de Bs. ${tasa} de fecha ${tasaDateFormatted} para los cálculos de USD.`,
       fecha: new Date().toISOString().split('T')[0]
     });
-    await limitLogs(supabase, "alertas", edificioId);
+    await limitLogs("alertas", edificioId);
   } catch (e) {
     console.error("Error logging tasa warning:", e);
   }
@@ -146,16 +143,15 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // 0. Obtener el plan del edificio
+    // 0. Obtener el plan y unidades del edificio
     const { data: edificio } = await supabase
       .from("edificios")
-      .select("plan")
+      .select("plan, unidades")
       .eq("id", edificioId)
       .single();
 
     const planName = edificio?.plan || "Esencial";
+    const totalUnidades = edificio?.unidades || 1;
     const permissions = getPlanPermissions(planName);
 
     // Get more rates to ensure we reach 2025
@@ -214,14 +210,6 @@ export async function GET(request: Request) {
 
     const today = new Date();
     const currentMesNorm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-
-    // Get building units for averaging
-    const { data: building } = await supabase
-      .from("edificios")
-      .select("unidades")
-      .eq("id", edificioId)
-      .single();
-    const totalUnidades = building?.unidades || 1;
 
     // Get movimientos_dia for daily cash flow (more comprehensive)
     const { data: movimientosDia } = await supabase

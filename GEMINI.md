@@ -248,19 +248,28 @@ Corregir errores de filtrado de fechas, mejorar la precisión de los reportes y 
 
 ---
 
-## Fecha: 2026-05-07 (Gemini - Tanda 5)
+---
+
+## Fecha: 2026-05-07 (Gemini - Tanda 6)
 
 ### Objetivo
-Corregir el error de cálculo en el "Detalle Recibo Mes" eliminando el monto final en USD ilógico ($ 864,01) y revertir funcionalidades no solicitadas.
+Corregir errores de build en Vercel y optimizar la arquitectura de datos en APIs críticas.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de Totales en Detalle de Recibo
-- **Acción**: Se eliminó el monto total en USD ($ 864,01) del pie de página de la tabla de recibos. El usuario reportó este valor como ilógico y solicitó su eliminación para evitar confusión entre los totales del edificio y los de las unidades individuales.
-- **Limpieza**: Se removió el selector de unidades que se había agregado previamente sin solicitud, manteniendo la interfaz simplificada y enfocada en el detalle general solicitado.
+#### 1. Corrección de Error de Build (CRÍTICO)
+- **Problema**: `Module parse failed: Identifier 'unidadesCount' has already been declared`. Se detectó una doble declaración de la constante `unidadesCount` en `src/app/api/kpis/route.ts`.
+- **Solución**: Se eliminó la declaración duplicada en la línea 366. El build ahora compila correctamente.
 
-#### 2. Mantenimiento de Memoria
-- Actualización de `GEMINI.md` para reflejar el estado actual del proyecto y las decisiones tomadas basándose en el feedback del usuario.
+#### 2. Optimización de API de KPIs
+- **Unificación de Cliente Supabase**: Se refactorizó `src/app/api/kpis/route.ts` para utilizar el cliente centralizado de `@/lib/supabase` en lugar de crear nuevas instancias locales.
+- **Consolidación de Consultas**: Se combinaron las consultas a la tabla `edificios` para obtener tanto el `plan` como las `unidades` en un solo llamado al servidor, reduciendo la latencia y el consumo de recursos de la base de datos.
+- **Limpieza de Código**: Eliminación de parámetros redundantes (`supabase`) en funciones auxiliares como `limitLogs` y `logTasaWarning`, delegando la responsabilidad al cliente global.
+
+#### 3. Mantenimiento y Estabilidad
+- Verificación exitosa del build de producción localmente (`npm run build`).
+- Configuración de Git con el token proporcionado para asegurar la persistencia de los cambios en el repositorio oficial.
+
 
 
 
