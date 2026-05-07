@@ -40,8 +40,8 @@ export function RecibosTab({
             const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
               .map(u => reciboGeneral.find(i => `${i.codigo}-${i.descripcion}-${i.monto}` === u));
 
-            const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO') || i?.codigo === '00001' && i?.descripcion?.toUpperCase().includes('FONDO'));
-            const itemsNoComunes = uniqueItems.filter(i => i?.codigo === '00085' || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
+            const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO') || i?.codigo?.startsWith('00001') && i?.descripcion?.toUpperCase().includes('FONDO'));
+            const itemsNoComunes = uniqueItems.filter(i => i?.codigo?.startsWith('00085') || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
             const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
 
             const sumMonto = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.monto || 0), 0);

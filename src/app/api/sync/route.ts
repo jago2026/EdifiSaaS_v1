@@ -188,75 +188,94 @@ function parseReciboDetalle(html: string): any[] {
   // Buscar todas las filas de tabla en el documento de forma global
   const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
   
+  console.log(`[parseReciboDetalle] Analizando ${rows.length} filas...`);
+
   for (const rowContent of rows) {
-    const cells = rowContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+    // Buscar celdas <td> o <th>
+    const cells = rowContent.match(/<(td|th)[^>]*>([\s\S]*?)<\/(td|th)>/gi);
     if (!cells || cells.length < 2) continue;
 
     const cellTexts = cells.map(c => cleanHtml(c).trim());
     
-    // Identificar posibles candidatos a monto en cualquier celda (normalmente al final)
     let foundMonto = 0;
     let foundCuota = 0;
-    let montoIndex = -1;
+    let montoCount = 0;
 
-    // Escanear de derecha a izquierda para encontrar montos
-    for (let i = cellTexts.length - 1; i >= 1; i--) {
+    // Escanear todas las celdas buscando montos
+    for (let i = cellTexts.length - 1; i >= 0; i--) {
       const val = parseMonto(cellTexts[i]);
       if (val !== 0) {
-        if (montoIndex === -1) {
+        if (montoCount === 0) {
           foundCuota = val;
-          montoIndex = i;
-        } else {
+          montoCount++;
+        } else if (montoCount === 1) {
           foundMonto = val;
-          break;
+          montoCount++;
+          break; 
         }
       }
     }
 
-    // Si solo encontramos uno, asumimos que es el monto principal
-    if (foundMonto === 0 && foundCuota !== 0) {
+    // Si solo encontramos un monto, asumimos que es el principal (monto base)
+    if (montoCount === 1) {
       foundMonto = foundCuota;
       foundCuota = 0;
     }
 
-    const code = cellTexts[0] || "";
-    const desc = cellTexts[1] || "";
+    // Identificar código y descripción
+    // El código suele estar en la primera o segunda celda. La descripción en la siguiente.
+    let code = "";
+    let desc = "";
 
-    // Criterios para saltar (encabezados)
-    if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || desc.toUpperCase().includes("CONCEPTO") || desc.toUpperCase().includes("DESCRIPCI")) continue;
-    
-    // NO SALTAR filas con TOTAL si tienen monto, ya que pueden ser subtotales importantes
-    // Pero solo si no son la fila de TOTAL GENERAL que sume todo lo anterior de forma redundante
-    if (desc.toUpperCase() === "TOTAL GASTOS COMUNES" || desc.toUpperCase() === "TOTAL FONDOS") {
-      results.push({
-        codigo: "",
-        descripcion: desc,
-        monto: foundMonto,
-        cuota_parte: foundCuota || 0,
-        tipo: 'subtotal'
-      });
-      continue;
+    if (cellTexts.length >= 2) {
+      // Caso estándar: [Código, Descripción, ..., Monto]
+      if (cellTexts[0].length <= 10 && /^\d*$/.test(cellTexts[0].replace(/[-.]/g, ''))) {
+        code = cellTexts[0];
+        desc = cellTexts[1];
+      } else {
+        // Si la primera celda no parece un código, quizás sea la descripción
+        code = "";
+        desc = cellTexts[0] || cellTexts[1];
+      }
     }
 
-    // Si tiene descripción y algún monto, lo tomamos
-    if (desc && desc.length > 2 && (foundMonto !== 0 || foundCuota !== 0)) {
+    // Limpieza de descripción
+    desc = desc.replace(/\s+/g, ' ').trim();
+    if (!desc || desc.length < 2) continue;
+
+    const upperDesc = desc.toUpperCase();
+
+    // Criterios para saltar encabezados
+    if (upperDesc.includes("CONCEPTO") || upperDesc.includes("DESCRIPCI") || upperDesc === "MONTO" || upperDesc === "CUOTA PARTE") continue;
+    
+    // Detectar subtotales para marcarlos
+    let itemType = 'gasto';
+    if (upperDesc.includes("TOTAL GASTOS COMUNES") || upperDesc.includes("TOTAL FONDOS") || upperDesc.includes("TOTAL RECIBO")) {
+      itemType = 'subtotal';
+    }
+
+    if (foundMonto !== 0 || foundCuota !== 0) {
       results.push({
-        codigo: (code.length > 10 || code === " " || !code) ? "" : code,
+        codigo: code,
         descripcion: desc,
         monto: foundMonto,
         cuota_parte: foundCuota || 0,
-        tipo: 'gasto'
+        tipo: itemType
       });
     }
   }
 
-  // Deduplicación inteligente: Solo si TODO es idéntico
+  // Deduplicación final por contenido exacto para evitar ruido de tablas repetidas en el portal
   const finalResults = results.filter((item, index, self) =>
     index === self.findIndex((t) => (
-      t.codigo === item.codigo && t.descripcion === item.descripcion && t.monto === item.monto && t.cuota_parte === item.cuota_parte
+      t.codigo === item.codigo && 
+      t.descripcion === item.descripcion && 
+      Math.abs(t.monto - item.monto) < 0.01 && 
+      Math.abs(t.cuota_parte - item.cuota_parte) < 0.01
     ))
   );
 
+  console.log(`[parseReciboDetalle] Finalizado. Encontrados ${finalResults.length} ítems válidos.`);
   return finalResults;
 }
 
