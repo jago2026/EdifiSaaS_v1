@@ -111,9 +111,6 @@ function LoginForm() {
         <div>
           <div className="flex justify-between items-center mb-2">
             <label className="block text-sm font-medium text-gray-700">Contraseña</label>
-            <Link href="/forgot-password" size="sm" className="text-xs text-blue-600 hover:underline">
-              ¿Olvidó su contraseña?
-            </Link>
           </div>
           <div className="relative">
             <input 
@@ -149,6 +146,11 @@ function LoginForm() {
         >
           {loading ? "Iniciando..." : "Iniciar sesión"}
         </button>
+        <div className="text-center">
+          <Link href="/forgot-password" size="sm" className="text-xs text-blue-600 hover:underline">
+            ¿Olvidó su contraseña?
+          </Link>
+        </div>
       </form>
       <p className="text-center text-sm text-gray-600 mt-6">
         ¿No tienes cuenta?{" "}
