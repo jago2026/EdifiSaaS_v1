@@ -405,7 +405,7 @@ export default function DashboardPage() {
         : '/api/tasa-bcv';
       
       const [reciboRes, tasaRes] = await Promise.all([
-        fetch(`/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL${mes ? `&mes=${mes}` : ""}`),
+        fetch(`/api/recibo-detalle?edificioId=${building.id}&unidad=GENERAL&live=1${mes ? `&mes=${mes}` : ""}`),
         fetch(tasaUrl)
       ]);
       
@@ -3344,9 +3344,9 @@ export default function DashboardPage() {
                   const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
                     .map(u => reciboGeneral.find(i => `${i.codigo}-${i.descripcion}-${i.monto}` === u));
 
-                  const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO') || i?.codigo?.startsWith('00001') && i?.descripcion?.toUpperCase().includes('FONDO'));
-                  const itemsNoComunes = uniqueItems.filter(i => i?.codigo?.startsWith('00085') || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
-                  const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
+                  const itemsFondos = uniqueItems.filter(i => i?.tipo === 'fondo' || (i?.descripcion?.toUpperCase().includes('FONDO') && !i?.descripcion?.toUpperCase().includes('DIFERENCIAL')));
+                  const itemsNoComunes = uniqueItems.filter(i => i?.codigo === '00085' || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
+                  const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i) && i.tipo !== 'subtotal');
 
                   const sumMonto = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.monto || 0), 0);
                   const sumCuota = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);

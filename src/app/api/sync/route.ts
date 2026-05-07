@@ -184,105 +184,107 @@ async function fetchPageWithCookie(url: string, session: { cookie: string, sid: 
 function parseReciboDetalle(html: string): any[] {
   if (!html) return [];
   const results: any[] = [];
-  
+
   // Buscar todas las filas de tabla en el documento de forma global
   const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
-  
+
   console.log(`[parseReciboDetalle] Analizando ${rows.length} filas...`);
 
   for (const rowContent of rows) {
-    // Buscar celdas <td> o <th>
-    const cells = rowContent.match(/<(td|th)[^>]*>([\s\S]*?)<\/(td|th)>/gi);
+    // Buscar celdas <td> (no th para saltar encabezados)
+    const cells = rowContent.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
     if (!cells || cells.length < 2) continue;
 
     const cellTexts = cells.map(c => cleanHtml(c).trim());
-    
-    let foundMonto = 0;
-    let foundCuota = 0;
-    let montoCount = 0;
 
-    // Escanear todas las celdas buscando montos
-    for (let i = cellTexts.length - 1; i >= 0; i--) {
-      const val = parseMonto(cellTexts[i]);
-      if (val !== 0) {
-        if (montoCount === 0) {
-          foundCuota = val;
-          montoCount++;
-        } else if (montoCount === 1) {
-          foundMonto = val;
-          montoCount++;
-          break; 
-        }
-      }
+    // Saltar filas de encabezado / totales de navegación
+    const rowText = cellTexts.join(' ').toUpperCase();
+    if (rowText.includes('CÓDIGO') || rowText.includes('CONCEPTO') || rowText.includes('DESCRIPCI')) continue;
+
+    // ── Detectar código en la primera celda ──────────────────────────
+    // El código del recibo de RascaCielo es siempre numérico (ej. 00007, 00101, 99997)
+    let code = cellTexts[0];
+    const isCodeCell = /^\d{3,6}$/.test(code.replace(/[^0-9]/g, '')) && code.length <= 8;
+
+    let desc = '';
+    let montoRaw = '';
+    let cuotaRaw = '';
+
+    if (isCodeCell) {
+      // Formato estándar: [codigo, descripcion, monto, cuota_parte]
+      desc      = cellTexts[1] || '';
+      montoRaw  = cellTexts[2] || '';
+      cuotaRaw  = cellTexts[3] || '';
+    } else {
+      // Sin código: [descripcion, monto, cuota_parte] o similar
+      code = '';
+      desc      = cellTexts[0];
+      montoRaw  = cellTexts[1] || '';
+      cuotaRaw  = cellTexts[2] || '';
     }
 
-    // Si solo encontramos un monto, asumimos que es el principal (monto base)
-    if (montoCount === 1) {
-      foundMonto = foundCuota;
-      foundCuota = 0;
-    }
-
-    // Identificar código y descripción de forma robusta
-    let code = "";
-    let desc = "";
-    
-    // El código suele ser una de las primeras celdas y corto (solo números y signos)
-    // La descripción suele ser la celda más larga de las primeras 3
-    for (let i = 0; i < Math.min(cellTexts.length, 4); i++) {
-      const text = cellTexts[i];
-      if (!text || text.length < 1) continue;
-      
-      const isLikelyCode = text.length <= 10 && /^\d*$/.test(text.replace(/[-.#]/g, ''));
-      
-      if (isLikelyCode && !code) {
-        code = text;
-      } else if (text.length > 3 && !desc) {
-        desc = text;
-      } else if (text.length > 3 && desc && desc.length < text.length && i < 3) {
-        // Si encontramos un texto más largo en las primeras celdas, probablemente sea la descripción real
-        desc = text;
-      }
-    }
-
-    // Si no se encontró código pero sí descripción, es válido
-    // Si la descripción parece un código, la movemos a código
-    if (!code && desc && desc.length <= 8 && /^\d+$/.test(desc)) {
-      code = desc;
-      desc = "";
-    }
-
-    // Limpieza de descripción
     desc = desc.replace(/\s+/g, ' ').trim();
     if (!desc || desc.length < 2) continue;
 
     const upperDesc = desc.toUpperCase();
 
-    // Criterios para saltar encabezados
-    if (upperDesc.includes("CONCEPTO") || upperDesc.includes("DESCRIPCI") || upperDesc === "MONTO" || upperDesc === "CUOTA PARTE") continue;
-    
-    // Detectar subtotales para marcarlos
+    // Saltar encabezados de columna
+    if (upperDesc === 'MONTO' || upperDesc === 'CUOTA PARTE' || upperDesc === 'DESCRIPCIÓN' || upperDesc === 'DESCRIPCION') continue;
+
+    // Calcular valores numéricos
+    // Si cuotaRaw está vacío, intentar buscar el último valor numérico en las celdas restantes
+    let foundMonto = parseMonto(montoRaw);
+    let foundCuota = parseMonto(cuotaRaw);
+
+    // Para filas que tienen montos negativos (ej. -0,65 o -12.885,61) parseMonto ya los maneja
+    // pero el string del HTML puede tener el signo antes del número: limpiar si corresponde
+    if (montoRaw.trim().startsWith('-') && foundMonto > 0) foundMonto = -foundMonto;
+    if (cuotaRaw.trim().startsWith('-') && foundCuota > 0) foundCuota = -foundCuota;
+
+    // Si no obtuvimos ningún monto, intentar escanear desde el final de la fila
+    if (foundMonto === 0 && foundCuota === 0) {
+      let montoCount = 0;
+      for (let i = cellTexts.length - 1; i >= 0; i--) {
+        const v = parseMonto(cellTexts[i]);
+        if (v !== 0) {
+          if (montoCount === 0) { foundCuota = v; montoCount++; }
+          else if (montoCount === 1) { foundMonto = v; break; }
+        }
+      }
+      if (montoCount === 1) { foundMonto = foundCuota; foundCuota = 0; }
+    }
+
+    // Clasificar tipo de ítem
     let itemType = 'gasto';
-    if (upperDesc.includes("TOTAL GASTOS COMUNES") || upperDesc.includes("TOTAL FONDOS") || upperDesc.includes("TOTAL RECIBO")) {
+    if (upperDesc.includes('FONDO DE RESERVA') || upperDesc.includes('FONDO PRESTACIONES') ||
+        upperDesc.includes('FONDO TRABAJOS') || upperDesc.includes('FONDO INTERESES') ||
+        upperDesc.includes('FONDO DIFERENCIAL')) {
+      itemType = 'fondo';
+    } else if (upperDesc.includes('TOTAL GASTOS COMUNES') || upperDesc.includes('TOTAL FONDOS') ||
+               upperDesc.includes('TOTAL FONDOS Y GASTOS') || upperDesc.includes('TOTAL RECIBO') ||
+               upperDesc.includes('GASTOS COMUNES SEGÚN') || upperDesc.includes('GASTOS COMUNES SEGUN')) {
       itemType = 'subtotal';
     }
 
+    // Solo guardar si tiene monto o cuota (incluyendo negativos)
     if (foundMonto !== 0 || foundCuota !== 0) {
       results.push({
         codigo: code,
         descripcion: desc,
         monto: foundMonto,
-        cuota_parte: foundCuota || 0,
+        cuota_parte: foundCuota,
         tipo: itemType
       });
     }
   }
 
-  // Deduplicación final por contenido exacto para evitar ruido de tablas repetidas en el portal
+  // Deduplicación estricta: solo eliminar filas EXACTAMENTE iguales (mismo codigo+desc+monto+cuota)
+  // Permite que el mismo código aparezca con diferente descripción/monto (ej. 00007, 00101, 00500, 00706)
   const finalResults = results.filter((item, index, self) =>
     index === self.findIndex((t) => (
-      t.codigo === item.codigo && 
-      t.descripcion === item.descripcion && 
-      Math.abs(t.monto - item.monto) < 0.01 && 
+      t.codigo === item.codigo &&
+      t.descripcion === item.descripcion &&
+      Math.abs(t.monto - item.monto) < 0.01 &&
       Math.abs(t.cuota_parte - item.cuota_parte) < 0.01
     ))
   );
@@ -1211,7 +1213,7 @@ export async function POST(request: Request) {
             descripcion: item.descripcion,
             monto: item.monto,
             cuota_parte: item.cuota_parte,
-            tipo: 'gasto_comun'
+            tipo: item.tipo || 'gasto_comun'
           };
         });
         

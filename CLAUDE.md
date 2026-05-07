@@ -343,3 +343,54 @@ El cron se ejecutó a las 05:01 VET correctamente (schedule 0 9 * * *). Se detec
 
 ### Causa probable del error Torrebela
 El sync de Torrebela falla login. Esto significa que `url_login` apunta a un servidor RascaCielo externo que no está respondiendo, o que `admin_secret` es incorrecto. El administrador debe revisar en Configuración → Sincronización las credenciales del sistema externo de cobranza.
+
+---
+
+## Sesión: 2026-05-07 — Corrección pestaña "Detalle Recibo Mes"
+
+### Problema reportado
+La pestaña **Detalle Recibo Mes** mostraba un recibo incompleto (21 ítems) comparado con lo que muestra la administradora RascaCielo (25+ ítems incluyendo fondos y entradas duplicadas de código).
+
+**Ítems faltantes vs. administradora:**
+- `00007 CESTATICKETS SOCIALISTA` — faltaba (mismo código que BONO GUERRA ECONOMICA)
+- `00101 ELECTRICIDAD 8177728` — faltaba (segundo medidor, mismo código que primer ELECTRICIDAD)
+- `00500 COMPRA PRODUCTOS DE LIMPIEZA DESINFECTANTE` — faltaba (segundo ítem mismo código)
+- `00706 ESTIMACION VIGILANCIA PRIVADA MAY/2026 1450$` — faltaba (estimación próximo mes, mismo código)
+- `00001 FONDO DE RESERVA` — faltaba (clasificado incorrectamente como código de trabajador)
+- Totales intermedios (TOTAL GASTOS COMUNES, TOTAL FONDOS, TOTAL FONDOS Y GASTOS, TOTAL RECIBO) — ausentes
+
+**Causa raíz:**
+1. `parseReciboDetalle()` en `src/app/api/sync/route.ts` usaba un detector de código ambiguo (`isLikelyCode`) que fallaba con filas que no tenían exactamente la estructura esperada.
+2. El campo `tipo` se guardaba siempre como `'gasto_comun'` ignorando si era fondo o subtotal.
+3. El filtro `itemsFondos` en la UI usaba `codigo.startsWith('00001')` que es incorrecto (00001 = TRABAJADOR RESIDENCIAL, no fondo).
+4. `recibo-detalle/route.ts` solo leía de Supabase sin fallback a scraping live cuando los datos eran incompletos/desactualizados.
+
+### Correcciones aplicadas
+
+#### `src/app/api/sync/route.ts` — `parseReciboDetalle()`
+- Reescrito completamente. Ahora detecta código numérico de 3-6 dígitos en primera celda (`/^\d{3,6}$/`).
+- Permite múltiples filas con mismo código pero diferente descripción (no deduplica por código solo).
+- Clasifica correctamente `tipo`: `'fondo'` para FONDO DE RESERVA/PRESTACIONES/etc., `'subtotal'` para filas TOTAL*, `'gasto'` para el resto.
+- Maneja montos negativos correctamente.
+
+#### `src/app/api/sync/route.ts` — `itemsToSave`
+- Cambiado `tipo: 'gasto_comun'` hardcodeado → `tipo: item.tipo || 'gasto_comun'` para preservar la clasificación del parser.
+
+#### `src/app/api/recibo-detalle/route.ts`
+- Reescrito con **live scraping fallback**: si la DB no tiene datos o se pasa `?live=1`, hace login a RascaCielo y scrapea `condlin.php?r=4` directamente.
+- Usa el mismo parser corregido `parseReciboDetalleFromHtml()`.
+- Si obtiene datos del scraping, los guarda en la DB para futuros requests.
+
+#### `src/app/dashboard/page.tsx`
+- Parámetro `live=1` agregado al fetch de `/api/recibo-detalle` para forzar actualización desde la administradora cuando los datos de DB están desactualizados.
+- Filtro `itemsFondos` corregido: usa `i?.tipo === 'fondo'` primero, luego fallback a descripción que incluya 'FONDO' (excluyendo 'DIFERENCIAL').
+- Filtro `itemsComunes` excluye explícitamente `tipo === 'subtotal'`.
+
+### SQL requerido en Supabase
+No se requieren cambios de esquema. La columna `tipo` ya existe en `recibos_detalle`. Si los datos del mes 04-2026 están en DB con la data vieja, se actualizarán automáticamente en el próximo clic de "Refrescar" (🔄) en la pestaña gracias al live scraping.
+
+### Archivos modificados
+- `src/app/api/sync/route.ts`
+- `src/app/api/recibo-detalle/route.ts`
+- `src/app/dashboard/page.tsx`
+- `CLAUDE.md`
