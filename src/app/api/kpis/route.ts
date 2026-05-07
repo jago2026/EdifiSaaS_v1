@@ -363,7 +363,6 @@ export async function GET(request: Request) {
     const deudaTotalUsd = (recibos || []).reduce((sum, r: any) => {
       return sum + (parseFloat(r.deuda || 0) / currentTasa);
     }, 0);
-    const unidadesCount = alicuotas?.length || 0;
     const alicuotaPromedio = unidadesCount > 0 
       ? (alicuotas || []).reduce((sum, a: any) => sum + parseFloat(a.alicuota || 0), 0) / unidadesCount 
       : 0;
