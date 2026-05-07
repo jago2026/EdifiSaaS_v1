@@ -259,8 +259,6 @@ function parseReciboDetalle(html: string): any[] {
 
   return finalResults;
 }
-  return finalResults;
-}
 
 function parseReceiptMonthlySummary(html: string): number {
   if (!html) return 0;
