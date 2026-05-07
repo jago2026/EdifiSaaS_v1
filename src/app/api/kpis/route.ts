@@ -277,15 +277,22 @@ export async function GET(request: Request) {
 
     const cashFlowData = Object.values(dailyFlow).sort((a: any, b: any) => a.fecha.localeCompare(b.fecha));
 
+    const unidadesCount = alicuotas?.length || 0;
+    const divisorUnidades = unidadesCount > 0 ? unidadesCount : (totalUnidades > 0 ? totalUnidades : 1);
+
     const balancesWithLabel = (balances || [])
       .filter((b: any) => normalizeMonth(b.mes) < currentMesNorm) // Excluir mes en curso
       .map((b: any) => {
         const normalized = normalizeMonth(b.mes);
         const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
-        // Calcular monto por unidad: Gastos facturados del mes / número de apartamentos
-    const gastoPorUnidadUsd = totalUnidades > 0 && b.gastos_facturados 
-      ? (Math.abs(b.gastos_facturados) / totalUnidades) / tasa 
-      : 0;
+        
+        // Priorizar el campo recibos_mes (que es el total real facturado con fondos) sobre gastos_facturados
+        const montoTotalReciboBs = Math.max(Math.abs(b.recibos_mes || 0), Math.abs(b.gastos_facturados || 0));
+        
+        // Calcular monto por unidad usando el divisor corregido (conteo de aptos)
+        const gastoPorUnidadUsd = divisorUnidades > 0 
+          ? (montoTotalReciboBs / divisorUnidades) / tasa 
+          : 0;
 
         return {
           ...b,
