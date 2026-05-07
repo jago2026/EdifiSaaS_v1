@@ -222,21 +222,33 @@ function parseReciboDetalle(html: string): any[] {
       foundCuota = 0;
     }
 
-    // Identificar código y descripción
-    // El código suele estar en la primera o segunda celda. La descripción en la siguiente.
+    // Identificar código y descripción de forma robusta
     let code = "";
     let desc = "";
-
-    if (cellTexts.length >= 2) {
-      // Caso estándar: [Código, Descripción, ..., Monto]
-      if (cellTexts[0].length <= 10 && /^\d*$/.test(cellTexts[0].replace(/[-.]/g, ''))) {
-        code = cellTexts[0];
-        desc = cellTexts[1];
-      } else {
-        // Si la primera celda no parece un código, quizás sea la descripción
-        code = "";
-        desc = cellTexts[0] || cellTexts[1];
+    
+    // El código suele ser una de las primeras celdas y corto (solo números y signos)
+    // La descripción suele ser la celda más larga de las primeras 3
+    for (let i = 0; i < Math.min(cellTexts.length, 4); i++) {
+      const text = cellTexts[i];
+      if (!text || text.length < 1) continue;
+      
+      const isLikelyCode = text.length <= 10 && /^\d*$/.test(text.replace(/[-.#]/g, ''));
+      
+      if (isLikelyCode && !code) {
+        code = text;
+      } else if (text.length > 3 && !desc) {
+        desc = text;
+      } else if (text.length > 3 && desc && desc.length < text.length && i < 3) {
+        // Si encontramos un texto más largo en las primeras celdas, probablemente sea la descripción real
+        desc = text;
       }
+    }
+
+    // Si no se encontró código pero sí descripción, es válido
+    // Si la descripción parece un código, la movemos a código
+    if (!code && desc && desc.length <= 8 && /^\d+$/.test(desc)) {
+      code = desc;
+      desc = "";
     }
 
     // Limpieza de descripción
