@@ -1385,38 +1385,46 @@ export default function DashboardPage() {
         (pagos || []).forEach((p: any) => {
           const fecha = p.fecha_pago;
           if (!fecha) return;
-          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
-          cashFlowMap.get(fecha).ingresos += Number(p.monto || 0);
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+          const entry = cashFlowMap.get(fecha);
+          entry.cobranza += Number(p.monto || 0);
+          entry.ingresos += Number(p.monto || 0);
         });
 
         // Procesar egresos (egresos)
         (egresos || []).forEach((e: any) => {
           const fecha = e.fecha;
           if (!fecha) return;
-          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
-          cashFlowMap.get(fecha).egresos += Number(e.monto || 0);
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+          const entry = cashFlowMap.get(fecha);
+          entry.egresos_operat += Number(e.monto || 0);
+          entry.egresos += Number(e.monto || 0);
         });
 
         // Procesar gastos (egresos)
         (gastos || []).forEach((g: any) => {
           const fecha = g.fecha;
           if (!fecha) return;
-          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
-          cashFlowMap.get(fecha).egresos += Number(g.monto || 0);
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+          const entry = cashFlowMap.get(fecha);
+          entry.egresos_operat += Number(g.monto || 0);
+          entry.egresos += Number(g.monto || 0);
         });
 
         // 2. Procesar movimientos_dia SOLO si no vienen de las fuentes anteriores
-        const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial'];
+        const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial', 'ingresos'];
         (movimientos || []).forEach((m: any) => {
           if (m.fuente && fuentesSincronizadas.includes(m.fuente)) return;
           
           const fecha = m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha;
           if (!fecha) return;
-          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, ingresos: 0, egresos: 0 });
+          if (!cashFlowMap.has(fecha)) cashFlowMap.set(fecha, { fecha, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
           const entry = cashFlowMap.get(fecha);
           if (m.tipo === 'recibo') {
+            entry.otros_ingresos += Number(m.monto || 0);
             entry.ingresos += Number(m.monto || 0);
           } else {
+            entry.otros_egresos += Number(m.monto || 0);
             entry.egresos += Number(m.monto || 0);
           }
         });
@@ -5276,6 +5284,10 @@ export default function DashboardPage() {
                               const cashFlowItem = cashFlowMap.get(dateStr);
                               const dayIngresos = cashFlowItem?.ingresos || 0;
                               const dayEgresos = cashFlowItem?.egresos || 0;
+                              const dayCobranza = cashFlowItem?.cobranza || 0;
+                              const dayOtrosIngresos = cashFlowItem?.otros_ingresos || 0;
+                              const dayEgresosOperat = cashFlowItem?.egresos_operat || 0;
+                              const dayOtrosEgresos = cashFlowItem?.otros_egresos || 0;
 
                               const saldoInicial = currentSaldo;
                               currentSaldo = saldoInicial + dayIngresos - dayEgresos;
@@ -5286,11 +5298,11 @@ export default function DashboardPage() {
                                 <tr key={d} className={`${d % 2 === 0 ? 'bg-gray-50' : 'bg-white'} ${hasMovement ? 'hover:bg-indigo-50' : 'text-gray-300'} transition-colors`}>
                                   <td className="py-1 px-1 border text-center font-black text-indigo-900">{d}</td>
                                   <td className="py-1 px-1 border text-right font-mono text-gray-400">{formatBs(saldoInicial)}</td>
-                                  <td className={`py-1 px-1 border text-right font-mono ${dayIngresos > 0 ? 'text-green-600' : 'text-gray-300'}`}>{formatBs(dayIngresos)}</td>
-                                  <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayCobranza > 0 ? 'text-green-600' : 'text-gray-300'}`}>{formatBs(dayCobranza)}</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayOtrosIngresos > 0 ? 'text-green-600' : 'text-gray-300'}`}>{formatBs(dayOtrosIngresos)}</td>
                                   <td className={`py-1 px-1 border text-right font-mono ${dayIngresos > 0 ? 'bg-green-50 text-green-800' : ''}`}>{formatBs(dayIngresos)}</td>
-                                  <td className={`py-1 px-1 border text-right font-mono ${dayEgresos > 0 ? 'text-red-600' : 'text-gray-300'}`}>{formatBs(dayEgresos)}</td>
-                                  <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayEgresosOperat > 0 ? 'text-red-600' : 'text-gray-300'}`}>{formatBs(dayEgresosOperat)}</td>
+                                  <td className={`py-1 px-1 border text-right font-mono ${dayOtrosEgresos > 0 ? 'text-red-600' : 'text-gray-300'}`}>{formatBs(dayOtrosEgresos)}</td>
                                   <td className={`py-1 px-1 border text-right font-mono ${dayEgresos > 0 ? 'bg-red-50 text-red-800' : ''}`}>{formatBs(dayEgresos)}</td>
                                   <td className="py-1 px-1 border text-right font-mono text-gray-300">0,00</td>
                                   <td className={`py-1 px-1 border text-right font-mono ${currentSaldo >= 0 ? 'bg-indigo-50 text-indigo-900' : 'bg-red-50 text-red-700'}`}>{formatBs(currentSaldo)}</td>

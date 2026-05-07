@@ -210,3 +210,37 @@ Corregir la falla en la detección de pagos (totales y parciales) durante la sin
 
 ---
 
+## Fecha: 2026-05-07 (Gemini)
+
+### Objetivo
+Corregir la discrepancia en el Flujo de Caja, implementar la recuperación de contraseña y mejorar la experiencia de usuario en el login.
+
+### Tareas Realizadas
+
+#### 1. Corrección de Flujo de Caja (Doble Conteo)
+- **Problema:** Los ingresos se duplicaban en la pestaña de Flujo de Caja porque los pagos detectados en la pestaña "Ingresos" del portal (r=1) se sumaban tanto desde la tabla `pagos_recibos` como desde `movimientos_dia`, ya que la fuente "ingresos" no estaba excluida.
+- **Solución Aplicada:** 
+    - Se actualizó la lista de `fuentesSincronizadas` en `/api/movimientos-dia` y en el frontend para incluir `'ingresos'`.
+    - Se refactorizó la lógica para separar **Cobranza** de **Otros Ingresos** y **Egresos Operativos** de **Otros Egresos**, permitiendo que la tabla de "Detalle Diario" sea 100% precisa.
+- **Resultado:** Los totales de ingresos ahora coinciden exactamente con los recibos pagados y la tabla muestra el desglose detallado solicitado.
+
+#### 2. Recuperación de Contraseña (NUEVA FUNCIONALIDAD)
+- **Base de Datos:** Se creó `supabase/migration_password_reset.sql` para añadir `reset_token` y `reset_token_expires` a las tablas `usuarios` y `junta`.
+- **API:**
+    - Creada `/api/forgot-password` para validar el email, generar tokens seguros y enviar correos de recuperación vía SMTP.
+    - Creada `/api/reset-password` para validar tokens y actualizar las contraseñas usando SHA-256.
+- **UI:**
+    - Se añadió el enlace "¿Olvidó su contraseña?" en la pantalla de login.
+    - Nueva página `/forgot-password` para solicitar el enlace.
+    - Nueva página `/reset-password` para establecer la nueva clave.
+
+#### 3. Mejora en Formulario de Login
+- **Visualización de Clave:** Se implementó un botón (icono de ojo) en el campo de contraseña para conmutar entre mostrar/ocultar los caracteres, mejorando la usabilidad y evitando errores al escribir.
+- **Estilo:** Se mantuvo la estética premium del sistema con transiciones suaves y feedback visual.
+
+#### 4. Mantenimiento y SQL
+- Se generó el script SQL consolidado para aplicar los cambios en Supabase.
+- Se verificó la consistencia de los hashes de contraseña en todo el flujo de recuperación.
+
+---
+

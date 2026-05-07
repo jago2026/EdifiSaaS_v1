@@ -63,24 +63,30 @@ export async function GET(request: NextRequest) {
     (pagos || []).forEach((p: any) => {
       const f = p.fecha_pago;
       if (!f) return;
-      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-      cashFlowMap.get(f).ingresos += Number(p.monto || 0);
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+      const entry = cashFlowMap.get(f);
+      entry.cobranza += Number(p.monto || 0);
+      entry.ingresos += Number(p.monto || 0);
     });
     
     // Add egresos
     (egresos || []).forEach((e: any) => {
       const f = e.fecha;
       if (!f) return;
-      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-      cashFlowMap.get(f).egresos += Number(e.monto || 0);
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+      const entry = cashFlowMap.get(f);
+      entry.egresos_operat += Number(e.monto || 0);
+      entry.egresos += Number(e.monto || 0);
     });
     
     // Add gastos
     (gastos || []).forEach((g: any) => {
       const f = g.fecha;
       if (!f) return;
-      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
-      cashFlowMap.get(f).egresos += Number(g.monto || 0);
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+      const entry = cashFlowMap.get(f);
+      entry.egresos_operat += Number(g.monto || 0);
+      entry.egresos += Number(g.monto || 0);
     });
 
     // 2. Add movimientos_dia ONLY if they are not from the above sources (to avoid double counting)
@@ -89,16 +95,20 @@ export async function GET(request: NextRequest) {
       if (!f) return;
       
       // Skip if this movement was already accounted for by the specialized tables
-      const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial'];
+      const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial', 'ingresos'];
       if (m.fuente && fuentesSincronizadas.includes(m.fuente)) {
         return; 
       }
 
-      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, ingresos: 0, egresos: 0 });
+      if (!cashFlowMap.has(f)) cashFlowMap.set(f, { fecha: f, cobranza: 0, otros_ingresos: 0, egresos_operat: 0, otros_egresos: 0, ingresos: 0, egresos: 0 });
+      const entry = cashFlowMap.get(f);
+      
       if (m.tipo === 'recibo') {
-        cashFlowMap.get(f).ingresos += Number(m.monto || 0);
+        entry.otros_ingresos += Number(m.monto || 0);
+        entry.ingresos += Number(m.monto || 0);
       } else {
-        cashFlowMap.get(f).egresos += Number(m.monto || 0);
+        entry.otros_egresos += Number(m.monto || 0);
+        entry.egresos += Number(m.monto || 0);
       }
     });
 
