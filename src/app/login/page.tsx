@@ -18,10 +18,7 @@ function LoginForm() {
     const passwordParam = searchParams.get("password");
     
     if (emailParam) setEmail(emailParam);
-    else setEmail("correojago@gmail.com");
-
     if (passwordParam) setPassword(passwordParam);
-    else setPassword("12345678");
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
