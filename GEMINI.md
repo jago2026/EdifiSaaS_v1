@@ -248,3 +248,30 @@ Corregir errores de filtrado de fechas, mejorar la precisión de los reportes y 
 
 ---
 
+## Fecha: 2026-05-07 (Gemini - Tanda 2)
+
+### Objetivo
+Restaurar bloques de información eliminados, corregir el detalle del recibo mensual y personalizar los asuntos de email.
+
+### Tareas Realizadas
+
+#### 1. Personalización de Asuntos de Email (CRÍTICO)
+- **Cambio:** Se eliminó el prefijo "SaaS -" de los asuntos de los correos electrónicos institucionales.
+- **Nuevo Formato:** `💰Resumen Financiero [NOMBRE EDIFICIO] - [FECHA]`.
+- **Alcance:** Aplicado a informes Premium, reportes estilo WhatsApp y notificaciones estándar.
+
+#### 2. Restauración de Bloques en Resumen Ejecutivo
+- **Mejora:** Se reincorporaron los bloques de **"Gastos Comunes"** y **"Gastos No Comunes"** en la pestaña de Resumen Ejecutivo.
+- **Fuente:** Estos datos se obtienen directamente del último balance procesado por la administradora para ofrecer mayor detalle financiero de un vistazo.
+- **Ajuste de UI:** Se reorganizó la cuadrícula para dar cabida a estos indicadores sin saturar la vista.
+
+#### 3. Precisión en Detalle de Recibo y Totales
+- **Mejora de Scraper:** Se actualizó la lógica de extracción de `recibo-detalle` para permitir capturar conceptos que no poseen un código asignado en el portal de la administradora, garantizando que el listado local coincida al 100% con la web externa.
+- **Inclusión de Fondos:** Se eliminó el filtro que excluía conceptos de "FONDO" en el API de `gastos-summary`. Ahora el total de "Gastos del Mes" refleja la cifra real incluyendo aportes a fondos (como el de reserva), tal como aparece en el recibo.
+
+#### 4. Estabilidad de UI
+- Se corrigió el cálculo de USD en los resúmenes de egresos para evitar divisiones por cero o tasas no cargadas.
+- Se aseguró que los bloques de gastos siempre muestren la leyenda "Según Último Balance" para evitar confusiones con los movimientos en vivo.
+
+---
+

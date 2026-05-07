@@ -46,8 +46,7 @@ export async function GET(request: Request) {
       .gte("fecha", `${currentMes}-01`)
       .lte("fecha", `${currentMes}-31`)
       .neq("codigo", "TOTAL")
-      .neq("codigo", "00001")
-      .not("descripcion", "ilike", "%FONDO%");
+      .neq("codigo", "00001");
 
     if (error) {
       console.error("Gastos query error:", error);

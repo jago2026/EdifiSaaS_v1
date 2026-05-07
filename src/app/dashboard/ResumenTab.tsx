@@ -89,6 +89,26 @@ export function ResumenTab({
               {(egresosSummary?.cantidad || 0)} movimiento{(egresosSummary?.cantidad || 0) !== 1 ? "s" : ""}
             </div>
           </div>
+
+          {/* Bloques de Gastos Detallados solicitados por el usuario */}
+          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos comunes facturados en el recibo.">
+            <div className="text-sm text-gray-500 mb-1">Gastos Comunes</div>
+            <div className="text-2xl font-bold text-orange-700">
+              Bs.{formatBs(balance?.gastos_comunes || 0)}
+            </div>
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_comunes || 0) / tasaBCV.dolar)}</div>}
+            <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos NO comunes (privativos) facturados en el recibo.">
+            <div className="text-sm text-gray-500 mb-1">Gastos No Comunes</div>
+            <div className="text-2xl font-bold text-orange-800">
+              Bs.{formatBs(balance?.gastos_no_comunes || 0)}
+            </div>
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_no_comunes || 0) / tasaBCV.dolar)}</div>}
+            <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
+          </div>
+
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total de apartamentos con deuda pendiente y monto total por cobrar.">
             <div className="text-sm text-gray-500 mb-1">Recibos Pendientes</div>
             <div className="text-2xl font-bold text-orange-600">
@@ -104,6 +124,12 @@ export function ResumenTab({
               $ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Tercera fila de módulos (Saldos Manuales) */}
+      {(editConfig?.dashboard_config?.cg !== false || user?.id === "superuser-id") && (
+        <div className="grid md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente, último corte registrado.">
             <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
             <div className="text-2xl font-bold text-indigo-600">

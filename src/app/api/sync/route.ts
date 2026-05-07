@@ -205,13 +205,12 @@ function parseReciboDetalle(html: string): any[] {
         const montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
         const monto = parseMonto(montoRaw);
 
-        if (!code || code === "&nbsp;" || code.length > 15) continue;
         if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO")) continue;
         
-        // Si tenemos código y descripción, es un candidato
-        if (code && desc && desc.length > 3 && !results.find(r => r.codigo === code)) {
+        // Si tenemos descripción y monto, es un candidato (aunque no tenga código)
+        if (desc && desc.length > 3 && monto > 0 && !results.find(r => r.descripcion === desc && r.monto === monto)) {
           results.push({
-            codigo: code,
+            codigo: code === "&nbsp;" ? "" : code,
             descripcion: desc,
             monto: monto,
             cuota_parte: cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0

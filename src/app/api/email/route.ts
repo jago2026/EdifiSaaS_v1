@@ -824,7 +824,7 @@ export async function POST(request: Request) {
       await transporter.sendMail({
         from: `"SaaS - Sistema Junta de Condominio" <${SMTP_USER}>`,
         to: recipient || "correojago@gmail.com",
-        subject: `SaaS - Sistema Junta de Condominio - ${edificio.nombre} - ${fechaStr}`,
+        subject: `💰Resumen Financiero ${edificio.nombre} - ${fechaStr}`,
         html: modernHtml,
       });
 
@@ -946,8 +946,8 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
       await transporter.sendMail({
         from: `"Sistema Junta de Condominio" <${SMTP_USER}>`,
         to: toEmails.join(", "),
-        subject: `[WHATSAPP REPORT] Resumen Condominio ${edificio.nombre} - ${fechaStr}`,
-        text: whatsappMsg,
+        subject: `💰Resumen Financiero ${edificio.nombre} - ${fechaStr}`,
+        html: whatsappMsg,
       });
 
       return NextResponse.json({ success: true, message: "Reporte estilo WhatsApp enviado por email", recipient: toEmails.join(", ") });
@@ -1275,8 +1275,8 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
 </html>`;
 
     const subject = syncFailed
-      ? `SaaS - Resumen Financiero Condominio (datos al ${fechaStr}) - ${edificio.nombre}`
-      : `SaaS - Resumen Financiero Condominio - ${fechaStr}`;
+      ? `💰Resumen Financiero ${edificio.nombre} - ${fechaStr} (datos al ${fechaStr})`
+      : `💰Resumen Financiero ${edificio.nombre} - ${fechaStr}`;
 
     // Banner de aviso si la sincronización falló y se envía con datos disponibles
     const syncFailedBanner = syncFailed ? `
