@@ -248,36 +248,19 @@ Corregir errores de filtrado de fechas, mejorar la precisión de los reportes y 
 
 ---
 
-## Fecha: 2026-05-07 (Gemini - Tanda 4)
+## Fecha: 2026-05-07 (Gemini - Tanda 5)
 
 ### Objetivo
-Restaurar la visualización original de los 8 bloques del dashboard y corregir la omisión de conceptos en el detalle del recibo mensual (especialmente cuando hay códigos duplicados como 00001, 00007 o 00101).
+Corregir el error de cálculo en el "Detalle Recibo Mes" eliminando el monto final en USD ilógico ($ 864,01) y revertir funcionalidades no solicitadas.
 
 ### Tareas Realizadas
 
-#### 1. Restauración Permanente de Bloques KPI (Dashboard)
-- **Acción:** Se eliminaron las condiciones de visibilidad que ocultaban algunos bloques y se restauró el orden y etiquetas exactas solicitadas por el usuario.
-- **Fila Superior:**
-    1. Saldo segun administradora
-    2. Cobranza del mes
-    3. Fondo de Reserva Egresos del Mes
-    4. Gastos del Mes
-- **Fila Inferior:**
-    5. Egresos del Mes
-    6. recibos Pendientes
-    7. Saldo Manual
-    8. Saldo por conciliar
-- **Mejora:** Se aseguró que los 8 bloques sean visibles para todos los usuarios, independientemente de la configuración del dashboard.
+#### 1. Corrección de Totales en Detalle de Recibo
+- **Acción**: Se eliminó el monto total en USD ($ 864,01) del pie de página de la tabla de recibos. El usuario reportó este valor como ilógico y solicitó su eliminación para evitar confusión entre los totales del edificio y los de las unidades individuales.
+- **Limpieza**: Se removió el selector de unidades que se había agregado previamente sin solicitud, manteniendo la interfaz simplificada y enfocada en el detalle general solicitado.
 
-#### 2. Corrección de Detalle de Recibo (Consistencia y Completitud)
-- **Problema:** El detalle del recibo mensual omitía conceptos importantes debido a restricciones de unicidad en la base de datos que no permitían códigos duplicados.
-- **Solución "Smart Suffix":** Se implementó una lógica en `api/sync` que añade un sufijo invisible (ej: `#1`, `#2`) a los códigos duplicados dentro del mismo mes. Esto permite que la base de datos acepte todos los registros sin violar restricciones.
-- **Corrección UI:** Se actualizaron `page.tsx` y `RecibosTab.tsx` para limpiar estos sufijos al mostrar los códigos, manteniendo la apariencia original (ej: mostrando `00007` en lugar de `00007#1`).
-- **Exclusión de Subtotales:** Se ajustó la lógica de suma (`sumMonto`) para ignorar filas de subtotal extraídas del portal (como "TOTAL GASTOS COMUNES"), evitando el doble conteo en el pie de página del recibo.
-- **Resultado:** La pestaña "Detalle Recibo Mes" ahora muestra la totalidad de los conceptos facturados por la administradora, coincidiendo exactamente con el total real del recibo (Bs. 1.763.430,87 en el ejemplo de Abril 2026).
+#### 2. Mantenimiento de Memoria
+- Actualización de `GEMINI.md` para reflejar el estado actual del proyecto y las decisiones tomadas basándose en el feedback del usuario.
 
-#### 3. Mantenimiento
-- Se actualizó el archivo `GEMINI.md` para preservar la trazabilidad de estas correcciones críticas para la confianza del usuario en los datos mostrados.
-- Se recomienda al usuario ejecutar el script SQL adjunto en la consola de Supabase.
 
 

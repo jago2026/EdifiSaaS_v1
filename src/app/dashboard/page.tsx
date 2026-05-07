@@ -3424,7 +3424,7 @@ export default function DashboardPage() {
                           Bs. {formatBs(totalGeneralCuota)}
                         </td>
                         <td className="py-4 px-4 text-right text-xl text-emerald-400 font-black">
-                          $ {formatUsd(totalGeneralCuota / rate)}
+                          {/* Monto USD eliminado por solicitud del usuario para evitar confusión */}
                         </td>
                       </tr>
                     </tfoot>
