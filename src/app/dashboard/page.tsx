@@ -367,6 +367,7 @@ export default function DashboardPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [newMiembro, setNewMiembro] = useState({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
+  const [editingMiembroId, setEditingMiembroId] = useState<string | null>(null);
   const [reportType, setReportType] = useState("resumen");
   const [reportRange, setReportRange] = useState({ start: "", end: "" });
   const [planesAdmin, setPlanesAdmin] = useState<any[]>([]);
@@ -1813,6 +1814,44 @@ export default function DashboardPage() {
       }
     } catch (error: any) {
       console.error("Error adding miembro:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateMiembro = async () => {
+    if (!building?.id || !editingMiembroId) return;
+    if (!newMiembro.email || !newMiembro.nombre) {
+      alert("Por favor complete nombre y email");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const res = await fetch("/api/junta", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          id: editingMiembroId,
+          edificio_id: building.id, 
+          email: newMiembro.email, 
+          nombre: newMiembro.nombre, 
+          cargo: newMiembro.cargo,
+          nivel_acceso: newMiembro.nivelAcceso 
+        }),
+      });
+      
+      if (res.ok) {
+        setSyncMessage("✅ Miembro actualizado exitosamente.");
+        setNewMiembro({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
+        setEditingMiembroId(null);
+        loadJunta();
+      } else {
+        const data = await res.json();
+        alert(`Error: ${data.error}`);
+      }
+    } catch (error: any) {
+      console.error("Error updating miembro:", error);
     } finally {
       setSaving(false);
     }
@@ -4743,8 +4782,10 @@ export default function DashboardPage() {
             )}
         {activeTab === "junta" && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-6 uppercase tracking-tighter">Miembros de la Junta de Condominio</h2>
-            <div className="grid md:grid-cols-5 gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 mb-6 uppercase tracking-tighter">
+              {editingMiembroId ? `Editando Miembro: ${newMiembro.nombre}` : "Miembros de la Junta de Condominio"}
+            </h2>
+            <div id="junta-form" className="grid md:grid-cols-5 gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-200">
               <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Nombre Completo</label>
                 <input 
@@ -4793,14 +4834,25 @@ export default function DashboardPage() {
                   <option value="admin">🛠️ Administrador (Full)</option>
                 </select>
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
                 <button 
-                  onClick={addMiembro} 
+                  onClick={editingMiembroId ? updateMiembro : addMiembro} 
                   disabled={saving}
-                  className="w-full py-2 bg-blue-600 text-white rounded font-black uppercase tracking-widest hover:bg-blue-700 transition-all text-[10px] shadow-lg hover:shadow-blue-200 disabled:opacity-50"
+                  className={`flex-1 py-2 ${editingMiembroId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-blue-600 hover:bg-blue-700'} text-white rounded font-black uppercase tracking-widest transition-all text-[10px] shadow-lg disabled:opacity-50`}
                 >
-                  {saving ? "Invitando..." : "+ Agregar Miembro"}
+                  {saving ? (editingMiembroId ? "Guardando..." : "Invitando...") : (editingMiembroId ? "✓ Guardar Cambios" : "+ Agregar Miembro")}
                 </button>
+                {editingMiembroId && (
+                  <button 
+                    onClick={() => {
+                      setEditingMiembroId(null);
+                      setNewMiembro({ nombre: "", email: "", cargo: "Copropietario", nivelAcceso: "viewer" });
+                    }}
+                    className="px-3 py-2 bg-gray-200 text-gray-600 rounded font-bold hover:bg-gray-300 transition-all text-[10px] uppercase"
+                  >
+                    Cancelar
+                  </button>
+                )}
               </div>
             </div>
 
@@ -4823,7 +4875,7 @@ export default function DashboardPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-medium">
                     {junta.filter((m: any) => m.email !== "correojago@gmail.com").map((m: any) => (
-                      <tr key={m.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={m.id} className={`hover:bg-gray-50 transition-colors ${editingMiembroId === m.id ? 'bg-amber-50' : ''}`}>
                         <td className="py-3 px-4 text-gray-900">{m.nombre}</td>
                         <td className="py-3 px-4 text-gray-600">{maskEmail(m.email)}</td>
                         <td className="py-3 px-4">
@@ -4884,6 +4936,24 @@ export default function DashboardPage() {
 
                          <td className="py-3 px-4 text-center">
                            <div className="flex items-center justify-center gap-2">
+                             <button 
+                               onClick={() => {
+                                 setEditingMiembroId(m.id);
+                                 setNewMiembro({
+                                   nombre: m.nombre,
+                                   email: m.email,
+                                   cargo: m.cargo || "Copropietario",
+                                   nivelAcceso: m.nivel_acceso || "viewer"
+                                 });
+                                 // Scroll to top of the card
+                                 const el = document.getElementById('junta-form');
+                                 if (el) el.scrollIntoView({ behavior: 'smooth' });
+                               }}
+                               className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
+                               title="Editar datos del miembro"
+                             >
+                               ✏️
+                             </button>
                              <button 
                                onClick={() => hasFeature("manual_email") && alert("Reporte enviado a " + m.email)}
                                disabled={!hasFeature("manual_email")}

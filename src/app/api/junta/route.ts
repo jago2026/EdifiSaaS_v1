@@ -106,7 +106,7 @@ async function hashPassword(password: string): Promise<string> {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { id, recibe_email_cron, edificio_id } = body;
+    const { id, recibe_email_cron, edificio_id, nombre, email, cargo, telefono, nivel_acceso } = body;
 
     if (!id) {
       return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });
@@ -117,12 +117,22 @@ export async function PATCH(request: Request) {
     
     const supabaseAdmin = createClient(supabaseUrl, serviceKey);
     
-    const nuevoEstado = recibe_email_cron === true;
-    
+    // Construir objeto de actualización
+    const updateData: any = {};
+    if (recibe_email_cron !== undefined) updateData.recibe_email_cron = recibe_email_cron;
+    if (nombre !== undefined) updateData.nombre = nombre;
+    if (email !== undefined) updateData.email = email;
+    if (cargo !== undefined) updateData.cargo = cargo;
+    if (telefono !== undefined) updateData.telefono = telefono;
+    if (nivel_acceso !== undefined) {
+      updateData.nivel_acceso = nivel_acceso;
+      updateData.es_propietario = nivel_acceso === 'admin';
+    }
+
     // Actualización directa usando solo el ID para máxima precisión
     const { data: updatedData, error } = await supabaseAdmin
       .from("junta")
-      .update({ recibe_email_cron: nuevoEstado })
+      .update(updateData)
       .eq("id", id)
       .select()
       .single();
@@ -134,17 +144,23 @@ export async function PATCH(request: Request) {
 
     // Auditoría
     if (edificio_id && updatedData) {
+      const fieldCount = Object.keys(updateData).length;
+      const desc = fieldCount === 1 && updateData.recibe_email_cron !== undefined
+        ? `Se cambió preferencia de email a ${updateData.recibe_email_cron ? 'SÍ' : 'NO'} para ${updatedData.nombre || updatedData.email}`
+        : `Se actualizaron datos de ${updatedData.nombre || updatedData.email}`;
+
       await supabaseAdmin.from("alertas").insert({
         edificio_id,
         tipo: 'info',
-        titulo: 'Preferencia de Email',
-        descripcion: `Se cambió a ${nuevoEstado ? 'SÍ' : 'NO'} para ${updatedData.nombre || updatedData.email}`,
+        titulo: fieldCount === 1 && updateData.recibe_email_cron !== undefined ? 'Preferencia de Email' : 'Miembro Actualizado',
+        descripcion: desc,
         fecha: new Date().toISOString().split('T')[0]
       });
     }
 
     return NextResponse.json({ 
       success: true, 
+      miembro: updatedData,
       newValue: updatedData.recibe_email_cron 
     });
   } catch (error: any) {
