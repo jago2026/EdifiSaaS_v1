@@ -517,6 +517,11 @@ export async function POST(request: Request) {
       const saldoDisp = Number(balance?.saldo_disponible || 0);
       const fondoRes = Number(balance?.fondo_reserva || 0);
       const disponibilidadTotal = saldoDisp + fondoRes;
+
+      // -- Salud Financiera (Basado en 6 meses de gastos) --
+      const sumEgresosHist = (balancesHist || []).reduce((a, b) => a + Math.abs(Number(b.gastos_facturados || 0)), 0);
+      const promEgresosHist = (balancesHist || []).length > 0 ? sumEgresosHist / (balancesHist || []).length : 0;
+      const mesesCobertura = promEgresosHist > 0 ? (disponibilidadTotal / promEgresosHist) : 0;
       const metaMes = totalDeuda + cobranzaMes;
       const pctEfectividad = metaMes > 0 ? (cobranzaMes / metaMes) * 100 : 0;
       const aptosDeudaTotal = (allRecibos || []).length;
@@ -760,6 +765,23 @@ export async function POST(request: Request) {
                           `).join('')}
                         </tbody>
                       </table>
+                    </div>
+
+                    <div class="section-header">🛡️ SALUD FINANCIERA (CAPACIDAD DE PAGO)</div>
+                    <div class="info-box" style="margin-bottom: 20px; background: ${mesesCobertura >= 3 ? '#f0fdf4' : mesesCobertura >= 1 ? '#fffbeb' : '#fef2f2'}; border-color: ${mesesCobertura >= 3 ? '#bbf7d0' : mesesCobertura >= 1 ? '#fde68a' : '#fecaca'};">
+                      <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                          <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px;">Meses de Operación Cubiertos</div>
+                          <div style="font-size: 24px; font-weight: 800; color: ${mesesCobertura >= 3 ? '#15803d' : mesesCobertura >= 1 ? '#92400e' : '#991b1b'};">${formatNumber(mesesCobertura, 1)} Meses</div>
+                        </div>
+                        <div style="text-align: right;">
+                          <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase;">Estado de Reserva</div>
+                          <div style="font-weight: 700; color: ${mesesCobertura >= 3 ? '#166534' : mesesCobertura >= 1 ? '#92400e' : '#991b1b'};">${mesesCobertura >= 3 ? 'EXCELENTE' : mesesCobertura >= 1 ? 'ADECUADO' : 'CRÍTICO'}</div>
+                        </div>
+                      </div>
+                      <p style="margin: 10px 0 0 0; font-size: 11px; color: #64748b; font-style: italic;">
+                        Indica cuántos meses puede operar el edificio con los fondos actuales basados en el promedio de gastos históricos.
+                      </p>
                     </div>
                   </td>
                 </tr>
