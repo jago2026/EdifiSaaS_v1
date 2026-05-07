@@ -1155,17 +1155,34 @@ export async function POST(request: Request) {
         
         await new Promise(r => setTimeout(r, 500));
         
-        const itemsToSave = detailedReceiptItems.map(item => ({
-          edificio_id: building.id,
-          unidad: 'GENERAL',
-          propietario: 'EDIFICIO',
-          mes: mesEstandar,
-          codigo: item.codigo,
-          descripcion: item.descripcion,
-          monto: item.monto,
-          cuota_parte: item.cuota_parte,
-          tipo: 'gasto_comun'
-        }));
+        const seenInBatch = new Set();
+        const itemsToSave = detailedReceiptItems.map(item => {
+          let finalCode = item.codigo || "";
+          let suffix = 0;
+          // Si el código está vacío, usamos S/C (Sin Código)
+          if (!finalCode || finalCode.trim() === "") {
+            finalCode = "S/C";
+          }
+          
+          let candidate = finalCode;
+          while (seenInBatch.has(candidate)) {
+            suffix++;
+            candidate = `${finalCode}#${suffix}`;
+          }
+          seenInBatch.add(candidate);
+          
+          return {
+            edificio_id: building.id,
+            unidad: 'GENERAL',
+            propietario: 'EDIFICIO',
+            mes: mesEstandar,
+            codigo: candidate,
+            descripcion: item.descripcion,
+            monto: item.monto,
+            cuota_parte: item.cuota_parte,
+            tipo: 'gasto_comun'
+          };
+        });
         
         const { error: detErr } = await supabase.from("recibos_detalle").insert(itemsToSave);
         

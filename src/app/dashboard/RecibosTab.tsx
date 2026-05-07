@@ -44,7 +44,7 @@ export function RecibosTab({
             const itemsNoComunes = uniqueItems.filter(i => i?.codigo === '00085' || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
             const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
 
-            const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
+            const sumMonto = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.monto || 0), 0);
             const totalGeneral = sumMonto(uniqueItems);
 
             return (
@@ -74,7 +74,7 @@ export function RecibosTab({
                     <tbody className="divide-y">
                       {itemsComunes.map((item, idx) => (
                         <tr key={`com-${idx}`} className="hover:bg-gray-50">
-                          <td className="py-3 px-4 text-sm text-gray-400 font-mono">{item.codigo}</td>
+                          <td className="py-3 px-4 text-sm text-gray-400 font-mono">{item.codigo?.split('#')[0]}</td>
                           <td className="py-3 px-4 text-sm text-gray-800 font-medium uppercase">{item.descripcion}</td>
                           <td className="py-3 px-4 text-sm text-right text-gray-900 font-bold">Bs. {formatBs(item.monto)}</td>
                           <td className="py-3 px-4 text-sm text-right text-gray-400">$ {formatUsd(item.monto / rate)}</td>
@@ -89,7 +89,7 @@ export function RecibosTab({
                           </tr>
                           {itemsFondos.map((item, idx) => (
                             <tr key={`fond-${idx}`} className="hover:bg-gray-50 italic">
-                              <td className="py-2 px-4 text-xs text-gray-400 font-mono">{item.codigo}</td>
+                              <td className="py-2 px-4 text-xs text-gray-400 font-mono">{item.codigo?.split('#')[0]}</td>
                               <td className="py-2 px-4 text-xs text-gray-600 uppercase">{item.descripcion}</td>
                               <td className="py-2 px-4 text-right text-xs text-gray-600">Bs. {formatBs(item.monto)}</td>
                               <td className="py-2 px-4 text-right text-xs text-gray-400">$ {formatUsd(item.monto / rate)}</td>
@@ -106,7 +106,7 @@ export function RecibosTab({
                           </tr>
                           {itemsNoComunes.map((item, idx) => (
                             <tr key={`nocom-${idx}`} className="hover:bg-gray-50 italic">
-                              <td className="py-2 px-4 text-xs text-gray-400 font-mono">{item.codigo}</td>
+                              <td className="py-2 px-4 text-xs text-gray-400 font-mono">{item.codigo?.split('#')[0]}</td>
                               <td className="py-2 px-4 text-xs text-gray-600 uppercase">{item.descripcion}</td>
                               <td className="py-2 px-4 text-right text-xs text-gray-600">Bs. {formatBs(item.monto)}</td>
                               <td className="py-2 px-4 text-right text-xs text-gray-400">$ {formatUsd(item.monto / rate)}</td>

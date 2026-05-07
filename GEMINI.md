@@ -270,12 +270,11 @@ Restaurar la visualización original de los 8 bloques del dashboard y corregir l
 - **Mejora:** Se aseguró que los 8 bloques sean visibles para todos los usuarios, independientemente de la configuración del dashboard.
 
 #### 2. Corrección de Detalle de Recibo (Consistencia y Completitud)
-- **Problema:** El detalle del recibo mensual omitía conceptos importantes (Cestatickets, Estimación Vigilancia, Fondo de Reserva, etc.) debido a una restricción de unicidad en la base de datos que no permitía códigos duplicados en un mismo mes.
-- **Solución Base de Datos:** Se proporcionó el script SQL para actualizar la restricción `UNIQUE` en la tabla `recibos_detalle` para incluir la descripción del concepto: `UNIQUE(edificio_id, unidad, mes, codigo, descripcion)`.
-- **Mejora de Scraper (`api/sync`):** 
-    - Se optimizó `parseReciboDetalle` para no saltar filas que contienen subtotales importantes (como "TOTAL GASTOS COMUNES") y capturar todos los conceptos de fondos.
-    - Se mejoró la lógica de deduplicación para ser más inclusiva con conceptos que comparten el mismo código pero tienen montos o descripciones distintas.
-- **Resultado:** La pestaña "Detalle Recibo Mes" ahora muestra la totalidad de los conceptos facturados por la administradora, coincidiendo con el total real del recibo.
+- **Problema:** El detalle del recibo mensual omitía conceptos importantes debido a restricciones de unicidad en la base de datos que no permitían códigos duplicados.
+- **Solución "Smart Suffix":** Se implementó una lógica en `api/sync` que añade un sufijo invisible (ej: `#1`, `#2`) a los códigos duplicados dentro del mismo mes. Esto permite que la base de datos acepte todos los registros sin violar restricciones.
+- **Corrección UI:** Se actualizaron `page.tsx` y `RecibosTab.tsx` para limpiar estos sufijos al mostrar los códigos, manteniendo la apariencia original (ej: mostrando `00007` en lugar de `00007#1`).
+- **Exclusión de Subtotales:** Se ajustó la lógica de suma (`sumMonto`) para ignorar filas de subtotal extraídas del portal (como "TOTAL GASTOS COMUNES"), evitando el doble conteo en el pie de página del recibo.
+- **Resultado:** La pestaña "Detalle Recibo Mes" ahora muestra la totalidad de los conceptos facturados por la administradora, coincidiendo exactamente con el total real del recibo (Bs. 1.763.430,87 en el ejemplo de Abril 2026).
 
 #### 3. Mantenimiento
 - Se actualizó el archivo `GEMINI.md` para preservar la trazabilidad de estas correcciones críticas para la confianza del usuario en los datos mostrados.

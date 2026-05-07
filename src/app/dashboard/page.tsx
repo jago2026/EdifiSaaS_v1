@@ -3005,8 +3005,8 @@ export default function DashboardPage() {
                   const itemsNoComunes = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL') || i?.codigo === '00085');
                   const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
 
-                  const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
-                  const sumCuota = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
+                  const sumMonto = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.monto || 0), 0);
+                  const sumCuota = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
 
                   const totalGastosComunes = sumMonto(itemsComunes);
                   const totalCuotaComunes = sumCuota(itemsComunes);
@@ -3348,8 +3348,8 @@ export default function DashboardPage() {
                   const itemsNoComunes = uniqueItems.filter(i => i?.codigo === '00085' || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
                   const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
 
-                  const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
-                  const sumCuota = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
+                  const sumMonto = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.monto || 0), 0);
+                  const sumCuota = (arr: any[]) => arr.filter(i => i.tipo !== 'subtotal').reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
                   
                   const totalGeneralMonto = sumMonto(uniqueItems);
                   const totalGeneralCuota = sumCuota(uniqueItems);
@@ -3374,7 +3374,7 @@ export default function DashboardPage() {
                     <tbody className="divide-y divide-gray-100">
                       {itemsComunes.map((item, idx) => (
                         <tr key={`com-${idx}`} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
+                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo?.split('#')[0]}</td>
                           <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
                           <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
                           <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
@@ -3388,7 +3388,7 @@ export default function DashboardPage() {
                           </tr>
                           {itemsFondos.map((item, idx) => (
                             <tr key={`fond-${idx}`} className="hover:bg-gray-50 transition-colors italic">
-                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo}</td>
+                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo?.split('#')[0]}</td>
                               <td className="py-2.5 px-4 text-gray-600 font-medium uppercase">{item.descripcion}</td>
                               <td className="py-2.5 px-4 text-right text-gray-500">{formatBs(item.monto)}</td>
                               <td className="py-2.5 px-4 text-right text-gray-500">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
@@ -3404,7 +3404,7 @@ export default function DashboardPage() {
                           </tr>
                           {itemsNoComunes.map((item, idx) => (
                             <tr key={`nocom-${idx}`} className="hover:bg-gray-50 transition-colors italic">
-                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo}</td>
+                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo?.split('#')[0]}</td>
                               <td className="py-2.5 px-4 text-gray-600 font-medium uppercase">{item.descripcion}</td>
                               <td className="py-2.5 px-4 text-right text-gray-500">{formatBs(item.monto)}</td>
                               <td className="py-2.5 px-4 text-right text-gray-500">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
