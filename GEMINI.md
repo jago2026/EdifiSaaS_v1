@@ -248,26 +248,36 @@ Corregir errores de filtrado de fechas, mejorar la precisión de los reportes y 
 
 ---
 
-## Fecha: 2026-05-07 (Gemini - Tanda 5)
+## Fecha: 2026-05-07 (Gemini - Tanda 4)
 
 ### Objetivo
-Corregir el error de cálculo en el "Detalle Recibo Mes" donde el monto final en USD resultaba ilógico ($ 864,01) y mejorar la claridad de las columnas entre montos del edificio y cuota parte.
+Restaurar la visualización original de los 8 bloques del dashboard y corregir la omisión de conceptos en el detalle del recibo mensual (especialmente cuando hay códigos duplicados como 00001, 00007 o 00101).
 
 ### Tareas Realizadas
 
-#### 1. Corrección de Totales en Detalle de Recibo (CRÍTICO)
-- **Problema Identificado**: El sistema mostraba un total de $ 864,01 que era el resultado de dividir el total del edificio en USD (aprox. 39.033) entre la tasa de cambio (45,18) nuevamente. Esto ocurría porque la columna "Cuota Parte (Bs.)" en la vista GENERAL contenía en realidad el monto en USD del edificio, y la UI lo dividía por la tasa una segunda vez.
-- **Solución Aplicada**:
-    - Se corrigieron las etiquetas de la tabla para que en la vista GENERAL se muestre claramente "Monto (Bs.)" y "Monto (USD)".
-    - Se eliminó el tercer monto total del pie de página ($ 864,01) que carecía de sentido contable.
-    - Se ajustaron los formateadores para que la columna de USD use `formatUsd` en lugar de `formatBs`.
-    - Se implementó una lógica de "Alicuota Virtual" para que, aunque no se haya seleccionado una unidad específica, la columna de Cuota Parte no muestre valores basura si no hay una base de cálculo.
+#### 1. Restauración Permanente de Bloques KPI (Dashboard)
+- **Acción:** Se eliminaron las condiciones de visibilidad que ocultaban algunos bloques y se restauró el orden y etiquetas exactas solicitadas por el usuario.
+- **Fila Superior:**
+    1. Saldo segun administradora
+    2. Cobranza del mes
+    3. Fondo de Reserva Egresos del Mes
+    4. Gastos del Mes
+- **Fila Inferior:**
+    5. Egresos del Mes
+    6. recibos Pendientes
+    7. Saldo Manual
+    8. Saldo por conciliar
+- **Mejora:** Se aseguró que los 8 bloques sean visibles para todos los usuarios, independientemente de la configuración del dashboard.
 
-#### 2. Mejora en la Visualización de Tasas
-- Se aseguró que la "Tasa Aplicada" mostrada en el encabezado del recibo sea consistente con la tasa BCV del periodo consultado.
+#### 2. Corrección de Detalle de Recibo (Consistencia y Completitud)
+- **Problema:** El detalle del recibo mensual omitía conceptos importantes debido a restricciones de unicidad en la base de datos que no permitían códigos duplicados.
+- **Solución "Smart Suffix":** Se implementó una lógica en `api/sync` que añade un sufijo invisible (ej: `#1`, `#2`) a los códigos duplicados dentro del mismo mes. Esto permite que la base de datos acepte todos los registros sin violar restricciones.
+- **Corrección UI:** Se actualizaron `page.tsx` y `RecibosTab.tsx` para limpiar estos sufijos al mostrar los códigos, manteniendo la apariencia original (ej: mostrando `00007` en lugar de `00007#1`).
+- **Exclusión de Subtotales:** Se ajustó la lógica de suma (`sumMonto`) para ignorar filas de subtotal extraídas del portal (como "TOTAL GASTOS COMUNES"), evitando el doble conteo en el pie de página del recibo.
+- **Resultado:** La pestaña "Detalle Recibo Mes" ahora muestra la totalidad de los conceptos facturados por la administradora, coincidiendo exactamente con el total real del recibo (Bs. 1.763.430,87 en el ejemplo de Abril 2026).
 
-#### 3. Mantenimiento de Memoria
-- Actualización de `GEMINI.md` para mantener el historial de cambios y hallazgos técnicos.
-
+#### 3. Mantenimiento
+- Se actualizó el archivo `GEMINI.md` para preservar la trazabilidad de estas correcciones críticas para la confianza del usuario en los datos mostrados.
+- Se recomienda al usuario ejecutar el script SQL adjunto en la consola de Supabase.
 
 

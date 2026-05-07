@@ -3313,36 +3313,22 @@ export default function DashboardPage() {
                   <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes: <span className="text-blue-600 font-bold">{selectedMesRecibos || "Último Mes Procesado"}</span></p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="flex gap-2">
-                    {alicuotas.length > 0 && (
-                      <select
-                        value={selectedUnidad || "GENERAL"}
-                        onChange={(e) => setSelectedUnidad(e.target.value)}
-                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
-                      >
-                        <option value="GENERAL">EDIFICIO (TOTAL)</option>
-                        {alicuotas.map(a => (
-                          <option key={a.id} value={a.unidad}>UNIDAD {a.unidad}</option>
-                        ))}
-                      </select>
-                    )}
-                    {mesesRecibos.length > 0 && (
-                      <select
-                        value={selectedMesRecibos}
-                        onChange={(e) => {
-                          const newMes = e.target.value;
-                          setSelectedMesRecibos(newMes);
-                          loadReciboGeneral(newMes);
-                        }}
-                        className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
-                      >
-                        <option value="">Mes Actual</option>
-                        {mesesRecibos.map(m => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
+                  {mesesRecibos.length > 0 && (
+                    <select
+                      value={selectedMesRecibos}
+                      onChange={(e) => {
+                        const newMes = e.target.value;
+                        setSelectedMesRecibos(newMes);
+                        loadReciboGeneral(newMes);
+                      }}
+                      className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
+                    >
+                      <option value="">Mes Actual</option>
+                      {mesesRecibos.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  )}
                   <button onClick={() => loadReciboGeneral(selectedMesRecibos)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
                     <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
                   </button>
@@ -3367,15 +3353,12 @@ export default function DashboardPage() {
                   
                   const totalGeneralMonto = sumMonto(uniqueItems);
                   const totalGeneralCuota = sumCuota(uniqueItems);
-                  // La tasa real es la del BCV o la configurada. totalGeneralCuota suele ser el monto en USD del edificio.
-                  const rate = (tasaCambio || tasaBCV.dolar || 1);
-                  const selectedAlicuotaObj = alicuotas.find(a => a.unidad === selectedUnidad);
-                  const alicuotaVal = selectedAlicuotaObj ? (parseFloat(selectedAlicuotaObj.alicuota) || 0) : 0;
+                  const rate = totalGeneralCuota > 0 ? totalGeneralMonto / totalGeneralCuota : (tasaCambio || tasaBCV.dolar || 1);
                   
                   return (
 <div className="overflow-hidden border border-gray-200 rounded-xl">
                   <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600 flex justify-between">
-                    <span>{selectedUnidad && selectedUnidad !== 'GENERAL' ? `Detalle Recibo Unidad: ${selectedUnidad} (Alícuota: ${alicuotaVal}%)` : 'Desglose de Facturación Edificio'}</span>
+                    <span>Desglose de Facturación</span>
                     <span>Tasa Aplicada: {formatBs(rate)} Bs/USD</span>
                   </div>
                   <table className="w-full text-sm text-left">
@@ -3383,9 +3366,9 @@ export default function DashboardPage() {
                       <tr>
                         <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">C&oacute;digo</th>
                         <th className="py-3 px-4 font-black text-gray-600 uppercase text-[10px]">Descripci&oacute;n</th>
-                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto Edif. (Bs.)</th>
-                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">{selectedUnidad && selectedUnidad !== 'GENERAL' ? 'Cuota Parte (Bs.)' : 'Monto Edif. (USD)'}</th>
-                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">{selectedUnidad && selectedUnidad !== 'GENERAL' ? 'Cuota Parte (USD)' : '-'}</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Monto (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (Bs.)</th>
+                        <th className="py-3 px-4 text-right font-black text-gray-600 uppercase text-[10px]">Cuota Parte (USD)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -3394,16 +3377,8 @@ export default function DashboardPage() {
                           <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo?.split('#')[0]}</td>
                           <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
                           <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                          <td className="py-2.5 px-4 text-right text-gray-600">
-                            {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                              ? formatBs(item.monto * alicuotaVal / 100)
-                              : formatUsd(item.cuota_parte)}
-                          </td>
-                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">
-                            {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                              ? formatUsd((item.monto * alicuotaVal / 100) / rate)
-                              : '-'}
-                          </td>
+                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / rate) : '-'}</td>
                         </tr>
                       ))}
                       {itemsFondos.length > 0 && (
@@ -3416,16 +3391,8 @@ export default function DashboardPage() {
                               <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo?.split('#')[0]}</td>
                               <td className="py-2.5 px-4 text-gray-600 font-medium uppercase">{item.descripcion}</td>
                               <td className="py-2.5 px-4 text-right text-gray-500">{formatBs(item.monto)}</td>
-                              <td className="py-2.5 px-4 text-right text-gray-500">
-                                {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                                  ? formatBs(item.monto * alicuotaVal / 100)
-                                  : formatUsd(item.cuota_parte)}
-                              </td>
-                              <td className="py-2.5 px-4 text-right text-gray-400">
-                                {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                                  ? formatUsd((item.monto * alicuotaVal / 100) / rate)
-                                  : '-'}
-                              </td>
+                              <td className="py-2.5 px-4 text-right text-gray-500">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-400">{item.cuota_parte ? formatUsd(item.cuota_parte / rate) : '-'}</td>
                             </tr>
                           ))}
                         </>
@@ -3438,18 +3405,10 @@ export default function DashboardPage() {
                           {itemsNoComunes.map((item, idx) => (
                             <tr key={`nocom-${idx}`} className="hover:bg-gray-50 transition-colors italic">
                               <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo?.split('#')[0]}</td>
-                              <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
+                              <td className="py-2.5 px-4 text-gray-600 font-medium uppercase">{item.descripcion}</td>
                               <td className="py-2.5 px-4 text-right text-gray-500">{formatBs(item.monto)}</td>
-                              <td className="py-2.5 px-4 text-right text-gray-500">
-                                {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                                  ? formatBs(item.monto * alicuotaVal / 100)
-                                  : formatUsd(item.cuota_parte)}
-                              </td>
-                              <td className="py-2.5 px-4 text-right text-gray-400">
-                                {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                                  ? formatUsd((item.monto * alicuotaVal / 100) / rate)
-                                  : '-'}
-                              </td>
+                              <td className="py-2.5 px-4 text-right text-gray-500">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-400">{item.cuota_parte ? formatUsd(item.cuota_parte / rate) : '-'}</td>
                             </tr>
                           ))}
                         </>
@@ -3462,14 +3421,10 @@ export default function DashboardPage() {
                           Bs. {formatBs(totalGeneralMonto)}
                         </td>
                         <td className="py-4 px-4 text-right text-xl text-blue-300 font-black">
-                          {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                            ? `Bs. ${formatBs(totalGeneralMonto * alicuotaVal / 100)}`
-                            : `$ ${formatUsd(totalGeneralCuota)}`}
+                          Bs. {formatBs(totalGeneralCuota)}
                         </td>
                         <td className="py-4 px-4 text-right text-xl text-emerald-400 font-black">
-                          {selectedUnidad && selectedUnidad !== 'GENERAL' 
-                            ? `$ ${formatUsd((totalGeneralMonto * alicuotaVal / 100) / rate)}`
-                            : ''}
+                          $ {formatUsd(totalGeneralCuota / rate)}
                         </td>
                       </tr>
                     </tfoot>
