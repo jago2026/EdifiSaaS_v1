@@ -261,13 +261,14 @@ Restaurar bloques de información eliminados, corregir el detalle del recibo men
 - **Alcance:** Aplicado a informes Premium, reportes estilo WhatsApp y notificaciones estándar.
 
 #### 2. Restauración de Bloques en Resumen Ejecutivo
-- **Mejora:** Se reincorporaron los bloques de **"Gastos Comunes"** y **"Gastos No Comunes"** en la pestaña de Resumen Ejecutivo.
-- **Fuente:** Estos datos se obtienen directamente del último balance procesado por la administradora para ofrecer mayor detalle financiero de un vistazo.
-- **Ajuste de UI:** Se reorganizó la cuadrícula para dar cabida a estos indicadores sin saturar la vista.
+- **Mejora:** Se reincorporaron los bloques de **"Gastos del Mes (Próx. Recibo)"**, **"Gastos Comunes"** y **"Gastos No Comunes"** en la pestaña de Resumen Ejecutivo.
+- **Sincronización de UI:** Se corrigió el archivo `page.tsx` para que coincida con los componentes individuales, eliminando la discrepancia donde algunos bloques no aparecían según la vista.
+- **Fuente:** Los datos se obtienen en tiempo real de la tabla de gastos acumulados y del último balance procesado.
 
 #### 3. Precisión en Detalle de Recibo y Totales
-- **Mejora de Scraper:** Se actualizó la lógica de extracción de `recibo-detalle` para permitir capturar conceptos que no poseen un código asignado en el portal de la administradora, garantizando que el listado local coincida al 100% con la web externa.
-- **Inclusión de Fondos:** Se eliminó el filtro que excluía conceptos de "FONDO" en el API de `gastos-summary`. Ahora el total de "Gastos del Mes" refleja la cifra real incluyendo aportes a fondos (como el de reserva), tal como aparece en el recibo.
+- **Mejora de Scraper:** Se actualizó la lógica de extracción de `recibo-detalle` para permitir capturar conceptos que no poseen un código asignado y montos en diferentes columnas, garantizando que el listado local coincida al 100% con la web externa.
+- **Consistencia en Detalle:** Se unificó la lógica de visualización del "Detalle Recibo Mes" en `page.tsx` y `RecibosTab.tsx`, implementando una clasificación robusta por categorías (Comunes, Fondos, No Comunes).
+- **Inclusión de Fondos:** Se eliminó el filtro que excluía conceptos de "FONDO" en el API de `gastos-summary`. Ahora el total de "Gastos del Mes" refleja la cifra real incluyendo aportes a fondos.
 
 #### 4. Estabilidad de UI
 - Se corrigió el cálculo de USD en los resúmenes de egresos para evitar divisiones por cero o tasas no cargadas.

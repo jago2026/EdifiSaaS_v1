@@ -40,14 +40,19 @@ export function RecibosTab({
             const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
               .map(u => reciboGeneral.find(i => `${i.codigo}-${i.descripcion}-${i.monto}` === u));
 
-            const totalGeneral = uniqueItems.reduce((sum, item) => sum + Number(item.monto), 0);
+            const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO') || i?.codigo === '00001' && i?.descripcion?.toUpperCase().includes('FONDO'));
+            const itemsNoComunes = uniqueItems.filter(i => i?.codigo === '00085' || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
+            const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
+
+            const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
+            const totalGeneral = sumMonto(uniqueItems);
 
             return (
               <>
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 uppercase">Recibo de Condominio General</h2>
-                    <p className="text-sm text-gray-500 font-medium">Resumen de gastos facturados para el periodo: <span className="text-blue-600">{selectedMesRecibos}</span></p>
+                    <p className="text-sm text-gray-500 font-medium">Resumen de gastos facturados para el periodo: <span className="text-blue-600">{selectedMesRecibos || "Último Mes"}</span></p>
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-gray-400 uppercase font-bold mb-1">Total Facturación</div>
@@ -67,14 +72,48 @@ export function RecibosTab({
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {uniqueItems.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-gray-50">
+                      {itemsComunes.map((item, idx) => (
+                        <tr key={`com-${idx}`} className="hover:bg-gray-50">
                           <td className="py-3 px-4 text-sm text-gray-400 font-mono">{item.codigo}</td>
-                          <td className="py-3 px-4 text-sm text-gray-800 font-medium">{item.descripcion}</td>
+                          <td className="py-3 px-4 text-sm text-gray-800 font-medium uppercase">{item.descripcion}</td>
                           <td className="py-3 px-4 text-sm text-right text-gray-900 font-bold">Bs. {formatBs(item.monto)}</td>
                           <td className="py-3 px-4 text-sm text-right text-gray-400">$ {formatUsd(item.monto / rate)}</td>
                         </tr>
                       ))}
+                      {itemsFondos.length > 0 && (
+                        <>
+                          <tr className="bg-gray-50 font-bold">
+                            <td colSpan={2} className="py-2 px-4 text-xs text-gray-500 uppercase">FONDOS Y RESERVAS</td>
+                            <td className="py-2 px-4 text-right text-sm">Bs. {formatBs(sumMonto(itemsFondos))}</td>
+                            <td></td>
+                          </tr>
+                          {itemsFondos.map((item, idx) => (
+                            <tr key={`fond-${idx}`} className="hover:bg-gray-50 italic">
+                              <td className="py-2 px-4 text-xs text-gray-400 font-mono">{item.codigo}</td>
+                              <td className="py-2 px-4 text-xs text-gray-600 uppercase">{item.descripcion}</td>
+                              <td className="py-2 px-4 text-right text-xs text-gray-600">Bs. {formatBs(item.monto)}</td>
+                              <td className="py-2 px-4 text-right text-xs text-gray-400">$ {formatUsd(item.monto / rate)}</td>
+                            </tr>
+                          ))}
+                        </>
+                      )}
+                      {itemsNoComunes.length > 0 && (
+                        <>
+                          <tr className="bg-gray-50 font-bold">
+                            <td colSpan={2} className="py-2 px-4 text-xs text-gray-500 uppercase">GASTOS NO COMUNES (PRIVATIVOS)</td>
+                            <td className="py-2 px-4 text-right text-sm">Bs. {formatBs(sumMonto(itemsNoComunes))}</td>
+                            <td></td>
+                          </tr>
+                          {itemsNoComunes.map((item, idx) => (
+                            <tr key={`nocom-${idx}`} className="hover:bg-gray-50 italic">
+                              <td className="py-2 px-4 text-xs text-gray-400 font-mono">{item.codigo}</td>
+                              <td className="py-2 px-4 text-xs text-gray-600 uppercase">{item.descripcion}</td>
+                              <td className="py-2 px-4 text-right text-xs text-gray-600">Bs. {formatBs(item.monto)}</td>
+                              <td className="py-2 px-4 text-right text-xs text-gray-400">$ {formatUsd(item.monto / rate)}</td>
+                            </tr>
+                          ))}
+                        </>
+                      )}
                     </tbody>
                     <tfoot className="bg-gray-900 text-white font-black border-t-2">
                       <tr>

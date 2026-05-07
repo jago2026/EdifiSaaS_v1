@@ -90,13 +90,24 @@ export function ResumenTab({
             </div>
           </div>
 
+          <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos acumulados para el próximo recibo.">
+            <div className="text-sm text-gray-500 mb-1">Gastos del Mes (Pr&oacute;x. Recibo)</div>
+            <div className="text-2xl font-bold text-amber-600">
+              Bs.{formatBs(gastosSummary?.monto || 0)}
+            </div>
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((gastosSummary?.monto || 0) / (tasaBCV.dolar || 1))}</div>}
+            <div className="text-xs text-gray-400 mt-1">
+              {(gastosSummary?.cantidad || 0)} concepto{(gastosSummary?.cantidad || 0) !== 1 ? "s" : ""} registrados
+            </div>
+          </div>
+
           {/* Bloques de Gastos Detallados solicitados por el usuario */}
           <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos comunes facturados en el recibo.">
             <div className="text-sm text-gray-500 mb-1">Gastos Comunes</div>
             <div className="text-2xl font-bold text-orange-700">
               Bs.{formatBs(balance?.gastos_comunes || 0)}
             </div>
-            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_comunes || 0) / tasaBCV.dolar)}</div>}
+            {(tasaBCV?.dolar || 0) > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_comunes || 0) / (tasaBCV.dolar || 1))}</div>}
             <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
           </div>
 

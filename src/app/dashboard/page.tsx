@@ -2547,7 +2547,7 @@ export default function DashboardPage() {
 
             {/* Módulos de Gastos y Egresos */}
             {(editConfig.dashboard_config?.cg !== false || user?.id === "superuser-id") && (
-              <div className="grid md:grid-cols-4 gap-6">
+              <div className="grid md:grid-cols-3 xl:grid-cols-6 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("egresos")} title="Pagos a proveedores y servicios externos realizados en el mes actual.">
                   <div className="text-sm text-gray-500 mb-1">Egresos del Mes</div>
                   <div className="text-2xl font-bold text-red-600">
@@ -2558,6 +2558,36 @@ export default function DashboardPage() {
                     {egresosSummary.cantidad} movimiento{egresosSummary.cantidad !== 1 ? "s" : ""}
                   </div>
                 </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos acumulados para el próximo recibo.">
+                  <div className="text-sm text-gray-500 mb-1">Gastos del Mes (Pr&oacute;x. Recibo)</div>
+                  <div className="text-2xl font-bold text-amber-600">
+                    Bs.{formatBs(gastosSummary.monto)}
+                  </div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(gastosSummary.monto / (tasaBCV.dolar || 1))}</div>}
+                  <div className="text-xs text-gray-400 mt-1">
+                    {gastosSummary.cantidad} concepto{gastosSummary.cantidad !== 1 ? "s" : ""} registrados
+                  </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos comunes facturados en el recibo.">
+                  <div className="text-sm text-gray-500 mb-1">Gastos Comunes</div>
+                  <div className="text-2xl font-bold text-orange-700">
+                    Bs.{formatBs(balance?.gastos_comunes || 0)}
+                  </div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_comunes || 0) / (tasaBCV.dolar || 1))}</div>}
+                  <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibo")} title="Total de gastos NO comunes (privativos) facturados en el recibo.">
+                  <div className="text-sm text-gray-500 mb-1">Gastos No Comunes</div>
+                  <div className="text-2xl font-bold text-orange-800">
+                    Bs.{formatBs(balance?.gastos_no_comunes || 0)}
+                  </div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.gastos_no_comunes || 0) / (tasaBCV.dolar || 1))}</div>}
+                  <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Según Último Balance</div>
+                </div>
+
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total de apartamentos con deuda pendiente y monto total por cobrar.">
                   <div className="text-sm text-gray-500 mb-1">Recibos Pendientes</div>
                   <div className="text-2xl font-bold text-orange-600">
@@ -2573,6 +2603,7 @@ export default function DashboardPage() {
                     $ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda_usd || 0), 0))}
                   </div>
                 </div>
+
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente, último corte registrado.">
                   <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
                   <div className="text-2xl font-bold text-indigo-600">
@@ -2583,19 +2614,6 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
                     Último Saldo Registrado
-                  </div>
-                </div>
-                
-                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Movimientos bancarios que aún no han sido conciliados con el estado de cuenta de la administradora.">
-                  <div className="text-sm text-gray-500 mb-1">Por Conciliar (Manual)</div>
-                  <div className="text-2xl font-bold text-amber-600">
-                    Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0))}
-                  </div>
-                  <div className="text-sm text-gray-500 font-medium">
-                    $ {formatUsd(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + (Number(m.ingresos || 0) - Number(m.egresos || 0)) / (m.tasa_bcv || tasaBCV.dolar || 1), 0))}
-                  </div>
-                  <div className="text-[10px] text-gray-400 mt-1 uppercase font-bold">
-                    {movimientosManual.filter((m: any) => !m.comparado).length} Movimientos sin conciliar
                   </div>
                 </div>
               </div>
@@ -3328,7 +3346,7 @@ export default function DashboardPage() {
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h2 className="text-lg font-bold text-gray-900 uppercase tracking-tight">Ver Recibo de Condominio</h2>
-                  <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes</p>
+                  <p className="text-xs text-gray-500 font-medium">Resumen detallado de gastos del mes: <span className="text-blue-600 font-bold">{selectedMesRecibos || "Último Mes Procesado"}</span></p>
                 </div>
                 <div className="flex items-center gap-3">
                   {mesesRecibos.length > 0 && (
@@ -3337,8 +3355,7 @@ export default function DashboardPage() {
                       onChange={(e) => {
                         const newMes = e.target.value;
                         setSelectedMesRecibos(newMes);
-                        if (newMes) loadReciboGeneral();
-                        else setReciboGeneral([]);
+                        loadReciboGeneral(newMes);
                       }}
                       className="px-3 py-1.5 border border-gray-200 rounded-lg text-xs font-bold bg-white focus:ring-2 focus:ring-indigo-500 outline-none uppercase"
                     >
@@ -3348,7 +3365,7 @@ export default function DashboardPage() {
                       ))}
                     </select>
                   )}
-                  <button onClick={() => loadReciboGeneral()} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
+                  <button onClick={() => loadReciboGeneral(selectedMesRecibos)} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-blue-600" title="Refrescar Detalle">
                     <span className={loadingReciboGeneral ? "animate-spin inline-block" : ""}>🔄</span>
                   </button>
                 </div>
@@ -3360,47 +3377,25 @@ export default function DashboardPage() {
                   <p className="text-sm text-gray-500 font-medium italic">Obteniendo detalle del recibo...</p>
                 </div>
               ) : reciboGeneral.length > 0 ? (() => {
-                  const rawItems = [...reciboGeneral];
-                  const gastoItems: any[] = [];
-                  const fondoReserva: any[] = [];
-                  const gastosNoComunes: any[] = [];
+                  const uniqueItems = Array.from(new Set(reciboGeneral.map(i => `${i.codigo}-${i.descripcion}-${i.monto}`)))
+                    .map(u => reciboGeneral.find(i => `${i.codigo}-${i.descripcion}-${i.monto}` === u));
+
+                  const itemsFondos = uniqueItems.filter(i => i?.descripcion?.toUpperCase().includes('FONDO') || i?.codigo === '00001' && i?.descripcion?.toUpperCase().includes('FONDO'));
+                  const itemsNoComunes = uniqueItems.filter(i => i?.codigo === '00085' || i?.descripcion?.toUpperCase().includes('FONDO DIFERENCIAL'));
+                  const itemsComunes = uniqueItems.filter(i => i && !itemsFondos.includes(i) && !itemsNoComunes.includes(i));
+
+                  const sumMonto = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.monto || 0), 0);
+                  const sumCuota = (arr: any[]) => arr.reduce((sum, i) => sum + Number(i.cuota_parte || 0), 0);
                   
-                  for (const item of rawItems) {
-                    const code = item.codigo || '';
-                    const desc = (item.descripcion || '').toUpperCase();
-                    
-                    if (code === '00085') {
-                      gastosNoComunes.push(item);
-                    } else if (code === '00001' && desc.includes('TRABAJADOR')) {
-                      gastoItems.unshift(item);
-                    } else if (code === '00001' && desc.includes('FONDO')) {
-                      fondoReserva.push(item);
-                    } else if (code === '00001') {
-                      gastoItems.push(item);
-                    } else {
-                      gastoItems.push(item);
-                    }
-                  }
-                  
-                  const sortedGastos = gastoItems.sort((a, b) => {
-                    const codeA = a.codigo || '';
-                    const codeB = b.codigo || '';
-                    if (codeA === '00001') return 1;
-                    if (codeB === '00001') return -1;
-                    return codeA.localeCompare(codeB);
-                  });
-                  
-                  const totalGastosMonto = sortedGastos.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
-                  const totalGastosCuota = sortedGastos.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
-                  const totalFondosMonto = fondoReserva.reduce((sum, i: any) => sum + Number(i.monto || 0), 0);
-                  const totalFondosCuota = fondoReserva.reduce((sum, i: any) => sum + Number(i.cuota_parte || 0), 0);
-                  const totalFondosYGastosComunesMonto = totalGastosMonto + totalFondosMonto;
-                  const totalFondosYGastosComunesCuota = totalGastosCuota + totalFondosCuota;
+                  const totalGeneralMonto = sumMonto(uniqueItems);
+                  const totalGeneralCuota = sumCuota(uniqueItems);
+                  const rate = totalGeneralCuota > 0 ? totalGeneralMonto / totalGeneralCuota : (tasaCambio || tasaBCV.dolar || 1);
                   
                   return (
 <div className="overflow-hidden border border-gray-200 rounded-xl">
-                  <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600">
-                    Tasa de cambio: {formatBs(tasaCambio)} Bs/USD
+                  <div className="bg-gray-100 px-4 py-2 text-xs font-bold text-gray-600 flex justify-between">
+                    <span>Desglose de Facturación</span>
+                    <span>Tasa Aplicada: {formatBs(rate)} Bs/USD</span>
                   </div>
                   <table className="w-full text-sm text-left">
                     <thead className="bg-gray-50 border-b border-gray-200">
@@ -3413,69 +3408,59 @@ export default function DashboardPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {sortedGastos.map((item, idx) => (
-                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
+                      {itemsComunes.map((item, idx) => (
+                        <tr key={`com-${idx}`} className="hover:bg-gray-50 transition-colors">
                           <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
                           <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
                           <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
                           <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
-                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
+                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / rate) : '-'}</td>
                         </tr>
                       ))}
-                      {totalGastosMonto > 0 && (
-                        <tr className="bg-blue-50 border-t-2 border-blue-200">
-                          <td colSpan={2} className="py-2 px-4 text-right text-blue-800 uppercase text-xs font-bold">TOTAL GASTOS COMUNES:</td>
-                          <td className="py-2 px-4 text-right text-blue-800 font-bold">{formatBs(totalGastosMonto)}</td>
-                          <td className="py-2 px-4 text-right text-blue-800 font-bold">{formatBs(totalGastosCuota)}</td>
-                          <td className="py-2 px-4 text-right text-green-700 font-bold">{formatUsd(totalGastosCuota / tasaCambio)}</td>
-                        </tr>
+                      {itemsFondos.length > 0 && (
+                        <>
+                          <tr className="bg-blue-50">
+                            <td colSpan={5} className="py-2 px-4 text-[10px] font-black text-blue-800 uppercase tracking-widest">Aportes a Fondos y Reservas</td>
+                          </tr>
+                          {itemsFondos.map((item, idx) => (
+                            <tr key={`fond-${idx}`} className="hover:bg-gray-50 transition-colors italic">
+                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo}</td>
+                              <td className="py-2.5 px-4 text-gray-600 font-medium uppercase">{item.descripcion}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-500">{formatBs(item.monto)}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-500">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-400">{item.cuota_parte ? formatUsd(item.cuota_parte / rate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </>
                       )}
-                      {fondoReserva.map((item, idx) => (
-                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
-                          <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
-                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
-                        </tr>
-                      ))}
-                      {totalFondosMonto > 0 && (
-                        <tr className="bg-cyan-50 border-t-2 border-cyan-200">
-                          <td colSpan={2} className="py-2 px-4 text-right text-cyan-800 uppercase text-xs font-bold">TOTAL FONDOS:</td>
-                          <td className="py-2 px-4 text-right text-cyan-800 font-bold">{formatBs(totalFondosMonto)}</td>
-                          <td className="py-2 px-4 text-right text-cyan-800 font-bold">{formatBs(totalFondosCuota)}</td>
-                          <td className="py-2 px-4 text-right text-green-700 font-bold">{formatUsd(totalFondosCuota / tasaCambio)}</td>
-                        </tr>
+                      {itemsNoComunes.length > 0 && (
+                        <>
+                          <tr className="bg-amber-50">
+                            <td colSpan={5} className="py-2 px-4 text-[10px] font-black text-amber-800 uppercase tracking-widest">Gastos No Comunes (Privativos)</td>
+                          </tr>
+                          {itemsNoComunes.map((item, idx) => (
+                            <tr key={`nocom-${idx}`} className="hover:bg-gray-50 transition-colors italic">
+                              <td className="py-2.5 px-4 font-mono text-[11px] text-gray-400">{item.codigo}</td>
+                              <td className="py-2.5 px-4 text-gray-600 font-medium uppercase">{item.descripcion}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-500">{formatBs(item.monto)}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-500">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
+                              <td className="py-2.5 px-4 text-right text-gray-400">{item.cuota_parte ? formatUsd(item.cuota_parte / rate) : '-'}</td>
+                            </tr>
+                          ))}
+                        </>
                       )}
-                      {totalFondosYGastosComunesMonto > 0 && (
-                        <tr className="bg-indigo-50 border-t-2 border-indigo-200">
-                          <td colSpan={2} className="py-2 px-4 text-right text-indigo-800 uppercase text-xs font-bold">TOTAL FONDOS Y GASTOS COMUNES:</td>
-                          <td className="py-2 px-4 text-right text-indigo-800 font-bold">{formatBs(totalFondosYGastosComunesMonto)}</td>
-                          <td className="py-2 px-4 text-right text-indigo-800 font-bold">{formatBs(totalFondosYGastosComunesCuota)}</td>
-                          <td className="py-2 px-4 text-right text-green-700 font-bold">{formatUsd(totalFondosYGastosComunesCuota / tasaCambio)}</td>
-                        </tr>
-                      )}
-                      {gastosNoComunes.map((item, idx) => (
-                        <tr key={`${item.codigo}-${idx}`} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-2.5 px-4 font-mono text-[11px] text-gray-500">{item.codigo}</td>
-                          <td className="py-2.5 px-4 text-gray-800 font-medium uppercase">{item.descripcion}</td>
-                          <td className="py-2.5 px-4 text-right font-bold text-gray-900">{formatBs(item.monto)}</td>
-                          <td className="py-2.5 px-4 text-right text-gray-600">{item.cuota_parte ? formatBs(item.cuota_parte) : '-'}</td>
-                          <td className="py-2.5 px-4 text-right text-green-600 font-medium">{item.cuota_parte ? formatUsd(item.cuota_parte / tasaCambio) : '-'}</td>
-                        </tr>
-                      ))}
                     </tbody>
-                    <tfoot className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                      <tr className="bg-indigo-100">
-                        <td colSpan={2} className="py-3 px-4 text-right text-indigo-800 uppercase text-xs">TOTAL RECIBO:</td>
-                        <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
-                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.monto), 0))}
+                    <tfoot className="bg-indigo-950 text-white font-bold border-t-2 border-indigo-900">
+                      <tr>
+                        <td colSpan={2} className="py-4 px-4 text-right uppercase text-xs font-black">TOTAL RECIBO DEL MES:</td>
+                        <td className="py-4 px-4 text-right text-lg">
+                          Bs. {formatBs(totalGeneralMonto)}
                         </td>
-                        <td className="py-3 px-4 text-right text-indigo-800 text-xl font-black">
-                          Bs. {formatBs(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0))}
+                        <td className="py-4 px-4 text-right text-xl text-blue-300 font-black">
+                          Bs. {formatBs(totalGeneralCuota)}
                         </td>
-                        <td className="py-3 px-4 text-right text-green-800 text-xl font-black">
-                          $ {formatUsd(reciboGeneral.reduce((sum, item) => sum + Number(item.cuota_parte || 0), 0) / tasaCambio)}
+                        <td className="py-4 px-4 text-right text-xl text-emerald-400 font-black">
+                          $ {formatUsd(totalGeneralCuota / rate)}
                         </td>
                       </tr>
                     </tfoot>
@@ -3484,8 +3469,8 @@ export default function DashboardPage() {
                   );
                 })() : (
                 <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl py-10 text-center">
-                  <p className="text-gray-500 font-medium">No hay detalles disponibles para este mes.</p>
-                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos de este mes para visualizar el detalle.</p>
+                  <p className="text-gray-500 font-medium">No hay detalles disponibles para este periodo.</p>
+                  <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold italic">Sincroniza los datos para visualizar el detalle.</p>
                 </div>
               )}
             </div>

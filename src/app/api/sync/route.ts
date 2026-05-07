@@ -188,7 +188,6 @@ function parseReciboDetalle(html: string): any[] {
   
   // Buscar todas las tablas
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
-  console.log(`[parseReciboDetalle] Found ${allTables.length} tables total.`);
   
   for (const tableContent of allTables) {
     const upperT = tableContent.toUpperCase();
@@ -201,26 +200,31 @@ function parseReciboDetalle(html: string): any[] {
 
         const code = cleanHtml(cells[0]).trim();
         const desc = cleanHtml(cells[1]).trim();
-        // Intentar buscar monto en la celda 2 o 3
-        const montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
-        const monto = parseMonto(montoRaw);
+        
+        // Intentar buscar monto en la celda 2, si no en la 3
+        let montoRaw = cells.length >= 3 ? cleanHtml(cells[2]) : "";
+        let monto = parseMonto(montoRaw);
+        
+        if (monto === 0 && cells.length >= 4) {
+          montoRaw = cleanHtml(cells[3]);
+          monto = parseMonto(montoRaw);
+        }
 
-        if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO")) continue;
+        if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || desc.toUpperCase().includes("CONCEPTO")) continue;
         
         // Si tenemos descripción y monto, es un candidato (aunque no tenga código)
-        if (desc && desc.length > 3 && monto > 0 && !results.find(r => r.descripcion === desc && r.monto === monto)) {
+        // Permitimos montos negativos (notas de crédito)
+        if (desc && desc.length > 3 && monto !== 0 && !results.find(r => r.descripcion === desc && r.monto === monto)) {
           results.push({
-            codigo: code === "&nbsp;" ? "" : code,
+            codigo: (code === "&nbsp;" || !code) ? "" : code,
             descripcion: desc,
             monto: monto,
-            cuota_parte: cells.length >= 4 ? parseMonto(cleanHtml(cells[3])) : 0
+            cuota_parte: cells.length >= 4 ? parseMonto(cleanHtml(cells[cells.length - 1])) : 0
           });
         }
       }
     }
   }
-  
-  console.log("[parseReciboDetalle] Aggressive parsing found items:", results.length);
   return results;
 }
 
