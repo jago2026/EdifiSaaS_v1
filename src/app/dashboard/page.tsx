@@ -12,11 +12,10 @@ import { IngresosTab } from "./IngresosTab";
 import { MovimientosTab } from "./MovimientosTab";
 import { RecibosTab } from "./RecibosTab";
 import { EgresosTab } from "./EgresosTab";
-import { GastosTab } from "./GastosTab";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
 
 function UpgradeCard({ title, feature, planRequired, onUpgrade, isDemo, demoContent }: { title: string, feature: string, planRequired: string, onUpgrade: () => void, isDemo?: boolean, demoContent?: React.ReactNode }) {
   if (isDemo && demoContent) {
@@ -444,12 +443,11 @@ export default function DashboardPage() {
     if (!building?.id) return;
     setLoadingPreRecibo(true);
     try {
-      const currentMonth = new Date().toISOString().substring(0, 7);
-      
-      // Consultar gastos, egresos y movimientos manuales del mes actual
+      // CORRECCIÓN: No pasar el parámetro 'mes' para que el API use el filtro de FECHA REAL del mes en curso
+      // Esto evita que aparezcan gastos del mes pasado que tengan asignado el mes actual por sincronización.
       const [gastosRes, egresosRes, manualRes] = await Promise.all([
-        fetch(`/api/gastos?edificioId=${building.id}&mes=${currentMonth}`),
-        fetch(`/api/egresos?edificioId=${building.id}&mes=${currentMonth}`),
+        fetch(`/api/gastos?edificioId=${building.id}`),
+        fetch(`/api/egresos?edificioId=${building.id}`),
         fetch(`/api/movimientos-manual?edificioId=${building.id}`)
       ]);
 
@@ -2334,9 +2332,6 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("pre-recibo")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'pre-recibo' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📝</span> Pre-Recibo Estimado
               </button>
-              <button onClick={() => setActiveTab("gastos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'gastos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
-                <span className="text-lg">🛠️</span> Gastos (Próx. Recibo)
-              </button>
               <button onClick={() => setActiveTab("alicuotas")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'alicuotas' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📐</span> Alicuotas
               </button>
@@ -2532,7 +2527,7 @@ export default function DashboardPage() {
             
             {/* Módulos Superiores (Resumen USD / Balance) */}
             {(editConfig.dashboard_config?.usd !== false || user?.id === "superuser-id") && (
-              <div className="grid md:grid-cols-4 gap-6">
+              <div className="grid md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Saldo actual según el portal de la administradora. Puedes hacer clic para ver más detalles.">
                   <div className="text-sm text-gray-500 mb-1">Saldo Disponible seg&uacute;n Web Admin</div>
                   <div className="text-2xl font-bold text-blue-600">Bs.{formatBs(balance?.saldo_disponible || 0)}</div>
@@ -2541,14 +2536,6 @@ export default function DashboardPage() {
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("ingresos")} title="Total de cobranza recibida en el mes actual. Incluye pagos de apartamentos.">
                   <div className="text-sm text-gray-500 mb-1">Cobranza del Mes</div>                  <div className="text-2xl font-bold text-green-600">Bs.{formatBs(ingresosSummary.monto)}</div>
                   {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(ingresosSummary.monto / tasaBCV.dolar)}</div>}
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos facturados por la administradora en el mes actual.">
-                  <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
-                  <div className="text-2xl font-bold text-orange-600">Bs.{formatBs(Math.abs(gastosSummary.monto))}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs(gastosSummary.monto / tasaBCV.dolar))}</div>}
-                  <div className="text-xs text-gray-400 mt-1">
-                    {gastosSummary.cantidad} movimiento{gastosSummary.cantidad !== 1 ? "s" : ""}
-                  </div>
                 </div>
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("balance")} title="Fondo de reserva acumulado para emergencias y mantenimiento mayor.">
                   <div className="text-sm text-gray-500 mb-1">Fondo Reserva</div>
@@ -3326,80 +3313,6 @@ export default function DashboardPage() {
                       </td>
                       <td className="py-4 px-4 text-sm text-right text-red-700">
                         Bs. {formatBs(egresos.filter((e: any) => !e.isTotal && e.fecha !== "2099-12-31" && !e.beneficiario?.includes("TOTAL")).reduce((sum, e) => sum + Number(e.monto_bs || e.monto), 0))}
-                      </td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === "gastos" && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Gastos del Edificio</h2>
-              {mesesGastos.length > 0 && (
-                <select
-                  value={selectedMesGastos}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedMesGastos(val);
-                    loadGastos(val);
-                  }}                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white"
-                >
-                  <option value="">Mes Actual</option>
-                  {mesesGastos.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              )}
-            </div>
-            {loadingGastos ? (
-              <p className="text-gray-500 text-center py-8">Cargando...</p>
-            ) : gastos.length === 0 ? (
-              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
-                No hay gastos de edificio registrados.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Concepto</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">USD</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Bolivares</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {gastos.filter(g => !g.isTotal).map((gasto: any) => (
-                      <tr key={gasto.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-sm text-gray-900">{formatDate(gasto.fecha)}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600 font-medium">{gasto.descripcion}</td>
-                        <td className="py-3 px-4 text-xs text-gray-400">{gasto.codigo || "-"}</td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-600 font-medium">
-                          $ {formatUsd(gasto.monto_usd || (tasaBCV.dolar > 0 ? gasto.monto / tasaBCV.dolar : 0))}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right font-bold text-orange-600">
-                          Bs. {formatBs(Number(gasto.monto_bs || gasto.monto))}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-gray-100 font-bold border-t-2 border-gray-200">
-                      <td className="py-4 px-4 text-sm">TOTAL GENERAL GASTOS</td>
-                      <td className="py-4 px-4 text-[10px] text-gray-400 uppercase tracking-widest">
-                        {gastos.filter(g => !g.isTotal).length} CONCEPTOS
-                      </td>
-                      <td className="py-4 px-4"></td>
-                      <td className="py-4 px-4 text-sm text-right text-gray-800">
-                        $ {formatUsd(gastos.filter(g => !g.isTotal).reduce((sum, g: any) => sum + Number(g.monto_usd || (tasaBCV.dolar > 0 ? g.monto / tasaBCV.dolar : 0)), 0))}
-                      </td>
-                      <td className="py-4 px-4 text-sm text-right text-orange-700">
-                        Bs. {formatBs(gastos.filter(g => !g.isTotal).reduce((sum, g: any) => sum + Number(g.monto_bs || g.monto || 0), 0))}
                       </td>
                     </tr>
                   </tfoot>

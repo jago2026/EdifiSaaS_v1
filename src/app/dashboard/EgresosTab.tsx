@@ -80,14 +80,17 @@ export function EgresosTab({
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-50 font-bold border-t-2">
+            <tfoot className="bg-gray-900 text-white font-black border-t-2">
               <tr>
-                <td colSpan={4} className="py-4 px-4 text-right text-gray-900 uppercase text-xs">Total del Periodo:</td>
-                <td className="py-4 px-4 text-right text-lg text-red-600">
-                  Bs. {formatBs(egresos.find(e => e.isTotal)?.monto || 0)}
+                <td colSpan={2} className="py-4 px-4 text-left uppercase text-[10px]">
+                  Cant. transacciones: {egresos.filter(e => !e.isTotal).length}
                 </td>
-                <td className="py-4 px-4 text-right text-gray-600">
-                  $ {formatUsd(egresos.find(e => e.isTotal)?.monto_usd || (egresos.find(e => e.isTotal)?.monto / tasaBCV.dolar) || 0)}
+                <td colSpan={2} className="py-4 px-4 text-right text-white uppercase text-[10px]">Total del Periodo:</td>
+                <td className="py-4 px-4 text-right text-lg text-red-400">
+                  Bs. {formatBs(egresos.find(e => e.isTotal)?.monto || egresos.filter(e => !e.isTotal).reduce((sum, e) => sum + Number(e.monto), 0))}
+                </td>
+                <td className="py-4 px-4 text-right text-gray-300">
+                  $ {formatUsd(egresos.find(e => e.isTotal)?.monto_usd || egresos.filter(e => !e.isTotal).reduce((sum, e) => sum + Number(e.monto_usd || (e.monto / tasaBCV.dolar)), 0))}
                 </td>
               </tr>
             </tfoot>

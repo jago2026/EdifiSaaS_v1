@@ -213,34 +213,38 @@ Corregir la falla en la detección de pagos (totales y parciales) durante la sin
 ## Fecha: 2026-05-07 (Gemini)
 
 ### Objetivo
-Corregir la discrepancia en el Flujo de Caja, implementar la recuperación de contraseña y mejorar la experiencia de usuario en el login.
+Corregir errores de filtrado de fechas, mejorar la precisión de los reportes y optimizar la experiencia de usuario en el dashboard.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de Flujo de Caja (Doble Conteo)
-- **Problema:** Los ingresos se duplicaban en la pestaña de Flujo de Caja porque los pagos detectados en la pestaña "Ingresos" del portal (r=1) se sumaban tanto desde la tabla `pagos_recibos` como desde `movimientos_dia`, ya que la fuente "ingresos" no estaba excluida.
-- **Solución Aplicada:** 
-    - Se actualizó la lista de `fuentesSincronizadas` en `/api/movimientos-dia` y en el frontend para incluir `'ingresos'`.
-    - Se refactorizó la lógica para separar **Cobranza** de **Otros Ingresos** y **Egresos Operativos** de **Otros Egresos**, permitiendo que la tabla de "Detalle Diario" sea 100% precisa.
-- **Resultado:** Los totales de ingresos ahora coinciden exactamente con los recibos pagados y la tabla muestra el desglose detallado solicitado.
+#### 1. Corrección de Fechas Futuras (Flujo de Caja)
+- **Problema:** Los gastos aparecían en el día 31 del mes en curso (May 31), lo cual era ilógico estando a día 7.
+- **Solución:** Se ajustó la lógica de `fallbackDate` en el sincronizador (`api/sync`). Ahora, si el mes detectado es el mes actual, se usa la fecha de sincronización (hoy) en lugar del último día del mes.
+- **SQL Cleanup:** Se proporcionó un script para mover los registros del 31-05 al 07-05 en la base de datos.
 
-#### 2. Recuperación de Contraseña (NUEVA FUNCIONALIDAD)
-- **Base de Datos:** Se creó `supabase/migration_password_reset.sql` para añadir `reset_token` y `reset_token_expires` a las tablas `usuarios` y `junta`.
-- **API:**
-    - Creada `/api/forgot-password` para validar el email, generar tokens seguros y enviar correos de recuperación vía SMTP.
-    - Creada `/api/reset-password` para validar tokens y actualizar las contraseñas usando SHA-256.
-- **UI:**
-    - Se añadió el enlace "¿Olvidó su contraseña?" en la pantalla de login.
-    - Nueva página `/forgot-password` para solicitar el enlace.
-    - Nueva página `/reset-password` para establecer la nueva clave.
+#### 2. Filtrado Estricto por Fecha Real (Movimientos y Egresos)
+- **Problema:** Las pestañas de "Movimientos Consolidados" y "Egresos" mostraban datos del mes pasado al seleccionar "Mes Actual".
+- **Solución:** Se refactorizaron las APIs `/api/movimientos-all`, `/api/egresos` y `/api/gastos` para filtrar por el rango de fechas del mes calendario en curso en lugar de usar la columna `mes` (que representa el mes de facturación del recibo).
+- **Pre-Recibo:** Se actualizó `loadPreReciboData` para aprovechar este filtrado y mostrar solo items de mayo.
 
-#### 3. Mejora en Formulario de Login
-- **Visualización de Clave:** Se implementó un botón (icono de ojo) en el campo de contraseña para conmutar entre mostrar/ocultar los caracteres, mejorando la usabilidad y evitando errores al escribir.
-- **Estilo:** Se mantuvo la estética premium del sistema con transiciones suaves y feedback visual.
+#### 3. Totalización de Listados (Mejora UI)
+- **Implementación:** Se añadieron filas de pie de página (`tfoot`) en todas las tablas principales:
+    - **Movimientos:** Totales de Ingresos vs Egresos y cantidad de transacciones.
+    - **Ingresos:** Suma total en Bs y USD, y conteo de pagos.
+    - **Egresos:** Suma total en Bs y USD, y conteo de operaciones.
+    - **Recibos:** Resumen de facturación (conceptos) y deudas por unidad con totales consolidados.
 
-#### 4. Mantenimiento y SQL
-- Se generó el script SQL consolidado para aplicar los cambios en Supabase.
-- Se verificó la consistencia de los hashes de contraseña en todo el flujo de recuperación.
+#### 4. Inteligencia de Cobranza (Predicción Mejorada)
+- **Mejora:** Se rediseñó la sección "Predicción de Saldo" en **Cobranza y Morosidad**.
+- **Escenarios:** Ahora muestra tres escenarios probabilísticos (Optimista, Conservador y Pesimista) basados en la velocidad de alcance del 50% de la meta, en lugar de una simple duplicación lineal.
+
+#### 5. Precisión en Detalle de Recibo
+- **Mejora:** Se flexibilizó el scraper de gastos para no omitir conceptos de "FONDO" (como el Fondo de Reserva) que son parte esencial de la facturación del edificio.
+- **Resultado:** El "Detalle Recibo Mes" ahora coincide fielmente con lo mostrado en el portal de la administradora.
+
+#### 6. Simplificación del Dashboard
+- **Acción:** Se eliminó la pestaña redundante **"Gastos (Próx. Recibo)"**, ya que su funcionalidad ha sido absorbida y mejorada por el **"Pre-Recibo Estimado"**.
+- **UI:** Se ajustaron los menús y grids para reflejar este cambio.
 
 ---
 

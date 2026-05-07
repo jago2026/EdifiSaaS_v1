@@ -74,6 +74,26 @@ export function MovimientosTab({
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-green-100/50 font-black border-t-2 border-green-200">
+                <tr>
+                  <td colSpan={3} className="py-3 px-3 text-left text-green-800 uppercase text-[10px]">
+                    Cant. transacciones: {movimientosDia.length}
+                  </td>
+                  <td className="py-3 px-3 text-right text-green-800 uppercase text-[10px]">TOTALES HOY:</td>
+                  <td className="py-3 px-3 text-right text-sm text-green-900">
+                    {(() => {
+                      const ing = movimientosDia.filter(m => m.tipo === "pago" || m.tipo === "recibo").reduce((sum, m) => sum + Number(m.monto), 0);
+                      const egr = movimientosDia.filter(m => m.tipo !== "pago" && m.tipo !== "recibo").reduce((sum, m) => sum + Number(m.monto), 0);
+                      return (
+                        <div className="flex flex-col">
+                          <span className="text-green-600">+{formatBs(ing)}</span>
+                          <span className="text-red-600">-{formatBs(egr)}</span>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -157,6 +177,27 @@ export function MovimientosTab({
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-gray-900 text-white font-black border-t-2">
+                <tr>
+                  <td colSpan={3} className="py-4 px-4 text-left uppercase text-[10px]">
+                    Cant. transacciones: {filteredMovements.length}
+                  </td>
+                  <td className="py-4 px-4 text-right uppercase text-[10px]">TOTALES LISTADO:</td>
+                  <td className="py-4 px-4 text-right text-sm">
+                    {(() => {
+                      const ing = filteredMovements.filter(m => m.tipo === "pago" || m.tipo === "recibo").reduce((sum, m) => sum + Number(m.monto), 0);
+                      const egr = filteredMovements.filter(m => m.tipo !== "pago" && m.tipo !== "recibo").reduce((sum, m) => sum + Number(m.monto), 0);
+                      return (
+                        <div className="flex flex-col">
+                          <span className="text-green-400">+{formatBs(ing)}</span>
+                          <span className="text-red-400">-{formatBs(egr)}</span>
+                        </div>
+                      );
+                    })()}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}

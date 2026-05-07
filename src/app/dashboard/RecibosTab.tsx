@@ -76,11 +76,13 @@ export function RecibosTab({
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-gray-50 font-bold border-t-2">
+                    <tfoot className="bg-gray-900 text-white font-black border-t-2">
                       <tr>
-                        <td colSpan={2} className="py-4 px-4 text-right text-gray-900 uppercase text-xs">Total del Mes:</td>
-                        <td className="py-4 px-4 text-right text-lg text-blue-600">Bs. {formatBs(totalGeneral)}</td>
-                        <td className="py-4 px-4 text-right text-gray-600">$ {formatUsd(totalGeneral / rate)}</td>
+                        <td colSpan={2} className="py-4 px-4 text-left uppercase text-[10px]">
+                          Cant. conceptos: {uniqueItems.length}
+                        </td>
+                        <td className="py-4 px-4 text-right text-lg text-blue-400">Bs. {formatBs(totalGeneral)}</td>
+                        <td className="py-4 px-4 text-right text-gray-300">$ {formatUsd(totalGeneral / rate)}</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -141,10 +143,10 @@ export function RecibosTab({
               </tbody>
               <tfoot className="bg-gray-900 text-white font-bold">
                 <tr>
-                  <td colSpan={2} className="py-4 px-4 text-right uppercase text-[10px]">Total General por Cobrar:</td>
-                  <td className="py-4 px-4 text-center">
-                    {recibos.reduce((sum, r) => sum + r.num_recibos, 0)}
+                  <td colSpan={2} className="py-4 px-4 text-left uppercase text-[10px]">
+                    Total Unidades: {recibos.length} | Recibos: {recibos.reduce((sum, r) => sum + r.num_recibos, 0)}
                   </td>
+                  <td className="py-4 px-4 text-right uppercase text-[10px]">Total General por Cobrar:</td>
                   <td className="py-4 px-4 text-right text-lg">
                     Bs. {formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}
                   </td>

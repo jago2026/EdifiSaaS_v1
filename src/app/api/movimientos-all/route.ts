@@ -23,16 +23,21 @@ export async function GET(request: Request) {
     }
 
     const currentMes = mes || getCurrentMonth();
+    const [year, month] = currentMes.split("-").map(Number);
+    const firstDay = `${currentMes}-01`;
+    const lastDay = `${currentMes}-${new Date(year, month, 0).getDate().toString().padStart(2, '0')}`;
+    
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const allMovements: any[] = [];
 
-    // Get pagos from pagos_recibos for current month
+    // Get pagos from pagos_recibos for current month range by date
     const { data: pagos } = await supabase
       .from("pagos_recibos")
       .select("id, unidad, propietario, monto, fecha_pago, mes")
       .eq("edificio_id", edificioId)
-      .eq("mes", currentMes)
+      .gte("fecha_pago", firstDay)
+      .lte("fecha_pago", lastDay)
       .order("fecha_pago", { ascending: false })
       .limit(100);
 
@@ -53,12 +58,13 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get egresos from egresos table for current month
+    // Get egresos from egresos table for current month range by date
     const { data: egresos } = await supabase
       .from("egresos")
       .select("id, fecha, beneficiario, descripcion, monto, monto_usd")
       .eq("edificio_id", edificioId)
-      .like("mes", `${currentMes}%`)
+      .gte("fecha", firstDay)
+      .lte("fecha", lastDay)
       .order("fecha", { ascending: false })
       .limit(100);
 
@@ -76,12 +82,13 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get gastos from gastos table for current month
+    // Get gastos from gastos table for current month range by date
     const { data: gastos } = await supabase
       .from("gastos")
       .select("id, fecha, codigo, descripcion, monto, monto_usd")
       .eq("edificio_id", edificioId)
-      .like("mes", `${currentMes}%`)
+      .gte("fecha", firstDay)
+      .lte("fecha", lastDay)
       .order("fecha", { ascending: false })
       .limit(100);
 

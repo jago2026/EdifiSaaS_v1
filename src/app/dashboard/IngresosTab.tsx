@@ -58,6 +58,20 @@ export function IngresosTab({ activeTab, loadingIngresos, ingresosData }: Ingres
                 </tr>
               ))}
             </tbody>
+            <tfoot className="bg-gray-900 text-white font-black border-t-2">
+              <tr>
+                <td colSpan={3} className="py-4 px-4 text-left uppercase text-[10px]">
+                  Cant. transacciones: {ingresosData.length}
+                </td>
+                <td className="py-4 px-4 text-right text-sm">
+                  Bs. {formatBs(ingresosData.reduce((sum, i) => sum + Number(i.montoBs), 0))}
+                </td>
+                <td className="py-4 px-4 text-right text-sm text-green-400">
+                  $ {formatUsd(ingresosData.reduce((sum, i) => sum + Number(i.montoUsd), 0))}
+                </td>
+                <td></td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}

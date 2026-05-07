@@ -40,14 +40,18 @@ export async function GET(request: Request) {
       .select("id, fecha, mes, codigo, descripcion, monto")
       .eq("edificio_id", edificioId)
       .neq("codigo", "TOTAL")
-      .neq("codigo", "00001") // Fondo de reserva del detalle
-      .not("descripcion", "ilike", "%FONDO%") // Cualquier otro fondo
       .order("fecha", { ascending: false });
 
     if (mes) {
       query = query.eq("mes", mes);
     } else {
-      query = query.eq("mes", todayMes);
+      // SI NO HAY MES, FILTRAR ESTRICTAMENTE POR EL MES ACTUAL (Rango de Fechas)
+      const now = new Date();
+      const currentMesStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      const firstDay = `${currentMesStr}-01`;
+      const lastDay = `${currentMesStr}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate().toString().padStart(2, '0')}`;
+      
+      query = query.gte("fecha", firstDay).lte("fecha", lastDay);
     }
 
     const { data: gastos, error } = await query;

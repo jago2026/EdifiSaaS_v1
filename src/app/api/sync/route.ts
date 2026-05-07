@@ -390,6 +390,16 @@ function parseGastosTable(html: string): any[] {
 
   if (fallbackDate) {
     console.log(`[parseGastosTable] Mes detectado en HTML. Usando fallback: ${fallbackDate}`);
+    
+    // CORRECCIÓN: Si el mes detectado es el mes actual, NO usar el día 31 si estamos antes de esa fecha.
+    // Usar el día actual para que no aparezca en el futuro en el flujo de caja.
+    const now = new Date();
+    const currentYYYYMM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (fallbackDate.startsWith(currentYYYYMM)) {
+      const currentDay = String(now.getDate()).padStart(2, '0');
+      fallbackDate = `${currentYYYYMM}-${currentDay}`;
+      console.log(`[parseGastosTable] Ajustando fallback al día de hoy para el mes en curso: ${fallbackDate}`);
+    }
   }
 
   const allTables = html.match(/<table[^>]*>([\s\S]*?)<\/table>/gi) || [];
@@ -434,14 +444,18 @@ function parseGastosTable(html: string): any[] {
         
         if (!code || code === "&nbsp;" || code.length > 15) continue;
         if (code.toUpperCase().includes("COD") || code.toUpperCase().includes("CONCEPTO") || code.toUpperCase().includes("FECHA")) continue;
-        if (desc.includes("TOTAL") || desc.includes("TOTAL GASTOS COMUNES") || desc.toUpperCase().includes("FONDO")) continue;
         
-        if (code && desc && desc.length > 3 && !results.find(r => r.codigo === code)) {
+        // CORRECCIÓN: No saltar "FONDO" a menos que sea un total de fondos.
+        // El usuario necesita ver el "FONDO DE RESERVA" en el detalle.
+        const upperDesc = desc.toUpperCase();
+        if (upperDesc.includes("TOTAL GASTOS COMUNES") || upperDesc.includes("TOTAL FONDOS")) continue;
+        
+        if (code && desc && desc.length > 3 && !results.find(r => r.codigo === code && r.monto === parseMonto(montoRaw))) {
           results.push({
             codigo: code,
             descripcion: desc,
             monto: parseMonto(montoRaw),
-            fecha: fallbackDate // Usar el fin de mes detectado en el encabezado
+            fecha: fallbackDate // Usar el fin de mes detectado en el encabezado (o el día de hoy si es el mes actual)
           });
         }
       }
