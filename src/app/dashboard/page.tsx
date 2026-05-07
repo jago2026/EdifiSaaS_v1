@@ -1820,6 +1820,10 @@ export default function DashboardPage() {
   };
 
   const updateMiembro = async () => {
+    if (!user?.isAdmin) {
+      alert("No tienes permisos para editar miembros");
+      return;
+    }
     if (!building?.id || !editingMiembroId) return;
     if (!newMiembro.email || !newMiembro.nombre) {
       alert("Por favor complete nombre y email");
@@ -4938,6 +4942,7 @@ export default function DashboardPage() {
                            <div className="flex items-center justify-center gap-2">
                              <button 
                                onClick={() => {
+                                 if (!user?.isAdmin) return;
                                  setEditingMiembroId(m.id);
                                  setNewMiembro({
                                    nombre: m.nombre,
@@ -4949,8 +4954,9 @@ export default function DashboardPage() {
                                  const el = document.getElementById('junta-form');
                                  if (el) el.scrollIntoView({ behavior: 'smooth' });
                                }}
-                               className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors"
-                               title="Editar datos del miembro"
+                               disabled={!user?.isAdmin}
+                               className={`p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-colors ${!user?.isAdmin ? "opacity-30 cursor-not-allowed" : ""}`}
+                               title={user?.isAdmin ? "Editar datos del miembro" : "No tienes permisos"}
                              >
                                ✏️
                              </button>
