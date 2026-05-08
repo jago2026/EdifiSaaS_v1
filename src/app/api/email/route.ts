@@ -50,13 +50,53 @@ async function getTasaBCV(): Promise<number> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { 
+    let { 
       edificioId, testMode, action, error: errorMsg, recipient, 
       syncFailed, syncFailedReason, serviciosDeuda 
     } = body;
     const tasa = await getTasaBCV();
 
-    let finalServiciosDeuda = serviciosDeuda || [];
+    // Si no vienen los servicios (envío manual), los consultamos ahora
+    if (!serviciosDeuda || serviciosDeuda.length === 0) {
+      serviciosDeuda = [];
+      try {
+        const { data: configs } = await supabaseAdmin
+          .from("servicios_publicos_config")
+          .select("*")
+          .eq("edificio_id", edificioId);
+
+        if (configs && configs.length > 0) {
+          for (const config of configs) {
+            try {
+              let result: any = { exitoso: false };
+              if (config.tipo?.toLowerCase() === 'hidrocapital') {
+                result = await consultarHidrocapital(config.identificador);
+              } else if (config.tipo?.toLowerCase() === 'corpoelec') {
+                result = await consultarCorpoelec(config.identificador);
+              } else if (config.tipo?.toLowerCase() === 'cantv') {
+                result = { exitoso: true, deuda: 0 };
+              }
+
+              if (result.exitoso && result.deuda > 0) {
+                serviciosDeuda.push({
+                  tipo: config.tipo,
+                  identificador: config.identificador,
+                  alias: config.alias,
+                  deuda: result.deuda
+                });
+              }
+            } catch (err) {
+              console.error(`[EMAIL][SP] Error consultando ${config.tipo}:`, err);
+            }
+          }
+        }
+      } catch (spErr) {
+        console.error("[EMAIL][SP] Error general:", spErr);
+      }
+    }
+
+    const generateServiciosPublicosHtml = (servicios: any[]) => {
+
 
     // Si no vienen servicios y es un reporte, intentamos consultarlos
     if ((!finalServiciosDeuda || finalServiciosDeuda.length === 0) && (!action || action === 'modern_report_test' || action === 'whatsapp_report')) {
