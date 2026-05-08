@@ -254,13 +254,14 @@ function parseReciboDetalle(html: string): any[] {
 
     // Clasificar tipo de ítem
     let itemType = 'gasto';
-    if (upperDesc.includes('FONDO DE RESERVA') || upperDesc.includes('FONDO PRESTACIONES') ||
-        upperDesc.includes('FONDO TRABAJOS') || upperDesc.includes('FONDO INTERESES') ||
-        upperDesc.includes('FONDO DIFERENCIAL')) {
+    if (upperDesc.includes('FONDO') || upperDesc.includes('RESERVA') ||
+        upperDesc.includes('PROVISION') || upperDesc.includes('APORTE') ||
+        upperDesc.includes('PRESTACIONES') || upperDesc.includes('TRABAJOS VARIOS') ||
+        upperDesc.includes('DIFERENCIAL')) {
       itemType = 'fondo';
-    } else if (upperDesc.includes('TOTAL GASTOS COMUNES') || upperDesc.includes('TOTAL FONDOS') ||
-               upperDesc.includes('TOTAL FONDOS Y GASTOS') || upperDesc.includes('TOTAL RECIBO') ||
-               upperDesc.includes('GASTOS COMUNES SEGÚN') || upperDesc.includes('GASTOS COMUNES SEGUN')) {
+    } else if (upperDesc === 'TOTAL GASTOS COMUNES' || upperDesc === 'TOTAL FONDOS' ||
+               upperDesc === 'TOTAL GASTOS NO COMUNES' || upperDesc === 'TOTAL RECIBO' ||
+               upperDesc.startsWith('TOTAL GASTOS') || upperDesc.startsWith('TOTAL FONDOS')) {
       itemType = 'subtotal';
     }
 
@@ -839,8 +840,8 @@ export async function POST(request: Request) {
       .filter(item => item.tipo !== 'subtotal')
       .reduce((sum, item) => sum + Number(item.monto || 0), 0);
     
-    if (detailedTotal > 0) {
-      console.log(`[Sync] Total calculado desde detalles (Bs. ${detailedTotal}) supera o reemplaza al total extraído (Bs. ${monthlyReceiptTotal})`);
+    if (detailedTotal > monthlyReceiptTotal) {
+      console.log(`[Sync] Total calculado desde detalles (Bs. ${detailedTotal}) es más completo que el total extraído (Bs. ${monthlyReceiptTotal})`);
       monthlyReceiptTotal = detailedTotal;
     }
 
@@ -1557,7 +1558,28 @@ if (doSyncGastos) {
 
     if (balance) {
       console.log(`Balance detectado para ${mesEstandar}:`, balance);
-      if (monthlyReceiptTotal > 0) balance.recibos_mes = monthlyReceiptTotal;
+      
+      // Determinar el total real de emisión (recibos_mes)
+      // Si el balance ya tiene el dato (del resumen), lo priorizamos.
+      // Si usamos el fallback de monthlyReceiptTotal, verificamos si es unitario o del edificio.
+      let finalRecibosMes = balance.recibos_mes || 0;
+      const buildingUnits = building.unidades || 1;
+      const buildingGastos = Math.abs(balance.gastos_facturados || 0);
+
+      if (monthlyReceiptTotal > 0) {
+        // ¿Es monthlyReceiptTotal unitario o del edificio? 
+        // Heurística: Si es < 1/3 de los gastos y hay varias unidades, es unitario.
+        if (buildingUnits > 3 && monthlyReceiptTotal < (buildingGastos / 2)) {
+          console.log(`[Sync] Detectado total unitario (${monthlyReceiptTotal}). Extrapolando a edificio (${monthlyReceiptTotal * buildingUnits})`);
+          const extrapolated = monthlyReceiptTotal * buildingUnits;
+          if (extrapolated > finalRecibosMes) finalRecibosMes = extrapolated;
+        } else {
+          if (monthlyReceiptTotal > finalRecibosMes) finalRecibosMes = monthlyReceiptTotal;
+        }
+      }
+      
+      balance.recibos_mes = finalRecibosMes;
+
       await supabase.from("balances").delete().match({ edificio_id: building.id, mes: mesEstandar });
       await supabase.from("balances").insert({ ...balance, edificio_id: building.id, mes: mesEstandar, fecha: today, sincronizado: true });
     } else {

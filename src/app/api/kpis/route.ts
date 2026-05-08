@@ -277,9 +277,13 @@ export async function GET(request: Request) {
         // Priorizar el campo recibos_mes (que es el total real facturado con fondos) sobre gastos_facturados
         const montoTotalReciboBs = Number(b.recibos_mes || 0) > 0 ? Number(b.recibos_mes) : Math.abs(Number(b.gastos_facturados || 0));
         
+        // Detectar si el monto es unitario o total del edificio.
+        // Si el monto total es menor a la mitad de los gastos y hay varias unidades, es probable que ya sea un monto unitario.
+        const esMontoUnitario = divisorUnidades > 1 && montoTotalReciboBs < (Math.abs(Number(b.gastos_facturados || 0)) / 2);
+
         // Calcular monto por unidad usando el divisor corregido (conteo de aptos)
-        const reciboPorUnidadUsd = (divisorUnidades > 0 && tasa > 0)
-          ? (montoTotalReciboBs / divisorUnidades) / tasa 
+        const reciboPorUnidadUsd = (tasa > 0)
+          ? (esMontoUnitario ? (montoTotalReciboBs / tasa) : (montoTotalReciboBs / divisorUnidades) / tasa)
           : 0;
 
         return {

@@ -110,7 +110,7 @@ Asegurar la estabilidad del Cron Job automático, mejorar la visibilidad de erro
     - **Script de Limpieza SQL:** Se creó un script (`supabase/remove_duplicate_pagos.sql`) para que el usuario pueda eliminar permanentemente los registros duplicados de la tabla `pagos_recibos`.
 - **Resultado:** Vista de cobranza más clara, profesional y con datos precisos sin repeticiones.
 
-#### 6. Corrección Definitiva de Fechas en Sincronización
+#### 6. Corrección de Definitiva de Fechas en Sincronización
 - **Problema:** Los egresos y gastos seguían apareciendo con fecha de "hoy" en el sistema aunque pertenecieran a meses pasados, debido a una lógica de asignación incorrecta durante la sincronización.
 - **Solución Aplicada:**
     - **Mejora del Scraper:** Se actualizó `parseGastosTable` para extraer la fecha directamente de la tabla de la administradora (soporte para formato de 4 columnas).
@@ -277,10 +277,6 @@ Corregir errores de build en Vercel y optimizar la arquitectura de datos en APIs
 - Verificación exitosa del build de producción localmente (`npm run build`).
 - Configuración de Git con el token proporcionado para asegurar la persistencia de los cambios en el repositorio oficial.
 
-
-
-
-
 ---
 
 ## Fecha: 2026-05-08 (Gemini)
@@ -332,7 +328,7 @@ Integrar la consulta automática de servicios públicos (CANTV, Hidrocapital, Co
 - **Detección de Deuda:** El sistema ahora identifica automáticamente si alguno de los servicios configurados (CANTV, Hidrocapital, Corpoelec) presenta saldo deudor (monto > 0).
 
 #### 2. Notificación Detallada en Email
-- **Mejora de API de Email (`src/app/api/email/route.ts`):**
+- **Mejora de API de Email (`src/app/api/email/route.ts`)**:
     - Se implementó la recepción de datos de `serviciosDeuda`.
     - Se creó una función generadora de HTML para la sección de "Servicios Públicos".
     - **Informe Estándar:** Inserción de la sección de advertencia de deuda antes del enlace al dashboard.
@@ -411,3 +407,29 @@ Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)"
 
 ---
 
+## Fecha: 2026-05-08 (Gemini - Tanda 8 - CORRECCIÓN CRÍTICA)
+
+### Objetivo
+Corregir el error de escala en el cálculo de montos de recibos (división por unidades) que rompió los gráficos históricos y asegurar la precisión del total de abril.
+
+### Tareas Realizadas
+
+#### 1. Corrección de Lógica de Escala (Sincronización)
+- **Problema**: El sistema estaba sobrescribiendo el total del edificio (`balances.recibos_mes`) con el total de un recibo individual (unitario). Al llegar al Dashboard, este monto unitario se dividía nuevamente por el número de unidades, resultando en cifras ínfimas (ej: $1.95 en lugar de $78.55).
+- **Solución Applied (`api/sync`)**:
+    - Se implementó una **heurística de escala**: si el total detectado es mucho menor que los gastos del mes ( < 50%), el sistema lo reconoce como un monto unitario y lo **extrapola automáticamente** al total del edificio multiplicándolo por el número de unidades.
+    - Se prohibió la sobrescritura de totales de balance con montos menores o incompletos provenientes del detalle de recibos.
+
+#### 2. Resiliencia en Dashboard (`api/kpis`)
+- **Mejora**: Se añadió una capa de protección en el API de KPIs. Si por alguna razón los datos en la DB están mal escalados (montos unitarios guardados como totales), el sistema detecta la anomalía en tiempo real y **evita la doble división**, restaurando la visualización correcta de los meses anteriores sin necesidad de re-sincronizar todo el historial.
+
+#### 3. Mejora en Scraper de Detalles
+- **Problema**: El monto de abril se detectaba como $56.12 en lugar de $78.55 debido a una clasificación demasiado estricta de "fondos" y "subtotales".
+- **Solución Applied (`api/sync`)**:
+    - Se expandieron las palabras clave para detectar fondos (Fondo, Reserva, Provisión, Aporte, etc.).
+    - Se refinó la detección de subtotales para evitar que ítems legítimos de gastos que contengan la palabra "Total" en su descripción sean ignorados.
+
+#### 4. Mantenimiento de Datos
+- Se proporcionó un script SQL para corregir manualmente los registros de `balances` afectados por la sincronización defectuosa anterior.
+
+---
