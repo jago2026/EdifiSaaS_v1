@@ -515,9 +515,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
     }
 
+      return NextResponse.json({ success: true, message: "Informe Premium enviado exitosamente" });
+    }
+
+
+    const { data: juntaMembers } = await supabase.from("junta").select("email, recibe_email_cron").eq("edificio_id", edificioId).eq("activo", true);
+    // Solo enviar a miembros que tengan recibe_email_cron = true (o null/undefined para retrocompatibilidad)
+    const juntaRecipients = (juntaMembers || []).filter(m => m.recibe_email_cron !== false);
+    let toEmailsRaw = testMode ? ["correojago@gmail.com"] : juntaRecipients.map(m => m.email).filter(e => e);
+    
+    // Fallback: Si no hay miembros en la tabla junta, usar los emails configurados en el edificio
+    if (toEmailsRaw.length === 0 && edificio.email_junta) {
+      toEmailsRaw = edificio.email_junta.split(",").map((e: string) => e.trim()).filter(Boolean);
+    }
+    
+    const toEmails = toEmailsRaw.slice(0, permissions.maxEmailRecipients);
+    
+    if (toEmails.length === 0) {
+      console.error(`[EMAIL] No hay destinatarios para el edificio ${edificio.nombre}`);
+      return NextResponse.json({ error: "No hay destinatarios configurados (Junta o Email Config)" }, { status: 400 });
+    }
+
+    const todayDate = new Date();
+    const today = todayDate.toISOString().split("T")[0];
     if (action === "modern_report_test") {
-      const todayDate = new Date();
-      const today = todayDate.toISOString().split("T")[0];
       const fechaStr = formatDate(todayDate);
       
       // -- 1. OBTENER DATOS EXTENSOS --
@@ -911,35 +932,26 @@ export async function POST(request: Request) {
 
       await transporter.sendMail({
         from: `"SaaS - Sistema Junta de Condominio" <${SMTP_USER}>`,
-        to: recipient || "correojago@gmail.com",
+        to: recipient || toEmails.join(", "),
         subject: `💰Resumen Financiero ${edificio.nombre} - ${fechaStr}`,
         html: modernHtml,
       });
 
-      return NextResponse.json({ success: true, message: "Informe Premium enviado exitosamente" });
-    }
 
+      // Registrar alerta de envío exitoso para informe Premium 
+      try { 
+        await supabase.from("alertas").insert({ 
+          edificio_id: edificioId, 
+          tipo: "info", 
+          titulo: "💎 Informe Premium Enviado", 
+          descripcion: `El resumen ejecutivo ha sido enviado por email a los destinatarios configurados: ${recipient || toEmails.join(", ")}`, 
+          fecha: today 
+        }); 
+      } catch (e) { 
+        console.error("Error logging premium email alert:", e); 
+      } 
 
-    const { data: juntaMembers } = await supabase.from("junta").select("email, recibe_email_cron").eq("edificio_id", edificioId).eq("activo", true);
-    // Solo enviar a miembros que tengan recibe_email_cron = true (o null/undefined para retrocompatibilidad)
-    const juntaRecipients = (juntaMembers || []).filter(m => m.recibe_email_cron !== false);
-    let toEmailsRaw = testMode ? ["correojago@gmail.com"] : juntaRecipients.map(m => m.email).filter(e => e);
-    
-    // Fallback: Si no hay miembros en la tabla junta, usar los emails configurados en el edificio
-    if (toEmailsRaw.length === 0 && edificio.email_junta) {
-      toEmailsRaw = edificio.email_junta.split(",").map((e: string) => e.trim()).filter(Boolean);
-    }
-    
-    const toEmails = toEmailsRaw.slice(0, permissions.maxEmailRecipients);
-    
-    if (toEmails.length === 0) {
-      console.error(`[EMAIL] No hay destinatarios para el edificio ${edificio.nombre}`);
-      return NextResponse.json({ error: "No hay destinatarios configurados (Junta o Email Config)" }, { status: 400 });
-    }
-
-    const todayDate = new Date();
-    const today = todayDate.toISOString().split("T")[0];
-    const fechaStr = formatDate(todayDate);
+      return NextResponse.json({ success: true, message: "Informe Premium enviado exitosamente", recipient: recipient || toEmails.join(", ") });
 
     if (action === "whatsapp_report") {
       // Get the latest month available for this building in recibos
