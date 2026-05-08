@@ -6342,6 +6342,22 @@ export default function DashboardPage() {
                         )}
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-500 uppercase">URL Alícuotas (?r=23)</label>
+                      <div className="flex gap-2">
+                        <input 
+                          type="text" 
+                          value={editConfig.url_alicuotas} 
+                          disabled={!user?.isAdmin} 
+                          placeholder="https://[dominio]/condlin.php?r=23"
+                          onChange={(e) => setEditConfig({ ...editConfig, url_alicuotas: e.target.value })} 
+                          className="w-full px-3 py-1.5 border border-gray-200 rounded text-xs bg-gray-50" 
+                        />
+                        {editConfig.url_alicuotas && (
+                          <a href={editConfig.url_alicuotas} target="_blank" rel="noopener noreferrer" className="px-2 py-1.5 bg-blue-100 text-blue-700 rounded text-xs font-medium hover:bg-blue-200">Ver</a>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
