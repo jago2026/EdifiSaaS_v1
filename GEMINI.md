@@ -391,17 +391,26 @@ Resolver error 500 en el acceso al dashboard y asegurar la detección de deudas 
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 5)
+## Fecha: 2026-05-08 (Gemini - Tanda 6)
 
 ### Objetivo
-Añadir visibilidad y capacidad de edición para la URL de Alícuotas en la interfaz de configuración.
+Corregir la visualización y persistencia de las URLs de scraping, especialmente la de Alícuotas, y asegurar que los presets de las administradoras funcionen correctamente.
 
 ### Tareas Realizadas
 
-#### 1. Mejora de Interfaz (Configuración Avanzada)
-- **Acción:** Se añadió un nuevo campo de entrada en la sección "URLs de Scraping (Configuración Avanzada)" para la **URL de Alícuotas (?r=23)**.
-- **Funcionalidad:** Ahora el usuario puede visualizar, probar (botón "Ver") y modificar el link de alícuotas directamente desde el dashboard, de la misma forma que lo hace con los recibos, egresos y gastos.
-- **Persistencia:** El campo está vinculado a la base de datos, por lo que cualquier cambio se guardará permanentemente al presionar "Guardar Configuración".
+#### 1. Corrección de URLs de Scraping (UI/UX)
+- **Problema:** La URL de Alícuotas aparecía con un placeholder de `[dominio]` y le faltaba el botón **[Ver]**. Además, al cambiar de administradora, no siempre se actualizaban todas las URLs.
+- **Solución Applied:**
+    - Se actualizó el componente de la pestaña **Configuración** en `src/app/dashboard/page.tsx` para asegurar que el botón **[Ver]** se renderice para la URL de Alícuotas.
+    - Se refactorizó la función `updateAdminAndUrls` para incluir fallbacks cableados (presets) de todas las administradoras conocidas (La Ideal, Elite, Astrid Carrasquel, Actual, Chacao, Obelisco, GCM). Esto garantiza que, incluso si la tabla de administradoras en la DB está vacía, el sistema cargue las URLs correctas al seleccionar un nombre.
+    - Se corrigieron discrepancias en los nombres de las administradoras entre el frontend y el backend.
 
-#### 2. Sincronización de Datos
-- Se aseguró que la función de actualización de administradora pre-cargue este campo si la administradora seleccionada lo tiene definido en sus presets.
+#### 2. Persistencia en Base de Datos (Backend)
+- **Mejora API Config:** Se actualizó `/api/config/route.ts` para recibir y guardar correctamente los campos `url_alicuotas` y `email_administradora`. Anteriormente, estos campos se omitían en la operación de `update`.
+- **Detección de Columnas:** Se identificó la necesidad de asegurar que las columnas `url_alicuotas` y `email_administradora` existan en la tabla `edificios`.
+
+#### 3. Mantenimiento y Estabilidad
+- Se verificó que todos los presets de URLs incluyan el parámetro `?r=23` para alícuotas, asegurando compatibilidad con el sistema RascaCielo.
+- Se proporcionó un script SQL para la actualización de la base de datos de producción.
+
+---

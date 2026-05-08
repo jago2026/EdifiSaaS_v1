@@ -1959,7 +1959,104 @@ export default function DashboardPage() {
         url_alicuotas: selected.url_alicuotas || prev.url_alicuotas,
       }));
     } else {
-      setEditConfig(prev => ({ ...prev, admin_nombre: adminName }));
+      // Fallback para administradoras comunes si no están en la DB
+      let urls = {
+        url_login: "",
+        url_recibos: "",
+        url_recibo_mes: "",
+        url_egresos: "",
+        url_gastos: "",
+        url_balance: "",
+        url_alicuotas: ""
+      };
+
+      if (adminName === "La Ideal C.A.") {
+        urls = {
+          url_login: "https://admlaideal.com.ve/condlin.php?r=1",
+          url_recibos: "https://admlaideal.com.ve/condlin.php?r=5",
+          url_recibo_mes: "https://admlaideal.com.ve/condlin.php?r=4",
+          url_egresos: "https://admlaideal.com.ve/condlin.php?r=21",
+          url_gastos: "https://admlaideal.com.ve/condlin.php?r=3",
+          url_balance: "https://admlaideal.com.ve/condlin.php?r=2",
+          url_alicuotas: "https://admlaideal.com.ve/condlin.php?r=23"
+        };
+      } else if (adminName === "Administradora Elite") {
+        urls = {
+          url_login: "https://www.administradoraelite.com/control.php",
+          url_recibos: "https://www.administradoraelite.com/condlin.php?r=5",
+          url_recibo_mes: "https://www.administradoraelite.com/condlin.php?r=4",
+          url_egresos: "https://www.administradoraelite.com/condlin.php?r=21",
+          url_gastos: "https://www.administradoraelite.com/condlin.php?r=3",
+          url_balance: "https://www.administradoraelite.com/condlin.php?r=2",
+          url_alicuotas: "https://www.administradoraelite.com/condlin.php?r=23"
+        };
+      } else if (adminName === "Admastridcarrasquel" || adminName === "Administradora AC. Condominios, C.A.") {
+        urls = {
+          url_login: "https://www.admastridcarrasquel.com/condlin.php",
+          url_recibos: "https://www.admastridcarrasquel.com/condlin.php?r=5",
+          url_recibo_mes: "https://www.admastridcarrasquel.com/condlin.php?r=4",
+          url_egresos: "https://www.admastridcarrasquel.com/condlin.php?r=21",
+          url_gastos: "https://www.admastridcarrasquel.com/condlin.php?r=3",
+          url_balance: "https://www.admastridcarrasquel.com/condlin.php?r=2",
+          url_alicuotas: "https://www.admastridcarrasquel.com/condlin.php?r=23"
+        };
+      } else if (adminName === "Intercanariven" || adminName === "Intercanar") {
+        urls = {
+          url_login: "https://www.intercanariven.com/control.php",
+          url_recibos: "https://www.intercanariven.com/condlin.php?r=5",
+          url_recibo_mes: "https://www.intercanariven.com/condlin.php?r=4",
+          url_egresos: "https://www.intercanariven.com/condlin.php?r=21",
+          url_gastos: "https://www.intercanariven.com/condlin.php?r=3",
+          url_balance: "https://www.intercanariven.com/condlin.php?r=2",
+          url_alicuotas: "https://www.intercanariven.com/condlin.php?r=23"
+        };
+      } else if (adminName === "Admactual" || adminName === "Administradora Actual, C.A.") {
+        urls = {
+          url_login: "https://www.admactual.com/control.php",
+          url_recibos: "https://www.admactual.com/condlin.php?r=5",
+          url_recibo_mes: "https://www.admactual.com/condlin.php?r=4",
+          url_egresos: "https://www.admactual.com/condlin.php?r=21",
+          url_gastos: "https://www.admactual.com/condlin.php?r=3",
+          url_balance: "https://www.admactual.com/condlin.php?r=2",
+          url_alicuotas: "https://www.admactual.com/condlin.php?r=23"
+        };
+      } else if (adminName === "Condominios Chacao") {
+        urls = {
+          url_login: "https://condominioschacao.com/control.php",
+          url_recibos: "https://condominioschacao.com/condlin.php?r=5",
+          url_recibo_mes: "https://condominioschacao.com/condlin.php?r=4",
+          url_egresos: "https://condominioschacao.com/condlin.php?r=21",
+          url_gastos: "https://condominioschacao.com/condlin.php?r=3",
+          url_balance: "https://condominioschacao.com/condlin.php?r=2",
+          url_alicuotas: "https://condominioschacao.com/condlin.php?r=23"
+        };
+      } else if (adminName === "Obelisco") {
+        urls = {
+          url_login: "https://www.obelisco.com.ve/condlin.php?r=1",
+          url_recibos: "https://www.obelisco.com.ve/condlin.php?r=5",
+          url_recibo_mes: "https://www.obelisco.com.ve/condlin.php?r=4",
+          url_egresos: "https://www.obelisco.com.ve/condlin.php?r=21",
+          url_gastos: "https://www.obelisco.com.ve/condlin.php?r=3",
+          url_balance: "https://www.obelisco.com.ve/condlin.php?r=2",
+          url_alicuotas: "https://www.obelisco.com.ve/condlin.php?r=23"
+        };
+      } else if (adminName === "Administradora GCM") {
+        urls = {
+          url_login: "https://administradoragcm.com/empresa.htm/control.php",
+          url_recibos: "https://administradoragcm.com/empresa.htm/condlin.php?r=5",
+          url_recibo_mes: "https://administradoragcm.com/empresa.htm/condlin.php?r=4",
+          url_egresos: "https://administradoragcm.com/empresa.htm/condlin.php?r=21",
+          url_gastos: "https://administradoragcm.com/empresa.htm/condlin.php?r=3",
+          url_balance: "https://administradoragcm.com/empresa.htm/condlin.php?r=2",
+          url_alicuotas: "https://administradoragcm.com/empresa.htm/condlin.php?r=23"
+        };
+      }
+
+      setEditConfig(prev => ({ 
+        ...prev, 
+        admin_nombre: adminName,
+        ...urls
+      }));
     }
   };
 

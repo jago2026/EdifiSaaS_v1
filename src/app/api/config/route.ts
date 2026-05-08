@@ -10,6 +10,7 @@ const DEFAULT_URLS_LA_IDEAL = {
   url_egresos: 'https://admlaideal.com.ve/condlin.php?r=21',
   url_gastos: 'https://admlaideal.com.ve/condlin.php?r=3',
   url_balance: 'https://admlaideal.com.ve/condlin.php?r=2',
+  url_alicuotas: 'https://admlaideal.com.ve/condlin.php?r=23',
 };
 
 const DEFAULT_URLS_ASTRI = {
@@ -29,6 +30,7 @@ const DEFAULT_URLS_ELITE = {
   url_egresos: 'https://www.administradoraelite.com/condlin.php?r=21',
   url_gastos: 'https://www.administradoraelite.com/condlin.php?r=3',
   url_balance: 'https://www.administradoraelite.com/condlin.php?r=2',
+  url_alicuotas: 'https://www.administradoraelite.com/condlin.php?r=23',
 };
 
 const DEFAULT_URLS_INTERCANAR = {
@@ -38,6 +40,7 @@ const DEFAULT_URLS_INTERCANAR = {
   url_egresos: 'https://www.intercanariven.com/condlin.php?r=21',
   url_gastos: 'https://www.intercanariven.com/condlin.php?r=3',
   url_balance: 'https://www.intercanariven.com/condlin.php?r=2',
+  url_alicuotas: 'https://www.intercanariven.com/condlin.php?r=23',
 };
 
 const DEFAULT_URLS_ACTUAL = {
@@ -47,6 +50,7 @@ const DEFAULT_URLS_ACTUAL = {
   url_egresos: 'https://www.admactual.com/condlin.php?r=21',
   url_gastos: 'https://www.admactual.com/condlin.php?r=3',
   url_balance: 'https://www.admactual.com/condlin.php?r=2',
+  url_alicuotas: 'https://www.admactual.com/condlin.php?r=23',
 };
 
 const DEFAULT_URLS_CHACAO = {
@@ -56,6 +60,7 @@ const DEFAULT_URLS_CHACAO = {
   url_egresos: 'https://condominioschacao.com/condlin.php?r=21',
   url_gastos: 'https://condominioschacao.com/condlin.php?r=3',
   url_balance: 'https://condominioschacao.com/condlin.php?r=2',
+  url_alicuotas: 'https://condominioschacao.com/condlin.php?r=23',
 };
 
 const DEFAULT_URLS_OBELISCO = {
@@ -65,6 +70,7 @@ const DEFAULT_URLS_OBELISCO = {
   url_egresos: 'https://www.obelisco.com.ve/condlin.php?r=21',
   url_gastos: 'https://www.obelisco.com.ve/condlin.php?r=3',
   url_balance: 'https://www.obelisco.com.ve/condlin.php?r=2',
+  url_alicuotas: 'https://www.obelisco.com.ve/condlin.php?r=23',
 };
 
 const DEFAULT_URLS_GCM = {
@@ -74,6 +80,7 @@ const DEFAULT_URLS_GCM = {
   url_egresos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=21',
   url_gastos: 'https://administradoragcm.com/empresa.htm/condlin.php?r=3',
   url_balance: 'https://administradoragcm.com/empresa.htm/condlin.php?r=2',
+  url_alicuotas: 'https://administradoragcm.com/empresa.htm/condlin.php?r=23',
 };
 
 export async function POST(request: Request) {
@@ -92,6 +99,7 @@ export async function POST(request: Request) {
       url_egresos,
       url_gastos,
       url_balance,
+      url_alicuotas,
       fecha_inicio,
       saldo_inicial,
       saldo_inicial_usd,
@@ -107,6 +115,7 @@ export async function POST(request: Request) {
       dashboard_config,
       alert_thresholds,
       tipo_informe,
+      email_administradora,
       userId: bodyUserId 
     } = body;
 
@@ -170,6 +179,9 @@ export async function POST(request: Request) {
     if (url_balance) updateData.url_balance = url_balance;
     else if (urls.url_balance) updateData.url_balance = urls.url_balance;
 
+    if (url_alicuotas) updateData.url_alicuotas = url_alicuotas;
+    else if (urls.url_alicuotas) updateData.url_alicuotas = urls.url_alicuotas;
+
     if (sync_recibos !== undefined) updateData.sync_recibos = sync_recibos;
     if (sync_egresos !== undefined) updateData.sync_egresos = sync_egresos;
     if (sync_gastos !== undefined) updateData.sync_gastos = sync_gastos;
@@ -182,6 +194,7 @@ export async function POST(request: Request) {
     if (dashboard_config !== undefined) updateData.dashboard_config = dashboard_config;
     if (alert_thresholds !== undefined) updateData.alert_thresholds = alert_thresholds;
     if (tipo_informe !== undefined) updateData.tipo_informe = tipo_informe;
+    if (email_administradora !== undefined) updateData.email_administradora = email_administradora;
 
     const { data: building, error } = await supabase
       .from("edificios")
