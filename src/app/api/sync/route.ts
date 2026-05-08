@@ -976,6 +976,9 @@ export async function POST(request: Request) {
       const pctDesaparecidos = codigosAnterioresUnicos.length > 0 ? (codigosAnterioresUnicos.length - unidadesAhora.size) / codigosAnterioresUnicos.length : 0;
       const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && codigosAnterioresUnicos.length > 10;
 
+      let pagosDetectadosSync = 0;
+      let montoTotalDetectadoSync = 0;
+
       if (isPossibleRollover || isSuspiciousMassPayment) {
         const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>40%)";
         await supabase.from("alertas").insert({
@@ -988,9 +991,7 @@ export async function POST(request: Request) {
         console.log(`[SYNC] ${razon}. Skipping auto-detection.`);
       } else {
         // Proceder con la detección
-        let pagosDetectadosSync = 0;
-        let montoTotalDetectadoSync = 0;
-
+        
         for (const codigoPrevio of codigosAnterioresUnicos) {
           const unidadKey = codigoPrevio;
           

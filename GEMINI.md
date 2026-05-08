@@ -407,29 +407,23 @@ Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)"
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 8 - CORRECCIÓN CRÍTICA)
+## Fecha: 2026-05-08 (Gemini - Tanda 9 - CORRECCIÓN DE SINCRONIZACIÓN)
 
 ### Objetivo
-Corregir el error de escala en el cálculo de montos de recibos (división por unidades) que rompió los gráficos históricos y asegurar la precisión del total de abril.
+Corregir el error crítico `ReferenceError: pagosDetectadosSync is not defined` que impedía la sincronización de datos (off-line) y mejorar la robustez de las protecciones de seguridad.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de Lógica de Escala (Sincronización)
-- **Problema**: El sistema estaba sobrescribiendo el total del edificio (`balances.recibos_mes`) con el total de un recibo individual (unitario). Al llegar al Dashboard, este monto unitario se dividía nuevamente por el número de unidades, resultando en cifras ínfimas (ej: $1.95 en lugar de $78.55).
-- **Solución Applied (`api/sync`)**:
-    - Se implementó una **heurística de escala**: si el total detectado es mucho menor que los gastos del mes ( < 50%), el sistema lo reconoce como un monto unitario y lo **extrapola automáticamente** al total del edificio multiplicándolo por el número de unidades.
-    - Se prohibió la sobrescritura de totales de balance con montos menores o incompletos provenientes del detalle de recibos.
+#### 1. Corrección de Scope en API de Sincronización (`api/sync`)
+- **Problema**: Las variables `pagosDetectadosSync` y `montoTotalDetectadoSync` estaban declaradas dentro de un bloque `else`. Si se activaba alguna de las protecciones de seguridad (`isPossibleRollover` o `isSuspiciousMassPayment`), el sistema intentaba acceder a estas variables fuera de su bloque para generar el log final, provocando un fallo total de la API.
+- **Solución Applied**: Se movieron las declaraciones de ambas variables al inicio del proceso de conciliación, asegurando que estén disponibles para el informe final independientemente de si las protecciones se activan o no.
+- **Resultado**: La sincronización (tanto manual como de meses históricos) ya no colapsa cuando se activan los umbrales de seguridad.
 
-#### 2. Resiliencia en Dashboard (`api/kpis`)
-- **Mejora**: Se añadió una capa de protección en el API de KPIs. Si por alguna razón los datos en la DB están mal escalados (montos unitarios guardados como totales), el sistema detecta la anomalía en tiempo real y **evita la doble división**, restaurando la visualización correcta de los meses anteriores sin necesidad de re-sincronizar todo el historial.
+#### 2. Explicación del Fallo
+- El sistema funcionaba anteriormente porque estas protecciones no existían o las variables estaban en un nivel superior. Al refactorizar para añadir seguridad contra detecciones masivas erróneas (glitches del portal), se introdujo involuntariamente este error de alcance que solo se manifestaba cuando la protección entraba en acción.
 
-#### 3. Mejora en Scraper de Detalles
-- **Problema**: El monto de abril se detectaba como $56.12 en lugar de $78.55 debido a una clasificación demasiado estricta de "fondos" y "subtotales".
-- **Solución Applied (`api/sync`)**:
-    - Se expandieron las palabras clave para detectar fondos (Fondo, Reserva, Provisión, Aporte, etc.).
-    - Se refinó la detección de subtotales para evitar que ítems legítimos de gastos que contengan la palabra "Total" en su descripción sean ignorados.
-
-#### 4. Mantenimiento de Datos
-- Se proporcionó un script SQL para corregir manualmente los registros de `balances` afectados por la sincronización defectuosa anterior.
+#### 3. Mantenimiento y Estabilidad
+- Se verificó que el flujo de alertas capture correctamente tanto el aviso de "Safeguard activado" como el resumen final de la operación.
+- No se requieren cambios en la base de datos (Supabase) para esta corrección.
 
 ---
