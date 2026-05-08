@@ -280,3 +280,42 @@ Corregir errores de build en Vercel y optimizar la arquitectura de datos en APIs
 
 
 
+
+---
+
+## Fecha: 2026-05-08 (Gemini)
+
+### Objetivo
+Implementar funcionalidades de Superadministrador (Master Control) inspiradas en el proyecto AGUA, incluyendo auditoría, control de pagos SaaS, respaldos y dashboard global.
+
+### Tareas Realizadas
+
+#### 1. Infraestructura de Base de Datos (Admin Master)
+- **Nuevas Tablas:** Creadas mediante `supabase/migration_admin_features.sql`.
+    - `audit_logs`: Trazabilidad completa de operaciones críticas.
+    - `saas_payments`: Control de facturación y cobranza a los edificios clientes.
+    - `system_config`: Configuración global (Modo mantenimiento, email admin, etc.).
+- **Mejoras en Edificios:** Añadidas columnas `subscription_status` y `trial_end_date` para gestión de ciclo de vida del cliente.
+
+#### 2. Sistema de Auditoría
+- **Librería Centralizada:** Creada `src/lib/audit.ts` para facilitar el registro de logs desde cualquier parte del sistema (API o Server Actions).
+- **API de Auditoría:** Nueva ruta `/api/admin/audit` para consulta masiva de logs con búsqueda y filtrado.
+
+#### 3. Panel de Administración Master (UI/UX Premium)
+- **Dashboard Global:** Implementado con KPIs (Total Edificios, Unidades, Ingresos SaaS, Conversión) y tabla de actividad crítica en tiempo real.
+- **Módulo de Cobranza SaaS:**
+    - Listado detallado de pagos recibidos.
+    - Modal de registro de nuevos pagos con actualización automática del estado del edificio.
+- **Auditoría Global:** Visor de logs avanzado con detalles técnicos y metadatos de IP/User-Agent.
+- **Mantenimiento y Respaldos:**
+    - Sistema de exportación de datos (JSON) para tablas críticas (Edificios, Pagos, Auditoría, Usuarios).
+    - Herramientas de diagnóstico (Integridad y Visor de Errores).
+- **Mejoras en Gestión de Edificios:**
+    - Nueva columna "Trial / Vencimiento" con indicadores visuales de expiración.
+    - Sincronización de estados entre el panel y la base de datos de suscripciones.
+
+#### 4. Arquitectura de APIs
+- Centralización de rutas bajo `/api/admin/` (dashboard, audit, pagos-saas, tools/export).
+- Uso consistente de `supabaseAdmin` para operaciones de Master Control.
+
+---

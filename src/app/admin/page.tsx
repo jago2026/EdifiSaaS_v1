@@ -7,7 +7,8 @@ import {
   Building, Users, BarChart3, Settings, LogOut, Trash2, Edit, 
   RefreshCw, ChevronDown, ChevronUp, Plus, Save, X, Eye,
   Search, ShieldCheck, CreditCard, LayoutDashboard, Database,
-  AlertTriangle, CheckCircle2, Clock, Star, Zap, Crown
+  AlertTriangle, CheckCircle2, Clock, Star, Zap, Crown,
+  TrendingUp, Wallet, History, UserCheck, MoreVertical, Download, Wrench
 } from 'lucide-react';
 
 interface Edificio {
@@ -85,7 +86,7 @@ interface Administradora {
   created_at: string;
 }
 
-type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'planes' | 'settings';
+type AdminSection = 'dashboard' | 'edificios' | 'administradoras' | 'pagos' | 'auditoria' | 'planes' | 'settings' | 'mantenimiento';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -134,6 +135,77 @@ export default function AdminPage() {
       }
     } catch (e) {}
     setLoadingSettings(false);
+  };
+
+  // Master Dashboard Stats
+  const [masterStats, setMasterStats] = useState<any>(null);
+  const [loadingMaster, setLoadingMaster] = useState(false);
+
+  // Audit Logs State
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // SaaS Payments State
+  const [saasPayments, setSaasPayments] = useState<any[]>([]);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [newPayment, setNewPayment] = useState({
+    edificio_id: '',
+    fecha_pago: new Date().toISOString().split('T')[0],
+    monto: 0,
+    metodo_pago: 'Transferencia',
+    referencia: '',
+    notas: ''
+  });
+
+  const loadMasterDashboard = async () => {
+    setLoadingMaster(true);
+    try {
+      const res = await fetch('/api/admin/dashboard');
+      const data = await res.json();
+      if (res.ok) setMasterStats(data);
+    } catch (e) {}
+    setLoadingMaster(false);
+  };
+
+  const loadAuditLogs = async () => {
+    setLoadingAudit(true);
+    try {
+      const res = await fetch('/api/admin/audit');
+      const data = await res.json();
+      if (res.ok) setAuditLogs(data.data || []);
+    } catch (e) {}
+    setLoadingAudit(false);
+  };
+
+  const loadSaasPayments = async () => {
+    setLoadingPayments(true);
+    try {
+      const res = await fetch('/api/admin/pagos-saas');
+      const data = await res.json();
+      if (res.ok) setSaasPayments(data.data || []);
+    } catch (e) {}
+    setLoadingPayments(false);
+  };
+
+  const handleCreatePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoadingPayments(true);
+    try {
+      const res = await fetch('/api/admin/pagos-saas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPayment)
+      });
+      if (res.ok) {
+        setActionMsg('✅ Pago registrado correctamente');
+        setShowPaymentModal(false);
+        loadSaasPayments();
+        loadEdificios();
+        setTimeout(() => setActionMsg(''), 3000);
+      }
+    } catch (e) {}
+    setLoadingPayments(false);
   };
 
   const loadEdificios = async () => {
@@ -192,13 +264,15 @@ export default function AdminPage() {
     }
   };
 
-  useEffect(() => { 
-    loadEdificios();
-    loadAdministradoras();
-    loadPlanesConfigs();
-    loadMaintenanceMode();
-  }, []);
-
+  useEffect(() => {
+    if (activeSection === 'edificios') loadEdificios();
+    if (activeSection === 'administradoras') loadAdministradoras();
+    if (activeSection === 'planes') loadPlanesConfigs();
+    if (activeSection === 'settings') loadMaintenanceMode();
+    if (activeSection === 'dashboard') loadMasterDashboard();
+    if (activeSection === 'auditoria') loadAuditLogs();
+    if (activeSection === 'pagos') loadSaasPayments();
+  }, [activeSection]);
   const handleSavePlanes = async () => {
     setSavingPlanes(true);
     try {
@@ -385,9 +459,10 @@ export default function AdminPage() {
               { id: 'edificios',  label: 'Gestionar Edificios', icon: Building },
               { id: 'administradoras', label: 'Administradoras', icon: Settings },
               { id: 'planes',     label: 'Configurar Planes', icon: CreditCard },
-              { id: 'settings',   label: 'Configuración', icon: ShieldCheck },
               { id: 'pagos',      label: 'Cobranza y Pagos', icon: BarChart3 },
               { id: 'auditoria',  label: 'Auditoría Global', icon: Database },
+              { id: 'mantenimiento', label: 'Mantenimiento', icon: Wrench },
+              { id: 'settings',   label: 'Configuración', icon: ShieldCheck },
             ].map((item) => (
               <button
                 key={item.id}
@@ -478,7 +553,7 @@ export default function AdminPage() {
                   <table className="w-full text-sm text-left border-collapse">
                     <thead className="bg-slate-800/50">
                       <tr>
-                        {['Edificio', 'Sincronización', 'Plan Contratado', 'Tarifa/mes', 'Estado', 'Acciones']
+                        {['Edificio', 'Sincronización', 'Plan Contratado', 'Tarifa/mes', 'Trial / Vencimiento', 'Estado', 'Acciones']
                           .map(h => (
                             <th key={h} className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-slate-700">{h}</th>
                           ))}
@@ -540,6 +615,20 @@ export default function AdminPage() {
                                   <span className="font-black text-slate-100 text-lg tracking-tighter">${formatNumber(b.monthly_fee || 0)}</span>
                                   {b.discount_pct > 0 && <span className="bg-emerald-500/10 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-full">-{b.discount_pct}%</span>}
                                 </div>
+                              </td>
+                              <td className="px-6 py-5">
+                                {b.trial_end_date ? (
+                                  <div className="flex flex-col">
+                                    <span className={`text-[10px] font-black uppercase ${new Date(b.trial_end_date) < new Date() ? 'text-red-500' : 'text-amber-500'}`}>
+                                      {formatDate(b.trial_end_date)}
+                                    </span>
+                                    <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">
+                                      {new Date(b.trial_end_date) < new Date() ? 'VENCIDO' : 'EN PRUEBA'}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-600 text-[10px] font-bold uppercase tracking-widest">PERMANENTE</span>
+                                )}
                               </td>
                               <td className="px-6 py-5">
                                 <select 
@@ -817,13 +906,383 @@ export default function AdminPage() {
             </div>
           )}
 
-          {(activeSection === 'pagos' || activeSection === 'auditoria' || activeSection === 'dashboard') && (
-            <div className="flex flex-col items-center justify-center py-40 bg-slate-800/20 rounded-[3rem] border-2 border-dashed border-slate-800 text-center">
-               <AlertTriangle className="w-16 h-16 text-slate-700 mb-4" />
-               <h3 className="text-slate-500 font-black uppercase tracking-widest">Módulo en Desarrollo</h3>
-               <p className="text-slate-600 text-xs mt-2">Esta facilidad estará disponible próximamente en el Master Control.</p>
+          {activeSection === 'dashboard' && (
+            <div className="space-y-10">
+              {/* Master KPIs */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[
+                  { label: 'Edificios Totales', value: masterStats?.totalEdificios || 0, icon: Building, color: 'text-blue-400', bg: 'bg-blue-400/10' },
+                  { label: 'Unidades SaaS', value: masterStats?.totalUnidades || 0, icon: Users, color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
+                  { label: 'Ingresos Históricos', value: `$${formatNumber(masterStats?.totalIngresos || 0)}`, icon: Wallet, color: 'text-emerald-400', bg: 'bg-emerald-400/10' },
+                  { label: 'Conversión SaaS', value: `${Math.round(((masterStats?.statsStatus?.['Activo'] || 0) / (masterStats?.totalEdificios || 1)) * 100)}%`, icon: TrendingUp, color: 'text-amber-400', bg: 'bg-amber-400/10' },
+                ].map((kpi, idx) => (
+                  <div key={idx} className="bg-[#1e293b] rounded-[2rem] p-8 border border-slate-700/50 shadow-xl flex items-center gap-6">
+                    <div className={`${kpi.bg} p-4 rounded-2xl`}>
+                      <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{kpi.label}</p>
+                      <p className="text-2xl font-black text-white italic">{kpi.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Distribución de Planes */}
+                <div className="bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 p-8 shadow-xl">
+                  <h3 className="text-white font-black uppercase tracking-tighter italic text-xl mb-6">Planes Contratados</h3>
+                  <div className="space-y-4">
+                    {Object.entries(masterStats?.statsPlanes || {}).map(([plan, count]: [any, any]) => (
+                      <div key={plan} className="flex items-center justify-between p-4 bg-[#0f172a] rounded-2xl border border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <Zap className="w-4 h-4 text-indigo-500" />
+                          <span className="text-white font-bold text-sm">{plan}</span>
+                        </div>
+                        <span className="bg-indigo-600 px-3 py-1 rounded-full text-white font-black text-[10px]">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Auditoría Reciente */}
+                <div className="lg:col-span-2 bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 p-8 shadow-xl">
+                  <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-white font-black uppercase tracking-tighter italic text-xl">Actividad Crítica</h3>
+                    <button onClick={() => setActiveSection('auditoria')} className="text-indigo-400 font-black text-[10px] uppercase tracking-widest hover:text-indigo-300 transition-colors">Ver Todo →</button>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-slate-800">
+                    <table className="w-full text-left">
+                      <thead className="bg-[#0f172a] text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <tr>
+                          <th className="px-6 py-4">Fecha</th>
+                          <th className="px-6 py-4">Edificio</th>
+                          <th className="px-6 py-4">Operación</th>
+                          <th className="px-6 py-4">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {masterStats?.recentAudit.map((log: any) => (
+                          <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="px-6 py-4 text-slate-400 text-xs">{new Date(log.created_at).toLocaleString('es-ES')}</td>
+                            <td className="px-6 py-4 text-white font-bold text-xs">{log.edificios?.nombre || 'SISTEMA'}</td>
+                            <td className="px-6 py-4">
+                              <span className="text-indigo-400 font-black text-[10px] uppercase tracking-widest">{log.operation}</span>
+                              <p className="text-[10px] text-slate-500 truncate max-w-[150px]">{log.entity_type}</p>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${log.status === 'SUCCESS' ? 'text-emerald-500' : 'text-red-500'}`}>
+                                {log.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
+
+          {activeSection === 'pagos' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Control de Cobranza SaaS</h2>
+                  <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-2">Monitoreo de suscripciones y facturación de edificios</p>
+                </div>
+                <button 
+                  onClick={() => setShowPaymentModal(true)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-emerald-600/20 flex items-center gap-3"
+                >
+                  <Plus className="w-4 h-4" /> Registrar Pago SaaS
+                </button>
+              </div>
+
+              <div className="bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 shadow-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-[#0f172a] text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      <tr>
+                        <th className="px-8 py-6">Fecha</th>
+                        <th className="px-8 py-6">Edificio</th>
+                        <th className="px-8 py-6">Monto</th>
+                        <th className="px-8 py-6">Método / Ref</th>
+                        <th className="px-8 py-6">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {saasPayments.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                          <td className="px-8 py-6">
+                            <p className="text-white font-bold text-sm">{formatDate(p.fecha_pago)}</p>
+                            <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Registrado: {new Date(p.created_at).toLocaleDateString()}</p>
+                          </td>
+                          <td className="px-8 py-6 text-white font-black italic">{p.edificios?.nombre}</td>
+                          <td className="px-8 py-6">
+                            <span className="text-emerald-400 font-black text-xl italic">${formatNumber(p.monto)}</span>
+                          </td>
+                          <td className="px-8 py-6">
+                            <p className="text-slate-300 font-bold text-xs uppercase tracking-widest">{p.metodo_pago}</p>
+                            <p className="text-slate-500 text-[10px] font-mono">{p.referencia}</p>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="bg-emerald-500/10 text-emerald-500 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
+                              Verificado
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {saasPayments.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-8 py-20 text-center text-slate-600 font-black uppercase tracking-widest italic">No hay pagos registrados</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'auditoria' && (
+            <div className="space-y-8">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Auditoría Global</h2>
+                  <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-2">Log de operaciones críticas y trazabilidad del sistema</p>
+                </div>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar en logs..." 
+                    className="bg-[#1e293b] border border-slate-700 rounded-2xl pl-12 pr-6 py-4 text-white font-bold text-xs focus:outline-none focus:border-indigo-500 transition-all w-80"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 shadow-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-[#0f172a] text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      <tr>
+                        <th className="px-8 py-6">Fecha / IP</th>
+                        <th className="px-8 py-6">Usuario / Edificio</th>
+                        <th className="px-8 py-6">Operación</th>
+                        <th className="px-8 py-6">Datos / Detalles</th>
+                        <th className="px-8 py-6">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {auditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-800/30 transition-colors">
+                          <td className="px-8 py-6">
+                            <p className="text-white font-bold text-xs">{new Date(log.created_at).toLocaleString('es-ES')}</p>
+                            <p className="text-slate-500 text-[9px] font-mono">{log.ip_address}</p>
+                          </td>
+                          <td className="px-8 py-6">
+                            <p className="text-slate-200 font-bold text-xs">{log.user_email}</p>
+                            <p className="text-indigo-400 font-black text-[10px] uppercase italic">{log.edificios?.nombre || 'SISTEMA MASTER'}</p>
+                          </td>
+                          <td className="px-8 py-6">
+                            <span className="bg-indigo-500/10 text-indigo-400 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border border-indigo-500/20">
+                              {log.operation}
+                            </span>
+                            <p className="mt-1 text-slate-500 text-[9px] font-bold uppercase">{log.entity_type}</p>
+                          </td>
+                          <td className="px-8 py-6">
+                            <div className="max-w-xs">
+                              {log.data_after && (
+                                <p className="text-[10px] text-slate-400 line-clamp-2 font-mono bg-black/20 p-2 rounded">
+                                  {JSON.stringify(log.data_after)}
+                                </p>
+                              )}
+                              {!log.data_after && <span className="text-slate-600 italic text-[10px]">Sin detalles extra</span>}
+                            </div>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <div className={`w-3 h-3 rounded-full mx-auto shadow-[0_0_10px_rgba(0,0,0,0.5)] ${log.status === 'SUCCESS' ? 'bg-emerald-500 shadow-emerald-500/50' : 'bg-red-500 shadow-red-500/50'}`}></div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeSection === 'mantenimiento' && (
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-4xl font-black text-white tracking-tighter uppercase italic">Mantenimiento y Respaldos</h2>
+                <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest mt-2">Herramientas de exportación de datos y optimización del sistema</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 p-10 shadow-xl">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="bg-indigo-500/10 p-3 rounded-xl">
+                      <Database className="w-6 h-6 text-indigo-500" />
+                    </div>
+                    <h3 className="text-white font-black uppercase tracking-tighter italic text-xl">Respaldos de Datos</h3>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {[
+                      { table: 'edificios', label: 'Maestro de Edificios' },
+                      { table: 'pagos_recibos', label: 'Historial de Cobranza' },
+                      { table: 'egresos', label: 'Historial de Egresos' },
+                      { table: 'audit_logs', label: 'Logs de Auditoría' },
+                      { table: 'usuarios', label: 'Base de Usuarios' },
+                    ].map((item) => (
+                      <button 
+                        key={item.table}
+                        onClick={async () => {
+                          const res = await fetch(`/api/admin/tools/export?table=${item.table}`);
+                          const data = await res.json();
+                          const blob = new Blob([JSON.stringify(data.data, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `backup_${item.table}_${new Date().toISOString().split('T')[0]}.json`;
+                          a.click();
+                        }}
+                        className="w-full flex items-center justify-between p-4 bg-[#0f172a] rounded-2xl border border-slate-800 hover:border-indigo-500/50 transition-all group"
+                      >
+                        <span className="text-slate-300 font-bold text-sm">{item.label}</span>
+                        <Download className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#1e293b] rounded-[2.5rem] border border-slate-700/50 p-10 shadow-xl">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="bg-amber-500/10 p-3 rounded-xl">
+                      <Wrench className="w-6 h-6 text-amber-500" />
+                    </div>
+                    <h3 className="text-white font-black uppercase tracking-tighter italic text-xl">Herramientas</h3>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="p-6 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                      <h4 className="text-amber-400 font-black text-xs uppercase tracking-widest mb-2">Verificar Integridad</h4>
+                      <p className="text-slate-500 text-[10px] mb-4">Escanea la base de datos en busca de huérfanos o registros duplicados.</p>
+                      <button className="w-full py-3 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-amber-500/20 transition-all">
+                        Iniciar Escaneo
+                      </button>
+                    </div>
+
+                    <div className="p-6 bg-blue-500/5 rounded-2xl border border-blue-500/10">
+                      <h4 className="text-blue-400 font-black text-xs uppercase tracking-widest mb-2">Logs de Errores</h4>
+                      <p className="text-slate-500 text-[10px] mb-4">Ver logs detallados de la última ejecución del cron job global.</p>
+                      <button className="w-full py-3 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-xl font-black text-[10px] uppercase tracking-widest border border-blue-500/20 transition-all">
+                        Abrir Visor de Logs
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Payment Modal */}
+        {showPaymentModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
+            <div className="bg-[#1e293b] w-full max-w-xl rounded-[2.5rem] border border-slate-700 shadow-2xl overflow-hidden">
+              <div className="bg-emerald-600 px-10 py-8 flex justify-between items-center text-white">
+                <h3 className="font-black uppercase tracking-tighter text-2xl italic">Registrar Cobro SaaS</h3>
+                <button onClick={() => setShowPaymentModal(false)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition-all">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <form onSubmit={handleCreatePayment} className="p-10 space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Edificio Cliente</label>
+                  <select 
+                    required
+                    value={newPayment.edificio_id}
+                    onChange={(e) => setNewPayment({...newPayment, edificio_id: e.target.value})}
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-all"
+                  >
+                    <option value="">Selecciona edificio...</option>
+                    {edificios.map(b => (
+                      <option key={b.id} value={b.id}>{b.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Fecha Pago</label>
+                    <input 
+                      type="date" required
+                      value={newPayment.fecha_pago}
+                      onChange={(e) => setNewPayment({...newPayment, fecha_pago: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Monto ($)</label>
+                    <input 
+                      type="number" step="0.01" required
+                      value={newPayment.monto}
+                      onChange={(e) => setNewPayment({...newPayment, monto: Number(e.target.value)})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Método</label>
+                    <select 
+                      value={newPayment.metodo_pago}
+                      onChange={(e) => setNewPayment({...newPayment, metodo_pago: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-all"
+                    >
+                      <option value="Transferencia">Transferencia</option>
+                      <option value="Pago Móvil">Pago Móvil</option>
+                      <option value="Zelle">Zelle</option>
+                      <option value="Efectivo">Efectivo</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Referencia</label>
+                    <input 
+                      type="text" 
+                      value={newPayment.referencia}
+                      onChange={(e) => setNewPayment({...newPayment, referencia: e.target.value})}
+                      className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Notas Internas</label>
+                  <textarea 
+                    value={newPayment.notas}
+                    onChange={(e) => setNewPayment({...newPayment, notas: e.target.value})}
+                    className="w-full bg-[#0f172a] border border-slate-700 rounded-2xl px-6 py-4 text-white font-bold text-xs focus:outline-none focus:border-emerald-500 transition-all h-20 resize-none"
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={loadingPayments}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-6 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all shadow-xl shadow-emerald-600/20 disabled:opacity-50"
+                >
+                  {loadingPayments ? 'PROCESANDO...' : 'CONFIRMAR Y REGISTRAR PAGO'}
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
         </div>
 
         {editingBuilding && (
