@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 // SCRAPER HIDROCAPITAL
-async function consultarHidrocapital(nic: string) {
+export async function consultarHidrocapital(nic: string) {
   const URL_BASE = 'https://pagoenlinea.hidrocapital.gob.ve/multistep.php';
   console.log(`[SP][HIDROCAPITAL] Iniciando consulta para: ${nic}`);
   try {
@@ -60,7 +60,7 @@ async function consultarHidrocapital(nic: string) {
 }
 
 // SCRAPER CORPOELEC
-async function consultarCorpoelec(ncc: string) {
+export async function consultarCorpoelec(ncc: string) {
   const URL_CONSULTA = 'https://ov-capital.corpoelec.gob.ve/index.php/Login/consultaSaldo';
   console.log(`[SP][CORPOELEC] Iniciando consulta para: ${ncc}`);
   try {

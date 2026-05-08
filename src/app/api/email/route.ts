@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getPlanPermissions } from "@/lib/planLimits";
 import { formatNumber, formatDate } from "@/lib/formatters";
-import { POST as consultarPOST } from "../servicios-publicos/consultar/route";
+import { consultarHidrocapital, consultarCorpoelec } from "../servicios-publicos/consultar/route";
 
 
 const SMTP_HOST = "smtp.gmail.com";
@@ -69,13 +69,15 @@ export async function POST(request: Request) {
          if (configs && configs.length > 0) {
            for (const config of configs) {
              try {
-               const consultReq = new Request("http://localhost/api/servicios-publicos/consultar", {
-                 method: "POST",
-                 headers: { "Content-Type": "application/json" },
-                 body: JSON.stringify({ tipo: config.tipo, identificador: config.identificador })
-               });
-               const consultRes = await consultarPOST(consultReq);
-               const data = await consultRes.json();
+               let data: any = { exitoso: false };
+               if (config.tipo === 'hidrocapital') {
+                 data = await consultarHidrocapital(config.identificador);
+               } else if (config.tipo === 'corpoelec') {
+                 data = await consultarCorpoelec(config.identificador);
+               } else if (config.tipo === 'cantv') {
+                 data = { exitoso: true, deuda: 0 };
+               }
+
                if (data.exitoso && data.deuda > 0) {
                  finalServiciosDeuda.push({
                    tipo: config.tipo,
