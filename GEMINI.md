@@ -388,3 +388,20 @@ Resolver error 500 en el acceso al dashboard y asegurar la detección de deudas 
 - **Causa:** La API de email intentaba llamar a la API de consulta mediante una petición HTTP interna a `localhost`, lo cual no es compatible con el entorno de ejecución de Vercel.
 - **Solución Applied:** Se refactorizó la lógica para exportar y llamar directamente a las funciones de los scrapers (Hidrocapital, Corpoelec) desde la API de email, eliminando la dependencia de red interna.
 - **Resultado:** Los informes (manuales y automáticos) ahora detectan y muestran las deudas correctamente en cualquier entorno.
+
+---
+
+## Fecha: 2026-05-08 (Gemini - Tanda 5)
+
+### Objetivo
+Añadir visibilidad y capacidad de edición para la URL de Alícuotas en la interfaz de configuración.
+
+### Tareas Realizadas
+
+#### 1. Mejora de Interfaz (Configuración Avanzada)
+- **Acción:** Se añadió un nuevo campo de entrada en la sección "URLs de Scraping (Configuración Avanzada)" para la **URL de Alícuotas (?r=23)**.
+- **Funcionalidad:** Ahora el usuario puede visualizar, probar (botón "Ver") y modificar el link de alícuotas directamente desde el dashboard, de la misma forma que lo hace con los recibos, egresos y gastos.
+- **Persistencia:** El campo está vinculado a la base de datos, por lo que cualquier cambio se guardará permanentemente al presionar "Guardar Configuración".
+
+#### 2. Sincronización de Datos
+- Se aseguró que la función de actualización de administradora pre-cargue este campo si la administradora seleccionada lo tiene definido en sus presets.
