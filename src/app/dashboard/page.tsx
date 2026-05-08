@@ -8,6 +8,7 @@ import { ManualUsuario } from "./ManualUsuario";
 import { CobranzaMorosidad } from "./CobranzaMorosidad";
 import { IndicadoresCaja } from "./IndicadoresCaja";
 import { ResumenTab } from "./ResumenTab";
+import { GastosTab } from "./GastosTab";
 import { IngresosTab } from "./IngresosTab";
 import { MovimientosTab } from "./MovimientosTab";
 import { RecibosTab } from "./RecibosTab";
@@ -15,7 +16,7 @@ import { EgresosTab } from "./EgresosTab";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, AreaChart, Area, ComposedChart } from "recharts";
 
 import { formatNumber, formatCurrency, formatBs, formatUsd, formatDate } from "@/lib/formatters";
-type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
+type Tab = "resumen" | "ingresos" | "movimientos" | "egresos" | "gastos" | "recibos" | "recibo" | "balance" | "alicuotas" | "alertas" | "edificio" | "configuracion" | "manual" | "kpis" | "informes" | "instrucciones" | "junta" | "pre-recibo" | "flujo-caja" | "planes" | "proyeccion" | "servicios-publicos" | "inteligencia" | "cobranza-morosidad" | "indicadores-caja";
 
 function UpgradeCard({ title, feature, planRequired, onUpgrade, isDemo, demoContent }: { title: string, feature: string, planRequired: string, onUpgrade: () => void, isDemo?: boolean, demoContent?: React.ReactNode }) {
   if (isDemo && demoContent) {
@@ -1283,6 +1284,9 @@ export default function DashboardPage() {
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
     }
+    if (activeTab === "gastos" && building?.id) {
+      loadGastos();
+    }
     if (activeTab === "balance" && building?.id) {
       loadBalance();
     }
@@ -2447,6 +2451,9 @@ export default function DashboardPage() {
               <button onClick={() => setActiveTab("egresos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'egresos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">🧾</span> Egresos (Pagos)
               </button>
+              <button onClick={() => setActiveTab("gastos")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'gastos' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
+                <span className="text-lg">💸</span> Gastos Detallados
+              </button>
               <button onClick={() => setActiveTab("manual")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold text-sm ${activeTab === 'manual' ? 'bg-white text-indigo-950 shadow-lg' : 'hover:bg-white/10 text-indigo-100'}`}>
                 <span className="text-lg">📝</span> Ing/Egr Manual (Caja)
               </button>
@@ -2632,6 +2639,7 @@ export default function DashboardPage() {
                 <button onClick={() => {setActiveTab("flujo-caja"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'flujo-caja' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>📊 Flujo Caja</button>
                 <button onClick={() => {setActiveTab("ingresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'ingresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>💰 Ingresos</button>
                 <button onClick={() => {setActiveTab("egresos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'egresos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>🧾 Egresos</button>
+                <button onClick={() => {setActiveTab("gastos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'gastos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>💸 Gastos</button>
                 <button onClick={() => {setActiveTab("recibos"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'recibos' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>👥 Recibos</button>
                 <button onClick={() => {setActiveTab("balance"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'balance' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-600'}`}>⚖️ Balance</button>
                 <button onClick={() => {setActiveTab("inteligencia"); setMobileMenuOpen(false);}} className={`text-left px-4 py-3 rounded-xl text-xs font-bold ${activeTab === 'inteligencia' ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-emerald-600'}`}>🧠 Inteligencia</button>
@@ -2689,7 +2697,7 @@ export default function DashboardPage() {
                   {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("pre-recibo")} title="Gastos acumulados para el próximo recibo.">
+                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos acumulados para el próximo recibo.">
                   <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
                   <div className="text-2xl font-bold text-amber-600">Bs.{formatBs(Math.abs(gastosSummary?.monto || 0))}</div>
                   {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((gastosSummary?.monto || 0) / (tasaBCV.dolar || 1)))}</div>}
@@ -2936,57 +2944,25 @@ export default function DashboardPage() {
         )}
 
         {activeTab === "ingresos" && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Pagos de Condominio por Unidad</h2>
-            <p className="text-sm text-gray-500 mb-4">Estado de pagos de recibos del mes - Comparación entre sync actual y anterior</p>
-            {loadingIngresos ? (
-              <p className="text-gray-500 text-center py-8">Cargando...</p>
-            ) : ingresosData.length === 0 ? (
-              <p className="text-gray-500 text-center py-8 border border-dashed border-gray-200 rounded-lg">
-                No hay datos de pagos. Sincroniza datos desde la sección de configuración.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b bg-gray-50">
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Unidad</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Propietario</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto Bs</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Monto USD</th>
-                      <th className="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {ingresosData.map((pago: any) => (
-                      <tr key={pago.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="py-3 px-4 text-sm text-gray-500 font-medium">
-                          {pago.fecha ? formatDate(pago.fecha) : "-"}
-                        </td>
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">{pago.unidad}</td>
-                        <td className="py-3 px-4 text-sm text-gray-600 truncate max-w-[150px]">{pago.propietario || "-"}</td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-900 font-bold">
-                          Bs. {formatBs(pago.montoBs)}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right text-green-600 font-black">
-                          $ {formatUsd(pago.montoUsd)}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                            pago.estado === "pagado" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                          }`}>
-                            {pago.estado === "pagado" ? "Pagado" : "Pendiente"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <IngresosTab
+            activeTab={activeTab}
+            loading={loadingIngresos}
+            ingresosData={ingresosData}
+          />
         )}
+
+        <GastosTab
+          activeTab={activeTab}
+          loading={loadingGastos}
+          gastos={gastos}
+          meses={mesesGastos}
+          selectedMes={selectedMesGastos}
+          onMesChange={(mes) => {
+            setSelectedMesGastos(mes);
+            loadGastos(mes);
+          }}
+          tasaBCV={tasaBCV}
+        />
 
         {activeTab === "movimientos" && (
           <div className="space-y-6">

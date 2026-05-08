@@ -1066,18 +1066,20 @@ export async function POST(request: Request) {
                   sincronizado: true
                 }, { onConflict: 'edificio_id,hash' });
 
-                // D. Registrar en movimientos_dia para el informe diario
-                await supabase.from("movimientos_dia").insert({
-                  edificio_id: building.id,
-                  tipo: "recibo",
-                  descripcion: `PAGO TOTAL - Unidad ${unidadKey} (${propietario})`,
-                  monto: montoTotalPagado,
-                  fecha: today,
-                  fuente: "deteccion_automatica",
-                  detectado_en: today,
-                  unidad_apartamento: unidadKey,
-                  propietario: propietario
-                });
+                // D. Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
+                if (!mes) {
+                   await supabase.from("movimientos_dia").insert({
+                    edificio_id: building.id,
+                    tipo: "recibo",
+                    descripcion: `PAGO TOTAL - Unidad ${unidadKey} (${propietario})`,
+                    monto: montoTotalPagado,
+                    fecha: today,
+                    fuente: "deteccion_automatica",
+                    detectado_en: today,
+                    unidad_apartamento: unidadKey,
+                    propietario: propietario
+                  });
+                }
               } else {
                 console.log(`[PAGO-TOTAL] Saltando duplicado para unidad ${unidadKey}`);
               }
@@ -1150,18 +1152,20 @@ export async function POST(request: Request) {
                   sincronizado: true
                 }, { onConflict: 'edificio_id,hash' });
 
-                // Registrar en movimientos_dia para el informe diario
-                await supabase.from("movimientos_dia").insert({
-                  edificio_id: building.id,
-                  tipo: "recibo",
-                  descripcion: `ABONO PARCIAL - Unidad ${unidadKey} (${propietarioParcial})`,
-                  monto: montoParcial,
-                  fecha: today,
-                  fuente: "deteccion_parcial",
-                  detectado_en: today,
-                  unidad_apartamento: unidadKey,
-                  propietario: propietarioParcial
-                });
+                // Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
+                if (!mes) {
+                  await supabase.from("movimientos_dia").insert({
+                    edificio_id: building.id,
+                    tipo: "recibo",
+                    descripcion: `ABONO PARCIAL - Unidad ${unidadKey} (${propietarioParcial})`,
+                    monto: montoParcial,
+                    fecha: today,
+                    fuente: "deteccion_parcial",
+                    detectado_en: today,
+                    unidad_apartamento: unidadKey,
+                    propietario: propietarioParcial
+                  });
+                }
 
                 // Alerta de pago parcial
                 await supabase.from("alertas").insert({
@@ -1332,7 +1336,7 @@ export async function POST(request: Request) {
           .eq("detectado_en", today)
           .limit(1);
 
-        if (!mExist || mExist.length === 0) {
+        if ((!mExist || mExist.length === 0) && fDB === today) {
           await supabase.from("movimientos_dia").insert({ 
             edificio_id: building.id, 
             tipo: "egreso", 
@@ -1425,16 +1429,18 @@ export async function POST(request: Request) {
             sincronizado: true
           }, { onConflict: 'edificio_id,hash' });
 
-          // SIEMPRE registrar en movimientos_dia si se detectó hoy
-          await supabase.from("movimientos_dia").insert({
-            edificio_id: building.id,
-            tipo: "recibo",
-            descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
-            monto: ing.monto,
-            fecha: fDB,
-            fuente: "ingresos",
-            detectado_en: today
-          });
+          // SIEMPRE registrar en movimientos_dia si se detectó hoy Y es de fecha hoy
+          if (fDB === today) {
+            await supabase.from("movimientos_dia").insert({
+              edificio_id: building.id,
+              tipo: "recibo",
+              descripcion: `${ing.descripcion} - ${ing.beneficiario}`,
+              monto: ing.monto,
+              fecha: fDB,
+              fuente: "ingresos",
+              detectado_en: today
+            });
+          }
 // Generar alerta de pago detectado
 await supabase.from("alertas").insert({
   edificio_id: building.id,

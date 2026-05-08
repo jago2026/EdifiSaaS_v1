@@ -407,19 +407,26 @@ Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)"
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 10 - CORRECCIÓN UI DASHBOARD)
+## Fecha: 2026-05-08 (Gemini - Tanda 11 - RESTAURACIÓN GASTOS Y FIX HISTÓRICO)
 
 ### Objetivo
-Corregir el "botón fantasma" de Gastos en el resumen principal que no mostraba ningún contenido al ser pulsado.
+Restaurar la pestaña dedicada de Gastos y corregir la contaminación del informe de "Movimientos del Día" con datos históricos.
 
 ### Tareas Realizadas
 
-#### 1. Redirección de Acceso a Gastos
-- **Problema**: Tras la simplificación del dashboard en versiones anteriores, se eliminó la pestaña independiente de "Gastos", pero el botón/tarjeta de "Gastos del Mes" en el resumen ejecutivo seguía intentando navegar a esa pestaña inexistente (`activeTab === "gastos"`).
-- **Solución Applied**: Se actualizaron tanto `page.tsx` como `ResumenTab.tsx` para que el clic en la tarjeta de Gastos redirija automáticamente a la pestaña de **"Pre-Recibo Estimado"**.
-- **Resultado**: Al pulsar en "Gastos del Mes", el usuario ahora es llevado directamente al listado detallado de conceptos que integrarán el próximo recibo, cumpliendo con la intención original de la refactorización.
+#### 1. Restauración de la Pestaña "Gastos Detallados"
+- **Acción**: Se creó un nuevo componente `GastosTab.tsx` que muestra el listado cronológico de gastos, permitiendo filtrar por mes.
+- **Integración**: Se añadió nuevamente al menú lateral (Desktop) y al menú móvil la opción "💸 Gastos Detallados".
+- **Coherencia**: La tarjeta de "Gastos del Mes" en el Resumen ahora redirige correctamente a esta nueva pestaña dedicada, en lugar de a "Pre-Recibo".
 
-#### 2. Limpieza de Código Redundante
-- Se eliminó el bloque `useEffect` en `page.tsx` que realizaba una carga de datos específica para la pestaña eliminada, reduciendo peticiones innecesarias al servidor.
+#### 2. Corrección en "Movimientos del Día" (`api/sync`)
+- **Problema**: Al sincronizar meses históricos, los movimientos de hace un año se registraban con la etiqueta de "detectado hoy", saturando el informe diario actual con datos irrelevantes.
+- **Solución Applied**: 
+    - Se añadió una condición estricta en el API de sincronización: solo se registran registros en `movimientos_dia` si la fecha real del movimiento coincide con el día de hoy (`fDB === today`).
+    - Las detecciones automáticas por conciliación de lista (pagos totales/parciales) ahora se excluyen del informe diario si se trata de una sincronización manual de mes histórico (`!mes`).
+- **Resultado**: El listado de "Movimientos de Hoy" solo mostrará lo que realmente ocurrió hoy, manteniendo la integridad de los reportes diarios incluso tras sincronizar el pasado.
+
+#### 3. Mejora en Visualización
+- Se aseguró que los estados de carga y mensajes de "Sin datos" sean consistentes en el nuevo módulo de Gastos.
 
 ---
