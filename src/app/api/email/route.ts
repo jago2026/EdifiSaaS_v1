@@ -515,10 +515,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "Notificación de error enviada" });
     }
 
-      return NextResponse.json({ success: true, message: "Informe Premium enviado exitosamente" });
-    }
-
-
     const { data: juntaMembers } = await supabase.from("junta").select("email, recibe_email_cron").eq("edificio_id", edificioId).eq("activo", true);
     // Solo enviar a miembros que tengan recibe_email_cron = true (o null/undefined para retrocompatibilidad)
     const juntaRecipients = (juntaMembers || []).filter(m => m.recibe_email_cron !== false);
@@ -952,6 +948,7 @@ export async function POST(request: Request) {
       } 
 
       return NextResponse.json({ success: true, message: "Informe Premium enviado exitosamente", recipient: recipient || toEmails.join(", ") });
+    }
 
     if (action === "whatsapp_report") {
       // Get the latest month available for this building in recibos
