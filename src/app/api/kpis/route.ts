@@ -206,18 +206,26 @@ export async function GET(request: Request) {
       .eq("edificio_id", edificioId)
       .order("fecha_pago", { ascending: true });
 
-    const { data: recibosDetalleSum } = await supabase
+    const { data: recibosDetalleRaw } = await supabase
       .from("recibos_detalle")
-      .select("mes, monto")
+      .select("mes, monto, codigo, descripcion, tipo")
       .eq("edificio_id", edificioId)
-      .eq("unidad", "GENERAL")
-      .not("tipo", "eq", "subtotal");
+      .eq("unidad", "GENERAL");
 
     const calculatedReceiptTotals: Record<string, number> = {};
-    (recibosDetalleSum || []).forEach((d: any) => {
+    const processedItems: Record<string, Set<string>> = {};
+
+    (recibosDetalleRaw || []).forEach((d: any) => {
       const m = d.mes;
-      if (!calculatedReceiptTotals[m]) calculatedReceiptTotals[m] = 0;
-      calculatedReceiptTotals[m] += parseFloat(d.monto || 0);
+      if (!processedItems[m]) processedItems[m] = new Set();
+      
+      // Lógica de deduplicación idéntica al frontend (RecibosTab.tsx)
+      const itemKey = `${d.codigo || ""}-${d.descripcion || ""}-${d.monto || 0}`;
+      if (!processedItems[m].has(itemKey) && d.tipo !== 'subtotal') {
+        if (!calculatedReceiptTotals[m]) calculatedReceiptTotals[m] = 0;
+        calculatedReceiptTotals[m] += parseFloat(d.monto || 0);
+        processedItems[m].add(itemKey);
+      }
     });
 
     const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
@@ -302,9 +310,13 @@ export async function GET(request: Request) {
         // Suma total calculada
         const sumaCalculada = gComunes + gNoComunes + fondoFinal;
         
-        // Priorizar: 1. Suma Calculada (si hay datos), 2. Recibos Mes (Summary), 3. Gastos Facturados (Fallback)
+        // Priorizar: 1. Total deduplicado de Detalles (coincide con pestaña Detalle), 2. Suma Calculada (Fórmula), 3. Fallbacks
+        const detailTotal = calculatedReceiptTotals[b.mes] || calculatedReceiptTotals[normalized];
         let montoTotalReciboBs = 0;
-        if (sumaCalculada > 0) {
+        
+        if (detailTotal > 0) {
+          montoTotalReciboBs = detailTotal;
+        } else if (sumaCalculada > 0) {
           montoTotalReciboBs = sumaCalculada;
         } else {
           montoTotalReciboBs = Number(b.recibos_mes || 0) > 0 ? Number(b.recibos_mes) : Math.abs(Number(b.gastos_facturados || 0));
