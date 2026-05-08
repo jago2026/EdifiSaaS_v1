@@ -1947,6 +1947,13 @@ export default function DashboardPage() {
     const selected = administradoras.find(a => a.nombre === adminName);
     
     if (selected) {
+      // Intentar construir la url de alícuotas si no existe
+      let inferredAlicuotas = selected.url_alicuotas;
+      if (!inferredAlicuotas && (selected.url_login || selected.url_recibos)) {
+        const base = (selected.url_login || selected.url_recibos || "").split('?')[0].replace('/condlin.php', '').replace('/control.php', '');
+        inferredAlicuotas = \`\${base}/condlin.php?r=23\`;
+      }
+
       setEditConfig(prev => ({
         ...prev,
         admin_nombre: selected.nombre,
@@ -1956,7 +1963,7 @@ export default function DashboardPage() {
         url_egresos: selected.url_egresos || prev.url_egresos,
         url_gastos: selected.url_gastos || prev.url_gastos,
         url_balance: selected.url_balance || prev.url_balance,
-        url_alicuotas: selected.url_alicuotas || prev.url_alicuotas,
+        url_alicuotas: inferredAlicuotas || prev.url_alicuotas,
       }));
     } else {
       // Fallback para administradoras comunes si no están en la DB

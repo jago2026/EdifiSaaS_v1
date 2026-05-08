@@ -391,26 +391,23 @@ Resolver error 500 en el acceso al dashboard y asegurar la detección de deudas 
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 6)
+## Fecha: 2026-05-08 (Gemini - Tanda 7)
 
 ### Objetivo
-Corregir la visualización y persistencia de las URLs de scraping, especialmente la de Alícuotas, y asegurar que los presets de las administradoras funcionen correctamente.
+Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)" y mejorar la precisión de la extracción de totales mensuales.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de URLs de Scraping (UI/UX)
-- **Problema:** La URL de Alícuotas aparecía con un placeholder de `[dominio]` y le faltaba el botón **[Ver]**. Además, al cambiar de administradora, no siempre se actualizaban todas las URLs.
-- **Solución Applied:**
-    - Se actualizó el componente de la pestaña **Configuración** en `src/app/dashboard/page.tsx` para asegurar que el botón **[Ver]** se renderice para la URL de Alícuotas.
-    - Se refactorizó la función `updateAdminAndUrls` para incluir fallbacks cableados (presets) de todas las administradoras conocidas (La Ideal, Elite, Astrid Carrasquel, Actual, Chacao, Obelisco, GCM). Esto garantiza que, incluso si la tabla de administradoras en la DB está vacía, el sistema cargue las URLs correctas al seleccionar un nombre.
-    - Se corrigieron discrepancias en los nombres de las administradoras entre el frontend y el backend.
+#### 1. Mejora en Sincronización de Totales (`api/sync`)
+- **Problema**: El sistema extraía el total del recibo buscando una fila de "TOTAL RECIBO" que a veces solo contenía un subtotal (ej: solo Gastos Comunes), omitiendo fondos y gastos no comunes. Esto causaba que los KPIs mostraran montos inferiores a la realidad.
+- **Solución**: Se modificó la lógica de scraping para que, además de buscar el total nominal, realice una **suma aritmética de todos los conceptos detallados** del recibo. El monto mayor (o la suma detallada si es válida) se utiliza como el total real facturado.
 
-#### 2. Persistencia en Base de Datos (Backend)
-- **Mejora API Config:** Se actualizó `/api/config/route.ts` para recibir y guardar correctamente los campos `url_alicuotas` y `email_administradora`. Anteriormente, estos campos se omitían en la operación de `update`.
-- **Detección de Columnas:** Se identificó la necesidad de asegurar que las columnas `url_alicuotas` y `email_administradora` existan en la tabla `edificios`.
+#### 2. Corrección de KPI Histórico (Abril)
+- Se identificó que la discrepancia reportada ($16.13 vs $78.55) se debía a que el scraper anterior solo detectó el subtotal de gastos comunes y luego el sistema lo dividió por el número de unidades.
+- Se proporciona un script SQL para actualizar el registro de abril con el monto correcto basado en la suma total real.
 
-#### 3. Mantenimiento y Estabilidad
-- Se verificó que todos los presets de URLs incluyan el parámetro `?r=23` para alícuotas, asegurando compatibilidad con el sistema RascaCielo.
-- Se proporcionó un script SQL para la actualización de la base de datos de producción.
+#### 3. Estabilidad y Coherencia
+- Se aseguró que la pestaña "Detalle Recibo Mes" y el gráfico de KPIs utilicen el mismo criterio de totalización (suma de todos los ítems).
 
 ---
+

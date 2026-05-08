@@ -12,6 +12,7 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://admlaideal.com.ve/condlin.php?r=21",
     url_gastos: "https://admlaideal.com.ve/condlin.php?r=3",
     url_balance: "https://admlaideal.com.ve/condlin.php?r=2",
+    url_alicuotas: "https://admlaideal.com.ve/condlin.php?r=23",
   },
   "Administradora AC. Condominios, C.A.": {
     url_login: "https://www.admastridcarrasquel.com/condlin.php",
@@ -27,6 +28,7 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://www.administradoraelite.com/condlin.php?r=21",
     url_gastos: "https://www.administradoraelite.com/condlin.php?r=3",
     url_balance: "https://www.administradoraelite.com/condlin.php?r=2",
+    url_alicuotas: "https://www.administradoraelite.com/condlin.php?r=23",
   },
   "Intercanariven": {
     url_login: "https://www.intercanariven.com/control.php",
@@ -34,6 +36,7 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://www.intercanariven.com/condlin.php?r=21",
     url_gastos: "https://www.intercanariven.com/condlin.php?r=3",
     url_balance: "https://www.intercanariven.com/condlin.php?r=2",
+    url_alicuotas: "https://www.intercanariven.com/condlin.php?r=23",
   },
   "Administradora Actual, C.A.": {
     url_login: "https://www.admactual.com/control.php",
@@ -41,6 +44,7 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://www.admactual.com/condlin.php?r=21",
     url_gastos: "https://www.admactual.com/condlin.php?r=3",
     url_balance: "https://www.admactual.com/condlin.php?r=2",
+    url_alicuotas: "https://www.admactual.com/condlin.php?r=23",
   },
   "Condominios Chacao": {
     url_login: "https://condominioschacao.com/control.php",
@@ -48,6 +52,7 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://condominioschacao.com/condlin.php?r=21",
     url_gastos: "https://condominioschacao.com/condlin.php?r=3",
     url_balance: "https://condominioschacao.com/condlin.php?r=2",
+    url_alicuotas: "https://condominioschacao.com/condlin.php?r=23",
   },
   "Obelisco": {
     url_login: "https://www.obelisco.com.ve/control.php",
@@ -55,6 +60,7 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://www.obelisco.com.ve/condlin.php?r=21",
     url_gastos: "https://www.obelisco.com.ve/condlin.php?r=3",
     url_balance: "https://www.obelisco.com.ve/condlin.php?r=2",
+    url_alicuotas: "https://www.obelisco.com.ve/condlin.php?r=23",
   },
   "Administradora GCM": {
     url_login: "https://administradoragcm.com/empresa.htm/control.php",
@@ -62,19 +68,21 @@ const DEFAULT_URLS: Record<string, any> = {
     url_egresos: "https://administradoragcm.com/empresa.htm/condlin.php?r=21",
     url_gastos: "https://administradoragcm.com/empresa.htm/condlin.php?r=3",
     url_balance: "https://administradoragcm.com/empresa.htm/condlin.php?r=2",
+    url_alicuotas: "https://administradoragcm.com/empresa.htm/condlin.php?r=23",
   },
 };
 
 function buildUrlsFromDomain(domain: string): any {
   const d = domain.trim();
-  const base = d.startsWith("http") ? d : `https://${d}`;
+  const base = d.startsWith("http") ? d : \`https://\${d}\`;
   const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
   return {
-    url_login: `${cleanBase}/condlin.php`,
-    url_recibos: `${cleanBase}/condlin.php?r=5`,
-    url_egresos: `${cleanBase}/condlin.php?r=21`,
-    url_gastos: `${cleanBase}/condlin.php?r=3`,
-    url_balance: `${cleanBase}/condlin.php?r=2`,
+    url_login: \`\${cleanBase}/condlin.php\`,
+    url_recibos: \`\${cleanBase}/condlin.php?r=5\`,
+    url_egresos: \`\${cleanBase}/condlin.php?r=21\`,
+    url_gastos: \`\${cleanBase}/condlin.php?r=3\`,
+    url_balance: \`\${cleanBase}/condlin.php?r=2\`,
+    url_alicuotas: \`\${cleanBase}/condlin.php?r=23\`,
   };
 }
 

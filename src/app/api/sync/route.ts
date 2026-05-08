@@ -830,8 +830,19 @@ export async function POST(request: Request) {
     const allGastos = hGas ? deduplicateItems(parseGastosTable(hGas), ['codigo', 'monto', 'descripcion']) : [];
     const balance = hBal ? parseBalanceFull(hBal) : null;
     const allAlicuotas = hAli ? parseAlicuotasTable(hAli) : [];
-    const monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
+    
+    // Mejorar extracción de total del recibo sumando los detalles si existen
     const detailedReceiptItems = hRecSummary ? parseReciboDetalle(hRecSummary) : [];
+    let monthlyReceiptTotal = hRecSummary ? parseReceiptMonthlySummary(hRecSummary) : 0;
+    
+    const detailedTotal = (detailedReceiptItems || [])
+      .filter(item => item.tipo !== 'subtotal')
+      .reduce((sum, item) => sum + Number(item.monto || 0), 0);
+    
+    if (detailedTotal > 0) {
+      console.log(`[Sync] Total calculado desde detalles (Bs. ${detailedTotal}) supera o reemplaza al total extraído (Bs. ${monthlyReceiptTotal})`);
+      monthlyReceiptTotal = detailedTotal;
+    }
 
     // --- SEGURIDAD: VALIDAR LECTURA COMPLETA ---
     if (doSyncRecibos && !isRecibosComplete && hRec && hRec.length > 5000) {
