@@ -288,11 +288,27 @@ export async function GET(request: Request) {
         const normalized = normalizeMonth(b.mes);
         const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
         
-        // Priorizar el total calculado desde los detalles (que es lo que el usuario ve en la pestaña Detalle)
-        // Si no hay detalles, usar recibos_mes del balance, o finalmente gastos_facturados.
-        const detailTotal = calculatedReceiptTotals[b.mes] || calculatedReceiptTotals[normalized];
-        let montoTotalReciboBs = detailTotal || Number(b.recibos_mes || 0);
-        if (montoTotalReciboBs === 0) montoTotalReciboBs = Math.abs(Number(b.gastos_facturados || 0));
+        // FÓRMULA MAESTRA SUGERIDA POR EL USUARIO:
+        // (Gastos Comunes + Gastos No Comunes + 10% Fondo Reserva) / Unidades
+        const gComunes = Math.abs(Number(b.gastos_comunes || 0));
+        const gNoComunes = Math.abs(Number(b.gastos_no_comunes || 0));
+        const fReserva = Math.abs(Number(b.fondo_reserva_mov || 0));
+        
+        // Calculamos el 10% teórico de los gastos como validación
+        const diezPorCientoTeorico = (gComunes + gNoComunes) * 0.10;
+        // Usamos el mayor entre el movimiento registrado y el 10% teórico (por si el scraper no capturó el fondo)
+        const fondoFinal = fReserva > 0 ? fReserva : diezPorCientoTeorico;
+        
+        // Suma total calculada
+        const sumaCalculada = gComunes + gNoComunes + fondoFinal;
+        
+        // Priorizar: 1. Suma Calculada (si hay datos), 2. Recibos Mes (Summary), 3. Gastos Facturados (Fallback)
+        let montoTotalReciboBs = 0;
+        if (sumaCalculada > 0) {
+          montoTotalReciboBs = sumaCalculada;
+        } else {
+          montoTotalReciboBs = Number(b.recibos_mes || 0) > 0 ? Number(b.recibos_mes) : Math.abs(Number(b.gastos_facturados || 0));
+        }
         
         // Detectar si el monto es unitario o total del edificio.
         const esMontoUnitario = divisorUnidades > 1 && montoTotalReciboBs < (Math.abs(Number(b.gastos_facturados || 0)) / 2);
@@ -302,10 +318,10 @@ export async function GET(request: Request) {
           ? (esMontoUnitario ? (montoTotalReciboBs / tasa) : (montoTotalReciboBs / divisorUnidades) / tasa)
           : 0;
 
-        // Sanity Check final: Si el monto sigue siendo absurdo ( > 150 USD y > 2x gastos), es que está triplicado en la DB.
+        // Sanity Check: Si el monto sigue siendo absurdo ( > 150 USD y > 2x gastos), es que hay un error de escala masivo.
         const gastosUsd = tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0;
         let reciboPorUnidadUsd = rawReciboUsd;
-        if (reciboPorUnidadUsd > 150 && gastosUsd > 0 && reciboPorUnidadUsd > (gastosUsd * 1.8)) {
+        if (reciboPorUnidadUsd > 150 && gastosUsd > 0 && reciboPorUnidadUsd > (gastosUsd * 2)) {
           reciboPorUnidadUsd = reciboPorUnidadUsd / 3;
         }
 
