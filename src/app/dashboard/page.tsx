@@ -1951,7 +1951,7 @@ export default function DashboardPage() {
       let inferredAlicuotas = selected.url_alicuotas;
       if (!inferredAlicuotas && (selected.url_login || selected.url_recibos)) {
         const base = (selected.url_login || selected.url_recibos || "").split('?')[0].replace('/condlin.php', '').replace('/control.php', '');
-        inferredAlicuotas = \`\${base}/condlin.php?r=23\`;
+        inferredAlicuotas = `${base}/condlin.php?r=23`;
       }
 
       setEditConfig(prev => ({

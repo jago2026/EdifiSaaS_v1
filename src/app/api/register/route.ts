@@ -74,15 +74,15 @@ const DEFAULT_URLS: Record<string, any> = {
 
 function buildUrlsFromDomain(domain: string): any {
   const d = domain.trim();
-  const base = d.startsWith("http") ? d : \`https://\${d}\`;
+  const base = d.startsWith("http") ? d : `https://${d}`;
   const cleanBase = base.endsWith("/") ? base.slice(0, -1) : base;
   return {
-    url_login: \`\${cleanBase}/condlin.php\`,
-    url_recibos: \`\${cleanBase}/condlin.php?r=5\`,
-    url_egresos: \`\${cleanBase}/condlin.php?r=21\`,
-    url_gastos: \`\${cleanBase}/condlin.php?r=3\`,
-    url_balance: \`\${cleanBase}/condlin.php?r=2\`,
-    url_alicuotas: \`\${cleanBase}/condlin.php?r=23\`,
+    url_login: `${cleanBase}/condlin.php`,
+    url_recibos: `${cleanBase}/condlin.php?r=5`,
+    url_egresos: `${cleanBase}/condlin.php?r=21`,
+    url_gastos: `${cleanBase}/condlin.php?r=3`,
+    url_balance: `${cleanBase}/condlin.php?r=2`,
+    url_alicuotas: `${cleanBase}/condlin.php?r=23`,
   };
 }
 
