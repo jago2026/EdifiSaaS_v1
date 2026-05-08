@@ -840,9 +840,19 @@ export async function POST(request: Request) {
       .filter(item => item.tipo !== 'subtotal')
       .reduce((sum, item) => sum + Number(item.monto || 0), 0);
     
-    if (detailedTotal > monthlyReceiptTotal) {
-      console.log(`[Sync] Total calculado desde detalles (Bs. ${detailedTotal}) es más completo que el total extraído (Bs. ${monthlyReceiptTotal})`);
+    // Si no se encontró total en el resumen, o si el total del resumen es 0, usar detalles
+    if (monthlyReceiptTotal === 0 && detailedTotal > 0) {
+      console.log(`[Sync] Usando total de detalles (Bs. ${detailedTotal}) ya que no se encontró total en resumen.`);
       monthlyReceiptTotal = detailedTotal;
+    } else if (detailedTotal > 0 && monthlyReceiptTotal > 0) {
+      // Si ambos existen, verificar que el detallado no esté inflado (triple conteo)
+      // Si el detallado es > 2 veces el del resumen, es probable que esté inflado.
+      if (detailedTotal > (monthlyReceiptTotal * 1.8)) {
+        console.log(`[Sync] El total detallado (Bs. ${detailedTotal}) parece inflado respecto al resumen (Bs. ${monthlyReceiptTotal}). Usando resumen.`);
+      } else if (detailedTotal > monthlyReceiptTotal) {
+        console.log(`[Sync] El total detallado (Bs. ${detailedTotal}) es más completo que el resumen. Usando detalles.`);
+        monthlyReceiptTotal = detailedTotal;
+      }
     }
 
     // --- SEGURIDAD: VALIDAR LECTURA COMPLETA ---

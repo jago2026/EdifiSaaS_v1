@@ -282,9 +282,16 @@ export async function GET(request: Request) {
         const esMontoUnitario = divisorUnidades > 1 && montoTotalReciboBs < (Math.abs(Number(b.gastos_facturados || 0)) / 2);
 
         // Calcular monto por unidad usando el divisor corregido (conteo de aptos)
-        const reciboPorUnidadUsd = (tasa > 0)
+        const rawReciboUsd = (tasa > 0)
           ? (esMontoUnitario ? (montoTotalReciboBs / tasa) : (montoTotalReciboBs / divisorUnidades) / tasa)
           : 0;
+
+        // Sanity Check 2: Si el monto parece triplicado ( > 150 USD y > 2.5x gastos), corregir visualmente.
+        const gastosUsd = tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0;
+        let reciboPorUnidadUsd = rawReciboUsd;
+        if (reciboPorUnidadUsd > 150 && gastosUsd > 0 && reciboPorUnidadUsd > (gastosUsd * 2.2)) {
+          reciboPorUnidadUsd = reciboPorUnidadUsd / 3;
+        }
 
         return {
           ...b,
