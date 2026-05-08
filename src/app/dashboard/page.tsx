@@ -1984,7 +1984,6 @@ export default function DashboardPage() {
       setSyncMessage("✅ Configuración guardada satisfactoriamente");
       // Task 1: Re-validate if units changed
       loadAlicuotas();
-      setTimeout(() => setActiveTab("resumen"), 1500);
     } catch (error: any) {
       setSyncMessage(`❌ Error: ${error.message}`);
     } finally {

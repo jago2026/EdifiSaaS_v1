@@ -342,3 +342,28 @@ Integrar la consulta automática de servicios públicos (CANTV, Hidrocapital, Co
 #### 3. Estabilidad y Coherencia
 - Se mantuvo el soporte para planes profesionales (o superiores) para la consulta automática de servicios.
 - Se aseguró que los informes se envíen correctamente incluso si no hay servicios configurados o no presentan deuda (en cuyo caso la sección no aparece).
+
+---
+
+## Fecha: 2026-05-08 (Gemini - Tanda 3)
+
+### Objetivo
+Corregir la ausencia de deudas de servicios públicos en informes manuales, la falta de persistencia de configuraciones críticas y el redireccionamiento incorrecto tras guardar cambios.
+
+### Tareas Realizadas
+
+#### 1. Consulta Automática de Servicios en Emails Manuales
+- **Problema:** Los informes enviados manualmente desde la pestaña de configuración no mostraban las deudas de servicios públicos (CANTV, Hidrocapital, Corpoelec), a pesar de estar configurados.
+- **Solución Applied:** Se modificó la API `/api/email/route.ts` para que, si no recibe la lista de deudas en el cuerpo de la petición (envío manual), realice la consulta automáticamente en tiempo real antes de generar el HTML del correo.
+- **Resultado:** Los informes manuales ahora incluyen siempre las deudas de servicios públicos detectadas.
+
+#### 2. Persistencia de Configuración (Dashboard Fix)
+- **Problema:** Al recargar el dashboard, el tipo de informe (Premium/Estándar), el email de la administradora y otras configuraciones se reiniciaban a sus valores por defecto en la interfaz, aunque estuvieran guardados en la base de datos.
+- **Causa Raíz:** La API `/api/dashboard` no incluía los campos `tipo_informe`, `email_administradora`, `url_alicuotas`, `dashboard_config` y `alert_thresholds` en su consulta `select`.
+- **Solución Applied:** Se actualizaron los campos seleccionados en `src/app/api/dashboard/route.ts` para incluir todas las preferencias del edificio.
+- **Resultado:** La configuración ahora persiste correctamente en la interfaz tras recargas y navegaciones.
+
+#### 3. Corrección de Redireccionamiento en Configuración
+- **Problema:** Al presionar "Guardar Configuración", el sistema cambiaba automáticamente a la pestaña "Resumen", obligando al usuario a volver manualmente a "Configuración" para seguir editando o probar el envío.
+- **Solución Applied:** Se eliminó la instrucción `setTimeout(() => setActiveTab("resumen"), 1500)` en el manejador `handleSaveConfig` de `src/app/dashboard/page.tsx`.
+- **Resultado:** El usuario permanece en la pestaña de configuración tras guardar los cambios, mejorando el flujo de trabajo.

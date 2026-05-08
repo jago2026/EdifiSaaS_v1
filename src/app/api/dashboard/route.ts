@@ -77,7 +77,7 @@ export async function GET(request: Request) {
 
     const buildingQuery = supabase
       .from("edificios")
-      .select("id, nombre, direccion, unidades, plan, activo, admin_id, admin_secret, admin_nombre, url_login, url_recibos, url_recibo_mes, url_egresos, url_gastos, url_balance, ultima_sincronizacion, cron_enabled, cron_time, cron_frequency, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance, email_junta, onboarding_completed");
+      .select("id, nombre, direccion, unidades, plan, activo, admin_id, admin_secret, admin_nombre, url_login, url_recibos, url_recibo_mes, url_egresos, url_gastos, url_balance, url_alicuotas, ultima_sincronizacion, cron_enabled, cron_time, cron_frequency, sync_recibos, sync_egresos, sync_gastos, sync_alicuotas, sync_balance, email_junta, email_administradora, onboarding_completed, tipo_informe, dashboard_config, alert_thresholds");
 
     if (userId === "superuser-id" && (edificioId || memberBuildingId)) {
       buildingQuery.eq("id", edificioId || memberBuildingId);

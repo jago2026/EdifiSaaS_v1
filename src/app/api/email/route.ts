@@ -1,8 +1,10 @@
 import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { getPlanPermissions } from "@/lib/planLimits";
 import { formatNumber, formatDate } from "@/lib/formatters";
+import { POST as consultarPOST } from "../servicios-publicos/consultar/route";
 
 
 const SMTP_HOST = "smtp.gmail.com";
@@ -53,6 +55,44 @@ export async function POST(request: Request) {
       syncFailed, syncFailedReason, serviciosDeuda 
     } = body;
     const tasa = await getTasaBCV();
+
+    let finalServiciosDeuda = serviciosDeuda || [];
+
+    // Si no vienen servicios y es un reporte, intentamos consultarlos
+    if ((!finalServiciosDeuda || finalServiciosDeuda.length === 0) && (!action || action === 'modern_report_test' || action === 'whatsapp_report')) {
+       try {
+         const { data: configs } = await supabaseAdmin
+           .from("servicios_publicos_config")
+           .select("*")
+           .eq("edificio_id", edificioId);
+
+         if (configs && configs.length > 0) {
+           for (const config of configs) {
+             try {
+               const consultReq = new Request("http://localhost/api/servicios-publicos/consultar", {
+                 method: "POST",
+                 headers: { "Content-Type": "application/json" },
+                 body: JSON.stringify({ tipo: config.tipo, identificador: config.identificador })
+               });
+               const consultRes = await consultarPOST(consultReq);
+               const data = await consultRes.json();
+               if (data.exitoso && data.deuda > 0) {
+                 finalServiciosDeuda.push({
+                   tipo: config.tipo,
+                   identificador: config.identificador,
+                   alias: config.alias,
+                   deuda: data.deuda
+                 });
+               }
+             } catch (err) {
+               console.error(`[EMAIL] Error consultando servicio ${config.tipo}:`, err);
+             }
+           }
+         }
+       } catch (spErr) {
+         console.error("[EMAIL] Error al buscar config de servicios:", spErr);
+       }
+    }
 
     const generateServiciosPublicosHtml = (servicios: any[]) => {
       if (!servicios || servicios.length === 0) return "";
@@ -765,7 +805,7 @@ export async function POST(request: Request) {
                       </div>
                     </div>
 
-                    ${generateServiciosPublicosHtml(serviciosDeuda)}
+                    ${generateServiciosPublicosHtml(finalServiciosDeuda)}
 
                     <div class="section-header">📈 ÚLTIMOS MOVIMIENTOS OPERATIVOS (7 DÍAS)</div>
                     <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin-bottom: 20px;">
@@ -1264,7 +1304,7 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
         </tbody>
       </table>
 
-      ${generateServiciosPublicosHtml(serviciosDeuda)}
+      ${generateServiciosPublicosHtml(finalServiciosDeuda)}
 
       <!-- LINK AL DASHBOARD -->
       <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #1a73e8; text-align: center;">
