@@ -1283,9 +1283,6 @@ export default function DashboardPage() {
     if (activeTab === "egresos" && building?.id) {
       loadEgresos();
     }
-    if (activeTab === "gastos" && building?.id) {
-      loadGastos();
-    }
     if (activeTab === "balance" && building?.id) {
       loadBalance();
     }
@@ -2692,7 +2689,7 @@ export default function DashboardPage() {
                   {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((balance?.fondo_reserva || 0) / tasaBCV.dolar)}</div>}
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("gastos")} title="Gastos acumulados para el próximo recibo.">
+                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("pre-recibo")} title="Gastos acumulados para el próximo recibo.">
                   <div className="text-sm text-gray-500 mb-1">Gastos del Mes</div>
                   <div className="text-2xl font-bold text-amber-600">Bs.{formatBs(Math.abs(gastosSummary?.monto || 0))}</div>
                   {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd(Math.abs((gastosSummary?.monto || 0) / (tasaBCV.dolar || 1)))}</div>}

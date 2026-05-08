@@ -407,23 +407,19 @@ Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)"
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 9 - CORRECCIÓN DE SINCRONIZACIÓN)
+## Fecha: 2026-05-08 (Gemini - Tanda 10 - CORRECCIÓN UI DASHBOARD)
 
 ### Objetivo
-Corregir el error crítico `ReferenceError: pagosDetectadosSync is not defined` que impedía la sincronización de datos (off-line) y mejorar la robustez de las protecciones de seguridad.
+Corregir el "botón fantasma" de Gastos en el resumen principal que no mostraba ningún contenido al ser pulsado.
 
 ### Tareas Realizadas
 
-#### 1. Corrección de Scope en API de Sincronización (`api/sync`)
-- **Problema**: Las variables `pagosDetectadosSync` y `montoTotalDetectadoSync` estaban declaradas dentro de un bloque `else`. Si se activaba alguna de las protecciones de seguridad (`isPossibleRollover` o `isSuspiciousMassPayment`), el sistema intentaba acceder a estas variables fuera de su bloque para generar el log final, provocando un fallo total de la API.
-- **Solución Applied**: Se movieron las declaraciones de ambas variables al inicio del proceso de conciliación, asegurando que estén disponibles para el informe final independientemente de si las protecciones se activan o no.
-- **Resultado**: La sincronización (tanto manual como de meses históricos) ya no colapsa cuando se activan los umbrales de seguridad.
+#### 1. Redirección de Acceso a Gastos
+- **Problema**: Tras la simplificación del dashboard en versiones anteriores, se eliminó la pestaña independiente de "Gastos", pero el botón/tarjeta de "Gastos del Mes" en el resumen ejecutivo seguía intentando navegar a esa pestaña inexistente (`activeTab === "gastos"`).
+- **Solución Applied**: Se actualizaron tanto `page.tsx` como `ResumenTab.tsx` para que el clic en la tarjeta de Gastos redirija automáticamente a la pestaña de **"Pre-Recibo Estimado"**.
+- **Resultado**: Al pulsar en "Gastos del Mes", el usuario ahora es llevado directamente al listado detallado de conceptos que integrarán el próximo recibo, cumpliendo con la intención original de la refactorización.
 
-#### 2. Explicación del Fallo
-- El sistema funcionaba anteriormente porque estas protecciones no existían o las variables estaban en un nivel superior. Al refactorizar para añadir seguridad contra detecciones masivas erróneas (glitches del portal), se introdujo involuntariamente este error de alcance que solo se manifestaba cuando la protección entraba en acción.
-
-#### 3. Mantenimiento y Estabilidad
-- Se verificó que el flujo de alertas capture correctamente tanto el aviso de "Safeguard activado" como el resumen final de la operación.
-- No se requieren cambios en la base de datos (Supabase) para esta corrección.
+#### 2. Limpieza de Código Redundante
+- Se eliminó el bloque `useEffect` en `page.tsx` que realizaba una carga de datos específica para la pestaña eliminada, reduciendo peticiones innecesarias al servidor.
 
 ---
