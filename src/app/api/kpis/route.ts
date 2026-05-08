@@ -206,6 +206,20 @@ export async function GET(request: Request) {
       .eq("edificio_id", edificioId)
       .order("fecha_pago", { ascending: true });
 
+    const { data: recibosDetalleSum } = await supabase
+      .from("recibos_detalle")
+      .select("mes, monto")
+      .eq("edificio_id", edificioId)
+      .eq("unidad", "GENERAL")
+      .not("tipo", "eq", "subtotal");
+
+    const calculatedReceiptTotals: Record<string, number> = {};
+    (recibosDetalleSum || []).forEach((d: any) => {
+      const m = d.mes;
+      if (!calculatedReceiptTotals[m]) calculatedReceiptTotals[m] = 0;
+      calculatedReceiptTotals[m] += parseFloat(d.monto || 0);
+    });
+
     const getTasaForMonth = (mes: string) => getTasaBCVParaMes(mes, tasasHistoricas || []);
 
     const today = new Date();
@@ -274,11 +288,13 @@ export async function GET(request: Request) {
         const normalized = normalizeMonth(b.mes);
         const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
         
-        // Priorizar el campo recibos_mes (que es el total real facturado con fondos) sobre gastos_facturados
-        const montoTotalReciboBs = Number(b.recibos_mes || 0) > 0 ? Number(b.recibos_mes) : Math.abs(Number(b.gastos_facturados || 0));
+        // Priorizar el total calculado desde los detalles (que es lo que el usuario ve en la pestaña Detalle)
+        // Si no hay detalles, usar recibos_mes del balance, o finalmente gastos_facturados.
+        const detailTotal = calculatedReceiptTotals[b.mes] || calculatedReceiptTotals[normalized];
+        let montoTotalReciboBs = detailTotal || Number(b.recibos_mes || 0);
+        if (montoTotalReciboBs === 0) montoTotalReciboBs = Math.abs(Number(b.gastos_facturados || 0));
         
         // Detectar si el monto es unitario o total del edificio.
-        // Si el monto total es menor a la mitad de los gastos y hay varias unidades, es probable que ya sea un monto unitario.
         const esMontoUnitario = divisorUnidades > 1 && montoTotalReciboBs < (Math.abs(Number(b.gastos_facturados || 0)) / 2);
 
         // Calcular monto por unidad usando el divisor corregido (conteo de aptos)
@@ -286,10 +302,10 @@ export async function GET(request: Request) {
           ? (esMontoUnitario ? (montoTotalReciboBs / tasa) : (montoTotalReciboBs / divisorUnidades) / tasa)
           : 0;
 
-        // Sanity Check 2: Si el monto parece triplicado ( > 150 USD y > 2.5x gastos), corregir visualmente.
+        // Sanity Check final: Si el monto sigue siendo absurdo ( > 150 USD y > 2x gastos), es que está triplicado en la DB.
         const gastosUsd = tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0;
         let reciboPorUnidadUsd = rawReciboUsd;
-        if (reciboPorUnidadUsd > 150 && gastosUsd > 0 && reciboPorUnidadUsd > (gastosUsd * 2.2)) {
+        if (reciboPorUnidadUsd > 150 && gastosUsd > 0 && reciboPorUnidadUsd > (gastosUsd * 1.8)) {
           reciboPorUnidadUsd = reciboPorUnidadUsd / 3;
         }
 
