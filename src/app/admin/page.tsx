@@ -1283,7 +1283,6 @@ export default function AdminPage() {
             </div>
           </div>
         )}
-        </div>
 
         {editingBuilding && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0f172a]/95 backdrop-blur-xl">
