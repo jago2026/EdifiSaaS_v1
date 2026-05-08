@@ -367,3 +367,24 @@ Corregir la ausencia de deudas de servicios públicos en informes manuales, la f
 - **Problema:** Al presionar "Guardar Configuración", el sistema cambiaba automáticamente a la pestaña "Resumen", obligando al usuario a volver manualmente a "Configuración" para seguir editando o probar el envío.
 - **Solución Applied:** Se eliminó la instrucción `setTimeout(() => setActiveTab("resumen"), 1500)` en el manejador `handleSaveConfig` de `src/app/dashboard/page.tsx`.
 - **Resultado:** El usuario permanece en la pestaña de configuración tras guardar los cambios, mejorando el flujo de trabajo.
+
+---
+
+## Fecha: 2026-05-08 (Gemini - Tanda 4)
+
+### Objetivo
+Resolver error 500 en el acceso al dashboard y asegurar la detección de deudas de servicios públicos en entornos de producción.
+
+### Tareas Realizadas
+
+#### 1. Restauración de Acceso (Fix Emergencia)
+- **Problema:** El sistema mostraba error 500 al intentar loguearse tras la última actualización.
+- **Causa:** Se intentaron consultar columnas (`url_alicuotas`, `email_administradora`) en la tabla `edificios` que aún no existen en la base de datos de producción, provocando un error 400 en Supabase.
+- **Solución Applied:** Se revirtió el `select` en `src/app/api/dashboard/route.ts` a su estado estable anterior.
+- **Resultado:** El acceso al sistema ha sido restaurado. Se ha proporcionado el SQL script para añadir las columnas faltantes y habilitar la persistencia completa.
+
+#### 2. Mejora en Detección de Deudas (Servicios Públicos)
+- **Problema:** Las deudas de servicios públicos no aparecían en los informes manuales en el entorno de Vercel.
+- **Causa:** La API de email intentaba llamar a la API de consulta mediante una petición HTTP interna a `localhost`, lo cual no es compatible con el entorno de ejecución de Vercel.
+- **Solución Applied:** Se refactorizó la lógica para exportar y llamar directamente a las funciones de los scrapers (Hidrocapital, Corpoelec) desde la API de email, eliminando la dependencia de red interna.
+- **Resultado:** Los informes (manuales y automáticos) ahora detectan y muestran las deudas correctamente en cualquier entorno.
