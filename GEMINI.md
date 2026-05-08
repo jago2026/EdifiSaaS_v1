@@ -319,3 +319,26 @@ Implementar funcionalidades de Superadministrador (Master Control) inspiradas en
 - Uso consistente de `supabaseAdmin` para operaciones de Master Control.
 
 ---
+
+## Fecha: 2026-05-08 (Gemini - Tanda 2)
+
+### Objetivo
+Integrar la consulta automática de servicios públicos (CANTV, Hidrocapital, Corpoelec) en el ciclo diario del cron y reportar deudas en los informes a la Junta.
+
+### Tareas Realizadas
+
+#### 1. Consulta Automática Diaria
+- **Modificación de Cron (`src/app/api/cron/route.ts`):** Se integró una llamada a la API de consulta de servicios públicos para cada edificio antes de iniciar la sincronización de datos.
+- **Detección de Deuda:** El sistema ahora identifica automáticamente si alguno de los servicios configurados (CANTV, Hidrocapital, Corpoelec) presenta saldo deudor (monto > 0).
+
+#### 2. Notificación Detallada en Email
+- **Mejora de API de Email (`src/app/api/email/route.ts`):**
+    - Se implementó la recepción de datos de `serviciosDeuda`.
+    - Se creó una función generadora de HTML para la sección de "Servicios Públicos".
+    - **Informe Estándar:** Inserción de la sección de advertencia de deuda antes del enlace al dashboard.
+    - **Informe Premium (Súper Plantilla):** Integración visual de la sección de deudas de servicios públicos con formato coherente al diseño ejecutivo.
+- **Personalización:** Las advertencias incluyen el nombre del servicio, el monto adeudado y el alias del servicio si está configurado.
+
+#### 3. Estabilidad y Coherencia
+- Se mantuvo el soporte para planes profesionales (o superiores) para la consulta automática de servicios.
+- Se aseguró que los informes se envíen correctamente incluso si no hay servicios configurados o no presentan deuda (en cuyo caso la sección no aparece).

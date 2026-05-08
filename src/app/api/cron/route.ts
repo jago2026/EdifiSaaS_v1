@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { POST as syncPOST } from "../sync/route";
 import { POST as emailPOST } from "../email/route";
 import { GET as spCronGET } from "../servicios-publicos/cron/route";
-
+import { POST as consultarPOST } from "../servicios-publicos/consultar/route";
 
 const ADMIN_EMAIL = "correojago@gmail.com";
 const DEMO_EDIFICIO_ID = "d0000000-0000-0000-0000-000000000001";
@@ -164,6 +164,42 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
+      // 0. Consulta de Servicios Públicos (Cantv, Hidrocapital, etc.)
+      const serviciosDeuda: any[] = [];
+      try {
+        const { data: configs } = await supabase
+          .from("servicios_publicos_config")
+          .select("*")
+          .eq("edificio_id", edificioId);
+
+        if (configs && configs.length > 0) {
+          console.log(`[CRON] Consultando ${configs.length} servicios para "${edificio.nombre}"...`);
+          for (const config of configs) {
+            try {
+              const consultReq = new Request("http://localhost/api/servicios-publicos/consultar", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tipo: config.tipo, identificador: config.identificador })
+              });
+              const consultRes = await consultarPOST(consultReq);
+              const data = await consultRes.json();
+              if (data.exitoso && data.deuda > 0) {
+                serviciosDeuda.push({
+                  tipo: config.tipo,
+                  identificador: config.identificador,
+                  alias: config.alias,
+                  deuda: data.deuda
+                });
+              }
+            } catch (err) {
+              console.error(`[CRON] Error consultando servicio ${config.tipo}:`, err);
+            }
+          }
+        }
+      } catch (spErr) {
+        console.error("[CRON] Error al buscar config de servicios:", spErr);
+      }
+
       // EJECUTAR
       console.log(`[CRON] EJECUTANDO sync + email para "${edificio.nombre}" (Estado: ${estadoEdificio})...`);
       await logAlerta(supabase, edificioId, "info", "Iniciando Cron Diario",
@@ -237,7 +273,8 @@ export async function GET(request: NextRequest) {
             edificioId: edificio.id, 
             syncFailed, 
             syncFailedReason,
-            action: emailAction
+            action: emailAction,
+            serviciosDeuda
           })
         });
 

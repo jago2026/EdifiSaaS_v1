@@ -48,8 +48,32 @@ async function getTasaBCV(): Promise<number> {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { edificioId, testMode, action, error: errorMsg, recipient, syncFailed, syncFailedReason } = body;
+    const { 
+      edificioId, testMode, action, error: errorMsg, recipient, 
+      syncFailed, syncFailedReason, serviciosDeuda 
+    } = body;
     const tasa = await getTasaBCV();
+
+    const generateServiciosPublicosHtml = (servicios: any[]) => {
+      if (!servicios || servicios.length === 0) return "";
+      
+      const rows = servicios.map(s => `
+        <li style="margin-bottom: 8px;">
+          <strong>Servicio ${s.tipo.toUpperCase()}:</strong> 
+          Deuda a la fecha <span style="color: #c62828; font-weight: bold;">Bs. ${formatNumber(s.deuda)}</span>. 
+          Aparece pendiente por pagar. ${s.alias ? `(${s.alias})` : ""}
+        </li>
+      `).join("");
+
+      return `
+        <div style="margin: 20px 0; padding: 15px; background-color: #fff4f4; border: 1px solid #ffcdd2; border-radius: 8px; font-family: sans-serif;">
+          <h3 style="margin-top: 0; color: #b71c1c; font-size: 15px; text-transform: uppercase; border-bottom: 1px solid #ffcdd2; padding-bottom: 8px;">⚠️ Servicios Públicos con Deuda</h3>
+          <ul style="margin: 10px 0 0 0; padding-left: 20px; font-size: 13px; color: #333; line-height: 1.6;">
+            ${rows}
+          </ul>
+        </div>
+      `;
+    };
     
 
     const { data: edificio } = await supabase.from("edificios").select("id, nombre, unidades, email_junta, plan").eq("id", edificioId).single();
@@ -741,6 +765,8 @@ export async function POST(request: Request) {
                       </div>
                     </div>
 
+                    ${generateServiciosPublicosHtml(serviciosDeuda)}
+
                     <div class="section-header">📈 ÚLTIMOS MOVIMIENTOS OPERATIVOS (7 DÍAS)</div>
                     <div style="border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin-bottom: 20px;">
                       <table class="data-table">
@@ -1237,6 +1263,8 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
           `).join("")}
         </tbody>
       </table>
+
+      ${generateServiciosPublicosHtml(serviciosDeuda)}
 
       <!-- LINK AL DASHBOARD -->
       <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 4px; border-left: 4px solid #1a73e8; text-align: center;">
