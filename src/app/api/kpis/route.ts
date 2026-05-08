@@ -275,10 +275,10 @@ export async function GET(request: Request) {
         const tasa = getTasaBCVParaMes(b.mes, tasasHistoricas || []);
         
         // Priorizar el campo recibos_mes (que es el total real facturado con fondos) sobre gastos_facturados
-        const montoTotalReciboBs = Math.max(Math.abs(b.recibos_mes || 0), Math.abs(b.gastos_facturados || 0));
+        const montoTotalReciboBs = Number(b.recibos_mes || 0) > 0 ? Number(b.recibos_mes) : Math.abs(Number(b.gastos_facturados || 0));
         
         // Calcular monto por unidad usando el divisor corregido (conteo de aptos)
-        const gastoPorUnidadUsd = divisorUnidades > 0 
+        const reciboPorUnidadUsd = (divisorUnidades > 0 && tasa > 0)
           ? (montoTotalReciboBs / divisorUnidades) / tasa 
           : 0;
 
@@ -307,7 +307,7 @@ export async function GET(request: Request) {
           total_por_cobrar: b.total_por_cobrar || 0,
           total_por_cobrar_usd: tasa > 0 ? (b.total_por_cobrar || 0) / tasa : 0,
           recibos_mes: b.recibos_mes || 0,
-          recibos_mes_usd: gastoPorUnidadUsd, // Gastos facturados por unidad en USD
+          recibos_mes_usd: reciboPorUnidadUsd, // Monto del recibo por unidad en USD
           tasa_bcv: tasa,
           resultado_mensual_usd: (tasa > 0 ? (b.cobranza_mes || 0) / tasa : 0) - (tasa > 0 ? Math.abs(b.gastos_facturados || 0) / tasa : 0),
           efectividad_recaudacion: (Number(b.cobranza_mes || 0) + Number(b.total_por_cobrar || 0)) > 0 
