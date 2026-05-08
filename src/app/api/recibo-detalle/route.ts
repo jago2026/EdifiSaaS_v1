@@ -101,13 +101,14 @@ function parseReciboDetalleFromHtml(html: string): any[] {
     }
 
     let itemType = 'gasto';
-    if (upperDesc.includes('FONDO DE RESERVA') || upperDesc.includes('FONDO PRESTACIONES') ||
-        upperDesc.includes('FONDO TRABAJOS') || upperDesc.includes('FONDO INTERESES') ||
-        upperDesc.includes('FONDO DIFERENCIAL')) {
+    if (upperDesc.includes('FONDO') || upperDesc.includes('RESERVA') ||
+        upperDesc.includes('PROVISION') || upperDesc.includes('APORTE') ||
+        upperDesc.includes('PRESTACIONES') || upperDesc.includes('TRABAJOS VARIOS') ||
+        upperDesc.includes('DIFERENCIAL')) {
       itemType = 'fondo';
-    } else if (upperDesc.includes('TOTAL GASTOS COMUNES') || upperDesc.includes('TOTAL FONDOS') ||
-               upperDesc.includes('TOTAL FONDOS Y GASTOS') || upperDesc.includes('TOTAL RECIBO') ||
-               upperDesc.includes('GASTOS COMUNES SEGÚN') || upperDesc.includes('GASTOS COMUNES SEGUN')) {
+    } else if (upperDesc.includes('TOTAL') || upperDesc.includes('SUB-TOTAL') || 
+               upperDesc.includes('SUBTOTAL') || upperDesc.includes('SUMA') ||
+               upperDesc.includes('RESUMEN') || upperDesc.includes('BALANCE')) {
       itemType = 'subtotal';
     }
 

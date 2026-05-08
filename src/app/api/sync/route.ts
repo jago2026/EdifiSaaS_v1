@@ -259,9 +259,9 @@ function parseReciboDetalle(html: string): any[] {
         upperDesc.includes('PRESTACIONES') || upperDesc.includes('TRABAJOS VARIOS') ||
         upperDesc.includes('DIFERENCIAL')) {
       itemType = 'fondo';
-    } else if (upperDesc === 'TOTAL GASTOS COMUNES' || upperDesc === 'TOTAL FONDOS' ||
-               upperDesc === 'TOTAL GASTOS NO COMUNES' || upperDesc === 'TOTAL RECIBO' ||
-               upperDesc.startsWith('TOTAL GASTOS') || upperDesc.startsWith('TOTAL FONDOS')) {
+    } else if (upperDesc.includes('TOTAL') || upperDesc.includes('SUB-TOTAL') || 
+               upperDesc.includes('SUBTOTAL') || upperDesc.includes('SUMA') ||
+               upperDesc.includes('RESUMEN') || upperDesc.includes('BALANCE')) {
       itemType = 'subtotal';
     }
 
