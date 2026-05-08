@@ -24,33 +24,30 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const edificioId = searchParams.get("edificioId");
-    const mes = searchParams.get("mes");
+    const mesParam = searchParams.get("mes");
 
     if (!edificioId) {
       return NextResponse.json({ error: "Falta edificioId" }, { status: 400 });
     }
 
+    const now = new Date();
+    // Determinamos el mes de interés: el parámetro o el actual
+    const targetMes = mesParam || now.toISOString().substring(0, 7);
     
-    const todayMes = new Date().toISOString().substring(0, 7);
+    // Calculamos el rango de fechas para ese mes (YYYY-MM-01 al YYYY-MM-ultimo)
+    const [year, month] = targetMes.split("-").map(Number);
+    const firstDay = `${year}-${String(month).padStart(2, "0")}-01`;
+    const lastDayDate = new Date(year, month, 0); // día 0 del mes siguiente es el último de este
+    const lastDay = `${year}-${String(month).padStart(2, "0")}-${String(lastDayDate.getDate()).padStart(2, "0")}`;
 
     let query = supabase
       .from("gastos")
       .select("id, fecha, mes, codigo, descripcion, monto")
       .eq("edificio_id", edificioId)
       .neq("codigo", "TOTAL")
+      .gte("fecha", firstDay)
+      .lte("fecha", lastDay)
       .order("fecha", { ascending: false });
-
-    if (mes) {
-      query = query.eq("mes", mes);
-    } else {
-      // SI NO HAY MES, FILTRAR ESTRICTAMENTE POR EL MES ACTUAL (Rango de Fechas)
-      const now = new Date();
-      const currentMesStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const firstDay = `${currentMesStr}-01`;
-      const lastDay = `${currentMesStr}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate().toString().padStart(2, '0')}`;
-      
-      query = query.gte("fecha", firstDay).lte("fecha", lastDay);
-    }
 
     const { data: gastos, error } = await query;
 

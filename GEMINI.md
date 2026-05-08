@@ -407,26 +407,19 @@ Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)"
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 11 - RESTAURACIÓN GASTOS Y FIX HISTÓRICO)
+## Fecha: 2026-05-08 (Gemini - Tanda 12 - FILTRADO ESTRICTO DE GASTOS)
 
 ### Objetivo
-Restaurar la pestaña dedicada de Gastos y corregir la contaminación del informe de "Movimientos del Día" con datos históricos.
+Asegurar que el listado de Gastos Detallados muestre exclusivamente los gastos cuya fecha real pertenezca al mes seleccionado.
 
 ### Tareas Realizadas
 
-#### 1. Restauración de la Pestaña "Gastos Detallados"
-- **Acción**: Se creó un nuevo componente `GastosTab.tsx` que muestra el listado cronológico de gastos, permitiendo filtrar por mes.
-- **Integración**: Se añadió nuevamente al menú lateral (Desktop) y al menú móvil la opción "💸 Gastos Detallados".
-- **Coherencia**: La tarjeta de "Gastos del Mes" en el Resumen ahora redirige correctamente a esta nueva pestaña dedicada, en lugar de a "Pre-Recibo".
+#### 1. Refactorización de Filtros en API (`api/gastos`)
+- **Problema**: La API confiaba en la columna `mes` de la base de datos, la cual a veces contiene gastos del mes anterior sincronizados tarde. Esto causaba que al ver Mayo, aparecieran gastos con fecha de Abril.
+- **Solución Applied**: Se modificó la API para que, independientemente del parámetro recibido, calcule el rango de fechas exacto (del día 1 al último día del mes) y filtre la consulta usando la columna `fecha` (la fecha real del gasto).
+- **Resultado**: Al seleccionar "2026-05", el sistema ahora garantiza que **solo** verás gastos ocurridos entre el 01/05/2026 y el 31/05/2026.
 
-#### 2. Corrección en "Movimientos del Día" (`api/sync`)
-- **Problema**: Al sincronizar meses históricos, los movimientos de hace un año se registraban con la etiqueta de "detectado hoy", saturando el informe diario actual con datos irrelevantes.
-- **Solución Applied**: 
-    - Se añadió una condición estricta en el API de sincronización: solo se registran registros en `movimientos_dia` si la fecha real del movimiento coincide con el día de hoy (`fDB === today`).
-    - Las detecciones automáticas por conciliación de lista (pagos totales/parciales) ahora se excluyen del informe diario si se trata de una sincronización manual de mes histórico (`!mes`).
-- **Resultado**: El listado de "Movimientos de Hoy" solo mostrará lo que realmente ocurrió hoy, manteniendo la integridad de los reportes diarios incluso tras sincronizar el pasado.
-
-#### 3. Mejora en Visualización
-- Se aseguró que los estados de carga y mensajes de "Sin datos" sean consistentes en el nuevo módulo de Gastos.
+#### 2. Consistencia en Dashboard
+- Se verificó que el cambio afecte tanto a la carga inicial como al selector de meses de la pestaña de Gastos.
 
 ---
