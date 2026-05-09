@@ -407,19 +407,26 @@ Corregir el error de cálculo en el gráfico "Monto del Recibo por Unidad (USD)"
 
 ---
 
-## Fecha: 2026-05-08 (Gemini - Tanda 12 - FILTRADO ESTRICTO DE GASTOS)
+## Fecha: 2026-05-09 (Gemini)
 
 ### Objetivo
-Asegurar que el listado de Gastos Detallados muestre exclusivamente los gastos cuya fecha real pertenezca al mes seleccionado.
+Corregir la omisión de pagos y egresos detectados en los informes diarios y mejorar la integridad de la información reportada.
 
 ### Tareas Realizadas
 
-#### 1. Refactorización de Filtros en API (`api/gastos`)
-- **Problema**: La API confiaba en la columna `mes` de la base de datos, la cual a veces contiene gastos del mes anterior sincronizados tarde. Esto causaba que al ver Mayo, aparecieran gastos con fecha de Abril.
-- **Solución Applied**: Se modificó la API para que, independientemente del parámetro recibido, calcule el rango de fechas exacto (del día 1 al último día del mes) y filtre la consulta usando la columna `fecha` (la fecha real del gasto).
-- **Resultado**: Al seleccionar "2026-05", el sistema ahora garantiza que **solo** verás gastos ocurridos entre el 01/05/2026 y el 31/05/2026.
+#### 1. Fix en Detección de Movimientos Diarios (`api/sync`)
+- **Problema:** Los pagos y egresos detectados durante la sincronización matutina (5:00 AM) no se incluían en el informe diario si su fecha original (en el portal) era del día anterior. Esto causaba que muchos pagos "vistos" por el sistema el día de hoy no aparecieran en el reporte enviado minutos después.
+- **Solución Aplicada:** 
+    - Se eliminó la restricción `fDB === today` en las secciones de **Ingresos (R=1)** y **Egresos (R=21)**. 
+    - Ahora, cualquier movimiento nuevo detectado por primera vez se registra en `movimientos_dia` con `detectado_en = today`, asegurando su inclusión inmediata en el reporte diario sin importar si el pago ocurrió ayer u hoy.
+    - Se implementó una verificación de existencia previa en `movimientos_dia` (basada en descripción, monto y fecha de detección) para evitar duplicados si el usuario realiza múltiples sincronizaciones manuales el mismo día.
+- **Resultado:** El informe diario (Premium o Estándar) ahora refleja fielmente **todo lo nuevo** que el sistema ha descubierto desde el reporte anterior.
 
-#### 2. Consistencia en Dashboard
-- Se verificó que el cambio afecte tanto a la carga inicial como al selector de meses de la pestaña de Gastos.
+#### 2. Recomendaciones de Mejora (Propuestas)
+- **Previsualización de Informe:** Añadir un botón de "Vista Previa" en la configuración para ver el HTML del correo antes de enviarlo.
+- **Alertas de Anomalías:** Implementar un sistema que detecte montos inusualmente altos o cambios masivos en la lista de deudores (posibles errores del portal) y envíe una alerta preventiva al administrador.
+- **Optimización Mobile:** Transformar las tablas densas del dashboard en vistas tipo "Card" para mejorar la experiencia en dispositivos móviles.
+- **Historial de Reportes:** Crear una tabla/pestaña para consultar los informes (HTML) enviados anteriormente para auditoría de la Junta.
 
----
+#### 3. Mantenimiento de Datos
+- Se verificó que la lógica de auto-detección por desaparición de deuda ya utilizaba el criterio correcto de `detectado_en`, por lo que el cambio unifica el comportamiento de todas las fuentes de ingresos.

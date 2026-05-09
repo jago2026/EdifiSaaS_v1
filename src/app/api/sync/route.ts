@@ -1336,7 +1336,7 @@ export async function POST(request: Request) {
           .eq("detectado_en", today)
           .limit(1);
 
-        if ((!mExist || mExist.length === 0) && fDB === today) {
+        if (!mExist || mExist.length === 0) {
           await supabase.from("movimientos_dia").insert({ 
             edificio_id: building.id, 
             tipo: "egreso", 
@@ -1429,8 +1429,18 @@ export async function POST(request: Request) {
             sincronizado: true
           }, { onConflict: 'edificio_id,hash' });
 
-          // SIEMPRE registrar en movimientos_dia si se detectó hoy Y es de fecha hoy
-          if (fDB === today) {
+          // SIEMPRE registrar en movimientos_dia si se detectó hoy (independiente de su fecha real)
+          // Verificamos si ya existe para evitar duplicados en re-sync
+          const { data: mExistIng } = await supabase.from("movimientos_dia")
+            .select("id")
+            .eq("edificio_id", building.id)
+            .eq("tipo", "recibo")
+            .eq("descripcion", `${ing.descripcion} - ${ing.beneficiario}`)
+            .eq("monto", ing.monto)
+            .eq("detectado_en", today)
+            .limit(1);
+
+          if (!mExistIng || mExistIng.length === 0) {
             await supabase.from("movimientos_dia").insert({
               edificio_id: building.id,
               tipo: "recibo",
