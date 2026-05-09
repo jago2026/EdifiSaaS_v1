@@ -1412,7 +1412,12 @@ export default function DashboardPage() {
         });
 
         // 2. Procesar movimientos_dia SOLO si no vienen de las fuentes anteriores
-        const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial', 'ingresos'];
+        const fuentesSincronizadas = [
+          'recibos', 'egresos', 'gastos', 
+          'deteccion_automatica', 'deteccion_parcial', 
+          'ingresos', 'ingresos_r1', 'pagos_recibos', 
+          'correccion_manual', 'sync'
+        ];
         (movimientos || []).forEach((m: any) => {
           if (m.fuente && fuentesSincronizadas.includes(m.fuente)) return;
           

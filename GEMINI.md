@@ -433,7 +433,13 @@ Corregir la omisión de pagos y egresos detectados en los informes diarios y mej
 - **Solución Aplicada:** Se restringió la lógica de detección automática de pagos (tanto totales como parciales) para que se ejecute **únicamente** cuando no se especifica un mes (sincronización del estado actual completo). Esto asegura que la comparación sea siempre contra la deuda acumulada real.
 - **Mantenimiento:** Se proporcionará un script SQL para revertir el pago incorrecto de la unidad 09-A y restaurar su deuda pendiente.
 
-#### 4. Recomendaciones de Mejora (Propuestas)
+#### 4. Fix de Duplicidad en Flujo de Caja (`api/movimientos-dia` y Dashboard)
+- **Problema:** Los totales de ingresos en la pestaña de Flujo de Caja aparecían duplicados (ej: Bs. 1.175.493,26 en lugar de Bs. 587.746,63).
+- **Causa Raíz:** El sistema sumaba los datos de las tablas especializadas (`pagos_recibos`) y también los de la tabla consolidada (`movimientos_dia`). Aunque existía una lógica de filtrado por "fuente", la lista de fuentes a omitir estaba incompleta (faltaban `pagos_recibos`, `ingresos_r1`, `correccion_manual`, etc.).
+- **Solución Aplicada:** Se actualizó la lista `fuentesSincronizadas` tanto en el API como en el Frontend para incluir todas las variantes de origen de datos. Ahora, si un movimiento ya existe en una tabla especializada, se ignora su duplicado en la tabla general para el cálculo de totales.
+- **Resultado:** Los montos del Flujo de Caja y los KPIs ahora coinciden exactamente con la sumatoria real de pagos y egresos.
+
+#### 5. Recomendaciones de Mejora (Propuestas)
 - **Previsualización de Informe:** Añadir un botón de "Vista Previa" en la configuración para ver el HTML del correo antes de enviarlo.
 - **Alertas de Anomalías:** Implementar un sistema que detecte montos inusualmente altos o cambios masivos en la lista de deudores (posibles errores del portal) y envíe una alerta preventiva al administrador.
 - **Optimización Mobile:** Transformar las tablas densas del dashboard en vistas tipo "Card" para mejorar la experiencia en dispositivos móviles.

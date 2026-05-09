@@ -93,7 +93,12 @@ export async function GET(request: NextRequest) {
       if (!f) return;
       
       // Skip if this movement was already accounted for by the specialized tables
-      const fuentesSincronizadas = ['recibos', 'egresos', 'gastos', 'deteccion_automatica', 'deteccion_parcial', 'ingresos'];
+      const fuentesSincronizadas = [
+        'recibos', 'egresos', 'gastos', 
+        'deteccion_automatica', 'deteccion_parcial', 
+        'ingresos', 'ingresos_r1', 'pagos_recibos', 
+        'correccion_manual', 'sync'
+      ];
       if (m.fuente && fuentesSincronizadas.includes(m.fuente)) {
         return; 
       }
