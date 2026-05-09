@@ -534,8 +534,9 @@ export async function POST(request: Request) {
 
     const todayDate = new Date();
     const today = todayDate.toISOString().split("T")[0];
+    const fechaStr = formatDate(todayDate);
+
     if (action === "modern_report_test") {
-      const fechaStr = formatDate(todayDate);
       
       // -- 1. OBTENER DATOS EXTENSOS --
       // Tasas

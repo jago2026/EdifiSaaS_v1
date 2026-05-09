@@ -422,7 +422,12 @@ Corregir la omisión de pagos y egresos detectados en los informes diarios y mej
     - Se implementó una verificación de existencia previa en `movimientos_dia` (basada en descripción, monto y fecha de detección) para evitar duplicados si el usuario realiza múltiples sincronizaciones manuales el mismo día.
 - **Resultado:** El informe diario (Premium o Estándar) ahora refleja fielmente **todo lo nuevo** que el sistema ha descubierto desde el reporte anterior.
 
-#### 2. Recomendaciones de Mejora (Propuestas)
+#### 2. Fix de Error "fechaStr is not defined" (`api/email`)
+- **Problema:** Se detectó un error HTTP 500 en edificios con informe Estándar (como "Edif. Orlando") debido a que la variable `fechaStr` estaba definida únicamente dentro del bloque del informe Premium, pero se utilizaba al final de la API para el asunto del correo y el banner de error.
+- **Solución Aplicada:** Se movió la definición de `fechaStr` al nivel superior de la función `POST`, asegurando que esté disponible para todos los tipos de informes.
+- **Resultado:** Los informes de todos los edificios, independientemente de su plan o tipo de reporte, ahora se envían correctamente.
+
+#### 3. Recomendaciones de Mejora (Propuestas)
 - **Previsualización de Informe:** Añadir un botón de "Vista Previa" en la configuración para ver el HTML del correo antes de enviarlo.
 - **Alertas de Anomalías:** Implementar un sistema que detecte montos inusualmente altos o cambios masivos en la lista de deudores (posibles errores del portal) y envíe una alerta preventiva al administrador.
 - **Optimización Mobile:** Transformar las tablas densas del dashboard en vistas tipo "Card" para mejorar la experiencia en dispositivos móviles.
