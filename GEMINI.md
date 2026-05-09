@@ -427,7 +427,13 @@ Corregir la omisión de pagos y egresos detectados en los informes diarios y mej
 - **Solución Aplicada:** Se movió la definición de `fechaStr` al nivel superior de la función `POST`, asegurando que esté disponible para todos los tipos de informes.
 - **Resultado:** Los informes de todos los edificios, independientemente de su plan o tipo de reporte, ahora se envían correctamente.
 
-#### 3. Recomendaciones de Mejora (Propuestas)
+#### 3. Corrección de Falsa Detección de Pago Total (`api/sync`)
+- **Problema:** El sistema detectó erróneamente un pago total para la unidad **09-A** (Bs. 189.627,83) cuando en realidad solo pagó un mes y aún debe otros.
+- **Causa Raíz:** Al realizar una sincronización de un mes histórico específico, el sistema comparaba la lista de deudores de *ese mes solo* contra la deuda total en la base de datos. Si el inmueble no debía en el mes sincronizado (pero sí en otros), el sistema asumía que había pagado todo.
+- **Solución Aplicada:** Se restringió la lógica de detección automática de pagos (tanto totales como parciales) para que se ejecute **únicamente** cuando no se especifica un mes (sincronización del estado actual completo). Esto asegura que la comparación sea siempre contra la deuda acumulada real.
+- **Mantenimiento:** Se proporcionará un script SQL para revertir el pago incorrecto de la unidad 09-A y restaurar su deuda pendiente.
+
+#### 4. Recomendaciones de Mejora (Propuestas)
 - **Previsualización de Informe:** Añadir un botón de "Vista Previa" en la configuración para ver el HTML del correo antes de enviarlo.
 - **Alertas de Anomalías:** Implementar un sistema que detecte montos inusualmente altos o cambios masivos en la lista de deudores (posibles errores del portal) y envíe una alerta preventiva al administrador.
 - **Optimización Mobile:** Transformar las tablas densas del dashboard en vistas tipo "Card" para mejorar la experiencia en dispositivos móviles.

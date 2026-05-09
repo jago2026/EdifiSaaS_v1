@@ -954,235 +954,236 @@ export async function POST(request: Request) {
       }
 
       // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN Y PAGOS PARCIALES
-      // Normalización de unidades para comparación robusta (usando solo el código base ej: "08-C")
-      const unidadesAhora = new Set(allRecibos.map(r => extractUnitCode(r.unidad)));
-      
-      // Mapa de deuda actual por unidad normalizada (después del sync)
-      const deudaAhora = new Map<string, number>();
-      allRecibos.forEach(r => {
-        const key = extractUnitCode(r.unidad);
-        deudaAhora.set(key, (deudaAhora.get(key) || 0) + Number(r.deuda || 0));
-      });
+      // SOLO EJECUTAR SI NO ES UNA SINCRONIZACIÓN HISTÓRICA (mes no provisto)
+      // Esto evita que si un inmueble no debe en el mes que se está sincronizando pero sí en otros,
+      // se detecte erróneamente como un pago total.
+      if (!mes) {
+        // Normalización de unidades para comparación robusta (usando solo el código base ej: "08-C")
+        const unidadesAhora = new Set(allRecibos.map(r => extractUnitCode(r.unidad)));
 
-      const deudoresAnteriores = deudoresAntes || [];
-      // Usamos un Set de códigos normalizados para saber qué unidades tenían deuda
-      const codigosAnterioresUnicos = Array.from(new Set(deudoresAnteriores.map(d => extractUnitCode(d.unidad))));
-      
-      // SAFEGUARD: If allRecibos is empty but we had many debtors before, it's likely a month rollover
-      // or a glitch. We should NOT clear the table if it's a glitch.
-      const isPossibleRollover = allRecibos.length === 0 && codigosAnterioresUnicos.length > 5;
-      
-      // NUEVO UMBRAL DE SEGURIDAD: Si desaparecen más del 40% de los deudores de golpe, sospechar.
-      const pctDesaparecidos = codigosAnterioresUnicos.length > 0 ? (codigosAnterioresUnicos.length - unidadesAhora.size) / codigosAnterioresUnicos.length : 0;
-      const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && codigosAnterioresUnicos.length > 10;
-
-      let pagosDetectadosSync = 0;
-      let montoTotalDetectadoSync = 0;
-
-      if (isPossibleRollover || isSuspiciousMassPayment) {
-        const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>40%)";
-        await supabase.from("alertas").insert({
-          edificio_id: building.id,
-          tipo: "warning",
-          titulo: `⚠️ ${razon}`,
-          descripcion: `Se detectó que ${codigosAnterioresUnicos.length - unidadesAhora.size} inmuebles ya no figuran con deuda. Por seguridad, se suspendió la detección automática. Si esto es correcto, vuelve a sincronizar en unos minutos.`,
-          fecha: today
+        // Mapa de deuda actual por unidad normalizada (después del sync)
+        const deudaAhora = new Map<string, number>();
+        allRecibos.forEach(r => {
+          const key = extractUnitCode(r.unidad);
+          deudaAhora.set(key, (deudaAhora.get(key) || 0) + Number(r.deuda || 0));
         });
-        console.log(`[SYNC] ${razon}. Skipping auto-detection.`);
-      } else {
-        // Proceder con la detección
-        
-        for (const codigoPrevio of codigosAnterioresUnicos) {
-          const unidadKey = codigoPrevio;
-          
-          if (!unidadesAhora.has(unidadKey)) {
-            // Filtrar todas las deudas de esta unidad (por código normalizado)
-            const deudasUnidadRaw = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
-            
-            // DEDUPLICAR deudas locales antes de sumar (evita multiplicación por duplicidad en DB)
-            const uniqueDeudasMap = new Map();
-            deudasUnidadRaw.forEach(d => {
-              const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
-              if (!uniqueDeudasMap.has(key)) uniqueDeudasMap.set(key, d);
-            });
-            const deudasUnidad = Array.from(uniqueDeudasMap.values());
 
-            const montoTotalPagado = deudasUnidad.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
-            const propietario = deudasUnidad[0]?.propietario || "Copropietario";
-            const normalizedUnitPrev = unidadKey;
+        const deudoresAnteriores = deudoresAntes || [];
+        // Usamos un Set de códigos normalizados para saber qué unidades tenían deuda
+        const codigosAnterioresUnicos = Array.from(new Set(deudoresAnteriores.map(d => extractUnitCode(d.unidad))));
 
-            if (montoTotalPagado > 0) {
-              console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${normalizedUnitPrev} pagó Bs. ${montoTotalPagado}`);
-              
-              // Marcar como detectado en esta sesión para evitar doble detección r=1
-              detectedInSession.add(`${normalizedUnitPrev}|${Number(montoTotalPagado).toFixed(2)}`);
-              
-              // [FIX ULTRA-ROBUSTO] Verificar si ya existe este pago
-              const { data: existingPago } = await supabase
-                .from("pagos_recibos")
-                .select("id")
-                .eq("edificio_id", building.id)
-                .eq("unidad", normalizedUnitPrev)
-                .gte("monto", Number(montoTotalPagado) - 0.01)
-                .lte("monto", Number(montoTotalPagado) + 0.01)
-                .limit(1);
+        // SAFEGUARD: If allRecibos is empty but we had many debtors before, it's likely a month rollover
+        // or a glitch. We should NOT clear the table if it's a glitch.
+        const isPossibleRollover = allRecibos.length === 0 && codigosAnterioresUnicos.length > 5;
 
-              if (!existingPago || existingPago.length === 0) {
-                pagosDetectadosSync++;
-                montoTotalDetectadoSync += montoTotalPagado;
+        // NUEVO UMBRAL DE SEGURIDAD: Si desaparecen más del 40% de los deudores de golpe, sospechar.
+        const pctDesaparecidos = codigosAnterioresUnicos.length > 0 ? (codigosAnterioresUnicos.length - unidadesAhora.size) / codigosAnterioresUnicos.length : 0;
+        const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && codigosAnterioresUnicos.length > 10;
 
-                // A. Registrar en la tabla histórica pagos_recibos
-                await supabase.from("pagos_recibos").insert({
-                  edificio_id: building.id,
-                  unidad: normalizedUnitPrev,
-                  propietario: propietario,
-                  mes: mesEstandar,
-                  monto: montoTotalPagado,
-                  monto_usd: tasaActual > 0 ? (montoTotalPagado / tasaActual) : 0,
-                  tasa_bcv: tasaActual,
-                  fecha_pago: today,
-                  source: 'deteccion_automatica',
-                  verificado: true
-                });
+        if (isPossibleRollover || isSuspiciousMassPayment) {
+          const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>40%)";
+          await supabase.from("alertas").insert({
+            edificio_id: building.id,
+            tipo: "warning",
+            titulo: `⚠️ ${razon}`,
+            descripcion: `Se detectó que ${codigosAnterioresUnicos.length - unidadesAhora.size} inmuebles ya no figuran con deuda. Por seguridad, se suspendió la detección automática. Si esto es correcto, vuelve a sincronizar en unos minutos.`,
+            fecha: today
+          });
+          console.log(`[SYNC] ${razon}. Skipping auto-detection.`);
+        } else {
+          // Proceder con la detección
 
-                // B. Generar alerta de pago asumido
-                await supabase.from("alertas").insert({
-                  edificio_id: building.id,
-                  tipo: "success",
-                  titulo: "✅ Deuda Cancelada (Auto)",
-                  descripcion: `La unidad ${unidadKey} (${propietario}) ha saldado su deuda total de Bs. ${formatNumber(montoTotalPagado)}. Detectado por conciliación de lista.`,
-                  fecha: today
-                });
+          for (const codigoPrevio of codigosAnterioresUnicos) {
+            const unidadKey = codigoPrevio;
 
-                // C. Registrar en movimientos general
-                const hashMov = await generateHash(`PAGO_AUTO|${building.id}|${unidadKey}|${montoTotalPagado}|${today}`);
-                await supabase.from("movimientos").upsert({
-                  edificio_id: building.id,
-                  tipo: "recibo",
-                  descripcion: `PAGO TOTAL DETECTADO - Unidad ${unidadKey}`,
-                  monto: montoTotalPagado,
-                  fecha: today,
-                  hash: hashMov,
-                  sincronizado: true
-                }, { onConflict: 'edificio_id,hash' });
+            if (!unidadesAhora.has(unidadKey)) {
+              // Filtrar todas las deudas de esta unidad (por código normalizado)
+              const deudasUnidadRaw = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
 
-                // D. Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
-                if (!mes) {
-                   await supabase.from("movimientos_dia").insert({
+              // DEDUPLICAR deudas locales antes de sumar (evita multiplicación por duplicidad en DB)
+              const uniqueDeudasMap = new Map();
+              deudasUnidadRaw.forEach(d => {
+                const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
+                if (!uniqueDeudasMap.has(key)) uniqueDeudasMap.set(key, d);
+              });
+              const deudasUnidad = Array.from(uniqueDeudasMap.values());
+
+              const montoTotalPagado = deudasUnidad.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
+              const propietario = deudasUnidad[0]?.propietario || "Copropietario";
+              const normalizedUnitPrev = unidadKey;
+
+              if (montoTotalPagado > 0) {
+                console.log(`[PAGO-TOTAL-DETECTADO] Unidad ${normalizedUnitPrev} pagó Bs. ${montoTotalPagado}`);
+
+                // Marcar como detectado en esta sesión para evitar doble detección r=1
+                detectedInSession.add(`${normalizedUnitPrev}|${Number(montoTotalPagado).toFixed(2)}`);
+
+                // [FIX ULTRA-ROBUSTO] Verificar si ya existe este pago
+                const { data: existingPago } = await supabase
+                  .from("pagos_recibos")
+                  .select("id")
+                  .eq("edificio_id", building.id)
+                  .eq("unidad", normalizedUnitPrev)
+                  .gte("monto", Number(montoTotalPagado) - 0.01)
+                  .lte("monto", Number(montoTotalPagado) + 0.01)
+                  .limit(1);
+
+                if (!existingPago || existingPago.length === 0) {
+                  pagosDetectadosSync++;
+                  montoTotalDetectadoSync += montoTotalPagado;
+
+                  // A. Registrar en la tabla histórica pagos_recibos
+                  await supabase.from("pagos_recibos").insert({
+                    edificio_id: building.id,
+                    unidad: normalizedUnitPrev,
+                    propietario: propietario,
+                    mes: mesEstandar,
+                    monto: montoTotalPagado,
+                    monto_usd: tasaActual > 0 ? (montoTotalPagado / tasaActual) : 0,
+                    tasa_bcv: tasaActual,
+                    fecha_pago: today,
+                    source: 'deteccion_automatica',
+                    verificado: true
+                  });
+
+                  // B. Generar alerta de pago asumido
+                  await supabase.from("alertas").insert({
+                    edificio_id: building.id,
+                    tipo: "success",
+                    titulo: "✅ Deuda Cancelada (Auto)",
+                    descripcion: `La unidad ${unidadKey} (${propietario}) ha saldado su deuda total de Bs. ${formatNumber(montoTotalPagado)}. Detectado por conciliación de lista.`,
+                    fecha: today
+                  });
+
+                  // C. Registrar en movimientos general
+                  const hashMov = await generateHash(`PAGO_AUTO|${building.id}|${unidadKey}|${montoTotalPagado}|${today}`);
+                  await supabase.from("movimientos").upsert({
                     edificio_id: building.id,
                     tipo: "recibo",
-                    descripcion: `PAGO TOTAL - Unidad ${unidadKey} (${propietario})`,
+                    descripcion: `PAGO TOTAL DETECTADO - Unidad ${unidadKey}`,
                     monto: montoTotalPagado,
                     fecha: today,
-                    fuente: "deteccion_automatica",
-                    detectado_en: today,
-                    unidad_apartamento: unidadKey,
-                    propietario: propietario
-                  });
+                    hash: hashMov,
+                    sincronizado: true
+                  }, { onConflict: 'edificio_id,hash' });
+
+                  // D. Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
+                  if (!mes) {
+                    await supabase.from("movimientos_dia").insert({
+                      edificio_id: building.id,
+                      tipo: "recibo",
+                      descripcion: `PAGO TOTAL - Unidad ${unidadKey} (${propietario})`,
+                      monto: montoTotalPagado,
+                      fecha: today,
+                      fuente: "deteccion_automatica",
+                      detectado_en: today,
+                      unidad_apartamento: unidadKey,
+                      propietario: propietario
+                    });
+                  }
+                } else {
+                  console.log(`[PAGO-TOTAL] Saltando duplicado para unidad ${unidadKey}`);
                 }
-              } else {
-                console.log(`[PAGO-TOTAL] Saltando duplicado para unidad ${unidadKey}`);
               }
-            }
 
-            // E. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo (por código normalizado)
-            // Primero obtenemos las unidades reales que coinciden con este código
-            const rawDeudasABorrar = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
-            for (const d of rawDeudasABorrar) {
-              await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: d.unidad });
-            }
-          } else {
-            // La unidad sigue en la lista de deudores pero con deuda diferente: detectar pago parcial
-            const deudasUnidadAntesRaw = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
-            const uniqueDeudasMap2 = new Map();
-            deudasUnidadAntesRaw.forEach(d => {
-              const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
-              if (!uniqueDeudasMap2.has(key)) uniqueDeudasMap2.set(key, d);
-            });
-            const deudasUnidadAntes = Array.from(uniqueDeudasMap2.values());
-            const deudaAnterior = deudasUnidadAntes.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
-            const deudaActual = deudaAhora.get(unidadKey) || 0;
-            const montoParcial = deudaAnterior - deudaActual;
+              // E. LIMPIEZA TOTAL: Borrar deudas de esta unidad en CUALQUIER mes previo (por código normalizado)
+              // Primero obtenemos las unidades reales que coinciden con este código
+              const rawDeudasABorrar = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
+              for (const d of rawDeudasABorrar) {
+                await supabase.from("recibos").delete().match({ edificio_id: building.id, unidad: d.unidad });
+              }
+            } else {
+              // La unidad sigue en la lista de deudores pero con deuda diferente: detectar pago parcial
+              const deudasUnidadAntesRaw = deudoresAnteriores.filter(d => extractUnitCode(d.unidad) === unidadKey);
+              const uniqueDeudasMap2 = new Map();
+              deudasUnidadAntesRaw.forEach(d => {
+                const key = `${d.propietario}-${Math.round((d.deuda || 0) * 100) / 100}`;
+                if (!uniqueDeudasMap2.has(key)) uniqueDeudasMap2.set(key, d);
+              });
+              const deudasUnidadAntes = Array.from(uniqueDeudasMap2.values());
+              const deudaAnterior = deudasUnidadAntes.reduce((sum, d) => sum + Number(d.deuda || 0), 0);
+              const deudaActual = deudaAhora.get(unidadKey) || 0;
+              const montoParcial = deudaAnterior - deudaActual;
 
-            if (montoParcial > 0.01) {
-              const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
-              const normalizedUnitParcial = unidadKey;
-              console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${normalizedUnitParcial} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
+              if (montoParcial > 0.01) {
+                const propietarioParcial = deudasUnidadAntes[0]?.propietario || "Copropietario";
+                const normalizedUnitParcial = unidadKey;
+                console.log(`[PAGO-PARCIAL-DETECTADO] Unidad ${normalizedUnitParcial} abono Bs. ${montoParcial} (deuda: ${deudaAnterior} -> ${deudaActual})`);
 
-              // Marcar como detectado en esta sesión para evitar doble detección r=1
-              detectedInSession.add(`${normalizedUnitParcial}|${Number(montoParcial).toFixed(2)}`);
+                // Marcar como detectado en esta sesión para evitar doble detección r=1
+                detectedInSession.add(`${normalizedUnitParcial}|${Number(montoParcial).toFixed(2)}`);
 
-              // [FIX ULTRA-ROBUSTO] Verificar si ya existe este abono
-              const { data: existingParcial } = await supabase
-                .from("pagos_recibos")
-                .select("id")
-                .eq("edificio_id", building.id)
-                .eq("unidad", normalizedUnitParcial)
-                .gte("monto", Number(montoParcial) - 0.01)
-                .lte("monto", Number(montoParcial) + 0.01)
-                .limit(1);
+                // [FIX ULTRA-ROBUSTO] Verificar si ya existe este abono
+                const { data: existingParcial } = await supabase
+                  .from("pagos_recibos")
+                  .select("id")
+                  .eq("edificio_id", building.id)
+                  .eq("unidad", normalizedUnitParcial)
+                  .gte("monto", Number(montoParcial) - 0.01)
+                  .lte("monto", Number(montoParcial) + 0.01)
+                  .limit(1);
 
-              if (!existingParcial || existingParcial.length === 0) {
-                pagosDetectadosSync++;
-                montoTotalDetectadoSync += montoParcial;
+                if (!existingParcial || existingParcial.length === 0) {
+                  pagosDetectadosSync++;
+                  montoTotalDetectadoSync += montoParcial;
 
-                // Registrar en pagos_recibos
-                await supabase.from("pagos_recibos").insert({
-                  edificio_id: building.id,
-                  unidad: normalizedUnitParcial,
-                  propietario: propietarioParcial,
-                  mes: mesEstandar,
-                  monto: montoParcial,
-                  monto_usd: tasaActual > 0 ? (montoParcial / tasaActual) : 0,
-                  tasa_bcv: tasaActual,
-                  fecha_pago: today,
-                  source: 'deteccion_parcial',
-                  verificado: false
-                });
+                  // Registrar en pagos_recibos
+                  await supabase.from("pagos_recibos").insert({
+                    edificio_id: building.id,
+                    unidad: normalizedUnitParcial,
+                    propietario: propietarioParcial,
+                    mes: mesEstandar,
+                    monto: montoParcial,
+                    monto_usd: tasaActual > 0 ? (montoParcial / tasaActual) : 0,
+                    tasa_bcv: tasaActual,
+                    fecha_pago: today,
+                    source: 'deteccion_parcial',
+                    verificado: false
+                  });
 
-                // Registrar en movimientos general
-                const hashParcial = await generateHash(`PAGO_PARCIAL|${building.id}|${unidadKey}|${montoParcial}|${today}`);
-                await supabase.from("movimientos").upsert({
-                  edificio_id: building.id,
-                  tipo: "recibo",
-                  descripcion: `ABONO PARCIAL - Unidad ${unidadKey}`,
-                  monto: montoParcial,
-                  fecha: today,
-                  hash: hashParcial,
-                  sincronizado: true
-                }, { onConflict: 'edificio_id,hash' });
-
-                // Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
-                if (!mes) {
-                  await supabase.from("movimientos_dia").insert({
+                  // Registrar en movimientos general
+                  const hashParcial = await generateHash(`PAGO_PARCIAL|${building.id}|${unidadKey}|${montoParcial}|${today}`);
+                  await supabase.from("movimientos").upsert({
                     edificio_id: building.id,
                     tipo: "recibo",
-                    descripcion: `ABONO PARCIAL - Unidad ${unidadKey} (${propietarioParcial})`,
+                    descripcion: `ABONO PARCIAL - Unidad ${unidadKey}`,
                     monto: montoParcial,
                     fecha: today,
-                    fuente: "deteccion_parcial",
-                    detectado_en: today,
-                    unidad_apartamento: unidadKey,
-                    propietario: propietarioParcial
-                  });
-                }
+                    hash: hashParcial,
+                    sincronizado: true
+                  }, { onConflict: 'edificio_id,hash' });
 
-                // Alerta de pago parcial
-                await supabase.from("alertas").insert({
-                  edificio_id: building.id,
-                  tipo: "success",
-                  titulo: "💰 Abono Parcial Detectado",
-                  descripcion: `La unidad ${unidadKey} (${propietarioParcial}) realizó un abono parcial de Bs. ${formatNumber(montoParcial)}. Deuda anterior: Bs. ${formatNumber(deudaAnterior)}, deuda actual: Bs. ${formatNumber(deudaActual)}.`,
-                  fecha: today
-                });
-              } else {
-                console.log(`[PAGO-PARCIAL] Saltando duplicado para unidad ${unidadKey}`);
+                  // Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
+                  if (!mes) {
+                    await supabase.from("movimientos_dia").insert({
+                      edificio_id: building.id,
+                      tipo: "recibo",
+                      descripcion: `ABONO PARCIAL - Unidad ${unidadKey} (${propietarioParcial})`,
+                      monto: montoParcial,
+                      fecha: today,
+                      fuente: "deteccion_parcial",
+                      detectado_en: today,
+                      unidad_apartamento: unidadKey,
+                      propietario: propietarioParcial
+                    });
+                  }
+
+                  // Alerta de pago parcial
+                  await supabase.from("alertas").insert({
+                    edificio_id: building.id,
+                    tipo: "success",
+                    titulo: "💰 Abono Parcial Detectado",
+                    descripcion: `La unidad ${unidadKey} (${propietarioParcial}) realizó un abono parcial de Bs. ${formatNumber(montoParcial)}. Deuda anterior: Bs. ${formatNumber(deudaAnterior)}, deuda actual: Bs. ${formatNumber(deudaActual)}.`,
+                    fecha: today
+                  });
+                } else {
+                  console.log(`[PAGO-PARCIAL] Saltando duplicado para unidad ${unidadKey}`);
+                }
               }
             }
           }
         }
       }
-
       // --- LOG FINAL EN ALERTAS ---
       const totalRecibosDespues = allRecibos.length;
       const totalInmueblesDespues = new Set(allRecibos.map(r => r.unidad)).size;
