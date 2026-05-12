@@ -476,3 +476,9 @@ Corregir error crítico de sincronización que impedía la detección de pagos y
     - Se aumentó el umbral de "Detección Masiva Sospechosa" al **70%** y el conteo mínimo de unidades a **15**.
     - Se actualizó el mensaje de alerta para reflejar el nuevo umbral dinámico.
 - **Resultado:** Menos falsos positivos de bloqueo de seguridad y mayor fluidez en la detección de cobranza masiva legítima.
+
+#### 4. Corrección de Falsa Detección de Pagos (CRÍTICO)
+- **Problema:** La sincronización detectó erróneamente docenas de pagos inexistentes el 12/05/2026.
+- **Causa Raíz:** El sistema comparaba la deuda actual contra un estado anterior que contenía registros duplicados acumulados por fallos en limpiezas previas. Al realizar la limpieza profunda que implementé en el paso anterior, el sistema "vio" una reducción masiva de deuda (la eliminación de duplicados) e interpretó esa diferencia como pagos reales.
+- **Solución Aplicada:** Se implementó una deduplicación estricta por código de unidad al cargar el estado previo (`deudoresAntes`) en `api/sync`. Ahora, aunque la base de datos tenga registros repetidos, el sistema solo toma un registro por unidad para calcular la diferencia, evitando falsos abonos.
+- **Resultado:** La lógica de detección es ahora inmune a la duplicidad de registros históricos.
