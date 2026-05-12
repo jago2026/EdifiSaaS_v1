@@ -686,7 +686,10 @@ export async function POST(request: Request) {
     month: '2-digit',
     day: '2-digit'
   }).format(new Date());
+  
   let currentBuildingId: string | null = null;
+  let pagosDetectadosSync = 0;
+  let montoTotalDetectadoSync = 0;
 
   try {
     const body = await request.json();
@@ -942,15 +945,23 @@ export async function POST(request: Request) {
           mes: mesEstandar
         }));
 
-        // 2. Limpieza del mes actual
-        await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
+        // 2. Limpieza de deudas (Si no es histórico, limpiamos todo lo sincronizado para este edificio)
+        if (!mes) {
+          await supabase.from("recibos").delete().eq("edificio_id", building.id).eq("sincronizado", true);
+        } else {
+          await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar, sincronizado: true });
+        }
         
         // 3. Insertar nuevos datos
         const { error: recErr } = await supabase.from("recibos").insert(recibosToSave);
         if (recErr) console.error("Error guardando recibos:", recErr);
       } else {
-        // Si no hay recibos nuevos, igual limpiamos el mes actual para reflejar la realidad del portal
-        await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar });
+        // Si no hay recibos nuevos, igual limpiamos para reflejar la realidad del portal
+        if (!mes) {
+          await supabase.from("recibos").delete().eq("edificio_id", building.id).eq("sincronizado", true);
+        } else {
+          await supabase.from("recibos").delete().match({ edificio_id: building.id, mes: mesEstandar, sincronizado: true });
+        }
       }
 
       // 4. DETECCIÓN DE PAGOS POR DESAPARICIÓN Y PAGOS PARCIALES
@@ -976,12 +987,12 @@ export async function POST(request: Request) {
         // or a glitch. We should NOT clear the table if it's a glitch.
         const isPossibleRollover = allRecibos.length === 0 && codigosAnterioresUnicos.length > 5;
 
-        // NUEVO UMBRAL DE SEGURIDAD: Si desaparecen más del 40% de los deudores de golpe, sospechar.
+        // NUEVO UMBRAL DE SEGURIDAD: Si desaparecen más del 70% de los deudores de golpe, sospechar.
         const pctDesaparecidos = codigosAnterioresUnicos.length > 0 ? (codigosAnterioresUnicos.length - unidadesAhora.size) / codigosAnterioresUnicos.length : 0;
-        const isSuspiciousMassPayment = pctDesaparecidos > 0.40 && codigosAnterioresUnicos.length > 10;
+        const isSuspiciousMassPayment = pctDesaparecidos > 0.70 && codigosAnterioresUnicos.length > 15;
 
         if (isPossibleRollover || isSuspiciousMassPayment) {
-          const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>40%)";
+          const razon = isPossibleRollover ? "Posible Rollover" : "Detección Masiva Sospechosa (>70%)";
           await supabase.from("alertas").insert({
             edificio_id: building.id,
             tipo: "warning",

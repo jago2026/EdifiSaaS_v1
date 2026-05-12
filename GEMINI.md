@@ -447,3 +447,32 @@ Corregir la omisión de pagos y egresos detectados en los informes diarios y mej
 
 #### 3. Mantenimiento de Datos
 - Se verificó que la lógica de auto-detección por desaparición de deuda ya utilizaba el criterio correcto de `detectado_en`, por lo que el cambio unifica el comportamiento de todas las fuentes de ingresos.
+
+---
+
+## Fecha: 2026-05-12 (Gemini)
+
+### Objetivo
+Corregir error crítico de sincronización que impedía la detección de pagos y mejorar la integridad de la tabla de recibos.
+
+### Tareas Realizadas
+
+#### 1. Fix de Error de Referencia (CRÍTICO)
+- **Problema:** El sistema fallaba con el error `pagosDetectadosSync is not defined` durante el proceso de sincronización.
+- **Causa Raíz:** Las variables `pagosDetectadosSync` y `montoTotalDetectadoSync` se utilizaban para estadísticas de conciliación pero no habían sido declaradas en el alcance de la función `POST`.
+- **Solución Aplicada:** Se inicializaron ambas variables al inicio del handler en `src/app/api/sync/route.ts`.
+- **Resultado:** La sincronización ahora finaliza correctamente y reporta las estadísticas de pagos detectados en los logs y alertas.
+
+#### 2. Reconciliación Profunda de Recibos
+- **Problema:** Los recibos de meses anteriores que eran pagados parcialmente o totalmente seguían apareciendo en el sistema debido a una limpieza superficial (solo borraba el mes en curso).
+- **Solución Aplicada:**
+    - Se modificó la lógica de limpieza en `api/sync`. Ahora, en sincronizaciones de "Estado Actual" (mes no provisto), el sistema elimina TODOS los registros marcados como `sincronizado: true` antes de insertar la nueva foto del portal.
+    - Esto garantiza que si una deuda de marzo desaparece del portal, también desaparezca de nuestra base de datos inmediatamente.
+- **Resultado:** La tabla de `recibos` refleja fielmente el estado de cuenta real del portal de la administradora tras cada sincronización.
+
+#### 3. Ajuste de Umbrales de Seguridad
+- **Problema:** El sistema bloqueaba la detección automática de pagos si más del 40% de los deudores desaparecían, lo cual era muy restrictivo para edificios pequeños o periodos de alta cobranza.
+- **Solución Aplicada:**
+    - Se aumentó el umbral de "Detección Masiva Sospechosa" al **70%** y el conteo mínimo de unidades a **15**.
+    - Se actualizó el mensaje de alerta para reflejar el nuevo umbral dinámico.
+- **Resultado:** Menos falsos positivos de bloqueo de seguridad y mayor fluidez en la detección de cobranza masiva legítima.
