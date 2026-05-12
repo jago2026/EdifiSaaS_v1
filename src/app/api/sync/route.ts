@@ -969,7 +969,20 @@ export async function POST(request: Request) {
       // Esto evita que si un inmueble no debe en el mes que se está sincronizando pero sí en otros,
       // se detecte erróneamente como un pago total.
       if (!mes) {
-        // Normalización de unidades para comparación robusta (usando solo el código base ej: "08-C")
+        // [FIX] Normalización y deduplicación robusta de deudores previos para evitar falsos positivos por datos sucios
+        const deudoresAnterioresMap = new Map();
+        (deudoresAntes || []).forEach(d => {
+          const code = extractUnitCode(d.unidad);
+          // Si ya existe el código, no lo pisamos (evitamos duplicar deudas en el cálculo de pagos)
+          if (!deudoresAnterioresMap.has(code)) {
+            deudoresAnterioresMap.set(code, d);
+          }
+        });
+
+        const deudoresAnteriores = Array.from(deudoresAnterioresMap.values());
+        const codigosAnterioresUnicos = Array.from(deudoresAnterioresMap.keys());
+
+        // Normalización de unidades para comparación robusta del estado actual
         const unidadesAhora = new Set(allRecibos.map(r => extractUnitCode(r.unidad)));
 
         // Mapa de deuda actual por unidad normalizada (después del sync)
@@ -978,10 +991,6 @@ export async function POST(request: Request) {
           const key = extractUnitCode(r.unidad);
           deudaAhora.set(key, (deudaAhora.get(key) || 0) + Number(r.deuda || 0));
         });
-
-        const deudoresAnteriores = deudoresAntes || [];
-        // Usamos un Set de códigos normalizados para saber qué unidades tenían deuda
-        const codigosAnterioresUnicos = Array.from(new Set(deudoresAnteriores.map(d => extractUnitCode(d.unidad))));
 
         // SAFEGUARD: If allRecibos is empty but we had many debtors before, it's likely a month rollover
         // or a glitch. We should NOT clear the table if it's a glitch.
