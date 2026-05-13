@@ -482,3 +482,32 @@ Corregir error crítico de sincronización que impedía la detección de pagos y
 - **Causa Raíz:** El sistema comparaba la deuda actual contra un estado anterior que contenía registros duplicados acumulados por fallos en limpiezas previas. Al realizar la limpieza profunda que implementé en el paso anterior, el sistema "vio" una reducción masiva de deuda (la eliminación de duplicados) e interpretó esa diferencia como pagos reales.
 - **Solución Aplicada:** Se implementó una deduplicación estricta por código de unidad al cargar el estado previo (`deudoresAntes`) en `api/sync`. Ahora, aunque la base de datos tenga registros repetidos, el sistema solo toma un registro por unidad para calcular la diferencia, evitando falsos abonos.
 - **Resultado:** La lógica de detección es ahora inmune a la duplicidad de registros históricos.
+
+---
+
+## Fecha: 2026-05-13 (Gemini)
+
+### Objetivo
+Asegurar que los cobros detectados se incluyan en los reportes por email y corregir el filtrado de movimientos en el dashboard.
+
+### Tareas Realizadas
+
+#### 1. Fix en Sincronización y Reporte de Cobros (`api/sync`)
+- **Problema:** Los pagos de condominio detectados durante la sincronización diaria no se estaban incluyendo en el cuerpo del email enviado a la Junta.
+- **Causa Raíz:** Se identificó un comando `delete` en `api/sync` que borraba los registros de `movimientos_dia` justo antes de procesar egresos y gastos. Como el envío del email ocurre después de toda la sincronización, los cobros (detectados al inicio) ya habían sido eliminados de la tabla temporal.
+- **Solución Aplicada:** 
+    - Se movió la limpieza de `movimientos_dia` al **inicio absoluto** del procesamiento de datos. Esto garantiza que la tabla esté limpia antes de empezar, pero que todos los hallazgos de la sesión (pagos, egresos y gastos) se acumulen correctamente.
+    - Se añadieron comprobaciones de existencia (`mExistAuto`, `mExistParcial`) antes de cada inserción en `movimientos_dia` para evitar duplicados en caso de re-sincronizaciones manuales el mismo día.
+    - Se completó la información de ingresos (R=1) añadiendo los campos `unidad_apartamento` y `propietario` para que sean legibles en el reporte.
+
+#### 2. Unificación de Fechas y Zona Horaria (`api/email`)
+- **Mejora:** Se estandarizó el cálculo de la fecha `today` y `yesterday` en la API de email utilizando la zona horaria `America/Caracas`. Esto asegura que el reporte busque movimientos basándose en la fecha local de Venezuela, eliminando discrepancias con el horario UTC del servidor.
+
+#### 3. Filtrado Estricto en Dashboard (`Dashboard/page.tsx`)
+- **Problema:** La sección "Movimientos de Hoy" mostraba transacciones de días anteriores (como el 06/05 o 08/05), lo cual era incorrecto y confuso.
+- **Causa Raíz:** La función `loadMovimientosDia` recuperaba los últimos 30 días de la API pero no aplicaba un filtro de fecha al asignar el estado de la vista diaria.
+- **Solución Aplicada:** Se implementó un filtro estricto `.filter(m => m.fecha_iso === todayStr)` que asegura que la tabla solo muestre movimientos cuya fecha de detección sea la fecha actual del sistema del usuario.
+
+#### 4. Integridad y Despliegue
+- Los cambios han sido validados y subidos al repositorio oficial en GitHub (`main`).
+- No se requieren cambios en la base de datos de Supabase.
