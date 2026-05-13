@@ -899,6 +899,12 @@ export async function POST(request: Request) {
     console.log(`- Parsed Recibo Total: ${monthlyReceiptTotal}`);
     console.log(`- Parsed Detailed Items (Gastos): ${detailedReceiptItems.length}`);
 
+    // Limpieza inicial de movimientos_dia para hoy (solo si es sincronización diaria/actual)
+    if (!mes) {
+      console.log(`[Sync] Limpiando movimientos_dia para ${today} antes de iniciar procesamiento.`);
+      await supabase.from("movimientos_dia").delete().eq("edificio_id", building.id).eq("detectado_en", today);
+    }
+
     if (doSyncRecibos) {
       // 1. Obtener deudores actuales en nuestra DB antes de limpiar (Movido aquí para evitar ReferenceError)
       const { data: deudoresAntes } = await supabase
@@ -1089,17 +1095,28 @@ export async function POST(request: Request) {
 
                   // D. Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
                   if (!mes) {
-                    await supabase.from("movimientos_dia").insert({
-                      edificio_id: building.id,
-                      tipo: "recibo",
-                      descripcion: `PAGO TOTAL - Unidad ${unidadKey} (${propietario})`,
-                      monto: montoTotalPagado,
-                      fecha: today,
-                      fuente: "deteccion_automatica",
-                      detectado_en: today,
-                      unidad_apartamento: unidadKey,
-                      propietario: propietario
-                    });
+                    const { data: mExistAuto } = await supabase.from("movimientos_dia")
+                      .select("id")
+                      .eq("edificio_id", building.id)
+                      .eq("tipo", "recibo")
+                      .eq("unidad_apartamento", unidadKey)
+                      .eq("monto", montoTotalPagado)
+                      .eq("detectado_en", today)
+                      .limit(1);
+
+                    if (!mExistAuto || mExistAuto.length === 0) {
+                      await supabase.from("movimientos_dia").insert({
+                        edificio_id: building.id,
+                        tipo: "recibo",
+                        descripcion: `PAGO TOTAL - Unidad ${unidadKey} (${propietario})`,
+                        monto: montoTotalPagado,
+                        fecha: today,
+                        fuente: "deteccion_automatica",
+                        detectado_en: today,
+                        unidad_apartamento: unidadKey,
+                        propietario: propietario
+                      });
+                    }
                   }
                 } else {
                   console.log(`[PAGO-TOTAL] Saltando duplicado para unidad ${unidadKey}`);
@@ -1175,17 +1192,28 @@ export async function POST(request: Request) {
 
                   // Registrar en movimientos_dia para el informe diario (SOLO SI NO ES SYNC HISTÓRICO)
                   if (!mes) {
-                    await supabase.from("movimientos_dia").insert({
-                      edificio_id: building.id,
-                      tipo: "recibo",
-                      descripcion: `ABONO PARCIAL - Unidad ${unidadKey} (${propietarioParcial})`,
-                      monto: montoParcial,
-                      fecha: today,
-                      fuente: "deteccion_parcial",
-                      detectado_en: today,
-                      unidad_apartamento: unidadKey,
-                      propietario: propietarioParcial
-                    });
+                    const { data: mExistParcial } = await supabase.from("movimientos_dia")
+                      .select("id")
+                      .eq("edificio_id", building.id)
+                      .eq("tipo", "recibo")
+                      .eq("unidad_apartamento", unidadKey)
+                      .eq("monto", montoParcial)
+                      .eq("detectado_en", today)
+                      .limit(1);
+
+                    if (!mExistParcial || mExistParcial.length === 0) {
+                      await supabase.from("movimientos_dia").insert({
+                        edificio_id: building.id,
+                        tipo: "recibo",
+                        descripcion: `ABONO PARCIAL - Unidad ${unidadKey} (${propietarioParcial})`,
+                        monto: montoParcial,
+                        fecha: today,
+                        fuente: "deteccion_parcial",
+                        detectado_en: today,
+                        unidad_apartamento: unidadKey,
+                        propietario: propietarioParcial
+                      });
+                    }
                   }
 
                   // Alerta de pago parcial
@@ -1289,10 +1317,6 @@ export async function POST(request: Request) {
       await supabase.from("alicuotas").delete().eq("edificio_id", building.id);
       await supabase.from("alicuotas").insert(allAlicuotas.map(a => ({ ...a, edificio_id: building.id })));
       await supabase.from("edificios").update({ unidades: allAlicuotas.length }).eq("id", building.id);
-    }
-
-    if (doSyncEgresos || doSyncGastos) {
-      await supabase.from("movimientos_dia").delete().eq("edificio_id", building.id).eq("detectado_en", today);
     }
 
     if (doSyncEgresos) {
@@ -1469,7 +1493,9 @@ export async function POST(request: Request) {
               monto: ing.monto,
               fecha: fDB,
               fuente: "ingresos",
-              detectado_en: today
+              detectado_en: today,
+              unidad_apartamento: normalizedUnit,
+              propietario: ing.beneficiario
             });
           }
 // Generar alerta de pago detectado

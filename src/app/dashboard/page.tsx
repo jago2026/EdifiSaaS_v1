@@ -1443,10 +1443,13 @@ export default function DashboardPage() {
 
         // USAR SOLO movimientos de la tabla movimientos_dia para evitar duplicados
         // ya que la sincronización ya los inserta allí consolidados
-        const flujo = (movimientos || []).map((m: any) => ({
-          ...m,
-          fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha
-        }));
+        // FILTRO: Solo los que coincidan con todayStr
+        const flujo = (movimientos || [])
+          .map((m: any) => ({
+            ...m,
+            fecha_iso: m.detectado_en ? m.detectado_en.split('T')[0] : m.fecha
+          }))
+          .filter((m: any) => m.fecha_iso === todayStr);
 
         setMovimientosDia(flujo);
         // Actualizar cashFlow con formato correcto para la tabla

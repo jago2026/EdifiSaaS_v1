@@ -533,7 +533,7 @@ export async function POST(request: Request) {
     }
 
     const todayDate = new Date();
-    const today = todayDate.toISOString().split("T")[0];
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(todayDate);
     const fechaStr = formatDate(todayDate);
 
     if (action === "modern_report_test") {
@@ -1051,7 +1051,8 @@ _Generado automáticamente por el Sistema de Control de Recibos._`;
       return NextResponse.json({ success: true, message: "Reporte estilo WhatsApp enviado por email", recipient: toEmails.join(", ") });
     }
 
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const yesterdayDate = new Date(todayDate.getTime() - 86400000);
+    const yesterday = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(yesterdayDate);
 
     // Get balance
     const { data: balance } = await supabase.from("balances").select("*").eq("edificio_id", edificioId).order("fecha", { ascending: false }).limit(1);
