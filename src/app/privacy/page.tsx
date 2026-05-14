@@ -148,6 +148,16 @@ export default function Privacy() {
                 Podremos actualizar esta política en cualquier momento. Los cambios significativos serán notificados a través de la plataforma o vía correo electrónico.
               </p>
             </section>
+
+            <section className="bg-gray-50 p-8 rounded-2xl border border-gray-200">
+              <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight mb-4 italic">13. Interoperabilidad y Acceso a Sistemas de Terceros</h2>
+              <p className="font-medium leading-relaxed text-sm">
+                EdifiSaaS permite la integración técnica con portales de administradoras externas (como aquellas que utilizan el sistema Rascacielo). El acceso a dicha información se realiza bajo la <strong>autorización expresa del usuario</strong> mediante el uso de sus propias credenciales. 
+              </p>
+              <p className="font-medium leading-relaxed text-sm mt-4">
+                Aclaramos que EdifiSaaS no almacena credenciales para fines distintos a la sincronización técnica solicitada y no tiene acceso a modificar datos en los sistemas originales. La mención de marcas de terceros se hace con fines puramente informativos de compatibilidad, sin que ello implique afiliación alguna.
+              </p>
+            </section>
           </div>
         </div>
       </section>

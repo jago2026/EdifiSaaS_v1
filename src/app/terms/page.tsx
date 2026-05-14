@@ -135,6 +135,16 @@ export default function Terms() {
                 Cualquier controversia se intentará resolver mediante negociación directa y amistosa. De no ser posible, las partes se someten a la jurisdicción de los tribunales competentes en la ciudad de Caracas, Venezuela.
               </p>
             </section>
+
+            <section className="bg-gray-50 p-8 rounded-2xl border border-gray-200">
+              <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight mb-4 italic">13. Aviso de Propiedad Intelectual y Marcas de Terceros</h2>
+              <p className="font-medium leading-relaxed text-sm">
+                El nombre <strong>"Rascacielo"</strong> es una marca registrada y propiedad intelectual de sus respectivos creadores. EdifiSaaS no tiene relación laboral, societaria ni comercial directa con la empresa propietaria de dicho software, ni con las administradoras de condominios mencionadas en este sitio web. 
+              </p>
+              <p className="font-medium leading-relaxed text-sm mt-4">
+                La mención de estos nombres se realiza exclusivamente con <strong>fines informativos y de referencia de compatibilidad técnica</strong>, para orientar al usuario final sobre el alcance de nuestra plataforma. EdifiSaaS es una solución independiente que procesa la información de consulta del usuario para ofrecer herramientas de análisis financiero adicionales, actuando únicamente como un visor inteligente de la información a la cual el usuario ya tiene acceso legítimo.
+              </p>
+            </section>
           </div>
         </div>
       </section>

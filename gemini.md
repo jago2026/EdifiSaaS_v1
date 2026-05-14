@@ -13,30 +13,18 @@
 - **Actualización de FAQ:** Se modificaron los textos de la sección de "Preguntas Frecuentes" en `src/app/page.tsx` para reflejar la información detallada y actualizada proporcionada por el usuario, incluyendo detalles sobre compatibilidad con Rascacielo, sincronización de datos, seguridad, integración y manejo de tasa BCV.
 - **Revisión de Código:** Se analizaron los archivos principales (`page.tsx`, `Dashboard/page.tsx`, `api/sync/route.ts`, `api/email/route.ts`) para entender el funcionamiento actual del sistema.
 
-#### Propuestas de Mejora y Sugerencias:
+### [2026-05-14] Actualización de Compatibilidad y Avisos Legales
 
-1.  **Refactorización del Dashboard:**
-    - El componente `DashboardPage` es excesivamente grande (más de 7700 líneas). Se recomienda modularizarlo en componentes más pequeños (uno por pestaña o funcionalidad principal) para mejorar la mantenibilidad y los tiempos de carga de desarrollo.
+#### Tareas realizadas:
+- **Sección de Compatibilidad:** Se añadió una nueva sección en la página principal (`src/app/page.tsx`) que lista las administradoras compatibles y explica la flexibilidad del sistema para integrarse con cualquier portal basado en Rascacielo.
+- **Aviso Legal en el Home:** Se incorporó una nota al pie de página en el Home aclarando la propiedad intelectual de "Rascacielo" y la independencia de EdifiSaaS respecto a las administradoras mencionadas.
+- **Actualización de Términos de Servicio:** Se añadió la sección "13. Aviso de Propiedad Intelectual y Marcas de Terceros" en `src/app/terms/page.tsx` para una protección legal robusta.
+- **Actualización de Política de Privacidad:** Se añadió la sección "13. Interoperabilidad y Acceso a Sistemas de Terceros" en `src/app/privacy/page.tsx` para detallar cómo se maneja técnicamente el acceso a portales externos.
 
-2.  **Agrupación de Funcionalidades en el Dashboard:**
-    - Dado el alto número de pestañas, sería ideal agruparlas en categorías lógicas en el menú lateral (ej: **Finanzas** [Resumen, Ingresos, Egresos, Gastos, Recibos], **Gestión** [Junta, Alícuotas, Edificio], **Herramientas** [Informes, Inteligencia, Proyección, Servicios Públicos], **Sistema** [Configuración, Manual, Alertas]).
+#### Próximas acciones recomendadas:
+- Mantener el listado de administradoras actualizado conforme se validen nuevas integraciones.
+- Considerar la creación de una página dedicada "Administradoras Soportadas" si la lista crece significativamente.
+- Revisar periódicamente los términos de servicio con un asesor legal para asegurar que los "disclaimers" sigan siendo efectivos ante cambios en la legislación venezolana.
 
-3.  **Optimización de Carga de Datos:**
-    - Implementar paginación o scroll infinito en tablas con muchos registros (como Movimientos Consolidados o Recibos) para evitar lentitud en edificios grandes.
-    - Utilizar `React Context` o un estado global para evitar el "prop drilling" y manejar mejor los datos compartidos entre pestañas.
-
-4.  **Validación de Datos Avanzada:**
-    - Mejorar la validación de alícuotas para detectar no solo desviaciones en la suma total, sino también posibles duplicados o inconsistencias en los datos extraídos.
-    - Añadir validaciones de tipo y rango en los formularios de ingresos manuales.
-
-5.  **Mejoras en Inteligencia Financiera:**
-    - En la pestaña de Proyección, permitir simulaciones interactivas (escenarios "what-if") donde el usuario pueda ajustar variables para ver el impacto en el flujo de caja.
-
-6.  **Seguridad y Transparencia:**
-    - Destacar más el aspecto de "Solo Lectura" en el dashboard para dar tranquilidad a los usuarios de la Junta.
-    - Implementar logs de auditoría más legibles para los miembros de la Junta (quién consultó qué, quién envió qué reporte).
-
-7.  **Consistencia Visual:**
-    - Asegurar que todos los formatos de moneda (Bs y USD) sigan un estándar estricto en toda la aplicación (actualmente hay mezclas de `formatNumber`, `formatBs`, `formatUsd`).
 
 ---
