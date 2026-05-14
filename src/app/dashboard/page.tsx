@@ -2725,18 +2725,24 @@ export default function DashboardPage() {
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("recibos")} title="Total adeudado por los apartamentos.">
                   <div className="text-sm text-gray-500 mb-1">Recibos Pendientes</div>
                   <div className="text-2xl font-bold text-orange-600">Bs. {formatBs(recibos.reduce((sum, r) => sum + Number(r.deuda), 0))}</div>
+                  {tasaBCV.dolar > 0 && (
+                    <div className="text-sm text-gray-400">$ {formatUsd(recibos.reduce((sum, r) => sum + Number(r.deuda), 0) / tasaBCV.dolar)}</div>
+                  )}
                   <div className="text-xs text-gray-400 mt-1">{recibos.length} unidades con deuda</div>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente.">
-                  <div className="text-sm text-gray-500 mb-1">Saldo Manual</div>
-                  <div className="text-2xl font-bold text-indigo-600">Bs. {formatBs(movimientosManual.length > 0 ? (movimientosManual[0]?.saldo_acumulado || 0) : 0)}</div>
-                  {tasaBCV.dolar > 0 && <div className="text-sm text-gray-400">$ {formatUsd((movimientosManual[0]?.saldo_acumulado || 0) / (tasaBCV.dolar || 45))}</div>}
+                <div className="bg-amber-50 p-6 rounded-xl shadow-sm cursor-pointer hover:bg-amber-100/50 border border-amber-200 group transition-colors" onClick={() => setActiveTab("manual")} title="Saldo bancario registrado manualmente.">
+                  <div className="text-sm text-amber-700 mb-1 font-black uppercase">Saldo Manual</div>
+                  <div className="text-2xl font-bold text-indigo-700">Bs. {formatBs(movimientosManual.length > 0 ? (movimientosManual[0]?.saldo_acumulado || 0) : 0)}</div>
+                  {tasaBCV.dolar > 0 && <div className="text-sm text-amber-600 font-bold">$ {formatUsd((movimientosManual[0]?.saldo_acumulado || 0) / (tasaBCV.dolar || 45))}</div>}
                 </div>
                 
                 <div className="bg-white p-6 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 border border-gray-100 group" onClick={() => setActiveTab("manual")} title="Movimientos bancarios por conciliar.">
                   <div className="text-sm text-gray-500 mb-1">Saldo por conciliar</div>
                   <div className="text-2xl font-bold text-amber-600">Bs. {formatBs(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0))}</div>
+                  {tasaBCV.dolar > 0 && (
+                    <div className="text-sm text-gray-400">$ {formatUsd(movimientosManual.filter((m: any) => !m.comparado).reduce((sum, m) => sum + Number(m.ingresos || 0) - Number(m.egresos || 0), 0) / tasaBCV.dolar)}</div>
+                  )}
                   <div className="text-xs text-gray-400 mt-1">{movimientosManual.filter((m: any) => !m.comparado).length} registros pendientes</div>
                 </div>
               </div>

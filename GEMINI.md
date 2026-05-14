@@ -537,7 +537,13 @@ Corregir el error crítico `createClient is not defined` que impedía la gestió
     - Se optimizó el flujo de carga para asegurar que todos los indicadores financieros (Cobranza, Gastos, Egresos y Saldos Manuales) se actualicen cada vez que el usuario regrese a la vista principal del Dashboard.
 - **Archivos Afectados:** `src/app/dashboard/page.tsx`.
 
-#### 4. Auditoría de Seguridad y Estabilidad
+#### 4. Mejoras Visuales y de Datos en Resumen Ejecutivo
+- **Nuevos Datos en USD$:** Se añadió la visualización automática del monto en dólares para los indicadores de "Recibos Pendientes" y "Saldo por conciliar", manteniendo la coherencia con el resto del tablero.
+- **Resaltado de Saldo Manual:** Se cambió el estilo del botón "Saldo Manual" a un fondo amarillo suave (`amber-50`) con bordes destacados y tipografía más robusta. Esto permite identificar rápidamente el saldo bancario real registrado por la Junta, diferenciándolo de los saldos teóricos.
+- **Consistencia de UI:** Los cambios se aplicaron tanto en el componente `ResumenTab.tsx` como en la lógica inline del Dashboard para garantizar una experiencia uniforme.
+- **Archivos Afectados:** `src/app/dashboard/ResumenTab.tsx`, `src/app/dashboard/page.tsx`.
+
+#### 5. Auditoría de Seguridad y Estabilidad
 - Se verificó que el endpoint de creación de miembros (`POST /api/junta`) no presentaba el error de `createClient`, garantizando que la invitación de nuevos miembros funcione correctamente.
 - Se revisó `src/lib/tasa-helper.ts` para confirmar que el uso de `createClient` allí es correcto (con importación explícita).
 
