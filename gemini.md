@@ -16,10 +16,10 @@
 ### [2026-05-14] Actualización de Compatibilidad y Avisos Legales
 
 #### Tareas realizadas:
-- **Sección de Compatibilidad:** Se añadió una nueva sección en la página principal (`src/app/page.tsx`) que lista las administradoras compatibles y explica la flexibilidad del sistema para integrarse con cualquier portal basado en Rascacielo.
-- **Aviso Legal en el Home:** Se incorporó una nota al pie de página en el Home aclarando la propiedad intelectual de "Rascacielo" y la independencia de EdifiSaaS respecto a las administradoras mencionadas.
-- **Actualización de Términos de Servicio:** Se añadió la sección "13. Aviso de Propiedad Intelectual y Marcas de Terceros" en `src/app/terms/page.tsx` para una protección legal robusta.
-- **Actualización de Política de Privacidad:** Se añadió la sección "13. Interoperabilidad y Acceso a Sistemas de Terceros" en `src/app/privacy/page.tsx` para detallar cómo se maneja técnicamente el acceso a portales externos.
+- **Sección de Compatibilidad:** Se añadió una nueva sección que lista las administradoras compatibles. Inicialmente ubicada cerca del FAQ, fue reubicada justo después de la sección "¿Cómo funciona?" para mejorar la coherencia del flujo de información en la página principal.
+- **Aviso Legal en el Home:** Se incorporó una nota al pie de página aclarando la propiedad intelectual de "Rascacielo" y la independencia de EdifiSaaS.
+- **Actualización de Términos de Servicio:** Se añadió la sección "13. Aviso de Propiedad Intelectual y Marcas de Terceros".
+- **Actualización de Política de Privacidad:** Se añadió la sección "13. Interoperabilidad y Acceso a Sistemas de Terceros".
 
 #### Próximas acciones recomendadas:
 - Mantener el listado de administradoras actualizado conforme se validen nuevas integraciones.

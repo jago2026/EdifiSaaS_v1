@@ -360,6 +360,45 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Administradoras Section */}
+      <section className="py-24 bg-white border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-black text-gray-900 mb-4 uppercase tracking-tighter italic">Amplia Compatibilidad con Administradoras</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Nuestro sistema ha sido diseñado para integrarse perfectamente con las plataformas de gestión más utilizadas del sector. Si su edificio es gestionado por alguna de las siguientes administradoras, la configuración es inmediata:
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
+            {[
+              "Administradora AC. Condominios, C.A.",
+              "Administradora Actual, C.A.",
+              "Administradora Elite",
+              "Administradora GCM",
+              "Administradora Inmobiliaria Data House, C.A.",
+              "Administradora Intercanarivén, C.A.",
+              "Administradora La Ideal C.A.",
+              "Administradora Obelisco, C.A.",
+              "Administradora Quintero e Hijos, C.A.",
+              "Condominios Chacao"
+            ].map((admin, i) => (
+              <div key={i} className="flex items-center p-5 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-2 h-2 bg-blue-600 rounded-full mr-4"></div>
+                <span className="font-black text-gray-800 uppercase text-xs tracking-wider">{admin}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-blue-50 rounded-[2rem] p-8 md:p-12 text-center border border-blue-100">
+            <h3 className="text-2xl font-black text-blue-900 mb-4 uppercase tracking-tighter">¿No encuentra su administradora en la lista?</h3>
+            <p className="text-blue-800 text-lg leading-relaxed">
+              Si su administradora no aparece pero utiliza un portal web con una interfaz similar a la que mostramos en nuestras capturas de pantalla (utiliza el sistema Rascacielo), <strong>EdifiSaaS es compatible</strong>. Nuestro sistema es altamente flexible y permite configurar los enlaces (URLs) de su portal actual de forma sencilla para que pueda empezar a disfrutar de sus beneficios sin contratiempos.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section id="contact" className="container mx-auto px-6 py-24 bg-white">
         <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-20 items-center">
           <div>
@@ -641,45 +680,6 @@ export default function Home() {
               </div>
               </div>
               </section>
-
-        {/* Administradoras Section */}
-        <section className="py-24 bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <h2 className="text-4xl font-black text-gray-900 mb-4 uppercase tracking-tighter italic">Amplia Compatibilidad con Administradoras</h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Nuestro sistema ha sido diseñado para integrarse perfectamente con las plataformas de gestión más utilizadas del sector. Si su edificio es gestionado por alguna de las siguientes administradoras, la configuración es inmediata:
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-16">
-              {[
-                "Administradora AC. Condominios, C.A.",
-                "Administradora Actual, C.A.",
-                "Administradora Elite",
-                "Administradora GCM",
-                "Administradora Inmobiliaria Data House, C.A.",
-                "Administradora Intercanarivén, C.A.",
-                "Administradora La Ideal C.A.",
-                "Administradora Obelisco, C.A.",
-                "Administradora Quintero e Hijos, C.A.",
-                "Condominios Chacao"
-              ].map((admin, i) => (
-                <div key={i} className="flex items-center p-5 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full mr-4"></div>
-                  <span className="font-black text-gray-800 uppercase text-xs tracking-wider">{admin}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-blue-50 rounded-[2rem] p-8 md:p-12 text-center border border-blue-100">
-              <h3 className="text-2xl font-black text-blue-900 mb-4 uppercase tracking-tighter">¿No encuentra su administradora en la lista?</h3>
-              <p className="text-blue-800 text-lg leading-relaxed">
-                Si su administradora no aparece pero utiliza un portal web con una interfaz similar a la que mostramos en nuestras capturas de pantalla (utiliza el sistema Rascacielo), <strong>EdifiSaaS es compatible</strong>. Nuestro sistema es altamente flexible y permite configurar los enlaces (URLs) de su portal actual de forma sencilla para que pueda empezar a disfrutar de sus beneficios sin contratiempos.
-              </p>
-            </div>
-          </div>
-        </section>
 
       <section id="faq" className="container mx-auto px-6 py-20 bg-gray-50 border-y border-gray-100">
         <div className="max-w-4xl mx-auto">
