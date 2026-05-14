@@ -13,15 +13,31 @@ export default function Home() {
   const faqs = [
     {
       q: "¿Es compatible con mi administradora?",
-      a: "EdifiSaaS está optimizado para funcionar con administradoras que utilizan el portal Rascacielo. Si tus recibos se ven como los ejemplos mostrados, somos 100% compatibles."
+      a: "EdifiSaaS está optimizado para funcionar con administradoras que utilizan el portal Rascacielo. Si tus recibos se ven como los ejemplos mostrados en las imágenes, somos 100% compatibles."
     },
     {
       q: "¿Cómo se actualizan los datos?",
-      a: "El sistema se sincroniza diariamente de forma automática con el portal de tu administradora, detectando nuevos pagos, gastos y variaciones en saldos sin que tengas que hacer nada manual."
+      a: "El sistema se sincroniza manualmente (cuando tu lo decidas) o configurable para que lo haga diariamente de forma automática con el portal de tu administradora, detectando nuevos pagos, gastos y variaciones en saldos sin que tengas que hacer nada manual. En el caso de configuración automática diaria, todos los miembros de la Junta recibirán en su email un informe financiero de la situación financiera diaria de su edificio."
+    },
+    {
+      q: "¿Cómo se integra EdifiSaaS con mi administradora?",
+      a: "Conexión: Al registrarte, ingresas tu clave de acceso actual al portal de tu administradora. Extracción: El sistema accede a los reportes existentes de cobranza y gastos de forma automática. Seguridad: El proceso es de solo consulta; la integridad de tus datos originales está garantizada. Resultado: Obtienes un panel financiero con gráficos, reportes diarios y proyecciones que te ayudarán a gestionar mejor tu condominio."
+    },
+    {
+      q: "¿Cómo se maneja la tasa del dólar?",
+      a: "El sistema obtiene automáticamente la tasa oficial del BCV todos los días (y en caso de no poder actualizarlo se ajusta a la tasa inmediatamente anterior disponible). Puedes registrar movimientos (ingresos/egresos) manualmente si lo deseas para llevar tu control manual en ambas monedas (en Bs. o en USD$) y el sistema hará la conversión al instante. Los valores se registran y mantienen en la tasa de cambio de la fecha de la transacción, es decir, que si registrarse un egreso hace 2 meses, esos montos estarán calculados en el sistema a la tasa de hace 2 meses. Cada operación monetaria tiene su valor en Bs. y en USD$ para la fecha de la transacción."
     },
     {
       q: "¿Mis datos están seguros?",
-      a: "Absolutamente. Utilizamos encriptación de nivel bancario para proteger toda la información. Los datos son privados de tu junta de condominio y no se comparten con terceros."
+      a: "Absolutamente. Los datos son privados de tu junta de condominio y no se comparten con terceros. Recuerda que los datos que utilizamos son los mismos existentes que ves en el portal de tu administradora."
+    },
+    {
+      q: "¿Cómo obtiene el sistema la información de mi administradora?",
+      a: "a) Sincronización manual o automática: Al registrar tu edificio, el sistema se conecta a los enlaces oficiales de la administradora para procesar los saldos y movimientos actuales. b) Acceso de 'Solo Lectura': Es importante destacar que el acceso es estrictamente de consulta. EdifiSaaS no puede modificar, borrar ni alterar ninguna información en la página original de tú administradora. c) Valor agregado: Una vez conectados, transformamos esos datos planos en gráficos interactivos e indicadores financieros diseñados para facilitar la toma de decisiones de la Junta de Condominio."
+    },
+    {
+      q: "¿Es seguro ingresar mi clave de acceso a la administradora?",
+      a: "¡Totalmente! El sistema utiliza tus credenciales exclusivamente para leer y organizar la información que ya existe en el portal de tu administradora. EdifiSaaS funciona como un 'espejo inteligente': no tiene permisos para realizar cambios o transacciones en la página externa. Su única función es extraer los datos para presentarlos de forma visual, clara y con herramientas de análisis financiero que no ofrece el sistema tradicional (Rascacielo)."
     },
     {
       q: "¿Tengo que instalar algún software?",
@@ -30,6 +46,10 @@ export default function Home() {
     {
       q: "¿Puedo cancelar en cualquier momento?",
       a: "Sí, no hay contratos de permanencia a largo plazo. Si decides cancelar, tu servicio se mantendrá activo hasta el final del periodo pagado y no se realizarán más cobros."
+    },
+    {
+      q: "¿Puedo probar el sistema antes de pagar?",
+      a: "¡Claro! Tienes el botón de 'Ver Demo' donde podrás navegar por un edificio de prueba con datos reales para conocer todas las funciones. Y si lo deseas puede registrar tu edificio y probar el sistema durante 30 días con tus datos reales para que pruebes sus funcionalidades durante ese lapso sin restricciones."
     },
     {
       q: "¿Ofrecen soporte técnico?",
