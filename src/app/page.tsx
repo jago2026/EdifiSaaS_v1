@@ -269,7 +269,7 @@ export default function Home() {
                   <div className="w-14 h-14 bg-blue-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl mb-8 shadow-lg shadow-blue-200">1</div>
                   <h3 className="text-2xl font-black text-gray-900 mb-4 tracking-tight uppercase">Integración con Rascacielo</h3>
                   <p className="text-gray-600 font-medium leading-relaxed italic">
-                    "El Sistema está completamente adaptado para funcionar con las Adminitradoras que utilizan el Sistema de condominio Rascacielo, y donde los propietarios acceden al mismo."
+                    "El Sistema está completamente adaptado para funcionar con las Administradoras que utilizan el Sistema de condominio <b>Rascacielo</b>, y donde los propietarios acceden al mismo."
                   </p>
                 </div>
               </div>
