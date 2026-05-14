@@ -1224,11 +1224,6 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (activeTab === "resumen" && building?.id) {
-      loadRecibos();
-      loadMovimientosDia();
-      loadBalance();
-    }
     if (building?.id) {
       loadMovements();
       loadGastosSummary();
@@ -1238,6 +1233,7 @@ export default function DashboardPage() {
       loadBalance();
       loadAlicuotas();
       loadMovimientosDia();
+      loadMovimientosManual();
     }
     loadTasaBCV();
   }, [building?.id]);
@@ -1265,6 +1261,10 @@ export default function DashboardPage() {
       loadRecibos();
       loadMovimientosDia();
       loadBalance();
+      loadMovimientosManual();
+      loadIngresosSummary();
+      loadGastosSummary();
+      loadEgresosSummary();
     }
     if (activeTab === "ingresos" && building?.id) {
       loadIngresosData();

@@ -530,11 +530,18 @@ Corregir el error crítico `createClient is not defined` que impedía la gestió
     - Se eliminaron las referencias a `supabaseUrl` en `src/app/api/debug-supabase/route.ts`.
     - Se aseguró que todos los archivos utilicen los clientes centralizados de `@/lib/supabase` o `@/lib/supabaseAdmin`.
 
-#### 3. Auditoría de Seguridad y Estabilidad
+#### 3. Fix: Actualización de Indicadores en Resumen Ejecutivo
+- **Problema:** Los indicadores de "Saldo Manual" y "Saldo por conciliar" no se actualizaban automáticamente al entrar en la pestaña de Resumen Ejecutivo, requiriendo que el usuario navegara primero a la pestaña de Movimientos Manuales.
+- **Solución Aplicada:**
+    - Se integró la llamada a `loadMovimientosManual()` en la lógica de refresco de la pestaña "Resumen".
+    - Se optimizó el flujo de carga para asegurar que todos los indicadores financieros (Cobranza, Gastos, Egresos y Saldos Manuales) se actualicen cada vez que el usuario regrese a la vista principal del Dashboard.
+- **Archivos Afectados:** `src/app/dashboard/page.tsx`.
+
+#### 4. Auditoría de Seguridad y Estabilidad
 - Se verificó que el endpoint de creación de miembros (`POST /api/junta`) no presentaba el error de `createClient`, garantizando que la invitación de nuevos miembros funcione correctamente.
 - Se revisó `src/lib/tasa-helper.ts` para confirmar que el uso de `createClient` allí es correcto (con importación explícita).
 
-#### 4. Próximos Pasos Recomendados
+#### 5. Próximos Pasos Recomendados
 - **Refactorización de Dashboard:** El archivo `src/app/dashboard/page.tsx` supera los 460KB; se recomienda encarecidamente separar los componentes de las pestañas en archivos independientes para mejorar la mantenibilidad y velocidad de carga.
 - **Gestión de Secretos:** Mover las credenciales SMTP de `src/lib/mail.ts` a variables de entorno `.env` para evitar la exposición de credenciales en el código fuente.
 
