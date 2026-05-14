@@ -15,15 +15,6 @@ import { NextResponse } from "next/server";
  */
 export async function POST(request: Request) {
   try {
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: "Faltan credenciales de Supabase" },
-        { status: 500 }
-      );
-    }
-
-    
-
     // Obtener parámetros opcionales de la request
     let edificioId: string | undefined;
     try {
@@ -137,15 +128,6 @@ export async function POST(request: Request) {
 // GET para verificar estado (sin ejecutar actualización)
 export async function GET() {
   try {
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: "Faltan credenciales de Supabase" },
-        { status: 500 }
-      );
-    }
-
-    
-
     // Contar registros y verificar qué campos USD están vacíos
     const { count } = await supabase
       .from("historico_cobranza")

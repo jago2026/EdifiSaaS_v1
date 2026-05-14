@@ -508,6 +508,33 @@ Asegurar que los cobros detectados se incluyan en los reportes por email y corre
 - **Causa Raíz:** La función `loadMovimientosDia` recuperaba los últimos 30 días de la API pero no aplicaba un filtro de fecha al asignar el estado de la vista diaria.
 - **Solución Aplicada:** Se implementó un filtro estricto `.filter(m => m.fecha_iso === todayStr)` que asegura que la tabla solo muestre movimientos cuya fecha de detección sea la fecha actual del sistema del usuario.
 
-#### 4. Integridad y Despliegue
-- Los cambios han sido validados y subidos al repositorio oficial en GitHub (`main`).
-- No se requieren cambios en la base de datos de Supabase.
+---
+
+## Fecha: 2026-05-14 (Gemini)
+
+### Objetivo
+Corregir el error crítico `createClient is not defined` que impedía la gestión de miembros de la Junta y realizar una limpieza general de referencias a variables de Supabase inexistentes.
+
+### Tareas Realizadas
+
+#### 1. Fix Crítico: Gestión de Junta (`api/junta`)
+- **Problema:** Al intentar editar un miembro (PATCH) o realizar cambios en su configuración, el sistema fallaba con `ReferenceError: createClient is not defined`.
+- **Causa Raíz:** Se intentaba crear manualmente una instancia de `supabaseAdmin` dentro de la función `PATCH` usando `createClient(supabaseUrl, serviceKey)`, pero ninguna de estas variables estaba importada ni definida en el archivo.
+- **Solución Aplicada:** Se eliminó la inicialización manual redundante y se configuró la API para usar el cliente centralizado `supabaseAdmin` (aliaseado como `supabase`) que ya estaba correctamente importado al inicio del archivo.
+- **Archivos Afectados:** `src/app/api/junta/route.ts`.
+
+#### 2. Limpieza de Referencias Globales (Supabase)
+- **Problema:** Varios endpoints de administración y depuración contenían verificaciones de `if (!supabaseUrl || !supabaseKey)` que provocaban errores de referencia al no estar definidas dichas constantes localmente.
+- **Solución Aplicada:**
+    - Se eliminaron las validaciones redundantes en `src/app/api/admin/fill-usd-fields/route.ts`.
+    - Se eliminaron las referencias a `supabaseUrl` en `src/app/api/debug-supabase/route.ts`.
+    - Se aseguró que todos los archivos utilicen los clientes centralizados de `@/lib/supabase` o `@/lib/supabaseAdmin`.
+
+#### 3. Auditoría de Seguridad y Estabilidad
+- Se verificó que el endpoint de creación de miembros (`POST /api/junta`) no presentaba el error de `createClient`, garantizando que la invitación de nuevos miembros funcione correctamente.
+- Se revisó `src/lib/tasa-helper.ts` para confirmar que el uso de `createClient` allí es correcto (con importación explícita).
+
+#### 4. Próximos Pasos Recomendados
+- **Refactorización de Dashboard:** El archivo `src/app/dashboard/page.tsx` supera los 460KB; se recomienda encarecidamente separar los componentes de las pestañas en archivos independientes para mejorar la mantenibilidad y velocidad de carga.
+- **Gestión de Secretos:** Mover las credenciales SMTP de `src/lib/mail.ts` a variables de entorno `.env` para evitar la exposición de credenciales en el código fuente.
+

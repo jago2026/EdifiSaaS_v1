@@ -3,10 +3,6 @@ import { NextResponse } from "next/server";
 
 
 export async function GET() {
-  console.log("DEBUG: Checking supabase connection...", supabaseUrl?.substring(0, 20));
-  
-  
-  
   const { data, error } = await supabase
     .from('edificios')
     .select('id, nombre')
@@ -18,7 +14,6 @@ export async function GET() {
     success: true, 
     edificiosCount: data?.length || 0,
     data: data,
-    error: error?.message,
-    supabaseUrl: supabaseUrl?.substring(0, 10) + "..."
+    error: error?.message
   });
 }

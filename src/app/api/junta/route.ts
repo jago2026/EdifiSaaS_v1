@@ -110,9 +110,8 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Falta ID del miembro" }, { status: 400 });
     }
 
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "placeholder";
-    
-    const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+    // Usamos el cliente administrativo ya importado
+    const supabaseAdmin = supabase;
     
     // Construir objeto de actualización
     const updateData: any = {};
