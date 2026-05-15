@@ -553,18 +553,27 @@ Corregir el error crítico `createClient is not defined` que impedía la gestió
 
 ---
 
-## Fecha: 2026-05-15 (Gemini)
+## Fecha: 2026-05-15 (Gemini - Tanda 2)
 
 ### Objetivo
-Corregir el error de duplicidad de registros en el formulario de Ingresos/Egresos Manuales al pulsar el botón de guardar múltiples veces.
+Añadir la funcionalidad de "Movimientos Manuales" en la pestaña de Pre-Recibo Estimado para permitir provisiones y reversos de montos.
 
 ### Tareas Realizadas
 
-#### 1. Fix en Formulario Manual (CRÍTICO)
-- **Problema:** Al agregar un nuevo registro manualmente en el dashboard, el formulario no se cerraba inmediatamente y el botón de "Guardar" no se desactivaba. Esto permitía a los usuarios realizar múltiples clics involuntarios, resultando en movimientos duplicados en la base de datos.
-- **Solución Aplicada:** 
-    - Se añadió un estado `submittingManual` para gestionar el proceso de envío.
-    - Se desactivó el botón "Guardar Registro" mientras el proceso de envío está en curso (`disabled={... || submittingManual}`).
-    - Se actualizó el texto del botón a "Guardando..." para dar feedback visual claro al usuario.
-    - Se utilizó un bloque `finally` para asegurar que el estado de envío se restablezca incluso si ocurre un error, permitiendo al usuario reintentar si es necesario.
-- **Resultado:** Ahora el formulario es resistente a clics múltiples y el usuario recibe feedback claro del estado de guardado.
+#### 1. Infraestructura de Datos (Pre-Recibo)
+- **Nueva Tabla:** Se diseñó la tabla `pre_recibo_manual` para persistir conceptos agregados manualmente al borrador del mes.
+- **API de Gestión:** Se creó `/api/pre-recibo/manual` (GET, POST, DELETE) para el manejo de estos ítems.
+
+#### 2. Mejoras en Pestaña Pre-Recibo Estimado
+- **Funcionalidad de Agregado Manual:**
+    - Se añadió el botón **"➕ Agregar Manual"** que abre un modal para ingresar Descripción, Monto (soporta negativos para reversos) y Código.
+    - Los ítems manuales aparecen en la lista de "Conceptos Disponibles" marcados como tipo `pre-recibo`.
+    - Se incluyó la posibilidad de eliminar ítems manuales directamente desde la lista mediante un icono de papelera (🗑️).
+- **Persistencia y Selección:** Los movimientos manuales se guardan en la base de datos y se recargan automáticamente, permitiendo que la Junta los seleccione o deseleccione según sea necesario para el borrador final.
+- **Integración con Email:** Los ítems manuales seleccionados se incluyen automáticamente en el cálculo del total y en la tabla de detalle del email enviado a la Junta.
+
+#### 3. Estabilidad y UI
+- Se implementaron estados de carga y feedback visual durante el guardado de ítems manuales.
+- Se aseguró que la alícuota base y los cálculos de USD reflejen correctamente los montos manuales añadidos.
+
+---

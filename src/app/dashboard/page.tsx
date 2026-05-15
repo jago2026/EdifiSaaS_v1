@@ -441,6 +441,9 @@ export default function DashboardPage() {
   const [preReciboItems, setPreReciboItems] = useState<any[]>([]);
   const [selectedPreReciboIds, setSelectedPreReciboIds] = useState<Set<string>>(new Set());
   const [loadingPreRecibo, setLoadingPreRecibo] = useState(false);
+  const [showPreReciboManualModal, setShowPreReciboManualModal] = useState(false);
+  const [savingPreReciboManual, setSavingPreReciboManual] = useState(false);
+  const [newPreReciboManual, setNewPreReciboManual] = useState({ descripcion: "", monto: "", codigo: "PROVISIÓN" });
 
   const loadPreReciboData = async () => {
     if (!building?.id) return;
@@ -448,14 +451,15 @@ export default function DashboardPage() {
     try {
       // CORRECCIÓN: No pasar el parámetro 'mes' para que el API use el filtro de FECHA REAL del mes en curso
       // Esto evita que aparezcan gastos del mes pasado que tengan asignado el mes actual por sincronización.
-      const [gastosRes, egresosRes, manualRes] = await Promise.all([
+      const [gastosRes, egresosRes, manualRes, preReciboManualRes] = await Promise.all([
         fetch(`/api/gastos?edificioId=${building.id}`),
         fetch(`/api/egresos?edificioId=${building.id}`),
-        fetch(`/api/movimientos-manual?edificioId=${building.id}`)
+        fetch(`/api/movimientos-manual?edificioId=${building.id}`),
+        fetch(`/api/pre-recibo/manual?edificioId=${building.id}`)
       ]);
 
-      const [gastosD, egresosD, manualD] = await Promise.all([
-        gastosRes.json(), egresosRes.json(), manualRes.json()
+      const [gastosD, egresosD, manualD, preReciboManualD] = await Promise.all([
+        gastosRes.json(), egresosRes.json(), manualRes.json(), preReciboManualRes.json()
       ]);
 
       const items: any[] = [];
@@ -477,10 +481,17 @@ export default function DashboardPage() {
         });
       }
 
-      // 3. Procesar Manuales (No comparados)
+      // 3. Procesar Manuales de Caja
       if (manualRes.ok && manualD.movimientos) {
         manualD.movimientos.filter((m: any) => !m.comparado && Number(m.egresos) > 0).forEach((m: any) => {
           items.push({ id: `man-${m.id}`, codigo: "MANUAL", descripcion: m.obs_egresos || "Gasto Manual", monto: Number(m.egresos), tipo: 'manual' });
+        });
+      }
+
+      // 4. Procesar Manuales Específicos de Pre-Recibo
+      if (preReciboManualRes.ok && preReciboManualD.items) {
+        preReciboManualD.items.forEach((m: any) => {
+          items.push({ id: `prm-${m.id}`, codigo: m.codigo || "MANUAL", descripcion: m.descripcion, monto: m.monto, tipo: 'pre-recibo', isManual: true });
         });
       }
 
@@ -492,6 +503,49 @@ export default function DashboardPage() {
       console.error("Error loading pre-recibo data:", error);
     } finally {
       setLoadingPreRecibo(false);
+    }
+  };
+
+  const savePreReciboManual = async () => {
+    if (!building?.id || !newPreReciboManual.descripcion || !newPreReciboManual.monto) return;
+    setSavingPreReciboManual(true);
+    try {
+      const res = await fetch("/api/pre-recibo/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          edificioId: building.id,
+          descripcion: newPreReciboManual.descripcion,
+          monto: Number(newPreReciboManual.monto),
+          codigo: newPreReciboManual.codigo
+        })
+      });
+
+      if (res.ok) {
+        setNewPreReciboManual({ descripcion: "", monto: "", codigo: "PROVISIÓN" });
+        setShowPreReciboManualModal(false);
+        loadPreReciboData();
+      } else {
+        const data = await res.json();
+        alert("Error: " + data.error);
+      }
+    } catch (error: any) {
+      alert("Error: " + error.message);
+    } finally {
+      setSavingPreReciboManual(false);
+    }
+  };
+
+  const deletePreReciboManual = async (id: string) => {
+    if (!confirm("¿Eliminar este movimiento manual del pre-recibo?")) return;
+    try {
+      const dbId = id.replace('prm-', '');
+      const res = await fetch(`/api/pre-recibo/manual?id=${dbId}`, { method: "DELETE" });
+      if (res.ok) {
+        loadPreReciboData();
+      }
+    } catch (error) {
+      console.error("Error deleting pre-recibo manual item:", error);
     }
   };
   const loadAdminPlanes = async () => {
@@ -5446,6 +5500,11 @@ export default function DashboardPage() {
                 <div className="lg:col-span-1 space-y-4">
                   <div className="flex justify-between items-center px-2">
                     <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-widest font-mono">Conceptos Disponibles</h3>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowPreReciboManualModal(true)} className="text-[9px] font-black text-indigo-600 hover:text-indigo-800 uppercase bg-indigo-50 px-2 py-1 rounded">➕ Agregar Manual</button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center px-2">
                     <div className="flex gap-3">
                       <button onClick={() => setSelectedPreReciboIds(new Set(preReciboItems.map(i => i.id)))} className="text-[9px] font-bold text-blue-600 hover:underline uppercase">Todos</button>
                       <button onClick={() => setSelectedPreReciboIds(new Set())} className="text-[9px] font-bold text-gray-400 hover:underline uppercase">Ninguno</button>
@@ -5471,9 +5530,20 @@ export default function DashboardPage() {
                             />
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-center gap-2 mb-1">
-                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.tipo === 'gasto' ? 'bg-orange-100 text-orange-700' : item.tipo === 'egreso' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                                  {item.tipo}
-                                </span>
+                                <div className="flex gap-1 items-center">
+                                  <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter ${item.tipo === 'gasto' ? 'bg-orange-100 text-orange-700' : item.tipo === 'egreso' ? 'bg-blue-100 text-blue-700' : item.tipo === 'pre-recibo' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}>
+                                    {item.tipo}
+                                  </span>
+                                  {item.isManual && (
+                                    <button 
+                                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); deletePreReciboManual(item.id); }}
+                                      className="text-red-500 hover:text-red-700 p-0.5"
+                                      title="Eliminar este ítem manual"
+                                    >
+                                      <span className="text-xs">🗑️</span>
+                                    </button>
+                                  )}
+                                </div>
                                 <span className="text-[10px] font-black text-gray-900">Bs. {formatBs(item.monto)}</span>
                               </div>
                               <p className="text-xs font-bold text-gray-700 leading-tight line-clamp-2">{item.descripcion}</p>
@@ -7714,6 +7784,73 @@ export default function DashboardPage() {
                   className="flex-[2] py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50"
                 >
                   {submittingManual ? "Guardando..." : "Guardar Registro"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Movimiento Manual de Pre-Recibo */}
+      {showPreReciboManualModal && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-300 border-4 border-white">
+            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-8 text-center text-white relative">
+              <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">📝</div>
+              <h2 className="text-2xl font-black uppercase tracking-tighter leading-none mb-2">Nuevo Ítem Pre-Recibo</h2>
+              <p className="text-indigo-100 font-bold text-[10px] uppercase tracking-widest italic">Agrega conceptos manuales o provisiones al borrador</p>
+            </div>
+            
+            <div className="p-8 space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Código (Opcional)</label>
+                  <input
+                    type="text"
+                    value={newPreReciboManual.codigo}
+                    onChange={(e) => setNewPreReciboManual({ ...newPreReciboManual, codigo: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                    placeholder="Ej: PROVISIÓN"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Monto (Bs.)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newPreReciboManual.monto}
+                    onChange={(e) => setNewPreReciboManual({ ...newPreReciboManual, monto: e.target.value })}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all font-black text-gray-900 text-sm"
+                    placeholder="0.00 (Negativo para reversos)"
+                  />
+                  <p className="text-[9px] text-gray-400 mt-1 italic font-medium">Usa valores negativos para reversar provisiones.</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-1 ml-1">Descripción del Concepto</label>
+                <input
+                  type="text"
+                  value={newPreReciboManual.descripcion}
+                  onChange={(e) => setNewPreReciboManual({ ...newPreReciboManual, descripcion: e.target.value })}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition-all font-bold text-gray-700 text-sm"
+                  placeholder="Ej: Provisión de Prestaciones Sociales Abril"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setShowPreReciboManualModal(false)}
+                  className="flex-1 py-3 bg-gray-100 text-gray-500 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-200 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={savePreReciboManual}
+                  disabled={!newPreReciboManual.monto || !newPreReciboManual.descripcion || savingPreReciboManual}
+                  className="flex-[2] py-3 bg-purple-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-purple-700 transition-all shadow-xl shadow-purple-200 disabled:opacity-50"
+                >
+                  {savingPreReciboManual ? "Guardando..." : "Agregar al Pre-Recibo"}
                 </button>
               </div>
             </div>
