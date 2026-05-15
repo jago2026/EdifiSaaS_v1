@@ -383,7 +383,7 @@ export default function Home() {
               "Administradora Obelisco, C.A.",
       "Administradora Paraíso, C.A.",
               "Administradora Quintero e Hijos, C.A.",
-              "Condominios Chacao"
+              "Compatible con muchas otras Administradoras mas ..."
             ].map((admin, i) => (
               <div key={i} className="flex items-center p-5 bg-gray-50 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="w-2 h-2 bg-blue-600 rounded-full mr-4"></div>
