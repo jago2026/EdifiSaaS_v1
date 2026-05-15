@@ -551,3 +551,20 @@ Corregir el error crítico `createClient is not defined` que impedía la gestió
 - **Refactorización de Dashboard:** El archivo `src/app/dashboard/page.tsx` supera los 460KB; se recomienda encarecidamente separar los componentes de las pestañas en archivos independientes para mejorar la mantenibilidad y velocidad de carga.
 - **Gestión de Secretos:** Mover las credenciales SMTP de `src/lib/mail.ts` a variables de entorno `.env` para evitar la exposición de credenciales en el código fuente.
 
+---
+
+## Fecha: 2026-05-15 (Gemini)
+
+### Objetivo
+Corregir el error de duplicidad de registros en el formulario de Ingresos/Egresos Manuales al pulsar el botón de guardar múltiples veces.
+
+### Tareas Realizadas
+
+#### 1. Fix en Formulario Manual (CRÍTICO)
+- **Problema:** Al agregar un nuevo registro manualmente en el dashboard, el formulario no se cerraba inmediatamente y el botón de "Guardar" no se desactivaba. Esto permitía a los usuarios realizar múltiples clics involuntarios, resultando en movimientos duplicados en la base de datos.
+- **Solución Aplicada:** 
+    - Se añadió un estado `submittingManual` para gestionar el proceso de envío.
+    - Se desactivó el botón "Guardar Registro" mientras el proceso de envío está en curso (`disabled={... || submittingManual}`).
+    - Se actualizó el texto del botón a "Guardando..." para dar feedback visual claro al usuario.
+    - Se utilizó un bloque `finally` para asegurar que el estado de envío se restablezca incluso si ocurre un error, permitiendo al usuario reintentar si es necesario.
+- **Resultado:** Ahora el formulario es resistente a clics múltiples y el usuario recibe feedback claro del estado de guardado.

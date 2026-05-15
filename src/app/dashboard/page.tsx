@@ -290,6 +290,7 @@ export default function DashboardPage() {
   const [manualFilter, setManualFilter] = useState<"todos" | "pendientes" | "ingresos" | "egresos" | "ambos">("todos");
   const [loadingManual, setLoadingManual] = useState(false);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [submittingManual, setSubmittingManual] = useState(false);
   const [manualModalTipo, setManualModalTipo] = useState<"ingreso" | "egreso">("ingreso");
   const [manualModalMoneda, setManualModalMoneda] = useState<"bs" | "usd">("bs");
   const [manualModalForm, setManualModalForm] = useState({
@@ -1733,6 +1734,7 @@ export default function DashboardPage() {
 
   const createMovimientoManual = async () => {
     if (!building?.id) return;
+    setSubmittingManual(true);
     const tasa = Number(manualModalForm.tasa_bcv) || tasaBCV.dolar || 45.50;
     const monto = Number(manualModalForm.monto) || 0;
 
@@ -1776,6 +1778,8 @@ export default function DashboardPage() {
     } catch (error) {
       console.error("Error creating movimiento:", error);
       alert("Error de red o del servidor al crear el movimiento.");
+    } finally {
+      setSubmittingManual(false);
     }
   };
 
@@ -7706,10 +7710,10 @@ export default function DashboardPage() {
                 </button>
                 <button 
                   onClick={createMovimientoManual}
-                  disabled={!manualModalForm.monto || !manualModalForm.descripcion}
+                  disabled={!manualModalForm.monto || !manualModalForm.descripcion || submittingManual}
                   className="flex-[2] py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all shadow-xl shadow-blue-200 disabled:opacity-50"
                 >
-                  Guardar Registro
+                  {submittingManual ? "Guardando..." : "Guardar Registro"}
                 </button>
               </div>
             </div>
