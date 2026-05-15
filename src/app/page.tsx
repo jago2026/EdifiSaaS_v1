@@ -376,10 +376,12 @@ export default function Home() {
               "Administradora Actual, C.A.",
               "Administradora Elite",
               "Administradora GCM",
+      "Administradora Ibiza, C.A.",
               "Administradora Inmobiliaria Data House, C.A.",
               "Administradora Intercanarivén, C.A.",
               "Administradora La Ideal C.A.",
               "Administradora Obelisco, C.A.",
+      "Administradora Paraíso, C.A.",
               "Administradora Quintero e Hijos, C.A.",
               "Condominios Chacao"
             ].map((admin, i) => (
