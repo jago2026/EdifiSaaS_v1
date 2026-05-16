@@ -553,27 +553,27 @@ Corregir el error crítico `createClient is not defined` que impedía la gestió
 
 ---
 
-## Fecha: 2026-05-15 (Gemini - Tanda 2)
+## Fecha: 2026-05-16 (Gemini)
 
 ### Objetivo
-Añadir la funcionalidad de "Movimientos Manuales" en la pestaña de Pre-Recibo Estimado para permitir provisiones y reversos de montos.
+Mejorar la obtención de la tasa de cambio BCV mediante scraping directo del portal oficial (Plan A y B) y añadir soporte para la tasa del Euro.
 
 ### Tareas Realizadas
 
-#### 1. Infraestructura de Datos (Pre-Recibo)
-- **Nueva Tabla:** Se diseñó la tabla `pre_recibo_manual` para persistir conceptos agregados manualmente al borrador del mes.
-- **API de Gestión:** Se creó `/api/pre-recibo/manual` (GET, POST, DELETE) para el manejo de estos ítems.
+#### 1. Implementación de Scraper BCV (`src/lib/bcv-scraper.ts`)
+- **Funcionalidad:** Se creó un scraper robusto que utiliza expresiones regulares para extraer la tasa del Dólar (USD), Euro (EUR) y la Fecha Valor directamente desde el sitio oficial del Banco Central de Venezuela (`bcv.org.ve`).
+- **Estrategia de Reintentos:** Implementado un sistema de dos pasos siguiendo la lógica solicitada:
+    - **Plan A:** `https://www.bcv.org.ve/glosario/cambio-oficial`
+    - **Plan B:** `https://www.bcv.org.ve/` (Home)
+- **Normalización de Datos:** El scraper maneja automáticamente la conversión de formatos numéricos (separadores de miles y decimales) y el parseo de fechas con nombres de meses en español.
 
-#### 2. Mejoras en Pestaña Pre-Recibo Estimado
-- **Funcionalidad de Agregado Manual:**
-    - Se añadió el botón **"➕ Agregar Manual"** que abre un modal para ingresar Descripción, Monto (soporta negativos para reversos) y Código.
-    - Los ítems manuales aparecen en la lista de "Conceptos Disponibles" marcados como tipo `pre-recibo`.
-    - Se incluyó la posibilidad de eliminar ítems manuales directamente desde la lista mediante un icono de papelera (🗑️).
-- **Persistencia y Selección:** Los movimientos manuales se guardan en la base de datos y se recargan automáticamente, permitiendo que la Junta los seleccione o deseleccione según sea necesario para el borrador final.
-- **Integración con Email:** Los ítems manuales seleccionados se incluyen automáticamente en el cálculo del total y en la tabla de detalle del email enviado a la Junta.
+#### 2. Integración en API Tasa BCV (`src/app/api/tasa-bcv/route.ts`)
+- **Prioridad de Fuente:** Se actualizó la ruta `/api/tasa-bcv` para que el scraping directo sea la fuente primaria de información. Las APIs de terceros (`ve.dolarapi.com` y `bcv-api.rafnixg.dev`) ahora actúan como fallbacks.
+- **Persistencia Multi-moneda:** Se actualizó la función `saveTasa` para persistir tanto el Dólar como el Euro en la base de datos de Supabase.
+- **Mejora en Consulta Histórica:** Se incluyó el campo `tasa_euro` en las consultas de recuperación de datos almacenados para mantener la consistencia.
 
-#### 3. Estabilidad y UI
-- Se implementaron estados de carga y feedback visual durante el guardado de ítems manuales.
-- Se aseguró que la alícuota base y los cálculos de USD reflejen correctamente los montos manuales añadidos.
+#### 3. Infraestructura de Base de Datos (SQL)
+- Se identificó la necesidad de asegurar que la columna `tasa_euro` exista en la tabla `tasas_cambio`.
 
 ---
+

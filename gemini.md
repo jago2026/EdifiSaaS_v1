@@ -21,10 +21,16 @@
 - **Actualización de Términos de Servicio:** Se añadió la sección "13. Aviso de Propiedad Intelectual y Marcas de Terceros".
 - **Actualización de Política de Privacidad:** Se añadió la sección "13. Interoperabilidad y Acceso a Sistemas de Terceros".
 
-#### Próximas acciones recomendadas:
-- Mantener el listado de administradoras actualizado conforme se validen nuevas integraciones.
-- Considerar la creación de una página dedicada "Administradoras Soportadas" si la lista crece significativamente.
-- Revisar periódicamente los términos de servicio con un asesor legal para asegurar que los "disclaimers" sigan siendo efectivos ante cambios en la legislación venezolana.
+### [2026-05-16] Implementación de Scraper Directo BCV
 
+#### Tareas realizadas:
+- **Nuevo Módulo de Scraping:** Se desarrolló `src/lib/bcv-scraper.ts` para extraer las tasas oficiales de USD y EUR directamente desde el portal del Banco Central de Venezuela. Se implementó una lógica de Plan A (Glosario) y Plan B (Home) para mayor fiabilidad.
+- **Optimización de API Tasa BCV:** Se modificó `/api/tasa-bcv` para priorizar el scraper directo sobre las APIs de terceros.
+- **Soporte Multi-moneda:** Ahora el sistema almacena y procesa tanto la tasa del dólar como la del euro.
+- **Mantenimiento de Datos:** Actualizada la lógica de persistencia y recuperación para manejar el campo `tasa_euro`.
 
----
+#### SQL Requerido:
+```sql
+-- Asegurar soporte para Euro en la tabla de tasas
+ALTER TABLE tasas_cambio ADD COLUMN IF NOT EXISTS tasa_euro NUMERIC DEFAULT 0;
+```
